@@ -1,0 +1,350 @@
+head     22.3;
+access   avg;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.21.19;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.14.01.02;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.10.04;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.38.38;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.03.24.23.17.47;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.24.16.15.37;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Драйвер АП7252.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@#
+/*
+ * доработано под демос-2 на скорую руку
+ * 15 декабря 1986 г.
+ * дальше желательно восстановить #define на руссkom
+ * и работать не со смещением а с абсолютными координатами,
+ * т.к. можно будет сливать файлы;
+ * поставить тайм-ауты и т.д.
+ *
+ * МНОС РЛ 1.2
+ * Автор:  Туник с.в.
+ * 24-июнь-86
+ *
+ */
+
+#include "h/xy.h"
+#if	NXY > 0
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/file.h>
+#include "../include/xyreg.h"
+
+#define XYADDR  0177140         /* ВРЕМЕННО, пока не включен в autconfig */
+
+struct xydevice *xyaddr = XYADDR; /* ВРЕМЕННО, пока не включен в autconfig */
+
+/*
+ * Структура командной последовательности :
+ *
+ *      [команда][смещение по X][смещение по Y]
+ *       1 байт     2 байта        2 байта
+ *
+ * Смещение отсчитывается по 0.05 мм для устройства с минором 0 и по
+ * 0.025 мм для остальных.
+ */
+
+/* Команды драйвера */
+#define MOVE            00      /* Перемещение          */
+#define PEN1            01      /* Рисовать пером 1     */
+#define	PEN2		02	/*     -- / --    2     */
+#define	PEN3		03	/*     -- / --    3     */
+
+/* Приказы графопостроителю */
+#define Рпри           025004  /* Работа в приращениях */
+#define Иреж           025046  /* Инкрементальный режим */
+#define Полншаг        025025  /* Работа с полным шагом */
+#define Полушаг        025026  /* Работа с полушагом */
+#define Выбор1         025041  /* Выбор пишущего у-ва 1 */
+#define Выбор2         025042  /* Выбор пишущего у-ва 2 */
+#define Выбор3         025043  /* Выбор пишущего у-ва 3 */
+#define Поднять        025007  /* Поднять пишущее у-во */
+#define Опустить       025006  /* Опустить пишущее у-во */
+#define Конприк        025201  /* Конец последовательности приказов */
+#define Конграф        025202  /* Конец графика */
+
+/* Признак данных */
+#define ISDATA  0100000
+
+#define XYWPRI  50
+#define TTIME   500
+
+#define XYWAIT  while((xyaddr->xycsr & (XY_ERROR | XY_READY)) == 0);
+
+#define bsize		2000-1	/* Размер буфера АП-7252 (слов)	*/
+
+int     xywork;                 /* признак реальной работы      */
+int	xystate;                /* Состояние АП-7252		*/
+int	xycount;		/* число слов в буфере		*/
+int	xycom;			/* команда графопостроителю	*/
+int	xyx;			/* смещение по x		*/
+int	xyy;			/* смещение по y		*/
+int	xyi;			/* номер байта в текущем кадре	*/
+
+/* Состояния устройства */
+#define	CLOSED		0	/* Устройство закрыто		*/
+#define	PEN		03	/* Номер пера			*/
+#define	OPENED		04	/*  -- / --   открыто		*/
+#define	OPER		010	/* Что-то делается ...		*/
+#define ERROR           020     /* ошибка - пропуск данных      */
+
+#define	FALSE		01      
+#define	TRUE		00      
+
+xyattach(addr,unit)
+{
+	if(unit)
+		return(0);
+	xyaddr = addr;
+	return(1);
+}
+
+xyopen(dev, flag)
+{
+	if(xystate & OPENED) {
+		u.u_error = EBUSY;
+		return;
+	} else
+	if((xyaddr->xycsr & (XY_ERROR | XY_READY)) == XY_ERROR) {
+		xystate = CLOSED;
+		u.u_error = ENXIO;
+		return;
+	}
+	xystate = OPENED;
+	xycount = 0;
+	xycom = 0;
+	xyi = 0;
+	xyx = 0;
+	xyy = 0;
+	xywork = 0;
+	xycomand(Рпри);
+	xycomand(minor(dev)? Полушаг: Полншаг);
+	return;
+}
+
+xyclose(dev,flag)
+{
+	if((xystate  & ERROR) || (xystate == CLOSED)) goto out;
+	if(xywork) {
+		xycomand(Поднять);
+		xycomand(Конграф);
+	}
+	if(xycount) {
+		xystart();
+	}
+	if(xystate & OPER) sleep(&xystate, XYWPRI);
+out:
+	xycount = 0;
+	xystate = CLOSED;
+}
+
+xywrite()
+{
+register int c;
+
+	while((c = cpass()) >= 0 && (xystate & ERROR) == 0 ) {
+		switch(xyi++) {
+		case 0: xycom = c; break;
+		case 1: xyx = c & 0377; break;
+		case 2: xyx |= c << 8; break;
+		case 3: xyy = c & 0377; break;
+		case 4: xyy |= c << 8;
+			xycadr(xycom, xyx, xyy);
+			xyi = 0;
+			break;
+		}
+	}
+
+	if(xystate & ERROR) {
+		while((c = cpass()) >= 0);
+		u.u_error = EIO;
+		return;
+	}
+	if(xycount) xystart();
+}
+
+xycadr(com, x, y)
+register int com,x,y;
+{
+	xywork = 1;
+	if(com != (xystate & PEN)) {
+		xycomand(Поднять);
+		switch(com) {
+		default:
+		case 0: xystate &= ~PEN;
+			xystate |= MOVE;
+			break;
+
+		case 1: xystate &= ~PEN;
+			xystate |= PEN1;
+			xycomand(Выбор1);
+			break;
+
+		case 2: xystate &= ~PEN;
+			xystate |= PEN2;
+			xycomand(Выбор2);
+			break;
+
+		case 3: xystate &= ~PEN;
+			xystate |= PEN3;
+			xycomand(Выбор3);
+			break;
+		}
+		if(xystate & PEN) xycomand(Опустить);
+	}
+	xycomand(x | ISDATA);
+	xycomand(y | ISDATA);
+}
+
+xycomand(w)
+{
+	register int s;
+
+	if(xystate & ERROR) return;
+	if(xystate & OPER) sleep(&xystate, XYWPRI);
+	s = spl0();
+	XYWAIT
+	xyaddr->xydat = w >> 8;
+	XYWAIT
+	xyaddr->xydat = w;
+	splx(s);
+	if(xyaddr->xycsr & XY_ERROR) {
+		xystate |= ERROR;
+		return;
+	}
+	if(++xycount >= bsize) xystart();
+}
+
+xytimeout(dummy) {
+	wakeup(&xystate);
+}
+
+xystart()
+{
+	register int s;
+
+	s = spl0();
+	XYWAIT
+	xyaddr->xydat = Конприк >> 8;
+	XYWAIT
+	xyaddr->xydat = Конприк;
+	splx(s);
+	if((xyaddr->xycsr & (XY_ERROR | XY_READY)) == XY_ERROR) {
+		xystate |= ERROR;
+		return;
+	}
+	xycount = 0;
+	xystate |= OPER;
+	while((xyaddr->xycsr & (XY_ERROR | XY_READY)) ==
+						(XY_ERROR | XY_READY)) {
+		timeout(xytimeout, (caddr_t)0, TTIME);
+		sleep(&xystate, XYWPRI);
+	}
+	xyaddr->xycsr |= XY_IENABLE;
+}
+
+xyintr()
+{
+	xyaddr->xycsr &= ~XY_IENABLE;
+	if(xyaddr->xycsr & XY_ERROR)
+		xystate |= ERROR;
+	else
+		xystate &= ~ERROR;
+	xystate &= ~OPER;
+	wakeup(&xystate);
+}
+
+#endif NXY
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d24 1
+a24 1
+#include <sys/xyreg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d16 1
+a16 1
+#include "xy.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d18 1
+a18 1
+#include "param.h"
+@
+
+
+1.2
+log
+@После unifdef'a.
+@
+text
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d249 2
+@

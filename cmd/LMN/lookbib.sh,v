@@ -1,0 +1,60 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.05.23.13.18.43;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@# !/bin/csh
+# $Header$
+# $Log$
+#
+#
+set A =
+switch ($1)
+case -p:
+	set A = "$1 $2"
+	shift; shift
+	breaksw
+
+case -*:
+	A=$1
+	shift
+	breaksw
+
+endsw
+
+switch ($1)
+case -p:
+	set A = "$A $1 $2"
+	shift; shift
+	breaksw
+case -*:
+	set A = "$A $1"
+	shift
+	breaksw
+endsw
+
+if ($1 == "") then
+	/usr/lib/refer/mkey -s
+else
+	echo $* | /usr/lib/refer/mkey -s
+endif | /usr/lib/refer/hunt $A /usr/dict/papers/Ind
+@

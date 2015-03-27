@@ -1,0 +1,289 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.19.54.56;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**      Подсчет числа символов, строк, слов и страниц в файле.
+**
+**      wc [-lwWcpt] [-v] [-u] [-sразмер_страницы]
+**         [-bскорость_передачи] [файл ...]
+**
+**      Стандартное местоположение в системе:  /bin
+**
+**      Метод сборки:  cc -O -n -s
+**
+**
+**      $Header: wc.c,v 1.1 86/11/23 23:02:21 alex Exp $
+**      $Log:   wc.c,v $
+** Revision 1.1  86/11/23  23:02:21  alex
+** ---
+**      Введен ключ -W - выводить максимальную длину строки
+**      Введена ediag
+**                                       Давидов
+**                                      88/04/12
+**
+**
+*/
+
+static  char Rcs_id[] = "$Header: wc.c,v 1.1 86/11/23 23:02:21 alex Exp $";
+
+#include <ctype.h>
+#include <stdio.h>
+#include <ediag.h>
+
+long    linect,
+	wordct,
+	maxwidth,
+	MAXWIDTH,
+	charct,
+	pagect;
+long    tlinect,
+	twordct,
+	tmaxwidth,
+	tcharct,
+	tpagect;
+int     baud = 300;             /* baud rate */
+int     cps = 30;               /* # of chars per second */
+int     lpp = 66;               /* # of lines per page */
+char   *wd = "lwc";
+int     verbose;
+int     uucp;
+
+main (argc, argv)
+char  **argv;
+{
+    int     i,
+	    token;
+    register    FILE * fp;
+    register int    c;
+    char   *p;
+
+    while (argc > 1 && *argv[1] == '-') {
+	switch (argv[1][1]) {
+	    case 'l':
+	    case 'w':
+	    case 'W':
+	    case 'c':
+	    case 'p':
+	    case 't':
+		wd = argv[1] + 1;
+		break;
+	    case 's':
+		lpp = atoi (argv[1] + 2);
+		if (lpp <= 0)
+		    goto usage;
+		break;
+	    case 'v':
+		verbose++;
+		wd = "lwcWpt";
+		break;
+	    case 'u':
+		uucp++;
+		break;
+	    case 'b':
+		baud = atoi (argv[1] + 2);
+		if (baud == 110)
+		    cps = 10;
+		else
+		    cps = baud / 10;
+		if (cps <= 0)
+		    goto usage;
+		break;
+	    default:
+	usage:
+		fprintf (stderr, ediag(
+"Usage: wc [-lwcWpt] [-v] [-u] [-spagesize] [-bbaudrate]\n",
+"Вызов: wc [-lwcWpt] [-v] [-u] [-sразм_страниц] [-bскор_в_бодах]\n"));
+
+
+		exit (1);
+	}
+	argc--;
+	argv++;
+    }
+
+    if (uucp)
+	cps = cps * 9 / 10;     /* 27 cps at 300 baud */
+
+    if (verbose) {
+	for (p = wd; *p; p++)
+	    switch (*p) {
+		case 'l':
+		    printf (ediag("lines\t", "строк\t"));
+		    break;
+		case 'w':
+		    printf (ediag("words\t", "слов\t"));
+		    break;
+		case 'W':
+		    printf (ediag("maxwid\t", "ширина\t"));
+		    break;
+		case 'c':
+		    printf (ediag("chars\t", "байтов\t"));
+		    break;
+		case 'p':
+		    printf (ediag("pages\t", "страниц\t"));
+		    break;
+		case 't':
+		    printf (ediag("time(%d)\t", "время(%d)\t"), baud);
+		    break;
+	    }
+	printf ("\n");
+    }
+
+    i = 1;
+    fp = stdin;
+    do {
+	if (argc > 1 && (fp = fopen (argv[i], "r")) == NULL) {
+	    fprintf (stderr, ediag("wc: can't open %s\n", "wc: не могу открыть %s\n"), argv[i]);
+	    continue;
+	}
+	linect = 0;
+	wordct = 0;
+	maxwidth = MAXWIDTH = 0;
+	charct = 0;
+	pagect = 0;
+	token = 0;
+	for (;;) {
+	    c = getc (fp);
+	    if (c == EOF)
+		break;
+	    charct++;
+	    maxwidth++;
+	    if (isalpha (c)) {
+		if (!token) {
+		    wordct++;
+		    token++;
+		}
+		continue;
+	    }
+	    if (c == '\n') {
+		linect++;
+		if (linect % lpp == 1)
+		    pagect++;
+		if( maxwidth > MAXWIDTH ) {
+			MAXWIDTH = maxwidth;
+		}
+		maxwidth = 0;
+	    }
+	    else
+		if (c != ' ' && c != '\t')
+		    continue;
+	    token = 0;
+	}
+    /* print lines, words, chars */
+	wcp (wd, charct, wordct, MAXWIDTH, linect, pagect);
+	if (argc > 1) {
+	    printf (" %s\n", argv[i]);
+	}
+	else
+	    printf ("\n");
+	fclose (fp);
+	tlinect += linect;
+	twordct += wordct;
+	if( MAXWIDTH > tmaxwidth ) tmaxwidth = MAXWIDTH;
+	tcharct += charct;
+	tpagect += pagect;
+    } while (++i < argc);
+    if (argc > 2) {
+	wcp (wd, tcharct, twordct, tmaxwidth, tlinect, tpagect);
+	printf (ediag(" total\n", " всего\n"));
+    }
+    exit (0);
+}
+
+wcp (wd, charct, wordct, maxwidth, linect, pagect)
+register char  *wd;
+long    charct;
+long    wordct;
+long    maxwidth;
+long    linect,
+	pagect;
+{
+    while (*wd)
+	switch (*wd++) {
+	    case 'l':
+		ipr (linect);
+		break;
+
+	    case 'w':
+		ipr (wordct);
+		break;
+
+	    case 'W':
+		ipr (maxwidth);
+		break;
+
+	    case 'c':
+		ipr (charct);
+		break;
+
+	    case 'p':
+		ipr (pagect);
+		break;
+
+	    case 't':
+		prttime (charct / cps);
+		break;
+	}
+}
+
+ipr (num)
+long    num;
+{
+    if (verbose)
+	printf ("%ld\t", num);
+    else
+	printf ("%7ld", num);
+}
+
+prttime (secs)
+long    secs;
+{
+    int     hrs,
+	    mins;
+    float   t;
+    long    osecs;
+    char   *units;
+
+    osecs = secs;
+    hrs = secs / (60 * 60);
+    secs = secs % (60 * 60);
+    mins = secs / 60;
+    secs = secs % 60;
+
+    t = osecs;
+    if (hrs) {
+	t /= (60 * 60);
+	units = ediag("hr", "час");
+    }
+    else
+	if (mins) {
+	    t /= 60;
+	    units = ediag("mi", "мин");
+	}
+	else {
+	    units = ediag("se", "сек");
+	}
+    printf ("%4.1f %s\t", t, units);
+}
+@

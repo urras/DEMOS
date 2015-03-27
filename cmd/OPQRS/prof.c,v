@@ -1,0 +1,788 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     89.01.07.12.41.01;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.12.12.18.10.26;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.12.10.22.33.17;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.31.39;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@Изменения связаны с выдачей в plot (спроси AVG).
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: prof.c,v 1.3 88/12/12 18:10:26 korotaev Exp $
+** $Log:        prof.c,v $
+ * Revision 1.3  88/12/12  18:10:26  korotaev
+ * Поменены местами сортировки и выдача на plot.
+ *
+ * Revision 1.2  88/12/10  22:33:17  korotaev
+ * Поправлен немного этот ублюдок (наверное это огрызок от
+ * нормального prof'а ).
+ * Восстановлены ключи: '-z', '-n'.
+ * Сделана сущ-ая правка на размер таблиц. Теперь можно
+ * исп-ать prof для программ, в которых monitor(3) вызывается
+ * в явном виде, с другими размерами буферов.
+ *
+ * Revision 1.1  88/05/03  20:31:39  root
+ * Initial revision
+ *
+*/
+
+/*NOXSTR*/
+
+# ifndef        lint
+static char     Rcs_id[] = "$Header: prof.c,v 1.3 88/12/12 18:10:26 korotaev Exp $";
+# endif         lint
+
+/*
+ *  Print execution profile
+ */
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <a.out.h>
+#include <ediag.h>
+
+#define  min(a,b) ((a)<(b)?(a):(b))
+#define  max(a,b) ((a)>(b)?(a):(b))
+
+#define NLSIZ   1500    /* кол-во имен для запоминания */
+#define HZ      50      /* частота таймера */
+
+typedef short UNIT;             /* unit of profiling */
+
+struct  nl {
+	char    name[8];
+	unsigned value;
+	float   time;
+	long    ncall;
+};
+
+struct hdr {
+	UNIT    *lowpc;
+	UNIT    *highpc;
+	int     ncount;
+};
+
+struct cnt {
+	unsigned cvalue;
+	long    cncall;
+};
+
+int     aflg, vflg, lflg, nflg, zflg;
+
+int timcmp(), valcmp(), numcmp(), unvalcmp();
+
+/*YESXSTR*/
+
+
+main(argc, argv)
+char **argv;
+{
+	long    symoff;
+	struct cnt *cbuf;
+	struct nl nl[NLSIZ];
+	FILE    *pfile, *nfile;
+	unsigned highpc, lowpc;
+	double  ransca, ranoff;
+	unsigned pcl, pch;
+	unsigned bufs;
+	int     nname;
+	double  ftime;
+	double  actime;
+	double  totime;
+	double  maxtime;
+	double  scale;
+	double  lastx;
+	double  lasty;
+	register struct nl *np;
+	struct nl *npe;
+	struct stat stbuf;
+	char *namfil;
+	register int j;
+	int overlap, i;
+	long pfpos;
+	double lastsx, lasttx;
+	register struct cnt *cp;
+	double tx, ty;
+	struct exec xbuf;
+	struct hdr h;
+	int olasty, kk;
+	double mscale = 1.0;
+	double plow, phigh;
+	double atof();
+
+	plow = -1.0;
+	phigh = -1.0;
+	argv++;
+	namfil = "a.out";
+	while (argc>1) {
+		if( **argv == '+' )
+			mscale = atof(&((*argv)[1]))/100.0;
+		else if (**argv == '-') {
+			if (*++*argv == 'l')
+				lflg++;
+			else if (**argv == 'a')
+				aflg = 040;
+			else if (**argv == 'v')
+				vflg++;
+			else if (**argv == 'z')
+				zflg++;
+			else if (**argv == 'n')
+				nflg++;
+			else if(**argv >= '0' && **argv <= '9') {
+				scale = atof(*argv);
+				if(plow == -1.0)
+					plow = scale;
+				else
+					phigh = scale;
+			}
+		} else
+			namfil = *argv;
+		argc--;
+		argv++;
+	}
+	if( lflg && nflg ){
+		fprintf(stderr, ediag("prof: conflict options -l and -n\n",
+				      "prof: нельзя одновременно использовать -l и -n\n"));
+		done();
+	}
+	if (plow >= 100.0 || plow < 0.0)
+		plow = 0.0;
+	if(phigh <= plow || phigh > 100.0)
+		phigh = 100.0;
+	ransca = 100./(phigh-plow);
+	ranoff = 2040. + 40.8*plow*ransca;
+	if((nfile=fopen(namfil,"r"))==NULL) {
+		fprintf(stderr, ediag("prof: can not open %s\n",
+				      "prof: не могу открыть %s\n"), namfil);
+		done();
+	}
+	fread((char *)&xbuf, 1, sizeof(xbuf), nfile);
+	if (xbuf.a_magic!=A_MAGIC1 && xbuf.a_magic!=A_MAGIC2 && xbuf.a_magic!=A_MAGIC3) {
+		fprintf(stderr, ediag("prof: %s: bad format\n",
+				      "prof: плохой формат %s\n"), namfil);
+		done();
+	}
+	symoff = (long)xbuf.a_text + xbuf.a_data;
+	if ((xbuf.a_flag&01) == 0)
+		symoff *= 2;
+	fseek(nfile, symoff+sizeof(xbuf), 0);
+	if((pfile = fopen("mon.out","r")) == NULL) {
+		fprintf(stderr, ediag("prof: no mon.out\n",
+				      "prof: нет mon.out\n"));
+		done();
+	}
+	fstat(fileno(pfile), &stbuf);
+	fread((char *)&h, sizeof(struct hdr), 1, pfile);
+	lowpc = h.lowpc - (UNIT *)0;
+	highpc = h.highpc - (UNIT *)0;
+	bufs = stbuf.st_size - sizeof(struct hdr) - h.ncount*sizeof(struct cnt);
+	if( (cbuf = (struct cnt *)malloc(h.ncount*sizeof(struct cnt))) == -1 ){
+		fprintf(stderr, ediag("prof: not enough memory\n",
+				      "prof: не хватает памяти\n"));
+		done();
+	}
+	fread((char *)cbuf, sizeof(struct cnt), h.ncount, pfile);
+	pfpos = ftell(pfile);
+	np = nl;
+	npe = &nl[NLSIZ];
+	for (nname = 0; xbuf.a_syms > 0 && np < npe; xbuf.a_syms -= sizeof(struct nlist)) {
+		struct nlist nbuf;
+
+		fread((char *)&nbuf, sizeof(nbuf), 1, nfile);
+		if (nbuf.n_type!=N_TEXT && nbuf.n_type!=N_TEXT+N_EXT)
+			continue;
+		if (aflg==0 && nbuf.n_type!=N_TEXT+N_EXT)
+			continue;
+		np->value = nbuf.n_value/sizeof(UNIT);
+		for (j=0; j<8; j++)
+			np->name[j] = nbuf.n_name[j];
+		np++;
+		nname++;
+	}
+	if (nname == 0) {
+		fprintf(stderr, ediag("prof: %s: no symbols\n",
+				      "prof: нет таблицы символов в %s\n"), namfil);
+		done();
+	}
+	np->value = -1;
+	np++;
+	npe = np;
+	for (cp = cbuf; cp < &cbuf[h.ncount]; cp++)
+		for (np = nl; np < npe; np++)
+			if ((unsigned)(cp->cvalue/sizeof(UNIT) - np->value) <=10) {
+				np->ncall = cp->cncall;
+				break;
+			}
+	qsort(nl, nname, sizeof(struct nl), valcmp);
+	scale = highpc - lowpc;
+	scale /= bufs/sizeof(UNIT);
+	for(i=0;;i++) {
+		unsigned UNIT ccnt;
+
+		fread((char *)&ccnt, sizeof(ccnt), 1, pfile);
+		if(feof(pfile))
+			break;
+		if (ccnt == 0)
+			continue;
+		pcl = lowpc + scale*i;
+		pch = lowpc + scale*(i+1);
+		ftime = ccnt;
+		totime += ftime;
+		if(ftime > maxtime)
+			maxtime = ftime;
+		for( np = nl ; np < npe; np++ ){
+			if (pch < np->value)
+				break;
+			if (pcl >= (np+1)->value)
+				continue;
+			overlap=(min(pch,(np+1)->value)-max(pcl,np->value));
+			np->time += overlap*ftime/scale;
+		}
+	}
+	if (totime==0.0) {
+		fprintf(stderr, ediag("prof: no time accumulated\n",
+				      "prof: файл статистики пуст\n"));
+		done();
+	}
+	if( zflg ){
+		j = 0;
+		for( np = nl ; np < npe ; np++ ){
+			if( np->ncall == 0l ){
+				np->value = 0;
+				j++;
+			}
+		}
+		if( j ){
+			qsort(nl, nname, sizeof(struct nl), unvalcmp);
+			nname -= j;
+			npe -= j;
+		}
+	}
+	if( nflg )
+		qsort(nl, nname, sizeof(struct nl), numcmp);
+	else if( !lflg )
+		qsort(nl, nname, sizeof(struct nl), timcmp);
+	if(!vflg)
+		goto print;
+	openpl();
+	erase();
+	space(-2048, -2048, 2048, 2048);
+	linemod("dotted");
+	line(-2040, -2040, -2040, 2040);
+	line(0, 2040, 0, -2040);
+	for(i=0; i<11; i++) {
+		char b[10];
+
+		kk = 2040 - (i*408);
+		if( i == 0 )  kk -= 50;
+		if( i == 10 ) kk += 50;
+		move(-2000, kk);
+		sprintf(b, "%4.1f", (i*(phigh-plow))/10. + plow);
+		label(b);
+		line(-2040, 2040-i*408, 0, 2040-i*408);
+	}
+	linemod("solid");
+	lastx = 0.;
+	lasty = ranoff;
+	scale = (4080.*ransca)/(bufs/sizeof(UNIT));
+	fclose(pfile);  /*to turn off eof*/
+	pfile = fopen("mon.out", "r");
+	fseek(pfile, pfpos, 0);
+	lastsx = 0.0;
+	maxtime *= mscale;
+	lasttx = 0.0;
+	for(;;) {
+		unsigned UNIT ccnt;
+
+		fread((char *)&ccnt, sizeof(ccnt), 1, pfile);
+		if(feof(pfile))
+			break;
+		ftime = ccnt;
+		tx = lastsx;
+		ty = lasty;
+		lastsx -= 2000.*ftime/totime;
+		lasty -= scale;
+		if(lasty >= -2040. && ty <= 2040.) {
+			line((int)tx, (int)ty, (int)lastsx, (int)lasty);
+			if (ccnt!=0 || lastx!=0.0) {
+				tx = lastx;
+				if( ftime > maxtime )
+					lastx = -2000.;
+				else
+					lastx = (-ftime*2000.)/maxtime;
+				ty += scale/2;
+				line((int)lasttx, (int)(ty + scale), (int)tx, (int)ty);
+				lasttx = tx;
+			}
+		}
+	}
+	scale = (4080.*ransca)/(highpc-lowpc);
+	olasty = 10000;
+	qsort(nl, nname, sizeof(struct nl), valcmp);
+	for(np = nl; np<npe;  np++) {
+		if(np->value < lowpc)
+			continue;
+		if(np->value >= highpc)
+			continue;
+		ftime = np->time/totime;
+		lasty = ranoff - (np->value - lowpc)*scale;
+		if(lasty >= -2040. && lasty <= 2040.) {
+			char bufl[8+3], *namp;
+
+			if( olasty - lasty > 200 )
+				lastx = 50.;
+			olasty = lasty;
+			line(0, (int)lasty, 50, (int)lasty);
+			if( lastx > 50. )
+			    line((int)(lastx-50),(int)lasty,(int)lastx,(int)lasty);
+			move((int)(lastx+30), (int)(lasty+10));
+			namp = bufl;
+			if(np->name[0] != '_' && np->name != '~')
+				*namp++ = np->name[0];
+			for(j=1; j<8; j++)
+				*namp++ = np->name[j];
+			*namp++ = '\n';
+			*namp++ = 0;
+			label(bufl);
+			lastx += 500.;
+			if(lastx > 2000.)
+				 lastx = 50.;
+		}
+	}
+	done();
+
+print:
+	actime = 0;
+	printf("    name  %%time  cumsecs   secs   # call  ms/call\n");
+	for (np = nl; np<npe-1; np++) {
+		ftime = np->time/totime;
+		actime += np->time;
+		printf("%8.8s %6.2f %8.2f %7.2f", np->name, 100*ftime, actime/HZ,
+				(double)np->time / HZ);
+		if(np->ncall!=0) {
+			printf(" %7ld %8.2f\n", np->ncall,
+				(np->time/(np->ncall*.001))/HZ);
+		} else
+			printf("\n");
+	}
+	done();
+}
+
+numcmp(p1, p2)
+register struct nl *p1, *p2;
+{
+	register long k;
+
+	k = p2->ncall - p1->ncall;
+	if( k > 0 )
+		return(1);
+	if( k < 0 )
+		return(-1);
+	return(timcmp(p1,p2));
+}
+
+valcmp(p1, p2)
+register struct nl *p1, *p2;
+{
+	return(p1->value - p2->value);
+}
+
+unvalcmp(p1, p2)
+register struct nl *p1, *p2;
+{
+	return(p2->value - p1->value);
+}
+
+timcmp(p1, p2)
+register struct nl *p1, *p2;
+{
+	float d;
+	long  l;
+
+	d = p2->time - p1->time;
+rep:
+	if (d > 0.0)
+		return(1);
+	if (d < 0.0)
+		return(-1);
+	if( d != (l = p1->ncall - p2->ncall) ){
+		d = l;
+		goto rep;
+	}
+	return(0);
+}
+
+done()
+{
+	if(vflg) {
+		point(0, -2040);
+		closepl();
+	}
+	exit(0);
+}
+@
+
+
+1.3
+log
+@Поменены местами сортировки и выдача на plot.
+@
+text
+@d6 1
+a6 1
+** $Header: prof.c,v 1.2 88/12/10 22:33:17 korotaev Exp $
+d8 3
+d27 1
+a27 1
+static char     Rcs_id[] = "$Header: prof.c,v 1.2 88/12/10 22:33:17 korotaev Exp $";
+d38 1
+d44 1
+d99 1
+a99 1
+	double lastsx;
+d104 4
+d109 2
+a110 2
+	lowpc = -1;
+	highpc = -1;
+d114 3
+a116 1
+		if (**argv == '-') {
+d128 3
+a130 3
+				i = atoi(*argv);
+				if(lowpc == -1)
+					lowpc = i;
+d132 1
+a132 1
+					highpc = i;
+d140 2
+a141 1
+		fprintf(stderr, "conflict options 'l' and 'n'\n");
+d144 6
+a149 6
+	if (lowpc >= 100)
+		lowpc = 0;
+	if(highpc <= lowpc || highpc > 100)
+		highpc = 100;
+	ransca = 100./(highpc-lowpc);
+	ranoff = 2040. + 40.8*lowpc*ransca;
+d151 2
+a152 1
+		fprintf(stderr, "%s: not found\n", namfil);
+d157 2
+a158 1
+		fprintf(stderr, "%s: bad format\n", namfil);
+d166 2
+a167 1
+		fprintf(stderr, "No mon.out\n");
+d175 3
+a177 2
+	if( (cbuf = (struct cnt *)sbrk(h.ncount*sizeof(struct cnt))) == -1 ){
+		fprintf(stderr, "Not enough memory\n");
+d199 2
+a200 1
+		fprintf(stderr, "%s: no symbols\n", namfil);
+d239 2
+a240 1
+		fprintf(stderr, "No time accumulated\n");
+d266 1
+d269 9
+a277 1
+	for(i=0; i<11; i++)
+d279 2
+d284 1
+a284 1
+	fclose(pfile);	/*to turn off eof*/
+d288 2
+d305 4
+a308 1
+				lastx = -ftime*2000./maxtime;
+d310 2
+a311 1
+				line(0, (int)ty, (int)tx, (int)ty);
+d316 2
+a317 1
+	lastx = 50.;
+d328 3
+d332 3
+a334 2
+			line((int)(lastx-50),(int)lasty,(int)lastx,(int)lasty);
+			point((int)(lastx+30), (int)(lasty+10));
+d336 4
+a339 3
+			for(j=0; j<8; j++)
+				if(np->name[j] != '_')
+					*namp++ = np->name[j];
+d343 3
+a346 3
+		lastx += 500.;
+		if(lastx > 2000.)
+			lastx = 50.;
+d352 1
+a352 1
+	printf("    name %%time  sumsecs  #call  ms/call\n");
+d356 2
+a357 1
+		printf("%8.8s%6.1f%9.2f", np->name, 100*ftime, actime/50);
+d359 2
+a360 2
+			printf("%6ld", np->ncall);
+			printf(" %7.2f\n", np->time/(np->ncall*.06));
+@
+
+
+1.2
+log
+@Поправлен немного этот ублюдок (наверное это огрызок от 
+нормального prof'а ).
+Восстановлены ключи: '-z', '-n'.
+Сделана сущ-ая правка на размер таблиц. Теперь можно
+исп-ать prof для программ, в которых monitor(3) вызывается
+в явном виде, с другими размерами буферов.
+@
+text
+@d6 10
+a15 2
+** $Header: prof.c,v 1.1 88/05/03 20:31:39 root Exp $
+** $Log:	prof.c,v $
+d18 1
+a18 1
+ * 
+d21 2
+d24 1
+a24 3
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: prof.c,v 1.1 88/05/03 20:31:39 root Exp $";
+/* YESXSTR */
+d26 1
+a26 1
+ 
+d41 1
+a41 1
+typedef	short UNIT;		/* unit of profiling */
+d43 2
+a44 2
+struct	nl {
+	char	name[8];
+d46 2
+a47 2
+	float	time;
+	long	ncall;
+d51 3
+a53 3
+	UNIT	*lowpc;
+	UNIT	*highpc;
+	int	ncount;
+d58 1
+a58 1
+	long	cncall;
+d65 1
+d67 1
+d225 18
+a309 18
+	if( zflg ){
+		j = 0;
+		for( np = nl ; np < npe ; np++ ){
+			if( np->ncall == 0l ){
+				np->value = 0;
+				j++;
+			}
+		}
+		if( j ){
+			qsort(nl, nname, sizeof(struct nl), unvalcmp);
+			nname -= j;
+			npe -= j;
+		}
+	}
+	if( nflg )
+		qsort(nl, nname, sizeof(struct nl), numcmp);
+	else if( !lflg )
+		qsort(nl, nname, sizeof(struct nl), timcmp);
+d311 1
+a311 1
+	printf("    name %%time  cumsecs  #call  ms/call\n");
+d314 2
+a315 2
+		actime = np->time;
+		printf("%8.8s%6.1f%9.2f", np->name, 100*ftime, actime/60);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d28 5
+a34 1
+struct stat stbuf;
+a47 2
+struct nl nl[1200];
+
+d51 1
+a51 1
+} cbuf[350];
+d53 1
+a53 22
+FILE	*pfile, *nfile;
+unsigned highpc;
+unsigned lowpc;
+double	ransca;
+double	ranoff;
+unsigned pcl;
+unsigned pch;
+unsigned bufs;
+int	nname;
+double	ftime;
+double	actime;
+double	totime;
+double	maxtime;
+double	scale;
+double	lastx;
+double	lasty;
+struct nl *np;
+struct nl *npe;
+int	aflg;
+int	vflg;
+int	lflg;
+long	symoff;
+d55 3
+d61 19
+d81 2
+a82 2
+	int timcmp(), valcmp();
+	int i, overlap;
+d85 1
+a85 1
+	struct cnt *cp;
+d98 1
+a98 1
+			if (**argv == 'a')
+d100 1
+a100 1
+			if(**argv == 'v')
+d102 5
+a106 1
+			if(**argv >= '0' && **argv <= '9') {
+d118 4
+d150 4
+d156 3
+a158 2
+	npe = nl;
+	for (nname = 0; xbuf.a_syms > 0; xbuf.a_syms -= sizeof(struct nlist)) {
+d160 1
+d166 4
+a169 4
+		npe->value = nbuf.n_value/sizeof(UNIT);
+		for (i=0; i<8; i++)
+			npe->name[i] = nbuf.n_name[i];
+		npe++;
+d176 3
+a178 2
+	npe->value = -1;
+	npe++;
+a188 1
+		register j;
+d190 1
+d202 2
+a203 2
+		for (j=0; j<nname; j++) {
+			if (pch < nl[j].value)
+d205 1
+a205 1
+			if (pcl >= nl[j+1].value)
+d207 2
+a208 2
+			overlap=(min(pch,nl[j+1].value)-max(pcl,nl[j].value));
+			nl[j].time += overlap*ftime/scale;
+a214 1
+#ifdef plot
+d233 1
+d263 1
+a263 1
+			register j;
+d282 18
+a299 1
+#endif
+a301 2
+	if (!lflg)
+		qsort(nl, nname, sizeof(struct nl), timcmp);
+d304 1
+a304 1
+		actime += np->time;
+d315 2
+a316 2
+min(a, b)
+unsigned a, b;
+d318 1
+a318 4
+	if (a<b)
+		return(a);
+	return(b);
+}
+d320 6
+a325 6
+max(a, b)
+unsigned a, b;
+{
+	if (a>b)
+		return(a);
+	return(b);
+d329 1
+a329 1
+struct nl *p1, *p2;
+d334 6
+d341 1
+a341 1
+struct nl *p1, *p2;
+d344 1
+d347 1
+d352 4
+a360 2
+
+#ifdef plot
+a364 1
+#endif
+@

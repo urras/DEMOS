@@ -1,0 +1,42 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.44.32;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ error	= vhangup();
+
+.globl	_vhangup
+.globl	cerror
+
+_vhangup:
+	mov	r5,-(sp)
+	mov	sp,r5
+	sys	local; 9f
+	bec	1f
+	jmp	cerror
+1:
+	mov	(sp)+,r5
+	rts	pc
+.data
+9:
+	sys	vhangup
+@

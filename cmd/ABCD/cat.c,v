@@ -1,0 +1,224 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.06.19.15.36.10;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.22.04;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@всегда оканчивался с кодом 0
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: cat.c,v 1.1 88/05/03 20:22:04 root Exp $
+** $Log:        cat.c,v $
+ * Revision 1.1  88/05/03  20:22:04  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: cat.c,v 1.1 88/05/03 20:22:04 root Exp $";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * Concatenate files.
+ */
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <ediag.h>
+
+extern char     _sobuf[];
+int     bflg, eflg, nflg, sflg, tflg, vflg;
+int     spaced, lno, inline;
+
+int errors = 0;
+
+main(argc, argv)
+char **argv;
+{
+	int fflg = 0;
+	register FILE *fi;
+	register c;
+	int dev, ino = -1;
+	struct stat statb;
+
+	lno = 1;
+	setbuf(stdout, _sobuf);
+	for( ; argc>1 && argv[1][0]=='-'; argc--,argv++) {
+		switch(argv[1][1]) {
+		case 0:
+			break;
+		case 'u':
+			setbuf(stdout, (char *)NULL);
+			continue;
+		case 'n':
+			nflg++;
+			continue;
+		case 'b':
+			bflg++;
+			nflg++;
+			continue;
+		case 'v':
+			vflg++;
+			continue;
+		case 's':
+			sflg++;
+			continue;
+		case 'e':
+			eflg++;
+			vflg++;
+			continue;
+		case 't':
+			tflg++;
+			vflg++;
+			continue;
+		}
+		break;
+	}
+	fstat(fileno(stdout), &statb);
+	statb.st_mode &= S_IFMT;
+	if (statb.st_mode!=S_IFCHR && statb.st_mode!=S_IFBLK) {
+		dev = statb.st_dev;
+		ino = statb.st_ino;
+	}
+	if (argc < 2) {
+		argc = 2;
+		fflg++;
+	}
+	while (--argc > 0) {
+		if (fflg || (*++argv)[0]=='-' && (*argv)[1]=='\0')
+			fi = stdin;
+		else {
+			if ((fi = fopen(*argv, "r")) == NULL) {
+				fprintf(stderr, ediag("cat: can't open %s\n",
+				"cat: не могу открыть %s\n"), *argv);
+				errors++;
+				continue;
+			}
+		}
+		fstat(fileno(fi), &statb);
+		if (statb.st_dev==dev && statb.st_ino==ino) {
+			fprintf(stderr,ediag("cat: input %s is output\n",
+				      "cat: ввод %s совпадает с выводом\n"),
+			   fflg?"-": *argv);
+			fclose(fi);
+			errors++;
+			continue;
+		}
+		if (nflg||sflg||vflg)
+			copyopt(fi);
+		else {
+			while ((c = getc(fi)) != EOF)
+				putchar(c);
+		}
+		if (fi!=stdin)
+			fclose(fi);
+	}
+	if (ferror(stdout)){
+		fprintf(stderr, ediag("cat: output write error\n",
+				      "cat: ошибка записи\n"));
+		errors++;
+	}
+	exit(errors);
+}
+
+copyopt(f)
+	register FILE *f;
+{
+	register int c;
+
+top:
+	c = getc(f);
+	if (c == EOF)
+		return;
+	if (c == '\n') {
+		if (inline == 0) {
+			if (sflg && spaced)
+				goto top;
+			spaced = 1;
+		}
+		if (nflg && bflg==0 && inline == 0)
+			printf("%6d\t", lno++);
+		if (eflg)
+			putchar('$');
+		putchar('\n');
+		inline = 0;
+		goto top;
+	}
+	if (nflg && inline == 0)
+		printf("%6d\t", lno++);
+	inline = 1;
+	if (vflg) {
+		if (tflg==0 && c == '\t')
+			putchar(c);
+		else {
+			if (c > 0177 && (c&0300) != 0300) {
+				printf("M-");
+				c &= 0177;
+			}
+			if (c < ' ')
+				printf("^%c", c+'@@');
+			else if (c == 0177)
+				printf("^?");
+			else
+				putchar(c);
+		}
+	} else
+		putchar(c);
+	spaced = 0;
+	goto top;
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d32 2
+d93 1
+d103 1
+d115 1
+a115 1
+	if (ferror(stdout))
+d118 3
+a120 1
+	return(0);
+@

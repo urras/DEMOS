@@ -1,0 +1,297 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     90.11.12.18.52.58;  author root;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.05.13.15.32.10;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.05.11.18.01.23;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.05.05.19.52.00;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.04.24.17.03.17;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Этот файл содержит все константные определения.
+Сделан он из param.c 
+@
+
+
+1.5
+log
+@Новые вещи для СМ 1425 и перемещение некоторых include'ов.
+@
+text
+@#ifndef _sys_space_h_
+# define _sys_space_h_
+
+/*
+ *      Все инициализирующие и инициализирующиеся константы
+ *      вынесены в этот файл (изначально получен разбиением param.c)
+ */
+
+#ifdef KERNEL
+#include        "h/video.h"
+#endif
+
+#if    NVI > 0
+#define HZ      64      /* У Электроники-85 такая частота */
+#else
+#define HZ      50                 /* Ticks/second of the clock */
+#endif NVI
+
+#define TIMEZONE (%TIMEZONE% * 60) /* Minutes westward from Greenwich */
+#define DSTFLAG  %DST%             /* Daylight Saving Time applies here */
+#define MAXUSERS %MAXUSERS%
+
+#define NBUF    %NBUF%             /* size of buffer cache, must be <=256*/
+#define NMOUNT  %NMOUNT%           /* number of mountable file systems */
+
+#ifdef  UCB_CLIST
+#   ifdef UNIBUS_MAP
+#       define NCLIST   500        /* number of clists, must be <= 512 */
+#   else
+#       define NCLIST   200        /* number of clists */
+#   endif
+#else   UCB_CLIST
+#       define NCLIST   100        /* number of clists */
+#endif  UCB_CLIST
+
+#define NPROC   %NPROC%            /* max number of processes */
+#define NTEXT   %NTEXT%            /* max number of pure texts */
+#define NINODE  %NINODE%           /* number of in-core inodes */
+#define NFILE   %NFILE%            /* number of file structures */
+#define NCALL   %NCALL%            /* max simultaneous time callouts */
+#define NDISK   3                  /* number of disks to monitor */
+
+#define NFLOCK  %NFLOCK%                /* Кол-во слотов таблицы flock */
+
+/* --------- IPC semaphore facility (see sys/sem.h) ----------------- */
+#define SEMMNS  %SEMMNS%      /* число семафоров в системе (примерно 20) */
+			      /* если не нужны, то установите 0 */
+#if SEMMNS > 0
+#define SEMMAP  (SEMMNS/2+1)  /* worst case */
+#define SEMMNI  %SEMMNI%      /* число групп семафоров */
+#define SEMMNU  %SEMMNU%      /* всего процессов, которые могут ожидать
+			       * открытия семафоров с флагом UNDO
+			       */
+#define SEMMSL   13  /* количество семафоров, над которыми одновременно
+		      * можно выполнить операцию
+		      */
+#define SEMOPM  (SEMUME+1) /* SEMOPM примерно равно SEMUME */
+#define SEMUME  %SEMUME%   /* макс. число процессов, которые могут ждать
+			    * по одному семафору с флагом UNDO
+			    */
+#define SEMVMX   32000  /* макс. значение семафора */
+#define SEMAEM   255    /* макс. приращение семафора */
+#endif SEMMNS
+
+/* ---------- IPC message facility (see sys/msg.h) --------------------- */
+#define MSGMNI  %MSGMNI%  /* число очередей сообщений (возможно 2 и больше) */
+			  /* 0, если вам не нужен механизм messages */
+#if MSGMNI > 0
+/*
+ ** local implementation constants
+ **   PDP-11  dependent
+ */
+
+#define TOTAL    8192
+/* общее число памяти под тексты сообщений, кратное 64 */
+
+/* максимальный размер текста одного сообщения. На pdp11 не должен
+ * превышать размера 1 листа памяти
+ */
+#if (TOTAL/2) > 8192
+# define MSGMAX 8192
+#else
+# define MSGMAX (TOTAL/2)
+#endif
+
+#define MSGTQL %MSGTQL%     /* число сообщений в системе */
+#define MSGMAP (MSGTQL/3)
+	/* хотя по-хорошему надо бы (для худшего случая) (MSGTQL/2+1) */
+#define MSGSSZ   64
+	/* размер одного сегмента памяти.
+	 * На PDP-11 это размер клика - 64 байта
+	 */
+#define MSGMNB   TOTAL
+	/* максимальная суммарная длина текстов сообщений
+	 * в одной очереди. Логично было бы (TOTAL/MSGMNI),
+	 * но я сделаю, что даже если активна одна очередь
+	 * - то доступна вся память
+	 */
+
+#define MSGSEG (TOTAL/MSGSSZ)
+	/* число сегментов памяти, выделенных под тексты */
+
+#endif MSGMNI
+
+/* ---------- UNIBUS MAP ------------------------------------------------- */
+#ifndef UNIBUS_MAP
+#   define CMAPSIZ (NPROC*2)              /* size of core allocation map */
+#   define SMAPSIZ (NPROC*2+(5*NTEXT/10)) /* size of swap allocation map */
+#else
+#   define CMAPSIZ (NPROC+(8*NTEXT/10)) /* size of core allocation map */
+#   define SMAPSIZ (NPROC+(8*NTEXT/10)) /* size of swap allocation map */
+#endif
+
+#endif _sys_space_h_
+
+/*
+ *      $Log:	space.h,v $
+ * Revision 1.4  89/05/13  15:32:10  abs
+ * копия данного файла должна попадать в /usr/include/sys
+ * 	после каждой генерации ядра.
+ * 
+ * Revision 1.3  89/05/11  18:01:23  abs
+ * из msg.h и sem.h константы перетащены сюда.
+ *
+ * Revision 1.2  89/05/05  19:52:00  korotaev
+ * В этот файл вставлен MAXUSERS.
+ *
+ * Revision 1.1  89/04/24  17:03:17  korotaev
+ * Initial revision
+ *
+ */
+@
+
+
+1.4
+log
+@копия данного файла должна попадать в /usr/include/sys
+	после каждой генерации ядра.
+@
+text
+@d9 1
+d11 2
+d16 1
+a16 1
+#define HZ      50                      /* Ticks/second of the clock */
+d19 2
+a20 2
+#define TIMEZONE (%TIMEZONE% * 60)      /* Minutes westward from Greenwich */
+#define DSTFLAG %DST%                   /* Daylight Saving Time applies here */
+d23 2
+a24 2
+#define NBUF    (14 + (MAXUSERS)*2)     /* size of buffer cache, must be <=256*/
+#define NMOUNT  8                       /* number of mountable file systems */
+d28 1
+a28 1
+#       define NCLIST   500             /* number of clists, must be <= 512 */
+d30 1
+a30 1
+#       define NCLIST   200             /* number of clists */
+d33 1
+a33 1
+#       define NCLIST   100             /* number of clists */
+d36 6
+a41 7
+#define NPROC   (15 + (6*(MAXUSERS)))           /* max number of processes */
+#define NTEXT   (20 + ((3*(MAXUSERS))/2))       /* max number of pure texts */
+#define NINODE  (NPROC + 40 + (3*(MAXUSERS)))   /* number of in-core inodes */
+#define NFILE   ( NINODE+25 )           /* number of file structures */
+#define NCALL   (4 + MAXUSERS)          /* max simultaneous time callouts */
+#define NDISK   3                       /* number of disks to monitor */
+#define NFLOCK  (8192/sizeof(struct mflock)) /* Кол-во слотов таблицы flock */
+d43 2
+d46 2
+a47 2
+#define SEMMNS  20              /* число семафоров в системе (примерно 20) */
+				/* если не нужны, то установите 0 */
+d49 14
+a62 8
+#define SEMMAP  (SEMMNS/2+1)  /* worst case:  #$#$#$#$ */
+#define SEMMNI  6    /*  число групп семафоров     */
+#define SEMMNU   8
+#define SEMMSL  13
+#define SEMOPM   4   /*  SEMOPM примерно равно SEMUME */
+#define SEMUME   3
+#define SEMVMX  32000
+#define SEMAEM 255
+d66 2
+a67 2
+#define MSGMNI  2               /* число очередей сообщений (возможно 2 и больше) */
+				/* 0, если вам не нужен механизм messages */
+d86 2
+a87 2
+#define MSGTQL   30     /* число сообщений */
+#define MSGMAP   (MSGTQL/3)
+d117 5
+a121 1
+ *      $Log:   space.h,v $
+@
+
+
+1.3
+log
+@из msg.h и sem.h константы перетащены сюда.
+@
+text
+@d1 3
+d104 2
+d108 3
+@
+
+
+1.2
+log
+@В этот файл вставлен MAXUSERS.
+@
+text
+@a14 1
+
+d37 2
+d41 12
+d55 5
+d61 33
+a93 1
+#ifndef	UNIBUS_MAP
+d102 4
+a105 1
+ *      $Log:	space.h,v $
+d108 1
+a108 1
+ * 
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 1
+a6 1
+#include        "video.h"
+d16 2
+d38 1
+a38 1
+#define SEMMNS  0               /* число семафоров в системе (примерно 20) */
+d40 1
+a40 1
+#define MSGMNI  0               /* число очередей сообщений (возможно 2 и больше) */
+d52 4
+a55 1
+ *      $Log$
+@

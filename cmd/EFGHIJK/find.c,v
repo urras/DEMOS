@@ -1,0 +1,1173 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     90.03.12.15.57.14;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.06.11.21.34.45;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.12.14.16.27.17;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.27.18;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@-hasperm
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: find.c,v 1.3 89/06/11 21:34:45 avg Exp $
+** $Log:	find.c,v $
+ * Revision 1.3  89/06/11  21:34:45  avg
+ * Правлен для того, чтобы не использовать пустое имя файла.
+ * Заодно поправил некоторые диагностики.
+ * 
+ * Revision 1.2  88/12/14  16:27:17  abs
+ * Добавлено описание синтаксиса.
+ * Вставлены затычки под русские буквы в разборе рег. выражения.
+ * Добавлен механизм IPK_DIRECTORY
+ *      (выигрыш по времени в 3.5 раза )
+ *
+ * Revision 1.1  88/05/03  20:27:18  root
+ * Initial revision
+ *
+ */
+
+/*      SYNTAX:
+
+	<EXP> ::=     <E1> |
+		      <E1> -o <EXP>      # связка ИЛИ
+
+	<E1>  ::=     <E2> |
+		      <E2> -a <E1>       # связка И
+		      <E2> (  <E1>       # меж E2 и ( подразумевается -a
+		      <E2> !  <E1>       # аналогично
+		      <E2> -ключ ...     # аналогично
+	<E2>  ::=     <E3> |
+		      ! <E3>             # не
+	<E3>  ::=     ( <EXP> )     |
+		      -print        |
+		      -name шаблон  |
+		      -mtime int    |
+		      -ctime int    |
+		      -atime int    |
+		      -user имя     |
+		      -group имя    |
+		      -inum int     |
+		      -size int     |
+		      -links int    |
+		      -perm 7-7     |
+		      -type буква   |   # d b c l q f p
+		      -exec команда ; | # где {} означает имя найденного файла
+		      -ok   команда ; | # exec с дозапросом -делать ли ?
+		      -cpio файл    |
+		      -newer файл       # новее чем файл
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: find.c,v 1.3 89/06/11 21:34:45 avg Exp $";
+/* YESXSTR */
+# endif         lint
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/dir.h>
+#include <sys/stat.h>
+#include <sys/file.h>
+#include <ediag.h>
+
+#ifndef XENIX
+# undef  UCB_SYMLINKS    /* be sure that it will be OK */
+# define UCB_SYMLINKS
+# undef  IPK_DIRECTORY
+# define IPK_DIRECTORY
+#endif
+
+#define A_DAY   86400L /* a day full of seconds */
+#define EQ(x, y)        (strcmp(x, y)==0)
+#define GETWD           /* Use function getwd instead command pwd */
+
+int     Randlast;
+char    Pathname[200];
+
+struct anode {
+	int (*F)();
+	struct anode *L, *R;
+} Node[100];
+int Nn;  /* number of nodes */
+char    *Fname;
+long    Now;
+int     Argc,
+	Ai,
+	Pi;
+char    **Argv;
+/* cpio stuff */
+int     Cpio;
+short   *Buf, *Dbuf, *Wp;
+int     Bufsize = 5120;
+int     Wct = 2560;
+
+long    Newer;
+
+struct stat Statb;
+int Classb;
+
+int statdone;
+char *forstat;
+#ifdef DEBUG
+int statistics;
+#endif
+
+dostat(){
+	register char * name;
+
+	if( statdone ) return 1;   /* already done */
+	statdone++;
+
+#ifdef DEBUG
+	statistics++;
+#endif
+
+	name = forstat;
+	if( !*name ) name = ".";
+#ifdef UCB_SYMLINKS
+	if( lstat(name, &Statb) <  0 )
+#else
+	if( stat (name, &Statb) <  0 )
+#endif
+	{
+#ifdef PDEBUG
+		printf( "perror-1 '%s'\n", forstat );
+#endif
+		perror( name );
+		return -1;
+	}else   return 1;
+}
+
+struct  anode   *exp(),
+		*e1(),
+		*e2(),
+		*e3(),
+		*mk();
+char    *nxtarg();
+char    Home[128];
+long    Blocks;
+char *rindex();
+char *sbrk();
+
+main(argc, argv) char *argv[];
+{
+	struct anode *exlist;
+	int paths;
+	register char *cp, *sp = 0;
+#ifndef GETWD
+	FILE *pwd, *popen();
+
+	pwd = popen("pwd", "r");
+	fgets(Home, 128, pwd);
+	pclose(pwd);
+	Home[strlen(Home) - 1] = '\0';
+#else
+	char *getwd();
+
+	if (getwd(Home) == NULL) {
+		pr (Home), pr("\n");
+		exit (1);
+	}
+#endif
+	time(&Now);
+	Argc = argc; Argv = argv;
+	if(argc<3) {
+usage:
+		pr(ediag("Usage: find path-list predicate-list\n",
+			 "Вызов: find список_полных_имен выражение\n"));
+		exit(1);
+	}
+	for(Ai = paths = 1; Ai < (argc-1); ++Ai, ++paths)
+		if(*Argv[Ai] == '-' || EQ(Argv[Ai], "(") || EQ(Argv[Ai], "!"))
+			break;
+	if(paths == 1) /* no path-list */
+		goto usage;
+	if(!(exlist = exp())) { /* parse and compile the arguments */
+		pr(ediag("find: parsing error\n",
+			 "find: синтаксическая ошибка\n"));
+		exit(1);
+	}
+	if(Ai<argc) {
+		pr(ediag("find: missing conjunction\n",
+			 "find: пропущена связка\n"));
+		exit(1);
+	}
+	for(Pi = 1; Pi < paths; ++Pi) {
+		sp = 0;
+		chdir(Home);
+		strcpy(Pathname, Argv[Pi]);
+		if(cp = rindex(Pathname, '/')) {
+			sp = cp + 1;
+			*cp = '\0';
+			if(chdir(*Pathname? Pathname: "/") == -1) {
+#ifdef PDEBUG
+				printf( "perror-2\n" );
+#endif
+				perror(*Pathname? Pathname: "/");
+				exit(2);
+			}
+			*cp = '/';
+		}
+		Fname = sp? sp: Pathname;
+#ifdef IPK_DIRECTORY
+		descend(Pathname, Fname, exlist, DIR_OLD); /* to find files that match  */
+#else
+		descend(Pathname, Fname, exlist); /* to find files that match  */
+#endif
+	}
+	if(Cpio) {
+		strcpy(Pathname, "TRAILER!!!");
+		Statb.st_size = 0;
+		cpio();
+	}
+#ifdef DEBUG
+	printf( "%d stats done\n", statistics );
+#endif
+	exit(0);
+}
+
+/* compile time functions:  priority is  exp()<e1()<e2()<e3()  */
+
+struct anode *exp() { /* parse ALTERNATION (-o)  */
+	int or();
+	register struct anode * p1;
+
+	p1 = e1() /* get left operand */ ;
+	if(EQ(nxtarg(), "-o")) {
+		Randlast--;
+		return(mk(or, p1, exp()));
+	}
+	else if(Ai <= Argc) --Ai;
+	return(p1);
+}
+struct anode *e1() { /* parse CONCATENATION (formerly -a) */
+	int and();
+	register struct anode * p1;
+	register char *a;
+
+	p1 = e2();
+	a = nxtarg();
+	if(EQ(a, "-a")) {
+And:
+		Randlast--;
+		return(mk(and, p1, e1()));
+	} else if(EQ(a, "(") || EQ(a, "!") || (*a=='-' && !EQ(a, "-o"))) {
+		--Ai;
+		goto And;
+	} else if(Ai <= Argc) --Ai;
+	return(p1);
+}
+struct anode *e2() { /* parse NOT (!) */
+	int not();
+
+	if(Randlast) {
+		pr(ediag("find: operand follows operand\n",
+			 "find: операнд следует за операндом\n"));
+
+		exit(1);
+	}
+	Randlast++;
+	if(EQ(nxtarg(), "!"))
+		return(mk(not, e3(), (struct anode *)0));
+	else if(Ai <= Argc) --Ai;
+	return(e3());
+}
+struct anode *e3() { /* parse parens and predicates */
+	int exeq(), ok(), glob(),  mtime(), atime(), ctime(), user(),
+		group(), size(), perm(), hasperm(), links(), print(),
+		type(), ino(), cpio(), newer();
+	struct anode *p1;
+	int i;
+	register char *a, *b, s;
+
+	a = nxtarg();
+	if(EQ(a, "(")) {
+		Randlast--;
+		p1 = exp();
+		a = nxtarg();
+		if(!EQ(a, ")")) goto err;
+		return(p1);
+	}
+	else if(EQ(a, "-print")) {
+		return(mk(print, (struct anode *)0, (struct anode *)0));
+	}
+	b = nxtarg();
+	s = *b;
+	if(s=='+') b++;
+	if(EQ(a, "-name"))
+		return(mk(glob, (struct anode *)b, (struct anode *)0));
+	else if(EQ(a, "-mtime"))
+		return(mk(mtime, (struct anode *)atoi(b), (struct anode *)s));
+	else if(EQ(a, "-atime"))
+		return(mk(atime, (struct anode *)atoi(b), (struct anode *)s));
+	else if(EQ(a, "-ctime"))
+		return(mk(ctime, (struct anode *)atoi(b), (struct anode *)s));
+	else if(EQ(a, "-user")) {
+		if((i=getunum("/etc/passwd", b)) == -1) {
+			if(gmatch(b, "[0-9][0-9][0-9]*")
+			|| gmatch(b, "[0-9][0-9]")
+			|| gmatch(b, "[0-9]"))
+				return mk(user, (struct anode *)atoi(b), (struct anode *)s);
+			pr(ediag( "find: cannot find -user name\n",
+				  "find: не могу найти пользователя\n"));
+			exit(1);
+		}
+		return(mk(user, (struct anode *)i, (struct anode *)s));
+	}
+	else if(EQ(a, "-inum"))
+		return(mk(ino, (struct anode *)atoi(b), (struct anode *)s));
+	else if(EQ(a, "-group")) {
+		if((i=getunum("/etc/group", b)) == -1) {
+			if(gmatch(b, "[0-9][0-9][0-9]*")
+			|| gmatch(b, "[0-9][0-9]")
+			|| gmatch(b, "[0-9]"))
+				return mk(group, (struct anode *)atoi(b), (struct anode *)s);
+			pr( ediag( "find: cannot find -group name\n",
+				   "find: не могу найти группу\n"));
+			exit(1);
+		}
+		return(mk(group, (struct anode *)i, (struct anode *)s));
+	} else if(EQ(a, "-size"))
+		return(mk(size, (struct anode *)atoi(b), (struct anode *)s));
+	else if(EQ(a, "-links"))
+		return(mk(links, (struct anode *)atoi(b), (struct anode *)s));
+	else if(EQ(a, "-perm")) {
+		for(i=0; *b ; ++b) {
+			if(*b=='-') continue;
+			i <<= 3;
+			i = i + (*b - '0');
+		}
+		return(mk(perm, (struct anode *)i, (struct anode *)s));
+	}
+	else if(EQ(a, "-hasperm")) {
+		for(i=0; *b ; ++b) {
+			if(*b=='-') continue;
+			i <<= 3;
+			i = i + (*b - '0');
+		}
+		return(mk(hasperm, (struct anode *)i, (struct anode *)s));
+	}
+	else if(EQ(a, "-type")) {
+		i = s=='d' ? S_IFDIR :
+		    s=='b' ? S_IFBLK :
+		    s=='c' ? S_IFCHR :
+		    s=='l' ? S_IFLNK :
+		    s=='q' ? S_IFQUOT :
+		    s=='f' ? S_IFREG :
+		    s=='p' ? S_IFIFO :
+		    0;
+		return(mk(type, (struct anode *)i, (struct anode *)0));
+	}
+	else if (EQ(a, "-exec")) {
+		i = Ai - 1;
+		while(!EQ(nxtarg(), ";"));
+		return(mk(exeq, (struct anode *)i, (struct anode *)0));
+	}
+	else if (EQ(a, "-ok")) {
+		i = Ai - 1;
+		while(!EQ(nxtarg(), ";"));
+		return(mk(ok, (struct anode *)i, (struct anode *)0));
+	}
+	else if(EQ(a, "-cpio")) {
+		if((Cpio = creat(b, 0666)) < 0) {
+#ifdef PDEBUG
+			printf( "perror-3\n" );
+#endif
+			perror(s);
+			exit(1);
+		}
+		Buf = (short *)sbrk(512);
+		Wp = Dbuf = (short *)sbrk(5120);
+		return(mk(cpio, (struct anode *)0, (struct anode *)0));
+	}
+	else if(EQ(a, "-newer")) {
+		if(stat(b, &Statb) < 0) {
+#ifdef PDEBUG
+			printf( "perror-4\n");
+#endif
+			perror(b);
+			exit(1);
+		}
+		Newer = Statb.st_mtime;
+		return mk(newer, (struct anode *)0, (struct anode *)0);
+	}
+err:    pr( ediag( "find: bad option ", "find: неверный ключ ")),
+	     pr(a), pr("\n");
+	exit(1);
+}
+struct anode *mk(f, l, r)
+int (*f)();
+struct anode *l, *r;
+{
+	Node[Nn].F = f;
+	Node[Nn].L = l;
+	Node[Nn].R = r;
+	return(&(Node[Nn++]));
+}
+
+char *nxtarg() { /* get next arg from command line */
+	static strikes = 0;
+
+	if(strikes==3) {
+		pr(ediag( "find: incomplete statement\n",
+			  "find: неоконченное выражение\n"));
+		exit(1);
+	}
+	if(Ai>=Argc) {
+		strikes++;
+		Ai = Argc + 1;
+		return("");
+	}
+	return(Argv[Ai++]);
+}
+
+/* execution time functions */
+#define STAT  if( dostat()< 0 ) return 0
+
+and(p)
+register struct anode *p;
+{
+	return(((*p->L->F)(p->L)) && ((*p->R->F)(p->R))?1:0);
+}
+or(p)
+register struct anode *p;
+{
+	 return(((*p->L->F)(p->L)) || ((*p->R->F)(p->R))?1:0);
+}
+not(p)
+register struct anode *p;
+{
+	return( !((*p->L->F)(p->L)));
+}
+glob(p)
+register struct { int f; char *pat; } *p;
+{
+	return(gmatch(Fname, p->pat));
+}
+print()
+{
+	puts(Pathname);
+	return(1);
+}
+mtime(p)
+register struct { int f, t, s; } *p;
+{
+	STAT;
+	return(scomp((int)((Now - Statb.st_mtime) / A_DAY), p->t, p->s));
+}
+atime(p)
+register struct { int f, t, s; } *p;
+{
+	STAT;
+	return(scomp((int)((Now - Statb.st_atime) / A_DAY), p->t, p->s));
+}
+ctime(p)
+register struct { int f, t, s; } *p;
+{
+	STAT;
+	return(scomp((int)((Now - Statb.st_ctime) / A_DAY), p->t, p->s));
+}
+user(p)
+register struct { int f, u, s; } *p;
+{
+	STAT;
+	return(scomp(Statb.st_uid, p->u, p->s));
+}
+ino(p)
+register struct { int f, u, s; } *p;
+{
+	STAT;
+	return(scomp((int)Statb.st_ino, p->u, p->s));
+}
+group(p)
+register struct { int f, u; } *p;
+{
+	STAT;
+	return(p->u == Statb.st_gid);
+}
+links(p)
+register struct { int f, link, s; } *p;
+{
+	STAT;
+	return(scomp(Statb.st_nlink, p->link, p->s));
+}
+size(p)
+register struct { int f, sz, s; } *p;
+{
+	STAT;
+	return(scomp((int)((Statb.st_size + BSIZE-1) / BSIZE), p->sz, p->s));
+}
+perm(p)
+register struct { int f, per, s; } *p;
+{
+	register i;
+	STAT;
+	i = (p->s=='-') ? p->per : 07777; /* '-' means only arg bits */
+	return((Statb.st_mode & i & 07777) == p->per);
+}
+hasperm(p)
+register struct { int f, per, s; } *p;
+{
+	register i;
+	STAT;
+	return(Statb.st_mode & 0777 & p->per);   /* has any of the modes */
+}
+type(p)
+register struct { int f, per, s; } *p;
+{
+#ifdef IPK_DIRECTORY
+	if( Classb != DIR_OLD ){
+		if( p-> per == S_IFDIR )
+			return Classb == DIR_IFDIR;
+		if( p-> per == S_IFLNK )
+			return Classb == DIR_IFLNK;
+	}
+#endif
+	STAT;
+	return((Statb.st_mode&S_IFMT) == p->per);
+}
+exeq(p)
+register struct { int f, com; } *p;
+{
+	fflush(stdout); /* to flush possible `-print' */
+	return(doex(p->com));
+}
+ok(p)
+struct { int f, com; } *p;
+{
+	int c;  int yes;
+	yes = 0;
+	fflush(stdout); /* to flush possible `-print' */
+	pr("< "), pr(Argv[p->com]), pr(" ... "), pr(Pathname), pr(" >?   ");
+	fflush(stderr);
+	if((c=getchar())=='y') yes = 1;
+	while(c!='\n')
+		if(c==EOF)
+			exit(2);
+		else
+			c = getchar();
+	if(yes) return(doex(p->com));
+	return(0);
+}
+
+#define MKSHORT(v, lv) {U.l=1L;if(U.c[0]) U.l=lv, v[0]=U.s[1], v[1]=U.s[0]; else U.l=lv, v[0]=U.s[0], v[1]=U.s[1];}
+union { long l; short s[2]; char c[4]; } U;
+long mklong(v)
+short v[];
+{
+	U.l = 1;
+	if(U.c[0])
+		U.s[0] = v[1], U.s[1] = v[0];
+	else
+		U.s[0] = v[0], U.s[1] = v[1];
+	return U.l;
+}
+cpio()
+{
+#define MAGIC 070707
+	struct header {
+		short   h_magic,
+			h_dev,
+			h_ino,
+			h_mode,
+			h_uid,
+			h_gid,
+			h_nlink,
+			h_rdev;
+		short   h_mtime[2];
+		short   h_namesize;
+		short   h_filesize[2];
+		char    h_name[256];
+	} hdr;
+	register ifile, ct;
+	static long fsz;
+	register i;
+
+	STAT;
+	hdr.h_magic = MAGIC;
+	strcpy(hdr.h_name, !strncmp(Pathname, "./", 2)? Pathname+2: Pathname);
+	hdr.h_namesize = strlen(hdr.h_name) + 1;
+	hdr.h_uid = Statb.st_uid;
+	hdr.h_gid = Statb.st_gid;
+	hdr.h_dev = Statb.st_dev;
+	hdr.h_ino = Statb.st_ino;
+	hdr.h_mode = Statb.st_mode;
+	MKSHORT(hdr.h_mtime, Statb.st_mtime);
+	hdr.h_nlink = Statb.st_nlink;
+	fsz = hdr.h_mode & S_IFREG? Statb.st_size: 0L;
+	MKSHORT(hdr.h_filesize, fsz);
+	hdr.h_rdev = Statb.st_rdev;
+	if(EQ(hdr.h_name, "TRAILER!!!")) {
+		bwrite((short *)&hdr, (sizeof hdr-256)+hdr.h_namesize);
+		for(i = 0; i < 10; ++i)
+			bwrite(Buf, 512);
+		return;
+	}
+	if(!mklong(hdr.h_filesize)) {
+		bwrite((short *)&hdr, (sizeof hdr-256)+hdr.h_namesize);
+		return;
+	}
+	if((ifile = open(Fname, FATT_RDONLY)) < 0) {
+cerror:
+#ifdef PDEBUG
+		printf( "perror-5\n" );
+#endif
+		perror(hdr.h_name);
+		return;
+	}
+	bwrite((short *)&hdr, (sizeof hdr-256)+hdr.h_namesize);
+	for(fsz = mklong(hdr.h_filesize); fsz > 0; fsz -= 512) {
+		ct = fsz>512? 512: fsz;
+		if(read(ifile, (char *)Buf, ct) < 0)
+			goto cerror;
+		bwrite(Buf, ct);
+	}
+	close(ifile);
+	return;
+}
+newer()
+{
+	STAT;
+	return Statb.st_mtime > Newer;
+}
+
+/* support functions */
+scomp(a, b, s) /* funny signed compare */
+register a, b;
+register char s;
+{
+	if(s == '+')
+		return(a > b);
+	if(s == '-')
+		return(a < (b * -1));
+	return(a == b);
+}
+
+doex(com)
+{
+	register np;
+	register char *na;
+	static char *nargv[50];
+	static ccode;
+
+	ccode = np = 0;
+	while (na=Argv[com++]) {
+		if(strcmp(na, ";")==0) break;
+		if(strcmp(na, "{}")==0) nargv[np++] = Pathname;
+		else nargv[np++] = na;
+	}
+	nargv[np] = 0;
+	if (np==0) return(9);
+	if(fork()) /*parent*/ wait(&ccode);
+	else { /*child*/
+		chdir(Home);
+		execvp(nargv[0], nargv, np);
+		exit(1);
+	}
+	return(ccode ? 0:1);
+}
+
+getunum(f, s) char *f, *s; { /* find user/group name and return number */
+	register i;
+	register char *sp;
+	register c;
+	char str[20];
+	FILE *pin;
+
+	i = -1;
+	pin = fopen(f, "r");
+	c = '\n'; /* prime with a CR */
+	do {
+		if(c=='\n') {
+			sp = str;
+			while((c = *sp++ = getc(pin)) != ':')
+				if(c == EOF) goto RET;
+			*--sp = '\0';
+			if(EQ(str, s)) {
+				while((c=getc(pin)) != ':')
+					if(c == EOF) goto RET;
+				sp = str;
+				while((*sp = getc(pin)) != ':') sp++;
+				*sp = '\0';
+				i = atoi(str);
+				goto RET;
+			}
+		}
+	} while((c = getc(pin)) != EOF);
+ RET:
+	fclose(pin);
+	return(i);
+}
+
+#ifdef IPK_DIRECTORY
+descend(name, fname, exlist, fclass)
+#else
+descend(name, fname, exlist)
+#endif
+struct anode *exlist;
+char *name, *fname;
+{
+	int     dir = 0, /* open directory */
+		dsize,
+		entries,
+		dirsize;
+	off_t   offset;
+	struct direct dentry[BSIZE / sizeof (struct direct)];
+	register struct direct  *dp;
+	register char *c1, *c2;
+	int i;
+	int rv = 0;
+	char *endofname;
+
+#ifdef PDEBUG
+	printf("descend(name='%s',fname='%s',fclass=%d)\n", name, fname, fclass);
+#endif PDEBUG
+	/* подготовить все к stat-ам */
+	statdone = 0;
+	forstat = fname;
+#ifdef IPK_DIRECTORY
+	Classb = fclass;
+#endif
+
+	(*exlist->F)(exlist);
+
+	/* каталог или как ? */
+#ifdef IPK_DIRECTORY
+	if( fclass == DIR_OLD ) goto Stats;
+	if( fclass != DIR_IFDIR ) return 1;
+#endif
+Stats:
+	STAT;
+	if((Statb.st_mode&S_IFMT)!=S_IFDIR)
+		return(1);
+
+#ifdef PDEBUG
+	printf( " ---- directory\n" );
+#endif
+	/* Здесь мы имеем каталог,
+	 * и для него сделан stat
+	 */
+
+	for(c1 = name; *c1; ++c1);
+	if(*(c1-1) == '/')
+		--c1;
+	endofname = c1;
+	dirsize = Statb.st_size;
+
+	if(fname[0] != '\0' && chdir(fname) == -1)
+		return(0);
+	for(offset=0 ; offset < dirsize ; offset += BSIZE) { /* each block */
+		dsize = BSIZE<(dirsize-offset)? BSIZE: (dirsize-offset);
+		if(!dir) {
+			if((dir=open(".", FATT_RDONLY))<0) {
+#ifdef PDEBUG
+				printf( "perror-6\n" );
+#endif
+				perror(name);
+				rv = 0;
+				goto ret;
+			}
+			if(offset) lseek(dir, offset, FSEEK_ABSOLUTE);
+			if(read(dir, (char *)dentry, dsize)<0) {
+#ifdef PDEBUG
+				printf( "perror-7\n" );
+#endif
+				perror(name);
+				rv = 0;
+				goto ret;
+			}
+			if(dir > 10) {
+				close(dir);
+				dir = 0;
+			}
+		} else
+			if(read(dir, (char *)dentry, dsize)<0) {
+#ifdef PDEBUG
+				printf( "perror-8\n" );
+#endif
+				perror(name);
+				rv = 0;
+				goto ret;
+			}
+		for(dp=dentry, entries=dsize/sizeof (struct direct); entries; --entries, ++dp) { /* each directory entry */
+			if(dp->d_ino==0
+			|| (dp->d_name[0]=='.' && dp->d_name[1]=='\0')
+			|| (dp->d_name[0]=='.' && dp->d_name[1]=='.' && dp->d_name[2]=='\0'))
+				continue;
+			c1 = endofname;
+			*c1++ = '/';
+			c2 = dp->d_name;
+			for(i=0; i<DIRSIZ; ++i)
+				if(*c2)
+					*c1++ = *c2++;
+				else
+					break;
+			*c1 = '\0';
+			if(c1 == endofname) { /* ?? */
+				rv = 0;
+				goto ret;
+			}
+			Fname = endofname+1;
+#ifdef IPK_DIRECTORY
+			if(!descend(name, Fname, exlist, dp->d_class )) {
+#else
+			if(!descend(name, Fname, exlist)) {
+#endif
+				*endofname = '\0';
+				chdir(Home);
+				if(chdir(Pathname) == -1) {
+#ifdef PDEBUG
+					printf( "perror-9\n" );
+#endif
+					perror(Pathname);
+					exit(1);
+				}
+			}
+		}
+	}
+	rv = 1;
+ret:
+	if(dir)
+		close(dir);
+	if(chdir("..") == -1) {
+		*endofname = '\0';
+#ifdef PDEBUG
+		printf( "perror-A\n" );
+#endif
+		perror(name);
+		rv = 1;
+	}
+	return(rv);
+}
+
+gmatch(s, p) /* string match as in glob */
+register char *s, *p;
+{
+	if (*s=='.' && *p!='.') return(0);
+	return amatch(s, p);
+}
+
+amatch(s, p)
+register char *s, *p;
+{
+	register cc;
+	int scc, k;
+	int c, lc;
+
+	scc = *s;
+	lc = 077777;
+	switch (c = *p) {
+
+	case '[':
+		k = 0;
+		while (cc = *++p) {
+			switch (cc) {
+
+			case ']':
+				if (k)
+					return(amatch(++s, ++p));
+				else
+					return(0);
+
+			case '-':
+				k |= Ctou(lc)  <= Ctou(scc) &
+				     Ctou(scc) <= Ctou(cc=p[1]);
+			}
+			if (scc==(lc=cc)) k++;
+		}
+		return(0);
+
+	case '?':
+	caseq:
+		if(scc) return(amatch(++s, ++p));
+		return(0);
+	case '*':
+		return(umatch(s, ++p));
+	case 0:
+		return(!scc);
+	}
+	if (c==scc) goto caseq;
+	return(0);
+}
+
+umatch(s, p)
+register char *s, *p;
+{
+	if(*p==0) return(1);
+	while(*s)
+		if (amatch(s++, p)) return(1);
+	return(0);
+}
+
+bwrite(rp, c)
+register short *rp;
+register c;
+{
+	register short *wp = Wp;
+
+	c = (c+1) >> 1;
+	while(c--) {
+		if(!Wct) {
+again:
+			if(write(Cpio, (char *)Dbuf, Bufsize)<0) {
+				Cpio = chgreel(1, Cpio);
+				goto again;
+			}
+			Wct = Bufsize >> 1;
+			wp = Dbuf;
+			++Blocks;
+		}
+		*wp++ = *rp++;
+		--Wct;
+	}
+	Wp = wp;
+}
+chgreel(x, fl)
+{
+	register f;
+	char str[22];
+	FILE *devtty;
+	struct stat statb;
+
+	pr(ediag("find: can't ", "не могу "));
+	pr(x? ediag("write output", "дальше записывать")
+	    : ediag("read input", "дальше читать"));
+	pr("\n");
+	fstat(fl, &statb);
+	if((statb.st_mode&S_IFMT) != S_IFCHR)
+		exit(1);
+again:
+	pr(ediag("If you want to go on, type device/file name when ready\n: ",
+		 "Если хотите продолжить, введите имя файла или устройства\n: "));
+	fflush(stdout);
+	devtty = fopen("/dev/tty", "r");
+	fgets(str, 20, devtty);
+	str[strlen(str) - 1] = '\0';
+	if(!*str)
+		exit(1);
+	close(fl);
+	if((f = open(str, x? FATT_WRONLY: FATT_RDONLY)) < 0) {
+		pr(ediag("That didn't work\n", "Это не подходит\n"));
+		fclose(devtty);
+		goto again;
+	}
+	return f;
+}
+pr(s)
+char *s;
+{
+	fputs(s, stderr);
+}
+@
+
+
+1.3
+log
+@Правлен для того, чтобы не использовать пустое имя файла.
+Заодно поправил некоторые диагностики.
+@
+text
+@d6 6
+a11 2
+** $Header: find.c,v 1.2 88/12/14 16:27:17 abs Exp $
+** $Log:        find.c,v $
+d56 1
+a56 1
+static char     Rcs_id[] = "$Header: find.c,v 1.2 88/12/14 16:27:17 abs Exp $";
+d61 1
+d68 6
+a73 4
+#undef  UCB_SYMLINKS    /* be sure that it will be OK */
+#define UCB_SYMLINKS
+#undef  IPK_DIRECTORY
+#define IPK_DIRECTORY
+d272 1
+a272 1
+		group(), size(), perm(), links(), print(),
+d337 8
+d503 7
+d522 1
+a522 1
+	return((Statb.st_mode&S_IFMT)==p->per);
+@
+
+
+1.2
+log
+@Добавлено описание синтаксиса.
+Вставлены затычки под русские буквы в разборе рег. выражения.
+Добавлен механизм IPK_DIRECTORY
+	(выигрыш по времени в 3.5 раза )
+@
+text
+@d6 1
+a6 1
+** $Header: find.c,v 1.1 88/05/03 20:27:18 root Exp $
+d8 6
+d17 1
+a17 1
+*/
+d52 1
+a52 1
+static char     Rcs_id[] = "$Header: find.c,v 1.1 88/05/03 20:27:18 root Exp $";
+d63 5
+d104 2
+d113 2
+d116 1
+a116 1
+	if( lstat( forstat, &Statb ) <  0 )
+d118 1
+a118 1
+	if( stat ( forstat, &Statb ) <  0 )
+d121 4
+a124 1
+		perror( forstat );
+d191 3
+d253 1
+a253 1
+			 "find: операнд следует за операндом"));
+d353 3
+d365 3
+d374 1
+a374 1
+err:    pr( ediag( "find: bad option ", "find: неверная опция")),
+d585 3
+d695 3
+d717 3
+d730 1
+a730 1
+	if(chdir(fname) == -1)
+d736 3
+d745 3
+d758 3
+d765 1
+a765 1
+		for(dp=dentry, entries=dsize/sizeof( struct direct); entries; --entries, ++dp) { /* each directory entry */
+d792 3
+d807 3
+d905 4
+a908 1
+	pr("find: can't "), pr(x? "write output": "read input"), pr("\n");
+d913 3
+a915 1
+	pr("If you want to go on, type device/file name when ready\n");
+d923 1
+a923 1
+		pr("That didn't work");
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d13 31
+d46 1
+a46 1
+static char     Rcs_id[] = "$Header$";
+d49 1
+a49 1
+ 
+d84 1
+d86 25
+d121 1
+d179 3
+d183 1
+d190 3
+d231 3
+a233 1
+		pr("find: operand follows operand\n");
+d278 2
+a279 1
+			pr("find: cannot find -user name\n");
+d292 2
+a293 1
+			pr("find: cannot find -group name\n");
+d316 1
+d347 2
+a348 1
+err:    pr("find: bad option "), pr(a), pr("\n");
+d365 2
+a366 1
+		pr("find: incomplete statement\n");
+d378 2
+d408 1
+d414 1
+d420 1
+d426 1
+d432 1
+d438 1
+d444 1
+d450 2
+a451 1
+	return(scomp((int)((Statb.st_size + 1023) / 1024), p->sz, p->s));
+d457 1
+d464 9
+d532 1
+d573 1
+d645 3
+d649 1
+d665 5
+a669 4
+#ifdef  UCB_SYMLINKS
+	if(lstat(fname, &Statb)<0)
+#else
+	if(stat(fname, &Statb)<0)
+d671 1
+a671 4
+	{
+		perror(name);
+		return(0);
+	}
+d673 8
+d684 4
+d720 1
+a720 1
+		for(dp=dentry, entries=dsize>>4; entries; --entries, ++dp) { /* each directory entry */
+d728 1
+a728 1
+			for(i=0; i<14; ++i)
+d739 3
+d743 1
+d795 2
+a796 1
+				k |= lc <= scc & scc <= (cc=p[1]);
+@

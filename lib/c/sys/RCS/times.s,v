@@ -1,0 +1,40 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.44.09;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ (void) times(buffer);
+/	 struct tbuffer *buffer;
+
+.globl	_times
+
+_times:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(r5),0f
+	sys	0; 9f
+	mov	(sp)+,r5
+	rts	pc
+.data
+9:
+	sys	times; 0:..
+@

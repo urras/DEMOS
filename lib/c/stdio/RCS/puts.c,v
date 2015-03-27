@@ -1,0 +1,39 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.13.18;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include        <stdio.h>
+
+puts(s)
+register char *s;
+{
+	register c;
+
+	while (c = *s++)
+		putchar(c);
+	return(putchar('\n'));
+}
+@

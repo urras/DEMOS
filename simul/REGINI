@@ -1,0 +1,69 @@
+%- - - - - - - - - - -% 15.08.87 VERSION 34
+%-    Kìàþé ðõìøTA   -%
+%- - - - - - - - - - -%
+LOCALS LPULT
+  EQUALS DINI=0,DRD=1,DWR=2,DTST=3,DITA=4,DTXT=6,DTICK=8
+  DATA DV:BEG=&FF78,DV:END=&FF78
+  DATA ATICK
+  DATA KEYS,DISP                        %BBOäHOê é BùBOäHOê PEçéCTPù
+  DATA POSIT  ,MASK=&8000
+  BYTES X[1],Y[1]
+  DATA OUTMES=:OUTSX  ,OUTSW=:OUTSW  ,OUTRET=:OUTRT
+  DATA OUTPOS=:OUT:P
+  EQUALS SH=1,ST=02
+
+  BYTES :OUT:P=SH.0.62,ST.16,"-",SH.0.62.0
+  BYTES :OUTSX=SH.0.62
+  BYTES :OUTSW="::::::::::::::::"
+  BYTES :OUTRT=SH.0.0.0
+
+PROGRAM REGINI(,ATICK)
+  RETURN ,
+
+PROGRAM REG:RD()
+  IF <>DV:BEG THEN RETURN ,,2
+  RETURN KEYS,,0
+
+PROGRAM REG:WR()
+  IF <>DV:BEG THEN RETURN ,,2
+  DISP=^X.XAA.
+  Y[X:=((DPP #MIN1))
+  =,1
+  (XCYCLE 16
+    OUTSW():=((IF DISP.AAE.<> THEN ="#" ELSE ="-"))
+    =0,.LLD.1
+  XCYCLE)
+  OUTRET(1):=Y:
+  OUTRET(2):=X:
+  DPC OUTMES
+  RETURN ,,0
+
+PROGRAM REGINF()
+  (IF #INPSYM.AND.&7F=&10               %<CTRL><P> - BBOä C KìàþEê
+    Y[X:=((DPP #MIN1))
+    DPC OUTPOS
+    POSIT=15 ; MASK=&80[0 ; KEYS=0
+    (WHILE ((DPI))<>'ET' AND <>'HO'
+      (IF ='CU'
+        KEYS=KEYS.IOR.MASK
+        DPC <<"#".CL.0>>
+      ELSE IF ='CD'
+        KEYS=MASK.CCA..AND.KEYS
+        DPC <<"-".CL.0>>
+      ELSE IF ='CR' AND MASK.RLS.1<>
+        MASK=
+        DPO 'CR'
+      ELSE IF ='CL' AND MASK.LLS.1<>
+        MASK=
+        DPO 'CL'
+      IF)
+    WHILE)
+    OUTRET(1):=Y:
+    OUTRET(2):=X:
+    DPC OUTMES
+  IF)
+  @ATICK=30 %     ; #TICKFL=1
+  RETURN 0
+
+PROGRAM REG:IT()
+  RETURN ,

@@ -1,0 +1,397 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     90.12.12.16.44.13;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Правки для ДВК
+@
+text
+@/*
+ * DL/kisi driver (СПИ-15)
+ * Одноканальный драйвер с одновременной передачей 2 байт
+ * $Log:	ks.c,v $
+ * Revision 1.1  89/01/23  15:18:31  chech
+ * Initial revision
+ * 
+ */
+
+#include "h/ks.h"
+#if NKS > 0
+#include "h/bk.h"
+#include <sys/param.h>
+#include <sys/conf.h>
+#include <sys/dir.h>
+#include <sys/file.h>
+#include "../include/klreg.h"
+#include <sys/systm.h>
+#include <sys/tty.h>
+#include <sys/user.h>
+
+struct  tty ks11[NKS];
+int     nks11   = NKS;          /* for pstat */
+int     ttrstrt(), ksstart(), kstimer ();
+
+#define KS_ESCAPE       0252    /* пустой старший байт */
+#define KSTIMEOUT         40    /* таймаут на канал, 4/5 сек. */
+#define KS_MAXERR         60    /* макс. число ошиб. ситуаций */
+				/* ожидание = (60 + 1) * 40 / 50 */
+
+struct  ks_s {                  /* Управляющая структура ТАЙМЕРА KS */
+	char    s_tflg;         /* флаги таймаутов */
+	char    s_ecnt;         /* счетчик таймаутов */
+}       ks_s [NKS];
+/* bits for s_tflg */
+#define KS_TIM  0001            /* идет таймаут */
+#define KS_SND  0002            /* идет передача */
+#define KS_BSY  0004            /* запрос на отсутствие готовности */
+#define KS_INT  0010            /* запрос на отсутствие прерывания */
+#define KS_RPT  0020            /* повторный таймаут (возможна ошибка) */
+#define KS_RCV  0040            /* переполнение ввода (таймаут по приему) */
+
+/* Вход для автоконфигуратора */
+ksattach (addr, unit)
+struct dldevice *addr;
+{
+    if ((unsigned) unit >= NKS)
+	return 0;
+    ks11[unit].t_addr = addr;
+    return 1;
+}
+
+ksopen(dev, flag)
+dev_t   dev;
+{
+	register d = minor(dev);
+	register struct tty *tp = &ks11[d];
+	register struct dldevice *addr;
+
+	if ((d >= NKS) || !(addr = tp->t_addr)) {
+		u.u_error = ENXIO;
+		return;
+	}
+	if (addr->dlxcsr & DLKX_OFFL) {
+		u.u_error = EIO;
+		return;
+	 }
+	if ((tp->t_state & ISOPEN) == 0) {
+		tp->t_oproc = ksstart;
+		tp->t_state = ISOPEN | CARR_ON;
+		tp->t_flags = ANYP | RAW /* ECHO | LCASE | CRMOD */;
+		tp->t_line = DFLT_LDISC;
+		ttychars(tp);
+		ttyopen(dev, tp);
+		_spl5();
+/*???           addr->dlrcsr = DLKR_RESET;      /* Сброс интерфейсов */
+		addr->dlrcsr = DLKR_RIE;
+		addr->dlxcsr = DLKX_TIE;
+		_spl0();
+	} else {
+		if (tp->t_state & XCLUDE && u.u_uid != 0) {
+			u.u_error = EBUSY;
+			return;
+		}
+		ttyopen(dev, tp);
+	}
+}
+
+ksclose(dev, flag)
+register dev_t   dev;
+int     flag;
+{
+	register struct tty *tp;
+	register struct dldevice *addr;
+	struct ks_s *ks;
+
+	dev = minor (dev);
+	tp = &ks11[dev];
+	ks = &ks_s[dev];
+	addr = (struct dldevice *) tp->t_addr;
+	ttyclose(tp);
+	if (ks ->s_tflg & KS_TIM)       /* дождаться завершения таймаута */
+		sleep ((caddr_t)ks, TTOPRI);
+	addr->dlrcsr = addr->dlxcsr = 0;
+}
+
+ksread(dv)
+register dev_t dv;
+{
+	register struct tty *tp;
+
+	dv = minor (dv);
+	tp = &ks11 [dv];
+	if (ksofflin (dv)) {u.u_error = EIO; return;}
+	(*linesw[tp->t_line].l_read)(tp);
+}
+
+kswrite(dv)
+register dev_t dv;
+{
+	register struct tty *tp;
+
+	dv = minor (dv);
+	tp = &ks11 [dv];
+	if (ksofflin (dv)) {u.u_error = EIO; return;}
+	(*linesw[tp->t_line].l_write)(tp);
+}
+
+ksioctl(dev, cmd, addr, flag)
+caddr_t addr;
+dev_t   dev;
+{
+	switch (ttioctl(&ks11[minor(dev)], cmd, addr, flag)) {
+		case TIOCSETN:
+		case TIOCSETP:
+		case TIOCSETA:
+		case TIOCSETB:
+		case 0:
+			break;
+		default:
+			u.u_error = ENOTTY;
+	}
+}
+
+/* Обработка прерывания по вводу для СПИ-15 */
+ksrint(dev)
+int dev;
+{
+	register struct tty *tp;
+	register struct dldevice *addr;
+	register c;
+	int s;
+
+	tp = &ks11 [dev];
+	addr = (struct dldevice *) tp -> t_addr;
+
+	addr->dlrcsr &= ~DLKR_RIE;
+	if ((tp->t_state&ISOPEN) == 0) return;
+
+/* Подтолкнуть вывод, заткнувшийся в случае отстутствия жизни с др.стороны */
+	if ((tp->t_state&CARR_ON) == 0) {
+		tp->t_state |= CARR_ON;
+		wakeup ((caddr_t)&tp->t_outq);
+	}
+/* По переполнению буфера отвалить, включив таймауту признак запроса */
+/* Прерывание НЕ ВКЛЮЧАЕМ */
+	if (tp->t_flags&(RAW|CBREAK) && (tp->t_rawq.c_cc >= TTYHOG-2)) {
+		register struct ks_s *ks = &ks_s [dev];
+		if (!(ks -> s_tflg & KS_TIM)) {
+			ks -> s_tflg |= KS_TIM;
+			timeout (kstimer, (caddr_t)dev, KSTIMEOUT);
+		}
+		ks -> s_tflg |= KS_RCV;
+		return;
+	}
+
+	c = addr->dlrbuf;
+	if (addr->dlrcsr&DLKR_RDPE) {
+#ifdef UCB_DEVERR
+		printf("ks%d err: csr=%b\n",dev,addr->dlrcsr,DLKR_BITS);
+#else
+		printf("ks%d err: csr=%o\n",dev,addr->dlrcsr);
+#endif
+		c = makedev(KS_ESCAPE, (tp->t_flags & RAW) ? 0:tun.t_intrc);
+	}
+
+/* выполнить ввод на низком приоритете */
+	s = spl1 ();
+	(*linesw[tp->t_line].l_input)(c&0377, tp);      /* младший байт */
+	if ( (c=major(c)) != KS_ESCAPE )                /* старший байт */
+		(*linesw[tp->t_line].l_input)(c&0377, tp);
+	splx (s);
+	addr->dlrcsr |= DLKR_RIE;
+}
+
+/* Прерывание по выводу */
+ksxint (unit)
+register unit;
+{
+	register struct tty *tp = &ks11 [unit];
+
+	ks_s [unit].s_tflg &= ~(KS_INT | KS_RPT);       /* прошло прер-е */
+	ksout (unit);                                   /* вывести байт */
+	if (tp->t_state & ASLEEP && tp->t_outq.c_cc <= TTLOWAT(tp)) {
+		tp->t_state &= ~ASLEEP;
+		wakeup((caddr_t) &tp->t_outq);
+	}
+}
+
+/* Запуск операции "вывод" на устройство */
+ksstart (tp)
+register struct tty *tp;
+{
+	register unit;
+	register struct ks_s *ks;
+	int      s;
+
+	s = spl5 ();
+	if (!(tp -> t_state & BUSY)) {  /* идет передача ? */
+		tp -> t_state |= BUSY;  /* занять канал до конца clistа */
+		unit = tp - ks11;
+		ks = &ks_s [unit];      /* запустить таймер, если надо */
+		if (!(ks->s_tflg & KS_TIM)) {
+			ks -> s_tflg |= KS_TIM;
+			timeout (kstimer, (caddr_t)unit, KSTIMEOUT);
+		}
+		ks -> s_tflg |= KS_SND;
+		ksout (unit);           /* инициировать вывод данных */
+	}
+	splx (s);
+}
+
+/* Выводим байт в линию/запускаем задержку/ */
+ksout (unit)
+{
+	register struct tty *tp = &ks11 [unit];
+	register struct ks_s *ks = &ks_s [unit];
+	register struct dldevice *addr = tp -> t_addr;
+	struct {
+		char lobyte;
+		char hibyte;
+	};
+	int c, s;
+	s = spl1 ();
+	if (((tp -> t_state & (ISOPEN|CARR_ON|BUSY|TIMEOUT|TTSTOP)) !=
+	   (ISOPEN|CARR_ON|BUSY)) ||            /* останов вывода...*/
+	   (tp->t_outq.c_cc <= 0)) {            /* или конец вывода --> */
+FREEXIT:        splx (s);
+		tp->t_state &= ~BUSY;           /* освободить вывод и */
+		ks -> s_tflg &= ~KS_SND;        /* снять запрос к таймеру */
+		return;
+	}
+	if (ksofflin (unit))                    /* обрыв линии */
+		return;
+	if ((addr -> dlxcsr & DLKX_TRDY) == 0) {/* потеря готовности */
+		splx (s);
+		ks -> s_tflg |= KS_BSY;         /* запрос к таймеру ...*/
+		return;                         /*... пусть он разбирается */
+	}
+
+	c.lobyte = getc (&tp->t_outq);
+#ifdef  UCB_NTTY
+	if (!((tp->t_flags&RAW) || (tp->t_local&LLITOUT)) && (c.lobyte<0)) {
+#else
+	if (!(tp->t_flags&RAW) && (c.lobyte<0)) {
+#endif
+		_spl5 ();
+		timeout(ttrstrt, (caddr_t)tp, (c & 0177) + DLDELAY);
+		tp->t_state |= TIMEOUT;
+		goto FREEXIT;
+	}
+	if ((tp->t_outq.c_cc > 0) &&
+	   ((c.hibyte=(lookc(tp->t_outq.c_cf))) != (char)KS_ESCAPE) &&
+#ifdef  UCB_NTTY
+	   (tp->t_state&RAW || tp->t_local&LLITOUT || c.hibyte>=0))
+#else
+	   (tp->t_state&RAW || c.hibyte>=0))
+#endif
+		getc (&tp->t_outq);     /* байт уже считан через "lookc" */
+	else
+		c.hibyte = KS_ESCAPE;
+	splx (s);
+	addr->dlxbuf = c;
+	ks -> s_tflg |= KS_INT;         /* запрос на прерывание */
+}
+
+/* Общий ТАЙМАУТ на каждое KS устройство; обслуживает и ВВОД, и ВЫВОД */
+kstimer (unit)
+register unit;
+{
+	register struct tty *tp = &ks11 [unit];
+	register struct ks_s *ks = &ks_s [unit];
+	struct  dldevice *addr = tp -> t_addr;
+/* Если канал закрывается */
+	if (!(tp -> t_state & ISOPEN)) {
+		wakeup ((caddr_t) ks);  /* Сигнал для "close" */
+ABORT:          ksabort (unit);         /* Сброс ВСЕХ флагов КРОМЕ KS_TIM */
+EXIT:           ks -> s_tflg = 0;       /* Сброс KS_TIM !!! */
+		return;
+	}
+/* Если не нужен таймаут на прием и на передачу */
+	if (!(ks -> s_tflg & (KS_RCV|KS_SND)))
+		goto EXIT;
+/* Обрыв линии */
+	if (ksofflin (unit))
+		goto EXIT;
+/* Действия по переполнению ввода */
+	if (ks -> s_tflg & KS_RCV) {
+		if (tp->t_rawq.c_cc<TTYHOG-4) {
+			ks -> s_tflg &= ~KS_RCV;
+			addr->dlrcsr |= DLKR_RIE;
+		}
+	}
+/* Пропала готовность на передачу */
+	if (ks -> s_tflg & KS_BSY) {
+		if (addr->dlxcsr & DLKX_TRDY) { /* готовность появилась */
+			ks->s_tflg &= ~(KS_BSY | KS_RPT | KS_INT);
+			ksout (unit);
+		}
+		else goto TREPEAT;              /* повторный таймаут */
+	}
+/* Ожидание прерывания */
+	if (ks -> s_tflg & KS_INT) {
+		if (!(addr->dlxcsr & DLKX_TIE)) /* потерялся TIE ??? */
+			addr->dlxcsr |= DLKX_TIE;
+		if (addr->dlxcsr & DLKX_TRDY)   /* готовность ЕСТЬ ! */
+			ksout (unit);
+TREPEAT:
+		if (ks -> s_tflg & KS_RPT) {    /* повторный таймаут */
+			if (ks -> s_ecnt++ > KS_MAXERR)
+				goto ABORT;
+		}
+		else {
+			ks -> s_ecnt = 0;       /* сбросить счетчик */
+			ks -> s_tflg |= KS_RPT;
+		}
+	}
+	timeout (kstimer, (caddr_t) unit, KSTIMEOUT);
+}
+
+/* проверка замкнутости линии по вызову "read","write" */
+ksofflin (unit) register unit;
+{
+	register struct tty *tp = &ks11 [unit];
+
+	if (((tp->t_addr)->dlxcsr)&DLKX_OFFL) {
+#ifdef UCB_DEVERR
+	    printf("ks%d err: csx=%b\n",unit,tp->t_addr->dlxcsr,DLKX_BITS);
+#else
+	    printf("ks%d err: csx=%o\n",unit,tp->t_addr->dlxcsr);
+#endif
+	    ksabort (unit);
+	    return 1;
+	}
+	return 0;
+}
+
+/* зачистить канал !!! */
+ksabort (unit) register unit;
+{
+	register struct tty *tp = &ks11 [unit];
+	register s;
+
+	if ( tp -> t_state & ISOPEN) {
+		s = spl5 ();
+		tp -> t_state &= ~(CARR_ON|BUSY|ASLEEP);
+		flushtty (tp, FREAD|FWRITE);
+		ks_s[unit].s_tflg &= KS_TIM;
+		splx (s);
+	}
+}
+
+#endif
+@

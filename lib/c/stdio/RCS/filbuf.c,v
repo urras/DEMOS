@@ -1,0 +1,72 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.09.19;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include	<stdio.h>
+
+char	*malloc();
+
+_filbuf(iop)
+register FILE *iop;
+{
+	static char smallbuf[_NFILE];
+
+	if (iop->_flag & _IORW)
+		iop->_flag |= _IOREAD;
+
+	if ((iop->_flag & _IOREAD) == 0 || iop->_flag & _IOSTRG)
+		return(EOF);
+tryagain:
+	if (iop->_base == NULL) {
+		if (iop->_flag & _IONBF) {
+			iop->_base = &smallbuf[fileno(iop)];
+			goto tryagain;
+		}
+		if ((iop->_base = malloc(BUFSIZ)) == NULL) {
+			iop->_flag |= _IONBF;
+			goto tryagain;
+		}
+		iop->_flag |= _IOMYBUF;
+	}
+#ifdef UCB_LINEBUF
+	if (iop == stdin && (stdout->_flag&_IOLBF))
+		fflush(stdout);
+#endif UCB_LINEBUF
+	iop->_cnt = read(fileno(iop), iop->_base, iop->_flag&_IONBF?1:BUFSIZ);
+	iop->_ptr = iop->_base;
+	if (--iop->_cnt < 0) {
+		if (iop->_cnt == -1) {
+			iop->_flag |= _IOEOF;
+			if (iop->_flag & _IORW)
+				iop->_flag &= ~_IOREAD;
+		} else
+			iop->_flag |= _IOERR;
+		iop->_cnt = 0;
+		return(EOF);
+	}
+	return(*iop->_ptr++ & 0377);
+}
+@

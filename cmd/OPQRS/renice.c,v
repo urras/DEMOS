@@ -1,0 +1,108 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.21.18.05.38;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.28.15.34.30;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: renice.c,v 1.2 88/09/21 17:56:12 avg Exp $
+** $Log:        renice.c,v $
+ * Revision 1.2  88/09/21  17:56:12  avg
+ * Русифицирован+поправлен код возврата.
+ *
+ * Revision 1.1  88/04/28  15:34:30  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: renice.c,v 1.2 88/09/21 17:56:12 avg Exp $";
+/* YESXSTR */
+# endif         lint
+
+#include <ediag.h>
+#include <stdio.h>
+
+/*
+ *      renice: change a process's nice value.  Root can change the value
+ *              to anything, others can only increase the current nice.
+ */
+
+int     atoi ();
+
+main (ac, av)
+register        ac;
+register        char    **av;
+{
+	register        i;
+	int retc;
+
+	if (ac < 3)     {
+		fprintf(stderr, ediag("Usage: renice newnice pid...\n",
+				      "Вызов: renice нов.приоритет pid...\n"));
+		exit(100);
+		}
+
+	retc = 0;
+	for(i = 2; i < ac; i++) {
+		if (renice (atoi (av [i]), atoi (av [1])) == -1) {
+			retc++;
+			perror(av[i]);
+		}
+	}
+	exit(retc);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 8
+a13 2
+** $Header$
+** $Log$
+d18 1
+a18 1
+static char     Rcs_id[] = "$Header$";
+d22 3
+d37 1
+d40 3
+a42 2
+		printf ("Usage:  renice newnice pid [pid2 ... pidn]\n");
+		exit(1);
+d45 4
+a48 2
+	for(i = 2; i < ac; i++)
+		if (renice (atoi (av [i]), atoi (av [1])) == -1)
+d50 3
+@

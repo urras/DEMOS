@@ -1,0 +1,53 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.04.09.20.28.07;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+то же , что и fgets, 
+но не читает \n 
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ *
+ */
+#include        <stdio.h>
+
+char *
+fgetstr(s, n, iop)
+char *s;
+register FILE *iop;
+{
+	register c;
+	register char *cs;
+
+	cs = s;
+	while (--n>0 && (c = getc(iop))>=0) {
+		if (c =='\n')
+			break;
+		*cs++ = c;
+	}
+	if (c<0 && cs==s)
+		return(NULL);
+	*cs++ = '\0';
+	return(s);
+}
+@

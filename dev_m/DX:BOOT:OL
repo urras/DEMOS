@@ -1,0 +1,71 @@
+%% =============================== %% 28.10.87 VERSION 51
+%% == ϊαηςυϊώιλ σ ζμοππι-δισπλα == %%
+%% =============================== %%
+%- ισποςώεξ ξεαχτοςσλοκ πςαχλοκ:
+%-  δοβαχμεξ NOP
+%-  ρώεκλι &0C,&0E,&10 ϊαξρτω παςανετςανι, πςοσταχμρενωνι SYSGEN'ον
+%-  πςεδπομαηαετσρ, ώτο νοξιτος ξαώιξαετσρ ξα 1-κ δοςοφλε
+GLOBAL (START=&00) (LOCATION=&00)
+%%
+%% ςεηιστςω FLOPPY, βιτω λοναξδ
+%%
+  EQUALS FKS=&FE78,FKD=&FE7A
+  EQUALS READ=&6,RBUFF=&2,GO=&1,UNIT=&10
+
+  EQUALS TPS=&FF74,TPB=&FF76
+
+LOCALS LSTART
+%- πεςχοκ λοναξδοκ δομφεξ βωτψ NOP
+. CCL
+. BR   START
+  DATA =IT04.&E0
+%-- ιξτεςζεκσξαρ ταβμιγα -------%
+  DATA DXLENG                   %       %ϊξαώεξιε πςοσταχμρετ SYSGEN
+%-------------------------------%
+  BYTES SELTAB=READ+GO,READ+GO+UNIT
+  DATA =IT0C.&E0                        %BPT-IT
+
+  REGISTERS BUFADR=%1,SECTOR=%2,TRACK=%3,ASTATE=%4,ADATA=%5
+
+  EQUALS ASTRTR=&02
+
+PROGRAM START()
+  RDOPER:=SELTAB[R0]                    %πςοσταχμρεν ξονες υστςοκστχα
+
+  TRACK=1                               %σ πεςχοκ δοςοφλι
+  SECTOR='ASTRTR*4'                     %πεςχωκ βμολ ποσμε νετλι τονα
+  SP=BUFADR(&400)                       %αδς. ϊαηςυϊλι ι ϊαπυσλα
+  _SP=DXLENG                            %ώισμο βμολοχ
+
+  ASTATE='FKS' ; ADATA='FKD'
+  (DCYCLE(@SP) .ASL..ASL.
+    SECTOR=+1
+    @ASTATE=^PC
+.RDOPER DAT 0                           *λοναξδα ώτεξιρ + ξονες υστς.
+.   BPT
+    @ADATA=SECTOR                       %ξονες σελτοςα
+.   BPT
+    @ADATA=TRACK                        %ξονες δοςοφλι
+.   BPT
+    @'TPB'="+"
+    @ASTATE='RBUFF+GO'                  %ώτεξιε ιϊ βυζεςα
+    (WHILE
+.     BPT
+    WHILE @ASTATE:<0
+      ^BUFADR:=@ADATA
+    )WHILE
+    (IF SECTOR=26
+      SECTOR=0 ; TRACK=+1
+      @'TPB'="/"
+    )IF
+  )DCYCLE
+. TST (%6)+
+  PC=SP
+
+LABEL IT0C                              % IOT: οφιδαξιε "IT"
+  REPEAT @ASTATE=.BIT.&80A0 WHILE IS ZERO
+  (IF IS NEGATIVE                       %βωμα οϋιβλα ?
+LABEL IT04
+    HALT
+  )IF
+  DESACTIVATE

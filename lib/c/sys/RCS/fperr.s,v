@@ -1,0 +1,46 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.41.17;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ error = fperr(fpe);
+/	  struct fperr *fpe;
+
+.globl	_fperr
+.globl	cerror
+
+_fperr:
+	mov	r5, -(sp)
+	mov	sp, r5
+	sys	local; 9f
+	bec	1f
+	jmp	cerror
+1:
+	mov	4(sp), r5
+	mov	r0, (r5)+
+	mov	r1, (r5)
+	mov	(sp)+, r5
+	rts	pc
+.data
+9:
+	sys	fperr
+@

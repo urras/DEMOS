@@ -1,0 +1,37 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.53.54;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ C return sequence which
+/ sets errno, returns -1.
+
+.globl	cerror
+.comm	_errno,2
+
+cerror:
+	mov	r0,_errno
+	mov	$-1,r0
+	mov	r5,sp
+	mov	(sp)+,r5
+	rts	pc
+@

@@ -1,0 +1,68 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.21.16.03.03;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header: sigcatch.c,v 1.1 89/07/20 21:32:17 ache Exp $
+ * $Log:	sigcatch.c,v $
+ */
+#include <signal.h>
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+#define BYTESPERVEC	4			/* size of machine language vector */
+extern	char	mvectors[NSIG][BYTESPERVEC];	/* machine language vector */
+
+int     (*_cactions[NSIG])();            /* saved callers signal actions */
+char    _setflg[NSIG];                   /* flags for using sigset */
+long    _holdmask;
+long    _oldhmask;
+int     _pauseactive;
+
+/* called by the machine language assist at interrupt time */
+/* return value is new signal action (if any) */
+int (*
+_sigcatch(signum))()
+register signum;
+{
+	if (_pauseactive) {
+		_pauseactive = 0;
+		sigsetmask (_oldhmask &~ mask (signum));
+	}
+	_holdmask |= mask (signum);
+
+	/*touched[signum]++;*/
+	(*_cactions[signum]) (signum);            /* call the C routine */
+
+	_holdmask &= ~mask (signum);
+	if (_setflg[signum])
+		return DEFERSIG(mvectors[signum]);	/* return new action to set */
+	else
+		return SIG_DFL;
+}
+
+/* machine language assist is at interrupt time, where it vectors in,
+ * determining the caught signal and passing it to _sigcatch.
+ * its main purpose in life is to ensure that ALL registers are saved.
+ * and figuring out which signal is being caught
+ */
+
+@

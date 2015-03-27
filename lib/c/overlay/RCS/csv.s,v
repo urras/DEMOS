@@ -1,0 +1,276 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.3
+date     90.09.24.14.12.47;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.04.02.14.40.52;  author andrew;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.01.17.56.45;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.3
+log
+@????
+@
+text
+@/ $Header: csv.s,v 1.2 88/04/02 14:40:52 andrew Exp $
+/ $Log: csv.s,v $
+/ Revision 1.2  88/04/02  14:40:52  andrew
+/ Теперь из оверлейных модулей можно возвращаться по rts pc.
+/ ВНИМАНИЕ! Если ф-ция при входе не вызывает csv,
+/ то вместо вызова csv должны стоять как минимум 2 команды nop.
+/ Кроме того, возвращаемое значение может находится только
+/ в регистрах r0, r1.
+/
+/
+/ Revision 1.1  88/04/01  17:56:45  andrew
+/ Initial revision
+/
+/ C register save and restore -- version 7/75
+/ modified by wnj && cbh 6/79 for overlaid text registers
+/ modified by wf jolitz 2/80 to work and use emt syscall
+/ modified for 8-byte thunk, mjk 10/81
+/
+IPK_XOVLY=1
+
+.globl  csv
+.globl  cret
+.globl  xcret
+.globl  __ovno
+.globl  _etext
+.data
+__ovno: 0
+.text
+
+emt= 0104000            / overlays switched by emulator trap. ovno in r0.
+
+/ ovhndlr1 through ovhndlr7 are called from the thunks after
+/ r1 is set to the location of the first instruction in the subroutine
+/ after the call to csv (~foo+4).  They in turn branch to ovhndlr
+/ which sets the overlay and simulates a csv.
+/ Thus, the subroutine's call to csv is bypassed.
+
+.globl  ovhndlr1, ovhndlr2, ovhndlr3, ovhndlr4, ovhndlr5, ovhndlr6, ovhndlr7
+.if IPK_XOVLY
+.globl  ovhndlr8, ovhndlr9, ovhndlra, ovhndlrb, ovhndlrc, ovhndlrd, ovhndlre
+.globl  ovhndlrf, ovhndlrg, ovhndlrh, ovhndlri, ovhndlrj, ovhndlrk, ovhndlrl
+.globl  ovhndlrm, ovhndlrn, ovhndlro, ovhndlrp, ovhndlrq, ovhndlrr, ovhndlrs
+.globl  ovhndlrt, ovhndlru, ovhndlrv
+.endif
+
+ovhndlr1:       mov     $1,r0;  br      ovhndlr
+ovhndlr2:       mov     $2,r0;  br      ovhndlr
+ovhndlr3:       mov     $3,r0;  br      ovhndlr
+ovhndlr4:       mov     $4,r0;  br      ovhndlr
+ovhndlr5:       mov     $5,r0;  br      ovhndlr
+ovhndlr6:       mov     $6,r0;  br      ovhndlr
+ovhndlr7:       mov     $7,r0;  br      ovhndlr
+
+.if IPK_XOVLY
+ovhndlr8:       mov    $10,r0;  br      ovhndlr
+ovhndlr9:       mov    $11,r0;  br      ovhndlr
+ovhndlra:       mov    $12,r0;  br      ovhndlr
+ovhndlrb:       mov    $13,r0;  br      ovhndlr
+ovhndlrc:       mov    $14,r0;  br      ovhndlr
+ovhndlrd:       mov    $15,r0;  br      ovhndlr
+ovhndlre:       mov    $16,r0;  br      ovhndlr
+ovhndlrf:       mov    $17,r0;  br      ovhndlr
+ovhndlrg:       mov    $20,r0;  br      ovhndlr
+ovhndlrh:       mov    $21,r0;  br      ovhndlr
+ovhndlri:       mov    $22,r0;  br      ovhndlr
+ovhndlrj:       mov    $23,r0;  br      ovhndlr
+ovhndlrk:       mov    $24,r0;  br      ovhndlr
+ovhndlrl:       mov    $25,r0;  br      ovhndlr
+ovhndlrm:       mov    $26,r0;  br      ovhndlr
+ovhndlrn:       mov    $27,r0;  br      ovhndlr
+ovhndlro:       mov    $30,r0;  br      ovhndlr
+ovhndlrp:       mov    $31,r0;  br      ovhndlr
+ovhndlrq:       mov    $32,r0;  br      ovhndlr
+ovhndlrr:       mov    $33,r0;  br      ovhndlr
+ovhndlrs:       mov    $34,r0;  br      ovhndlr
+ovhndlrt:       mov    $35,r0;  br      ovhndlr
+ovhndlru:       mov    $36,r0;  br      ovhndlr
+ovhndlrv:       mov    $37,r0;  br      ovhndlr
+.endif
+
+ovhndlr:
+	cmp     r0,__ovno
+	beq     1f
+	emt
+1:      mov     sp,r5
+	mov     __ovno,-(sp)
+	mov     r0,__ovno
+	mov     r4,-(sp)
+	mov     r3,-(sp)
+	mov     r2,-(sp)
+	jsr     pc,(r1)         / jsr part is sub $2,sp
+	br      9f
+
+/ csv for routines called directly (in base or intra-overlay calls).
+/ no overlays have been changed, so we just save the previous overlay
+/ number on the stack. note that r0 isn't set to the current overlay
+/ because we weren't called through a thunk.
+csv:
+	mov     r5,r1
+	mov     sp,r5
+	mov     __ovno,-(sp)    / overlay is extra (first) word in mark
+/ rest is old code common with csv
+	mov     r4,-(sp)
+	mov     r3,-(sp)
+	mov     r2,-(sp)
+	jsr     pc,(r1)         / jsr part is sub $2,sp
+/
+/ at this point, the stack frame looks like this:
+/
+/       _________________________
+/       |  return addr to callee|
+/       |_______________________|
+/ r5->  | old r5                |
+/       |_______________________|
+/       | previous ovnumber     |
+/       |_______________________|
+/       | old r4                |
+/       |_______________________|
+/       | old r3                |
+/       |_______________________|
+/ sp->  | old r2                |
+/       |_______________________|
+/
+
+
+xcret:  cmp     r5,$0           / для отладчика sd
+xcretfrm = .-2
+	bne     1f
+	3               / breakpoint trap
+1:
+cret:
+9:
+	mov     r5,r2
+/ get the overlay out of the mark, and if it is non-zero
+/ make sure it is the currently loaded one
+	mov     -(r2),r4
+	bne     1f              / zero is easy
+2:
+	mov     -(r2),r4
+	mov     -(r2),r3
+	mov     -(r2),r2
+	mov     r5,sp
+	mov     (sp)+,r5
+	rts     pc
+/ not returning to root segment, so check that the right
+/ overlay is loaded, and if not ask UNIX for help
+1:
+	cmp     r4,__ovno
+	beq     2b              / lucked out!
+/ if return address is in root segment, then nothing to do
+	cmp     2(r5),$_etext
+	blos    2b
+/ returning to wrong overlay --- do something!
+	mov	r0,r3
+	mov	r4,r0
+	emt
+	mov	r4,__ovno
+	mov	r3,r0
+/ intr. routines may run between these, so should force segment __ovno
+	br	2b
+@
+
+
+1.2
+log
+@Теперь из оверлейных модулей можно возвращаться по rts pc.
+ВНИМАНИЕ! Если ф-ция при входе не вызывает csv,
+то вместо вызова csv должны стоять как минимум 2 команды nop.
+Кроме того, возвращаемое значение может находится только
+в регистрах r0, r1.
+
+@
+text
+@d1 10
+a10 2
+/ $Header: csv.s,v 1.1 88/04/01 17:56:45 andrew Exp $
+/ $Log:	csv.s,v $
+d13 1
+a13 1
+/ 
+d23 1
+d101 1
+a101 1
+	mov	__ovno,-(sp)	/ overlay is extra (first) word in mark
+d103 4
+a106 4
+	mov	r4,-(sp)
+	mov	r3,-(sp)
+	mov	r2,-(sp)
+	jsr	pc,(r1)		/ jsr part is sub $2,sp
+d110 13
+a122 13
+/	_________________________
+/	|  return addr to callee|
+/	|_______________________|
+/ r5->	| old r5	        |
+/	|_______________________|
+/	| previous ovnumber     |
+/	|_______________________|
+/	| old r4		|
+/	|_______________________|
+/	| old r3		|
+/	|_______________________|
+/ sp->	| old r2		|
+/	|_______________________|
+d126 5
+d133 1
+a133 1
+	mov	r5,r2
+d136 2
+a137 2
+	mov	-(r2),r4
+	bne	1f		/ zero is easy
+d139 6
+a144 6
+	mov	-(r2),r4
+	mov	-(r2),r3
+	mov	-(r2),r2
+	mov	r5,sp
+	mov	(sp)+,r5
+	rts	pc
+d148 2
+a149 2
+	cmp	r4,__ovno
+	beq	2b		/ lucked out!
+d151 2
+a152 2
+	cmp	2(r5),$_etext
+	blos	2b
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/ $Header$
+/ $Log$
+d83 1
+d118 1
+@

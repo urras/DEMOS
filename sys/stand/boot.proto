@@ -1,0 +1,9 @@
+f-uboot
+80 32
+d--755 0 0
+boot		---755 0 0 ./boot
+fler_dt		---755 0 0 ./fler_dt
+dev		d--755 0 0
+	console		c--666 0 0 1 0
+	$
+$

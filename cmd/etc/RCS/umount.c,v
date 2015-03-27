@@ -1,0 +1,672 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     89.07.31.21.52.22;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.07.19.20.31.52;  author ache;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.07.07.16.41.38;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.10.17.23.12.06;  author alex;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.10.15.19.27.26;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Размонтирование.
+@
+
+
+1.5
+log
+@Исправлены блокировки.
+@
+text
+@#
+/*
+ * umount -- Отмонтировать файловую систему
+ *
+ * $Log:	umount.c,v $
+ * Revision 1.4  89/07/19  20:31:52  ache
+ * Без флага -a(-p) выдавать ошибку при попытке отмонтировать
+ * несмонтированную систему.
+ * 
+ * Revision 1.3  89/07/07  16:41:38  ache
+ * Введено отмонтирование по mtab,
+ * исправлено отмонтирование по fstab + указание прохода,
+ * введен механизм flock, русские диагностики,
+ * правлены мелкие ошибки.
+ * 
+ * Revision 1.2  86/10/17  23:12:06  alex
+ * Внесено #include <mtab> и все, что с этим связано.
+ * 
+ * Revision 1.1  86/10/15  19:27:26  alex
+ * Initial revision
+ * 
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: umount.c,v 1.5 89/07/21 19:17:49 ache Exp $";
+#endif
+#include <ediag.h>
+#include <errno.h>
+extern errno;
+#include <stdio.h>
+#include <fstab.h>
+#include <mtab.h>
+#include <sys/file.h>
+
+/*
+ * umount
+ */
+#define min(a,b) ((a)<(b)?(a):(b))
+
+#define NMOUNT  MAXMOUNT
+
+struct mtab mtab[NMOUNT], mtab0;
+int uallm = 0, uallf = 0;
+
+main(argc, argv)
+char **argv;
+{
+	char *dname = NULL;
+	register char *v;
+	int errall;
+
+	if (argc < 2)
+		usage ();
+
+	while(--argc > 0 )
+	{
+	    if(*(v= *++argv)=='-') while(*++v) switch(*v) {
+	    case 'a':
+		uallm=1;
+		break;
+	    case 'p':
+		uallf=1;
+		getpasses(v+1);
+		break;
+	    default:
+		fprintf(stderr,ediag("Unknown key -%c\n","Неизвестный ключ -%c\n"), *v);
+		usage();
+	    }
+	    else {
+		if ( !dname) dname = v;
+		else {
+		    fprintf(stderr,ediag("Bad argument %s\n","Плохой аргумент %s\n"),v);
+		    usage();
+		}
+	    }
+	}
+
+	errall = 0;
+	if (!uallm && !uallf) {
+		int	back;
+
+		if (back = umountfs(dname, 1)){
+			if (back < 0)
+				perror (dname);
+			errall++;
+		}
+	}
+	if (uallm)
+		errall += uallmtab ();
+	if (uallf)
+		errall += uallfstab ();
+
+	exit (errall);
+}
+
+int     startpass = 1;          /* first pass for preen */
+int     endpass = 30000;        /* last pass for preen */
+
+getpasses(s)
+char *s;
+{
+	register char *p;
+
+	for (p = s; *p; p++)
+		if (*p == '-')
+			break;
+	if (*p == '-') {
+		*p = '\0';
+		if (*(p+1))
+			endpass = atoi(p+1);
+		if (*s)
+			startpass = atoi(s);
+		*p = '-';
+	} else if (*s)
+		startpass = atoi(s);
+	if (startpass <= 0 || startpass > endpass) {
+		fprintf (stderr, ediag("-p: invalid pass numbers\n",
+			      "-p: недопустимые номера проходов\n"));
+		exit (1);
+	}
+}
+
+usage()
+{
+	fprintf(stderr,ediag("Usage: ","Вызов: "));
+	fprintf(stderr,ediag("umount [-a] [-p[range]] [dev]\n",
+			     "umount [-a] [-p[диап]] [ус-во]\n"));
+	exit(1);
+}
+
+/*
+ *	It is important to unmount the files in
+ *	reverse! order from the order they were mounted,
+ *	so that file systems mounted as children to other
+ *	file systems get removed in the right order.
+ */
+
+prfs (spec, lock)
+register char *spec;
+{
+	register ret;
+
+	printf ("umount %s ", spec);
+	fflush (stdout);
+
+	if ((ret = umountfs (spec, lock)) < 0)
+		perror ("\t");
+
+	if (ret)
+		return 1;
+
+	printf ("\n");
+	fflush (stdout);
+
+	return 0;
+}
+
+uallmtab ()
+{
+	register i, j;
+	int errall;
+	static char devbuf[20] = "/dev/";
+
+	errall = 0;
+
+	if (lockmtab ())
+		return 1;
+
+	if (readmtab (0)) {
+		errall = 1;
+		goto unlock;
+	}
+
+	for (i = NMOUNT - 1; i >= 0 &&
+			     (mtab[i].m_name[0] == '\0' ||
+			      strcmp (mtab[i].m_name, "/") == 0); i--)
+		;
+	if (i < 0)
+		goto unlock;
+
+	for (j = i; j >= 0; j--) {
+		if (mtab[j].m_name[0] != '\0' &&
+		    strcmp (mtab[j].m_name, "/") != 0) {
+			strcpy (&devbuf[5], mtab[j].m_dname);
+			errall += prfs (devbuf, 0);
+		}
+	}
+	errall += writemtab (0);
+unlock:
+	unlockmtab ();
+	return errall;
+}
+
+#define TFS(x) (strcmp(fsp->fs_type,x) == 0)
+
+struct fstab ptab[NMOUNT];
+
+uallfstab()
+{
+	register struct fstab *fsp;
+	int pt, maxpassno, passno, errall, j;
+
+	if (setfsent() == NULL) {
+		perror(FSTAB);
+		return 1;
+	}
+
+	pt = 0;
+	maxpassno = 1;
+	while ((fsp = getfsent()) != NULL) {
+		if (!TFS(FSTAB_RO) && !TFS(FSTAB_RW))
+			continue;
+		if (strcmp (fsp->fs_file, "/") == 0)
+			continue;
+		if (pt >= NMOUNT) {
+			fprintf (stderr, ediag ("Too many fs's in %s.\n",
+						"Слишком много файловых систем в %s.\n"),
+						FSTAB);
+			return 1;
+		}
+		ptab[pt++] = *fsp;
+		if (fsp->fs_passno > maxpassno)
+			maxpassno = fsp->fs_passno;
+	}
+	endfsent ();
+
+	maxpassno = min (maxpassno, endpass);
+
+	errall = 0;
+	for (passno = maxpassno; passno >= startpass; passno--) {
+		for (j = pt - 1; j >= 0; j--) {
+			if (ptab[j].fs_passno == passno)
+				errall += prfs (ptab[j].fs_spec, 1);
+		}
+	}
+
+	return errall;
+}
+
+int lckfd = -1;
+
+lockmtab ()
+{
+	if ((lckfd = open(MOUNTTABLE, 2)) < 0 &&
+	    (lckfd = creat(MOUNTTABLE, 0644)) < 0) {
+		printf (stderr, ediag ("Can't change %s!\n",
+				       "Нельзя изменить %s!\n"), MOUNTTABLE);
+		return 1;
+	}
+	flock (lckfd, LOCK_EX);
+	return 0;
+}
+
+unlockmtab ()
+{
+	if (lckfd >= 0) {
+		flock (lckfd, LOCK_UN);
+		close (lckfd);
+		lckfd = -1;
+	}
+}
+
+writemtab (lock)
+{
+	register i, n, mf;
+
+	for (i = NMOUNT - 1; i >= 0 && mtab[i].m_name[0] == '\0'; i--)
+		;
+	i++;
+
+	if ((mf = creat(MOUNTTABLE, 0644)) < 0) {
+		fprintf (stderr,ediag("Can't creat %s!\n",
+				      "Нельзя создать %s!\n"), MOUNTTABLE);
+		return 1;
+	}
+
+	if (lock)
+		flock (mf, LOCK_EX);
+
+	n = write(mf, (char *)mtab, i * sizeof (struct mtab));
+
+	if (n != i * sizeof (struct mtab)) {
+		fprintf (stderr, ediag (
+			"%s: write error\n",
+			"%s: ошибка записи\n"), MOUNTTABLE);
+		close (mf);
+		return 1;
+	}
+
+	close (mf);
+	return 0;
+}
+
+readmtab (lock)
+{
+	register i, rf;
+
+	for (i = 0; i < NMOUNT; i++)
+		mtab[i].m_name[0] = '\0';
+
+	if ((rf = open(MOUNTTABLE, 0)) < 0)
+		return 1;
+
+	if (lock)
+		flock (rf, LOCK_SH);
+
+	read (rf, (char *)mtab, sizeof mtab);
+
+	close (rf);
+	return 0;
+}
+
+int umountfs(name, lock)
+	char	*name;
+{
+	register	char	*p1, *p2;
+	register        i;
+	int     rval;
+
+	rval = 1;
+	if (lock && lockmtab())
+		return rval;
+
+	if (lock && readmtab(0))
+		goto unlock;
+
+	if (umount (name) < 0 && (!uallf || errno != EINVAL)) {
+		rval = -1;
+		goto unlock;
+	}
+
+	p1 = name;
+	while(*p1++)
+		;
+	p1--;
+	while(*--p1 == '/')
+		*p1 = '\0';
+	while(p1 > name && *--p1 != '/')
+		;
+	if(*p1 == '/')
+		p1++;
+	name = p1;
+
+	for (i = NMOUNT - 1; i >= 0; i--) {
+		p1 = name;
+		p2 = &mtab[i].m_dname[0];
+		while (*p1++ == *p2)
+			if (*p2++ == '\0') {
+				mtab[i] = mtab0;
+				rval = 0;
+				if (lock)
+					rval = writemtab (0);
+				goto unlock;
+			}
+	}
+	rval = 0;
+
+unlock:
+	if (lock)
+		unlockmtab ();
+	return rval;
+}
+@
+
+
+1.4
+log
+@Без флага -a(-p) выдавать ошибку при попытке отмонтировать
+несмонтированную систему.
+@
+text
+@d6 4
+d25 1
+a25 1
+static char rcsid[] = "$Header: umount.c,v 1.3 89/07/07 16:41:38 ache Exp $";
+d34 1
+a42 1
+int mf = -1, rf = -1;
+d161 1
+a161 1
+	int errall, bl;
+d166 1
+a166 11
+	if (readmtab () == 0) {
+		bl = dup (rf);
+		flock (bl, LOCK_EX);
+		close (rf);
+	}
+	else if (writemtab () == 0) {
+		bl = dup (mf);
+		flock (bl, LOCK_EX);
+		close (mf);
+	}
+	else
+d169 5
+d188 4
+a191 5
+
+unlock: if ((i = writemtab ()) == 0)
+		close (mf);
+	close (bl);
+	return errall + i;
+d240 3
+a242 1
+writemtab ()
+d244 9
+a252 1
+	register i, n;
+d254 13
+d277 3
+a279 1
+	flock (mf, LOCK_EX);
+d290 2
+a291 1
+	return 0; /* not close */
+d294 1
+a294 1
+readmtab ()
+d296 1
+a296 1
+	register i;
+d304 3
+a306 1
+	flock (rf, LOCK_SH);
+d309 2
+a310 1
+	return 0;       /* not close */
+d318 1
+a318 1
+	int     bl, rval;
+d321 2
+a322 14
+	if (lock) {
+		if (readmtab () == 0) {
+			bl = dup (rf);
+			flock (bl, LOCK_EX);
+			close (rf);
+		}
+		else if (writemtab () == 0) {
+			bl = dup (mf);
+			flock (bl, LOCK_EX);
+			close (mf);
+		}
+		else
+			return rval;
+	}
+d324 4
+a327 1
+	if (umount (name) < 0 && (!uallm && !uallf || errno != EINVAL)) {
+d351 2
+a352 2
+				if (lock && (rval = writemtab ()) == 0)
+					close (mf);
+d358 3
+a360 2
+unlock: if (lock)
+		close (bl);
+@
+
+
+1.3
+log
+@Введено отмонтирование по mtab,
+исправлено отмонтирование по fstab + указание прохода,
+введен механизм flock, русские диагностики,
+правлены мелкие ошибки.
+@
+text
+@d6 6
+d21 1
+a21 1
+static char rcsid[] = "$Header: umount.c,v 1.3 89/07/07 16:30:22 ache Exp $";
+d39 1
+a45 1
+	int uallm = 0, uallf = 0;
+d309 1
+a309 1
+	if (umount (name) < 0 && errno != EINVAL) {
+@
+
+
+1.2
+log
+@Внесено #include <mtab> и все, что с этим связано.
+@
+text
+@d3 1
+a3 1
+ * umount -- Записать на ленту думп файловой системы
+d6 3
+d15 1
+a15 1
+static char rcsid[] = "$Header: umount.c,v 1.1 86/10/15 19:27:26 alex Stab $";
+d18 2
+a19 1
+
+d23 1
+d27 1
+d31 2
+a32 1
+struct mtab mtab[NMOUNT],mtab0;
+d37 4
+a40 3
+	register struct mtab *mp;
+	register char *p1, *p2;
+	int mf;
+d42 24
+a65 6
+	sync();
+	mf = open("/etc/mtab", 0);
+	read(mf, (char *)mtab, sizeof mtab);
+	if(argc != 2) {
+		printf("arg count\n");
+		return(1);
+d67 3
+a69 6
+	if (strcmp(argv[1], "-a") == 0){
+		if (setfsent() == 0)
+			perror(FSTAB), exit(1);
+		umountall();
+		endfsent();
+	} else {
+d71 2
+a72 1
+		if (back = umountfs(argv[1])){
+d74 2
+a75 2
+				perror("umount");
+			exit(1);
+d78 6
+a83 1
+	exit(0);
+d85 36
+d127 3
+a129 1
+umountall()
+d131 35
+a165 13
+	struct	fstab	fs;
+	struct	fstab	*fsp;
+	if ( (fsp = getfsent()) == 0)
+		return;
+	fs = *fsp;	/* save info locally; it is static from getfsent() */
+	umountall();
+	if (strcmp(fs.fs_file, "/") == 0)
+		return;
+	if (strcmp(fs.fs_type, FSTAB_RW) &&
+	    strcmp(fs.fs_type, FSTAB_RO))
+		return;
+	if (umountfs(fs.fs_spec) < 0)
+		fprintf(stdout, "Unmount of special file %s FAILED\n", fs.fs_spec);
+d167 21
+a187 2
+		fprintf(stdout, "Unmounted special file %s\n", fs.fs_spec);
+	fflush(stdout);
+d190 91
+a280 1
+int umountfs(name)
+d284 2
+a285 2
+	register	struct	mtab	*mp;
+	int	mf;
+d287 14
+a300 2
+	if (umount(name) < 0) {
+		return(-1);
+d302 6
+d319 2
+a320 1
+	for (mp = mtab; mp < &mtab[NMOUNT]; mp++) {
+d322 1
+a322 1
+		p2 = &mp->m_dname[0];
+d324 6
+a329 7
+			if (*p2++ == 0) {
+				*mp = mtab0;
+				mp = &mtab[NMOUNT];
+				while ((--mp)->m_name[0] == 0);
+				mf = creat("/etc/mtab", 0644);
+				write(mf, (char *)mtab, (mp-mtab+1)*(sizeof mtab));
+				return(0);
+d332 5
+a336 2
+	printf("%s not in mount table\n", name);
+	return(1);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d12 1
+a12 1
+static char rcsid[] = "$Header$";
+d18 1
+d23 1
+a23 2
+#define	NMOUNT	16
+#define	NAMSIZ	32
+d25 1
+a25 4
+struct mtab {
+	char	file[NAMSIZ];
+	char	spec[NAMSIZ];
+} mtab[NMOUNT];
+d36 1
+a36 1
+	read(mf, (char *)mtab, NMOUNT*2*NAMSIZ);
+d105 1
+a105 1
+		p2 = &mp->spec[0];
+d108 1
+a108 2
+				for (p1 = mp->file; p1 < &mp->file[NAMSIZ*2];)
+					*p1++ = 0;
+d110 1
+a110 1
+				while ((--mp)->file[0] == 0);
+d112 1
+a112 1
+				write(mf, (char *)mtab, (mp-mtab+1)*2*NAMSIZ);
+@

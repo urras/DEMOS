@@ -1,0 +1,60 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.04.21.20.05.06;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+/*      calloc - allocate and clear memory block
+*/
+#define CHARPERINT (sizeof(int)/sizeof(char))
+#define NULL 0
+
+char *
+calloc(num, size)
+unsigned num, size;
+{
+	register char *mp;
+	char *malloc();
+	register int *q;
+	register m;
+
+	num *= size;
+	mp = malloc(num);
+	if(mp == NULL)
+		return(NULL);
+	q = (int *) mp;
+	m = (num+CHARPERINT-1)/CHARPERINT;
+	while(--m>=0)
+		*q++ = 0;
+	return(mp);
+}
+
+/*ARGSUSED*/
+cfree(p, num, size)
+char *p;
+unsigned num, size;
+{
+	free(p);
+}
+@

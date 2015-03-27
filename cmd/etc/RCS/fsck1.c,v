@@ -1,0 +1,1219 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.12.24.15.15.12;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.12.15.23.02.22;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+См. fsck.c
+@
+
+
+1.2
+log
+@Убран лишний '\n'.
+@
+text
+@direrr2(a,b)
+char *a;
+int  b;
+{
+	pwarn(ediag("%s illegal reference","неверная ссылка %s"),a);
+	printf("\n");
+	printf(ediag("current name %s refers to inode %d instead of %d",
+		     "имя %s ссылается на i-узел %d вместо %d"),
+	       pathname, inum, b);
+	printf("\n");
+	return( reply(ediag("correct","исправить")) );
+}
+
+
+pass4(blk)
+long blk;
+{
+	register long *dlp;
+
+	if(outrange(blk))
+		return(SKIP);
+	if(getbmap(blk)) {
+		for(dlp = duplist; dlp < enddup; dlp++)
+			if(*dlp == blk) {
+				*dlp = *--enddup;
+				return(KEEPON);
+			}
+		clrbmap(blk);
+		n_blks--;
+	}
+	return(KEEPON);
+}
+
+
+pass5(blk)
+long blk;
+{
+	if(outrange(blk)) {
+		fixfree = 1;
+		if (preen)
+			pfatal(ediag("Bad blocks in free list.",
+				     "Недопустимые блоки в списке свободных."));
+		if(++badblk >= MAXBAD) {
+			printf(ediag("Excessive bad blks in free list.",
+				     "Слишком много недопустимых блоков в списке свободных."));
+			if(reply(ediag("conitnue",
+				       "продолжать")) == NO)
+				errexit("");
+			return(STOP);
+		}
+		return(SKIP);
+	}
+	if(getfmap(blk)) {
+		fixfree = 1;
+		if(++dupblk >= DUPTBLSIZE) {
+			printf(ediag("Excessive dup blks in free list.",
+				     "Слишком много повторно использованных блоков в списке свободных."));
+			if(reply(ediag("continue",
+				       "продолжать")) == NO)
+				errexit("");
+			return(STOP);
+		}
+	}
+	else {
+		n_free++;
+		setfmap(blk);
+	}
+	return(KEEPON);
+}
+
+
+blkerr(s,blk)
+long blk;
+char *s;
+{
+	pfatal("%ld %s I=%u",blk,s,inum);
+	printf("\n");
+	setstate(CLEAR);        /* mark for possible clearing */
+}
+
+
+descend()
+{
+	register DINODE *dp;
+	register char *savname;
+	off_t savsize;
+	ino_t dircrnt, dirparent;
+	char  dotn, ddotn;
+
+	setstate(FSTATE);
+	if((dp = ginode()) == NULL)
+		return;
+	dircrnt = crntdir; dirparent = parentdir;
+	parentdir = crntdir; crntdir = inum;
+	dotn = ndot; ddotn = nddot;
+	ndot = nddot = 0;
+	savname = thisname;
+	*pathp++ = '/';
+	savsize = filsize;
+	filsize = dp->di_size;
+	ckinode(dp,DATA);
+	thisname = savname;
+	*--pathp = 0;
+	filsize = savsize;
+	if( ndot == 0 )
+		mkfile(".",crntdir);
+	if( nddot == 0 )
+		mkfile("..",parentdir);
+	inum = crntdir;
+	crntdir = dircrnt; parentdir = dirparent;
+	ndot = dotn; nddot = ddotn;
+}
+
+
+mkfile(nmdir,inumdir)   /* делает несуществующие входы в каталоге */
+char *nmdir;
+ino_t inumdir;
+{
+	char *wname;
+	register DINODE *dp;
+
+	pfatal( ediag("\"%s\" missing in directory %s",
+		      "в каталоге %s нет входа \"%s\""),
+		ediag(nmdir, pathname), ediag(pathname, nmdir) );
+	if( reply(ediag("make entry","делать вход")) != YES )
+		return;
+	inum = crntdir;
+	if( (dp = ginode()) == NULL ){
+		pfatal(ediag("can't make entry, because no %s directory",
+			    "нельзя сделать новый вход, т.к. нет каталога %s"),
+		      pathname);
+		return;
+	}
+	if( dp->di_size & BMASK ){
+		dp->di_size = roundup(dp->di_size,BSIZE);
+		inodirty();
+	}
+	filsize = dp->di_size;
+	orphan = inumdir;
+	pfunc = mk1entry;
+	wname = thisname;
+	thisname = nmdir;
+	if( (ckinode(dp,DATA) & ALTERD) == 0 ){
+		pfatal(ediag("Sorry, no space in %s directory",
+			     "Извините, нет места в каталоге %s"),
+		       pathname);
+	} else {
+		inum = inumdir;
+		declncnt();
+	}
+	thisname = wname;
+}
+
+
+mk1entry(dirp)
+register DIRECT *dirp;
+{
+	register char *p,*p1;
+	char *nd;
+
+	if(dirp->d_ino)
+		return(KEEPON);
+	dirp->d_ino = orphan;
+	dirp->d_class = (ftflg>0)?DIR_IFDIR:DIR_OLD;
+	p = dirp->d_name;
+	p1 = thisname;
+	nd = &dirp->d_name[DIRSIZ];
+	while( *p1 != '\0' && p < nd )
+		*p++ = *p1++;
+	while( p < nd )
+		*p++ = 0;
+	return(ALTERD|STOP);
+}
+
+
+dirscan(blk)
+long blk;
+{
+	register DIRECT *dirp;
+	register char *p1, *p2;
+	register n;
+	DIRECT direntry;
+
+	if(outrange(blk)) {
+		filsize -= BSIZE;
+		return(SKIP);
+	}
+	for(dirp = dirblk.b_dir; dirp < &dirblk.b_dir[NDIRECT] &&
+		filsize > 0; dirp++, filsize -= sizeof(DIRECT)) {
+		if(getblk(&fileblk,blk) == NULL) {
+			filsize -= (&dirblk.b_dir[NDIRECT]-dirp)*sizeof(DIRECT);
+			return(SKIP);
+		}
+		p1 = &dirp->d_name[DIRSIZ];
+		p2 = &direntry.d_name[DIRSIZ];
+		while(p1 > (char *)dirp)
+			*--p2 = *--p1;
+		if((n = (*pfunc)(&direntry)) & ALTERD) {
+			if(getblk(&fileblk,blk) != NULL) {
+				dirp->d_ino = direntry.d_ino;
+				dirp->d_class = direntry.d_class;
+				fbdirty();
+			}
+			else
+				n &= ~ALTERD;
+		}
+		if(n & STOP)
+			return(n);
+	}
+	return(filsize > 0 ? KEEPON : STOP);
+}
+
+
+direrr(a,s,s1,s2,s3)
+register int a;
+{
+	register DINODE *dp;
+
+	pwarn(s,s1,s2,s3);
+	if( a ){
+		printf(" ");
+		pinode();
+	}
+	printf("\n");
+	if( a ){
+		if((dp = ginode()) != NULL && ftypeok(dp))
+			pfatal("%s=%s",DIR?ediag("dir","каталог")
+					   :ediag("file","файл"),
+			       pathname);
+		else
+			pfatal(ediag("name=%s","имя=%s"),pathname);
+	}
+	return(reply(ediag("remove","удалить")));
+}
+
+
+adjust(lcnt)
+register short lcnt;
+{
+	register DINODE *dp;
+
+	if((dp = ginode()) == NULL)
+		return;
+	if(dp->di_nlink == lcnt) {
+		if(linkup() == NO)
+			clri(ediag("Unref",
+				   "Нет ссылок на"),NO);
+	}
+	else {
+		pwarn(ediag("Link count %s",
+			    "Счетчик ссылок %s"),
+			(lfdir==inum)?lfname:(DIR?ediag("dir",
+							"каталога")
+						 :ediag("file",
+							"файла")));
+		pinode();
+		printf(ediag(" count %d should be %d",
+			     " сейчас %d должно быть %d"),
+			dp->di_nlink,dp->di_nlink-lcnt);
+		if (preen) {
+			if (lcnt < 0) {
+				printf("\n");
+				preendie();
+			}
+			printf(ediag(" (adjusted)\n",
+				     " (исправлено)\n"));
+		}
+		if(preen || reply(ediag("adjust",
+					"исправить")) == YES) {
+			dp->di_nlink -= lcnt;
+			inodirty();
+		}
+	}
+}
+
+
+clri(s,flg)
+char *s;
+{
+	register DINODE *dp;
+
+	if((dp = ginode()) == NULL)
+		return;
+	if(flg == YES) {
+		pwarn("%s %s",s,DIR?ediag("dir",
+					  "каталог")
+				   :ediag("file",
+					  "файл"));
+		pinode();
+	}
+	if(preen || reply(ediag("clear",
+				"очистить")) == YES) {
+		if (preen)
+			printf(ediag(" (cleared)\n",
+				     " (очищен)\n"));
+		n_files--;
+		pfunc = pass4;
+		ckinode(dp,ADDR);
+		zapino(dp);
+		inodirty();
+	}
+}
+
+
+setup(dev)
+char *dev;
+{
+	register n;
+	register BUFAREA *bp;
+	register MEMSIZE msize;
+	char *mbase;
+	long bcnt, nscrblk;
+	dev_t rootdev;
+	off_t smapsz, lncntsz, totsz;
+	struct stat statarea;
+
+	if(stat("/",&statarea) < 0)
+		errexit(ediag("Can't stat root\n",
+			      "Не могу определить состояние корня\n"));
+	rootdev = statarea.st_dev;
+	if(stat(dev,&statarea) < 0) {
+		error(ediag("Can't stat %s\n",
+			    "Не существует или недоступно ус-во %s\n"), dev);
+		return(NO);
+	}
+	rawflg = 0;
+	if((statarea.st_mode & S_IFMT) == S_IFBLK)
+		;
+	else if((statarea.st_mode & S_IFMT) == S_IFCHR)
+		rawflg++;
+	else {
+		pfatal(ediag("file is not a block or character device",
+			     "файл не устройство"));
+		if (reply(ediag("OK",
+				"Нормально")) == NO)
+			return(NO);
+	}
+	if(rootdev == statarea.st_rdev)
+		hotroot++;
+	if((dfile.rfdes = open(dev,0)) < 0) {
+		error(ediag("Can't open %s\n",
+			    "Не могу открыть %s\n"),dev);
+		return(NO);
+	}
+	if (preen == 0)
+		printf("\n%s",dev);
+	if(nflag || (dfile.wfdes = open(dev,1)) < 0) {
+		dfile.wfdes = -1;
+		if (preen)
+			pfatal(ediag("No write access",
+				     "Нет разрешения на запись"));
+		printf(ediag(" (No write)",
+			     " (Нет разрешения на запись)"));
+	}
+	dfile.fname = dev;
+	if (preen == 0)
+		printf("\n");
+	fixfree = 0;
+	dfile.mod = 0;
+	n_files = n_blks = n_free = 0;
+	muldup = enddup = &duplist[0];
+	badlnp = &badlncnt[0];
+	lfdir = 0;
+	rplyflag = 0;
+	initbarea(&sblk);
+	initbarea(&fileblk);
+	initbarea(&inoblk);
+	sfile.wfdes = sfile.rfdes = -1;
+	if(getblk(&sblk,SUPERB) == NULL) {
+		ckfini();
+		return(NO);
+	}
+	imax = ((ino_t)superblk.s_isize - (SUPERB+1)) * INOPB;
+	fmin = (long)superblk.s_isize;       /* first data blk num */
+	fmax = superblk.s_fsize;                /* first invalid blk num */
+	if(fmin >= fmax ||
+		(imax/INOPB) != ((ino_t)superblk.s_isize-(SUPERB+1))) {
+		pfatal(ediag("Size check: fsize %ld isize %d",
+			     "Проверьте размеры: разм. файловой системы %ld разм. области i-узлов %d"),
+			superblk.s_fsize,superblk.s_isize);
+		printf("\n");
+		ckfini();
+		return(NO);
+	}
+	if (preen == 0)
+		printf(ediag("File System: %.12s\n\n",
+			     "Файловая Система: %.12s\n\n"), superblk.s_fsmnt);
+	bmapsz = roundup(howmany(fmax-fmin,BITSPB),sizeof(*lncntp));
+	smapsz = roundup(howmany((long)(imax+1)*2,STATEPB),sizeof(*lncntp));
+	lncntsz = (long)(imax+1) * sizeof(*lncntp);
+	if( bmapsz > lncntsz+smapsz )
+		smapsz = bmapsz - lncntsz;
+	totsz = bmapsz+lncntsz+smapsz;
+	msize = memsize;
+	mbase = membase;
+	if(rawflg) {
+		if(msize < (MEMSIZE)(NINOBLK*BSIZE) + 2*sizeof(BUFAREA))
+			rawflg = 0;
+		else {
+			msize -= (MEMSIZE)NINOBLK*BSIZE;
+			mbase += (MEMSIZE)NINOBLK*BSIZE;
+			niblk = NINOBLK;
+			startib = fmax;
+		}
+	}
+	clear(mbase,msize);
+	if((off_t)msize < totsz) {
+		bmapsz = roundup(bmapsz,BSIZE);
+		smapsz = roundup(smapsz,BSIZE);
+		lncntsz = roundup(lncntsz,BSIZE);
+		nscrblk = (bmapsz+lncntsz+smapsz)>>BSHIFT;
+		if(tflag == 0) {
+			pfatal(ediag("\nNeed scratch file (%ld blks)\n",
+				     "\nНужен рабочий файл (%ld блоков)\n"),nscrblk);
+			do {
+				printf(ediag("enter filename:  ",
+					     "введите имя:  "));
+				if((n = getline(stdin,scrfile,sizeof(scrfile))) == EOF)
+					errexit("\n");
+			} while(n == 0);
+		}
+		if(stat(scrfile,&statarea) < 0 ||
+			(statarea.st_mode & S_IFMT) == S_IFREG)
+			rmscr++;
+		if (tempbase == 0)
+			sfile.wfdes=creat(scrfile,0666);
+		else
+			sfile.wfdes=open(scrfile,1);
+		if ((sfile.wfdes < 0)
+		    || ((sfile.rfdes = open(scrfile,0)) < 0)) {
+			error(ediag("Can't create %s\n",
+				    "Не могу создать %s\n"),scrfile);
+			ckfini();
+			return(NO);
+		}
+		if (hotroot && (stat(scrfile,&statarea)==0)
+		    && ((statarea.st_mode & S_IFMT) == S_IFREG)
+		    && (statarea.st_dev==rootdev))
+		     pfatal(ediag("Tmp file (%s) on root when checking root",
+				  "Во время проверки корня рабочий файл (%s) в корне"),scrfile);
+		sfile.fname = scrfile;
+		bp = &((BUFAREA *)mbase)[(msize/sizeof(BUFAREA))];
+		poolhead = NULL;
+		while(--bp >= (BUFAREA *)mbase) {
+			initbarea(bp);
+			bp->b_next = poolhead;
+			poolhead = bp;
+		}
+		bp = poolhead;
+		for(bcnt = tempbase; bcnt < tempbase+nscrblk; bcnt++) {
+			bp->b_bno = bcnt;
+			dirty(bp);
+			flush(&sfile,bp);
+		}
+		statemap = blkmap = freemap = (char *) NULL;
+		lncntp = (short *) NULL;
+		bmapblk = tempbase;
+		tempbase += nscrblk;
+		fmapblk = smapblk = bmapblk + bmapsz/BSIZE;
+		lncntblk = smapblk + smapsz/BSIZE;
+	}
+	else {
+		if(rawflg && (off_t)msize > totsz+BSIZE) {
+			niblk += (unsigned)((off_t)msize-totsz)>>BSHIFT;
+			if(niblk > MAXRAW)
+				niblk = MAXRAW;
+			msize = memsize - (niblk*BSIZE);
+			mbase = membase + (niblk*BSIZE);
+		}
+		poolhead = NULL;
+		blkmap = mbase;
+		freemap = statemap = &mbase[(MEMSIZE)bmapsz];
+		lncntp = (short *)&statemap[(MEMSIZE)smapsz];
+	}
+	return(YES);
+}
+
+
+DINODE *
+ginode()
+{
+	register DINODE *dp;
+	register char *mbase;
+	long iblk;
+
+	if(inum > imax)
+		return(NULL);
+	iblk = itod(inum);
+	if(rawflg) {
+		mbase = membase;
+		if(iblk < startib || iblk >= startib+niblk) {
+			if(inoblk.b_dirty)
+				bwrite(&dfile,mbase,startib,(int)niblk*BSIZE);
+			inoblk.b_dirty = 0;
+			if(bread(&dfile,mbase,iblk,(int)niblk*BSIZE) == NO) {
+				startib = fmax;
+				return(NULL);
+			}
+			startib = iblk;
+		}
+		dp = (DINODE *)&mbase[(unsigned)((iblk-startib)<<BSHIFT)];
+	}
+	else if(getblk(&inoblk,iblk) != NULL)
+		dp = inoblk.b_un.b_dinode;
+	else
+		return(NULL);
+	return(dp + itoo(inum));
+}
+
+
+ftypeok(dp)
+DINODE *dp;
+{
+	switch(dp->di_mode & IFMT) {
+		case IFDIR:
+		case IFREG:
+		case IFBLK:
+		case IFCHR:
+		case IFMPC:
+		case IFMPB:
+		case IFQUOT:
+		case IFLNK:
+		case IFIFO:
+			return(YES);
+		default:
+			return(NO);
+	}
+}
+
+
+reply(s)
+char *s;
+{
+	char line[80];
+
+	if (preen)
+		pfatal(ediag("Internal error: got to reply()",
+			     "Внутренняя ошибка: вызов reply()"));
+	rplyflag = 1;
+	printf("\n%s? ",s);
+	if(nflag || csflag || dfile.wfdes < 0) {
+		printf(ediag(" no\n\n",
+			     " нет\n\n"));
+		return(NO);
+	}
+	if(yflag) {
+		printf(ediag(" yes\n\n",
+			     " да\n\n"));
+		return(YES);
+	}
+	if(getline(stdin,line,sizeof(line)) == EOF)
+		errexit("\n");
+	printf("\n");
+	if(line[0] == 'y' || line[0] == 'Y'
+	|| line[0] == (char)'д' || line[0] == (char)'Д')
+		return(YES);
+	else
+		return(NO);
+}
+
+
+getline(fp,loc,maxlen)
+FILE *fp;
+char *loc;
+{
+	register n;
+	register char *p, *lastloc;
+
+	p = loc;
+	lastloc = &p[maxlen-1];
+	while((n = getc(fp)) != '\n') {
+		if(n == EOF)
+			return(EOF);
+		if(!isspace(n) && p < lastloc)
+			*p++ = n;
+	}
+	*p = 0;
+	return(p - loc);
+}
+
+
+stype(p)
+register char *p;
+{
+	if(*p == 0)
+		return;
+	if (*(p+1) == 0) {
+		if (*p == '3') {
+			cylsize = 200;
+			stepsize = 5;
+			return;
+		}
+		if (*p == '4') {
+			cylsize = 418;
+			stepsize = 9;
+			return;
+		}
+	}
+	cylsize = atoi(p);
+	while(*p && *p != ':')
+		p++;
+	if(*p)
+		p++;
+	stepsize = atoi(p);
+	if(stepsize <= 0 || stepsize > cylsize ||
+	cylsize <= 0 || cylsize > MAXCYL) {
+		error(ediag("Invalid -s argument, defaults assumed\n",
+			    "Недопустимый аргумент -s, используется умолчание\n"));
+		cylsize = stepsize = 0;
+	}
+}
+
+
+domap(blk,flg)
+long blk;
+{
+	register char *p;
+	register unsigned n;
+	register BUFAREA *bp;
+	off_t byte;
+
+	blk = blk - fmin;
+	byte = blk >> BITSHIFT;
+	n = 1<<((unsigned)(blk & BITMASK));
+	if(flg & 04) {
+		p = freemap;
+		blk = fmapblk;
+	}
+	else {
+		p = blkmap;
+		blk = bmapblk;
+	}
+	if(p != NULL) {
+		bp = NULL;
+		p += (unsigned)byte;
+	}
+	else if((bp = getblk((BUFAREA *)NULL,blk+(byte>>BSHIFT))) == NULL)
+		errexit(ediag("Fatal I/O error\n",
+			      "Фатальная ошибка ввода/вывода\n"));
+	else
+		p = &bp->b_un.b_buf[(unsigned)(byte&BMASK)];
+	switch(flg&03) {
+		case 0:
+			*p |= n;
+			break;
+		case 1:
+			n &= *p;
+			bp = NULL;
+			break;
+		case 2:
+			*p &= ~n;
+	}
+	if(bp != NULL)
+		dirty(bp);
+	return(n);
+}
+
+
+dolncnt(val,flg)
+register short val;
+{
+	register short  *sp;
+	register BUFAREA *bp;
+	int in;
+
+	in = inum - 1;
+	if(lncntp != NULL) {
+		bp = NULL;
+		sp = &lncntp[inum];
+	}
+	else if((bp = getblk((BUFAREA *)NULL,(long)(lncntblk+(in/SPERB)))) == NULL)
+		errexit(ediag("Fatal I/O error\n",
+			      "Фатальная ошибка ввода/вывода\n"));
+	else
+		sp = &bp->b_un.b_lnks[in%SPERB];
+	switch(flg){
+		case 0: *sp = val; break;
+		case 1: bp = NULL; break;
+		case 2: (*sp)--; break;
+		default: bp = NULL; break;
+	}
+	if(bp != NULL)
+		dirty(bp);
+	return(*sp);
+}
+
+
+dostate(val,flg)
+int val,flg;
+{
+	register char  *p;
+	register unsigned byte, shift;
+	BUFAREA *bp;
+
+	shift = (inum-1)*2;
+	if( flg & 01000 ){
+		shift++;
+		flg &= ~01000;
+	}
+	byte = shift/STATEPB;
+	shift = LSTATE * (shift%STATEPB);
+	if(statemap != NULL) {
+		bp = NULL;
+		p = &statemap[byte];
+	} else if((bp = getblk((BUFAREA *)NULL,(long)(smapblk+(byte/BSIZE)))) == NULL)
+		errexit(ediag("Fatal I/O error\n",
+			      "Фатальная ошибка ввода/вывода\n"));
+	else
+		p = &bp->b_un.b_buf[byte%BSIZE];
+	switch(flg){
+		case 0:
+			*p &= ~(SMASK<<shift);
+			*p |= val<<shift;
+			if( bp != NULL )
+				dirty(bp);
+			return(val);
+		case 1:
+			return( (*p>>shift) & SMASK );
+	}
+	return(USTATE);
+}
+
+
+BUFAREA *
+getblk(bp,blk)
+long blk;
+register BUFAREA *bp;
+{
+	register struct filecntl *fcp;
+
+	if(bp == NULL) {
+		bp = search(blk);
+		fcp = &sfile;
+	}
+	else
+		fcp = &dfile;
+	if(bp->b_bno == blk)
+		return(bp);
+	flush(fcp,bp);
+	if(bread(fcp,bp->b_un.b_buf,blk,BSIZE) != NO) {
+		bp->b_bno = blk;
+		return(bp);
+	}
+	bp->b_bno = -1l;
+	return(NULL);
+}
+
+
+flush(fcp,bp)
+struct filecntl *fcp;
+register BUFAREA *bp;
+{
+	if(bp->b_dirty) {
+		bwrite(fcp,bp->b_un.b_buf,bp->b_bno,BSIZE);
+	}
+	bp->b_dirty = 0;
+}
+
+
+rwerr(s,blk,name,fd)
+char *s;
+long blk;
+char *name;
+{
+	if (preen == 0)
+		printf("\n");
+	pfatal(ediag("Can not %s: blk %ld of %s",
+		     "Не могу %s: блк %ld из %s"),s,blk,name);
+	if(reply(ediag("continue",
+		       "продолжать")) == NO)
+		errexit(ediag("Program terminated\n",
+			      "Программа прекращена\n"));
+}
+
+
+sizechk(dp)
+register DINODE *dp;
+{
+	if (maxblk != howmany(dp->di_size, BSIZE))
+		printf(ediag("Possible file size error I=%u (%ld,%ld)\n",
+			     "Возможная ошибка в размере файла I=%u (%ld,%ld)\n"),
+		    inum, maxblk, howmany(dp->di_size,BSIZE));
+	if(DIR && (dp->di_size % sizeof(DIRECT)) != 0) {
+		pwarn(ediag("Directory misaligned I=%u\n",
+			    "Размер каталога не кратен размеру входа каталога I=%u\n"),inum);
+		if (preen == 0)
+			printf("\n");
+	}
+}
+
+
+ckfini()
+{
+	flush(&dfile,&fileblk);
+	flush(&dfile,&sblk);
+	flush(&dfile,&inoblk);
+	closefils();
+}
+
+closefils()
+{
+	close(dfile.rfdes);
+	close(dfile.wfdes);
+	close(sfile.rfdes);
+	close(sfile.wfdes);
+}
+
+
+pinode()
+{
+	register DINODE *dp;
+	register char *p;
+	char uidbuf[200];
+	char *ctime();
+
+	printf(" I=%u ",inum);
+	if((dp = ginode()) == NULL)
+		return;
+	printf(ediag(" owner=",
+		     " владелец="));
+	if(getpw((int)dp->di_uid,uidbuf) == 0) {
+		for(p = uidbuf; *p != ':'; p++);
+		*p = 0;
+		printf("%s ",uidbuf);
+	}
+	else {
+		printf("%d ",dp->di_uid);
+	}
+	printf(ediag("mode=%o\n",
+		     "код доступа=%o\n"),dp->di_mode);
+	if (preen)
+		printf("%s: ", devname);
+	printf(ediag("size=%ld ",
+		     "размер=%ld "),dp->di_size);
+	p = ctime(&dp->di_mtime);
+	printf(ediag("mtime=%12.12s %4.4s ",
+		     "вр.посл.мод.=%12.12s %4.4s "),p+4,p+20);
+}
+
+
+copy(fp,tp,size)
+register char *tp, *fp;
+MEMSIZE size;
+{
+	while(size--)
+		*tp++ = *fp++;
+}
+
+ifreechk() {
+	register i;
+
+	for (i=0; i<superblk.s_ninode; i++) {
+		inum = superblk.s_inode[i];
+		switch (getstate()) {
+
+		case USTATE:
+			continue;
+		default:
+			pwarn(ediag("Allocated inode(s) in free list",
+				    "Занятый(ые) i-узел(узлы) в списке свободных"));
+			if (preen)
+				printf(ediag(" (fixed)\n",
+					     " (исправлено)\n"));
+			if (preen || reply(ediag("fix",
+						 "исправить")) == YES) {
+				superblk.s_ninode = i-1;
+				sbdirty();
+			}
+			return;
+		}
+	}
+}
+
+freechk()
+{
+	register long *ap;
+
+	if(freeblk.df_nfree == 0)
+		return;
+	do {
+		if(freeblk.df_nfree <= 0 || freeblk.df_nfree > NICFREE) {
+			pfatal(ediag("Bad freeblk count",
+				     "Плохой счетчик свободных блоков"));
+			printf("\n");
+			fixfree = 1;
+			return;
+		}
+		ap = &freeblk.df_free[freeblk.df_nfree];
+		while(--ap > &freeblk.df_free[0]) {
+			if(pass5(*ap) == STOP)
+				return;
+		}
+		if(*ap == 0l || pass5(*ap) != KEEPON)
+			return;
+	} while(getblk(&fileblk,*ap) != NULL);
+}
+
+
+makefree()
+{
+	register i, cyl, step;
+	int j;
+	char flg[MAXCYL];
+	short addr[MAXCYL];
+	long blk, baseblk;
+
+	superblk.s_nfree = 0;
+	superblk.s_flock = 0;
+	superblk.s_fmod = 0;
+	superblk.s_tfree = 0;
+	superblk.s_ninode = 0;
+	superblk.s_ilock = 0;
+	superblk.s_ronly = 0;
+	if(cylsize == 0 || stepsize == 0) {
+		step = superblk.s_dinfo[0];
+		cyl = superblk.s_dinfo[1];
+	}
+	else {
+		step = stepsize;
+		cyl = cylsize;
+	}
+	if(step > cyl || step <= 0 || cyl <= 0 || cyl > MAXCYL) {
+		error(ediag("Default free list spacing assumed\n",
+			    "Используется расположение свободных блоков по умолчанию\n"));
+		step = STEPSIZE;
+		cyl = CYLSIZE;
+	}
+	superblk.s_dinfo[0] = step;
+	superblk.s_dinfo[1] = cyl;
+	clear(flg,sizeof(flg));
+	i = 0;
+	for(j = 0; j < cyl; j++) {
+		while(flg[i])
+			i = (i + 1) % cyl;
+		addr[j] = i + 1;
+		flg[i]++;
+		i = (i + step) % cyl;
+	}
+	baseblk = (long)roundup(fmax,cyl);
+	clear((char *)&freeblk,BSIZE);
+	freeblk.df_nfree++;
+	for( ; baseblk > 0; baseblk -= cyl)
+		for(i = 0; i < cyl; i++) {
+			blk = baseblk - addr[i];
+			if(!outrange(blk) && !getbmap(blk)) {
+				superblk.s_tfree++;
+				if(freeblk.df_nfree >= NICFREE) {
+					fbdirty();
+					fileblk.b_bno = blk;
+					flush(&dfile,&fileblk);
+					clear((char *)&freeblk,BSIZE);
+				}
+				freeblk.df_free[freeblk.df_nfree] = blk;
+				freeblk.df_nfree++;
+			}
+		}
+	superblk.s_nfree = freeblk.df_nfree;
+	for(i = 0; i < NICFREE; i++)
+		superblk.s_free[i] = freeblk.df_free[i];
+	sbdirty();
+}
+
+
+clear(p,cnt)
+register char *p;
+MEMSIZE cnt;
+{
+	while(cnt--)
+		*p++ = 0;
+}
+
+
+BUFAREA *
+search(blk)
+long blk;
+{
+	register BUFAREA *pbp, *bp;
+
+	for(bp = (BUFAREA *) &poolhead; bp->b_next; ) {
+		pbp = bp;
+		bp = pbp->b_next;
+		if(bp->b_bno == blk)
+			break;
+	}
+	pbp->b_next = bp->b_next;
+	bp->b_next = poolhead;
+	poolhead = bp;
+	return(bp);
+}
+
+
+findino(dirp)
+register DIRECT *dirp;
+{
+	register char *p1, *p2;
+
+	if(dirp->d_ino == 0)
+		return(KEEPON);
+	for(p1 = dirp->d_name,p2 = srchname;*p2++ == *p1; p1++) {
+		if(*p1 == 0 || p1 == &dirp->d_name[DIRSIZ-1]) {
+			if(dirp->d_ino >= ROOTINO && dirp->d_ino <= imax)
+				parentdir = dirp->d_ino;
+			return(STOP);
+		}
+	}
+	return(KEEPON);
+}
+
+
+mkentry(dirp)
+register DIRECT *dirp;
+{
+	register ino_t in;
+	register char *p;
+
+	if(dirp->d_ino)
+		return(KEEPON);
+	dirp->d_ino = orphan;
+	in = inum;
+	inum = orphan;
+	dirp->d_class = (ftflg>0)?getmod():DIR_OLD;
+	inum = in;
+	in = orphan;
+	p = &dirp->d_name[DIRSIZ];
+	while (p >=  &dirp->d_name[8])
+		*--p = 0;
+	while(p > dirp->d_name) {
+		*--p = (in % 10) + '0';
+		in /= 10;
+	}
+	*p = '#';
+	return(ALTERD|STOP);
+}
+
+
+chgdd(dirp)
+register DIRECT *dirp;
+{
+	if(dirp->d_name[0] == '.' && dirp->d_name[1] == '.' &&
+	dirp->d_name[2] == 0) {
+		dirp->d_ino = lfdir;
+		return(ALTERD|STOP);
+	}
+	return(KEEPON);
+}
+
+
+linkup()
+{
+	register DINODE *dp;
+	register lostdir;
+	register ino_t pdir;
+
+	if((dp = ginode()) == NULL)
+		return(NO);
+	lostdir = DIR;
+	pdir = parentdir;
+        pwarn(ediag("Unref %s ",
+                    "Нет ссылок на %s "),lostdir ?
+                                ediag("dir","каталог"):
+                                ediag("file","файл"));
+        pinode();
+        if (preen && dp->di_size == 0)
+                return(NO);
+        if (preen)
+                printf(ediag(" (reconnected)\n",
+                             " (связь сделана)\n"));
+        else
+                if (reply(ediag("reconnect",
+                                "делать связь")) == NO)
+                        return(NO);
+        orphan = inum;
+        if(lfdir == 0) {
+                inum = ROOTINO;
+                if((dp = ginode()) == NULL) {
+                        inum = orphan;
+                        return(NO);
+		}
+		pfunc = findino;
+		srchname = lfname;
+		filsize = dp->di_size;
+		parentdir = 0;
+		ckinode(dp,DATA);
+		inum = orphan;
+		if((lfdir = parentdir) == 0) {
+                        pfatal(ediag("Sorry, no lost+found directory",
+                                     "Извините, нет каталога lost+found"));
+                        printf("\n\n");
+                        return(NO);
+                }
+        }
+        inum = lfdir;
+        if((dp = ginode()) == NULL || !DIR || getstate() != FSTATE) {
+                inum = orphan;
+		pfatal(ediag("Sorry, no %s directory",
+			     "Извините, нет каталога %s"),"lost+found");
+                printf("\n\n");
+                return(NO);
+        }
+        if(dp->di_size & BMASK) {
+                dp->di_size = roundup(dp->di_size,BSIZE);
+                inodirty();
+        }
+        filsize = dp->di_size;
+        inum = orphan;
+        pfunc = mkentry;
+        if((ckinode(dp,DATA) & ALTERD) == 0) {
+		pfatal(ediag("Sorry, no space in %s directory",
+			     "Извините, нет места в каталоге %s"),
+		       "lost+found");
+                printf("\n\n");
+                return(NO);
+        }
+        declncnt();
+        if(lostdir) {
+                pfunc = chgdd;
+                dp = ginode();
+                filsize = dp->di_size;
+                ckinode(dp,DATA);
+                inum = lfdir;
+                if((dp = ginode()) != NULL) {
+                        dp->di_nlink++;
+                        inodirty();
+                        setlncnt(getlncnt()+1);
+                }
+                inum = orphan;
+                pwarn(ediag("Dir I=%u connected. ",
+                            "Каталог I=%u присоединен. "),orphan);
+                printf(ediag("Parent was I=%u\n",
+                             "Ссылка вверх была I=%u\n"),pdir);
+                if (preen == 0)
+                        printf("\n");
+        }
+        return(YES);
+}
+
+
+bread(fcp,buf,blk,size)
+long blk;
+register struct filecntl *fcp;
+register size;
+char *buf;
+{
+        if(lseek(fcp->rfdes,blk<<BSHIFT,0) < 0)
+                rwerr(ediag("seek","спозиционировать"),blk,fcp->fname);
+        else if(read(fcp->rfdes,buf,size) == size)
+                return(YES);
+        rwerr(ediag("read","читать"),blk,fcp->fname);
+        return(NO);
+}
+
+
+bwrite(fcp,buf,blk,size)
+long blk;
+register struct filecntl *fcp;
+register size;
+char *buf;
+{
+        if(fcp->wfdes < 0)
+                return(NO);
+        if(lseek(fcp->wfdes,blk<<BSHIFT,0) < 0)
+                rwerr(ediag("seek","спозиционировать"),blk,fcp->fname);
+        else if(write(fcp->wfdes,buf,size) == size) {
+                fcp->mod = 1;
+                return(YES);
+        }
+        rwerr(ediag("write","писать"),blk,fcp->fname);
+        return(NO);
+}
+
+catch()
+{
+	ckfini();
+	if(rmscr)
+		unlink(scrfile);
+	exit(12);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d780 2
+a781 2
+		printf(ediag("Possible file size error I=%u (%ld,%ld)\n\n",
+			     "Возможная ошибка в размере файла I=%u (%ld,%ld)\n\n"),
+@

@@ -1,0 +1,266 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     89.10.23.15.59.34;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.12.13.18.04.02;  author guba;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.12.01.22.33.11;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.19.59.40;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@При указании количества копируемых файлов и при копировании файлов,
+меньше чем указано, нодо выдавать ошибку.
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: copymt.c,v 1.3 88/12/13 18:04:02 guba Exp $
+** $Log:        copymt.c,v $
+ * Revision 1.3  88/12/13  18:04:02  guba
+ * Исправлена выдача номера файла
+ * ( раньше иногда выдавалось на 1 меньше ).
+ *
+ * Revision 1.2  88/12/01  22:33:11  root
+ * Исправлены русские диагностики.
+ * Добавлена опция "кол-во файлов".
+ * Счет файлов ведется от 1, а не от 0.
+ * Не выдается информация о последнем файле нулевой длины.
+ * Кол-во записанных файлов выдается верно ( раньше было на 1 больше ).
+ *
+ * Revision 1.1  88/05/03  19:59:40  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: copymt.c,v 1.3 88/12/13 18:04:02 guba Exp $";
+/* YESXSTR */
+# endif         lint
+
+#include <stdio.h>
+#include <ediag.h>
+#define LMAX 512*32+2
+main(argc,argv)
+int argc;
+char *argv[];
+{
+	int from,to,nfiles,nrec,l,minbs,maxbs;
+	int maxfil;
+	char buf[LMAX];
+
+	if( argc < 3 || argc > 4 ) {
+		fprintf(stderr,ediag("Usage: copymt from to [nfiles]\n","Вызов: copymt откуда куда [кол-во файлов]\n"));
+		exit(1);
+	}
+	maxfil = ( argc == 4 ) ? atoi( argv[3] ) : -1;
+	from=open(argv[1],0);
+	for(nfiles=0; (maxfil>=0) ? nfiles < maxfil : 1; nfiles++)
+	{
+		minbs = LMAX;
+		maxbs = 0;
+		to=open(argv[2],1);
+		if(from <=0 || to <= 0) {
+			fprintf(stderr,ediag("Can not open %s\n","Не могу открыть %s\n"), from<=0?argv[1]:argv[2]);
+			goto err;
+		}
+		for(nrec=0;;nrec++)
+		{
+			l=read(from,buf,LMAX);
+			if(l <= 0 || l==LMAX ) break;
+			if(minbs > l ) minbs = l;
+			if(maxbs < l) maxbs = l;
+			if(write(to,buf,l)!=l)
+			{
+				fprintf(stderr,ediag("Write error file=%d block=%d\n","Ошибка записи: файл %d запись %d\n"),nfiles+1,nrec+1);
+				goto err;
+			}
+		}
+		close(to);
+		if(l<0) {
+			fprintf(stderr,ediag("Read error file=%d block=%d\n","Ошибка чтения: файл %d запись %d\n"),nfiles+1,nrec+1);
+			goto err;
+		}
+		if(l==LMAX) {
+			fprintf(stderr,ediag("Too long record, file=%d block=%d\n","Слишком длинная запись, файл %d запись %d\n"),nfiles+1,nrec+1);
+			goto err;
+		}
+		if(minbs==LMAX) minbs = maxbs = 0;
+		if(nrec==0) goto endt;
+		fprintf(stderr,ediag("File %d, records=%d size from %d to %d ready\n","Файл %d, записей: %d, от %d до %d байтов\n"),nfiles+1,nrec,minbs,maxbs);
+	}
+endt:   fprintf(stderr,ediag("Copied %d files.\007\n","Скопировано файлов: %d.\007\n"), nfiles );
+	close(from);
+	exit( (maxfil>=0) ? nfiles != maxfil : 0 );
+err:
+	close(from);
+	close(to);
+	fprintf(stderr,ediag("Error on file %d, copymt failed.\007\n","Ошибка в файле %d, копирование прeрвано.\007\n"),nfiles+1);
+	exit(1);
+}
+@
+
+
+1.3
+log
+@Исправлена выдача номера файла
+( раньше иногда выдавалось на 1 меньше ).
+@
+text
+@d6 6
+a11 2
+** $Header: copymt.c,v 1.2 88/12/01 22:33:11 root Exp $
+** $Log:	copymt.c,v $
+d18 1
+a18 1
+ * 
+d21 1
+a21 1
+ * 
+d26 1
+a26 1
+static char     Rcs_id[] = "$Header: copymt.c,v 1.2 88/12/01 22:33:11 root Exp $";
+d38 2
+a39 2
+        int maxfil;
+        char buf[LMAX];
+d41 40
+a80 40
+        if( argc < 3 || argc > 4 ) {
+                fprintf(stderr,ediag("Usage: copymt from to [nfiles]\n","Вызов: copymt откуда куда [кол-во файлов]\n"));
+                exit(1);
+        }
+        maxfil = ( argc == 4 ) ? atoi( argv[3] ) : -1;
+        from=open(argv[1],0);
+        for(nfiles=0; (maxfil>=0) ? nfiles < maxfil : 1; nfiles++)
+        {
+                minbs = LMAX;
+                maxbs = 0;
+                to=open(argv[2],1);
+                if(from <=0 || to <= 0) {
+                        fprintf(stderr,ediag("Can not open %s\n","Не могу открыть %s\n"), from<=0?argv[1]:argv[2]);
+                        goto err;
+                }
+                for(nrec=0;;nrec++)
+                {
+                        l=read(from,buf,LMAX);
+                        if(l <= 0 || l==LMAX ) break;
+                        if(minbs > l ) minbs = l;
+                        if(maxbs < l) maxbs = l;
+                        if(write(to,buf,l)!=l)
+                        {
+                                fprintf(stderr,ediag("Write error file=%d block=%d\n","Ошибка записи: файл %d запись %d\n"),nfiles+1,nrec+1);
+                                goto err;
+                        }
+                }
+                close(to);
+                if(l<0) {
+                        fprintf(stderr,ediag("Read error file=%d block=%d\n","Ошибка чтения: файл %d запись %d\n"),nfiles+1,nrec+1);
+                        goto err;
+                }
+                if(l==LMAX) {
+                        fprintf(stderr,ediag("Too long record, file=%d block=%d\n","Слишком длинная запись, файл %d запись %d\n"),nfiles+1,nrec+1);
+                        goto err;
+                }
+                if(minbs==LMAX) minbs = maxbs = 0;
+                if(nrec==0) goto endt;
+                fprintf(stderr,ediag("File %d, records=%d size from %d to %d ready\n","Файл %d, записей: %d, от %d до %d байтов\n"),nfiles+1,nrec,minbs,maxbs);
+        }
+d82 2
+a83 2
+        close(from);
+        exit(0);
+d85 3
+a87 3
+        close(from);
+        close(to);
+        fprintf(stderr,ediag("Error on file %d, copymt failed.\007\n","Ошибка в файле %d, копирование прeрвано.\007\n"),nfiles+1);
+@
+
+
+1.2
+log
+@Исправлены русские диагностики.
+Добавлена опция "кол-во файлов".
+Счет файлов ведется от 1, а не от 0.
+Не выдается информация о последнем файле нулевой длины.
+Кол-во записанных файлов выдается верно ( раньше было на 1 больше ).
+@
+text
+@d6 1
+a6 1
+** $Header: copymt.c,v 1.1 88/05/03 19:59:40 root Exp $
+d8 7
+d22 1
+a22 1
+static char     Rcs_id[] = "$Header: copymt.c,v 1.1 88/05/03 19:59:40 root Exp $";
+d66 1
+a66 1
+                        fprintf(stderr,ediag("Read error file=%d block=%d\n","Ошибка чтения: файл %d запись %d\n"),nfiles,nrec+1);
+d70 1
+a70 1
+                        fprintf(stderr,ediag("Too long record, file=%d block=%d\n","Слишком длинная запись, файл %d запись %d\n"),nfiles,nrec+1);
+d83 1
+a83 1
+        fprintf(stderr,ediag("Error on file %d, copymt failed.\007\n","Ошибка в файле %d, копирование прeрвано.\007\n"),nfiles);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d20 1
+a20 1
+#define ediag(l,r) l
+d27 4
+a30 2
+	char buf[LMAX];
+        if(argc != 3) {
+d34 1
+d36 1
+a36 1
+        for(nfiles=0;;nfiles++)
+a66 1
+                fprintf(stderr,ediag("File %d, records=%d size from %d to %d ready\n","Файл %d, %d записей от %d до %d байтов\n"),nfiles,nrec,minbs,maxbs);
+d68 1
+d70 1
+a70 1
+endt:   fprintf(stderr,ediag("Copied %d files.\007\n","Скопировано %d файлов.\007\n"),nfiles+1);
+@

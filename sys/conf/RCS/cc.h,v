@@ -1,0 +1,30 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.11.16.17.06.21;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+КАМАК.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Конфигурация КАМАК-крейтов
+ */
+
+#define NCC     %NCC%
+@

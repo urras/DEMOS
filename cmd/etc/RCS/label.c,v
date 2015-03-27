@@ -1,0 +1,131 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.06.22.19.12.31;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+маркировка тома.
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#include <stdio.h>
+#include <sys/param.h>
+#include <sys/ino.h>
+#include <sys/inode.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/filsys.h>
+#include <ediag.h>
+
+extern char *ctime();
+
+int d;          /* файл-диск */
+int all = 0;    /* флаг */
+struct filsys f;
+
+usage(){
+	printf( ediag( "usage: label [-a] disk [newlabel]\n",
+		       "вызов: label [-a] неМонтированныйДиск [новаяМетка]\n"));
+	exit(1);
+}
+getsuper(){
+	lseek( d, (long) 1024, 0 );
+	read( d, &f, sizeof f );
+}
+show( a ){
+	register i;
+
+	if( a==0 ){
+		for(i=0; i< sizeof( f.s_fpack ); i++ ){
+		      if( f.s_fpack[i] )
+			  putchar( f.s_fpack[i] );
+		      else break;
+		}
+		putchar('\n');
+		return;
+	}else{
+
+		printf( "MountPoint :" );
+		for(i=0; i< sizeof( f.s_fsmnt ); i++ ){
+		      if( f.s_fsmnt[i] )
+			  putchar( f.s_fsmnt[i] );
+		      else break;
+		}
+		putchar('\n');
+
+		printf( "Label      :" );
+		for(i=0; i< sizeof( f.s_fpack ); i++ ){
+		      if( f.s_fpack[i] )
+			  putchar( f.s_fpack[i] );
+		      else break;
+		}
+		putchar('\n');
+
+		printf( "Blocks     :%ld\n", f.s_fsize );
+		printf( "I-nodes    :%u\n", ( f.s_isize - 2 ) * INOPB );
+		printf( "Update time:%s", ctime( & f.s_time ));
+	}
+}
+
+main( argc, argv ) char **argv;
+{
+	struct stat st;
+
+	int su = (getuid() == 0);
+
+	if( argc > 1 && !strcmp( argv[1] , "-a" )){
+		argc--;
+		argv++;
+		all++;
+	}
+
+	if( argc == 1 )
+		usage();
+	d = open( argv[1], su ? 2 : 0 );
+	if( d<0 ){
+		perror("label");
+		exit(1);
+	}
+	if( fstat( d, &st ) < 0 ||
+		((st.st_mode & S_IFMT) != S_IFBLK &&
+		 (st.st_mode & S_IFMT) != S_IFCHR )
+	){
+		printf( ediag( "label:%s is not device\n",
+			       "label:%s не устройство\n"),
+			argv[1] );
+		exit(2);
+	}
+
+	getsuper();
+	show( all );
+
+	if( argc == 3 ){
+		printf( "---\n");
+		if( !su ){
+			printf( ediag( "Not superuser.\n", "Не суперпользователь.\n"));
+			exit(3);
+		}
+		lseek( d, (long) 1024, 0 );
+		strncpy( f.s_fpack, argv[2], sizeof( f.s_fpack));
+		write( d, &f, sizeof f);
+	} else exit(0);
+
+	getsuper();
+	show( 0 );
+}
+@

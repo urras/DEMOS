@@ -1,0 +1,43 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.04.21.20.07.09;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+/*
+ * Swap bytes in 16-bit [half-]words
+ */
+
+swab(pf, pt, n)
+register short *pf, *pt;
+register n;
+{
+
+	n /= 2;
+	while (--n >= 0) {
+		*pt++ = (*pf << 8) + ((*pf >> 8) & 0377);
+		pf++;
+	}
+}
+@

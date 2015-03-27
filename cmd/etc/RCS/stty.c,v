@@ -1,0 +1,1424 @@
+head     22.1;
+access   avg flerov davidov alex fox dvolodin;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+22.1
+date     89.03.25.13.57.52;  author dvolodin;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.09.22.14.14.09;  author root;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.07.05.20.30.12;  author avg;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.07.05.20.15.28;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     86.09.29.20.17.23;  author avg;  state Stab;
+branches ;
+next     1.8;
+
+1.8
+date     86.07.19.12.31.48;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     86.05.20.14.09.09;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.04.28.12.59.13;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.04.20.18.41.22;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.04.18.22.38.36;  author root;  state Stab;
+branches ;
+next     1.3;
+
+1.3
+date     86.04.17.18.40.37;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.04.17.18.31.05;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.17.18.28.50;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Печать/установка режимов терминала.
+@
+
+
+22.1
+log
+@Стили csisoq и cbits8q добавлены везде, где нужно.
+@
+text
+@/*
+ * Установка режимов терминала
+ *
+ * $Log:	stty.c,v $
+ * Revision 1.12  88/09/22  14:14:09  root
+ * Вставлены два флага CSISOQ и C8BITSQ.
+ * 
+ * Revision 1.11  88/07/05  20:30:12  avg
+ * Исправлена диагостика при ??delay.
+ * 
+ * Revision 1.10  88/07/05  20:15:28  avg
+ * Сделаны ключи -a и -e в стиле System V,
+ * сделана установка ispeed и ospeed отдельно.
+ * 
+ * Revision 1.9  86/09/29  20:17:23  avg
+ * Добавлены флажки dstops и frame7.
+ *
+ * Revision 1.8  86/07/19  12:31:48  avg
+ * Исправлена ошибка - неправильно отображался znak.
+ *
+ * Revision 1.7  86/05/20  14:09:09  avg
+ * Когда стоит CYRILL, выдается не tilde, а znak.
+ *
+ * Revision 1.6  86/04/28  12:59:13  avg
+ * Поправлена выдача параметров:
+ * теперь ucase выдается ТОЛЬКО ТОГДА, когда установлен lcase.
+ *
+ * Revision 1.5  86/04/20  18:41:22  avg
+ * При работе с LCASE и UCASE неплохо было бы выводить
+ * ^A как ^a (т.к. ^A выведется как ^\A).
+ *
+ * Revision 1.4  86/04/18  22:38:36  root
+ * Исправлена обработка флагов siso и -siso.
+ *
+ * Revision 1.3  86/04/17  18:40:37  root
+ * Мелкие правочки.
+ *
+ */
+#ifndef lint
+static char rcsid[] = "$Header: stty.c,v 1.12 88/09/22 14:14:09 root Exp $";
+#endif
+
+#include <whoami.h>
+#include <stdio.h>
+#include <sgtty.h>
+
+struct
+{
+	char    *string;
+	int     speed;
+} speeds[] = {
+	"0",    B0,
+	"50",   B50,
+	"75",   B75,
+	"110",  B110,
+	"134.5",B134,
+	"134",  B134,
+	"150",  B150,
+	"200",  B200,
+	"300",  B300,
+	"600",  B600,
+	"1200", B1200,
+	"1800", B1800,
+	"2400", B2400,
+	"4800", B4800,
+	"9600", B9600,
+	"19200",B19200,
+	"exta", EXTA,
+	"extb", EXTB,
+	0,
+};
+
+struct
+{
+	char    *string;
+	int     set;
+	int     reset;
+	int     lset;
+	int     lreset;
+} modes[] = {
+/*string        set             reset           lset            lreset */
+
+"even",         EVENP,          0,              0,              0,
+"-even",        0,              EVENP,          0,              0,
+"odd",          ODDP,           0,              0,              0,
+"-odd",         0,              ODDP,           0,              0,
+"any",          EVENP+ODDP,     0,              0,              0,
+"raw",          RAW,            0,              0,              0,
+"-raw",         0,              RAW,            0,              0,
+"cooked",       0,              RAW,            0,              0,
+"-nl",          CRMOD,          0,              0,              0,
+"nl",           0,              CRMOD,          0,              0,
+"echo",         ECHO,           0,              0,              0,
+"-echo",        0,              ECHO,           0,              0,
+"LCASE",        LCASE,          CSTYLE,         0,              0,
+"lcase",        LCASE,          CSTYLE,         0,              0,
+"-LCASE",       CEL15,          LCASE+CSTYLE,   0,              0,
+"-lcase",       CEL15,          LCASE+CSTYLE,   0,              0,
+"-tabs",        XTABS,          0,              0,              0,
+"tabs",         0,              XTABS,          0,              0,
+"dstops",       DSTOPS,         0,              0,              0,
+"-dstops",      0,              DSTOPS,         0,              0,
+"frame7",       FRAME7,         0,              0,              0,
+"-frame7",      0,              FRAME7,         0,              0,
+"tandem",       TANDEM,         0,              0,              0,
+"-tandem",      0,              TANDEM,         0,              0,
+"cbreak",       CBREAK,         0,              0,              0,
+"-cbreak",      0,              CBREAK,         0,              0,
+"crtbs",        0,              0,              LCRTBS,         LPRTERA,
+"-crtbs",       0,              0,              0,              LCRTBS,
+"prterase",     0,              0,              LPRTERA,        LCRTBS+LCRTKIL+LCRTERA,
+"-prterase",    0,              0,              0,              LPRTERA,
+"crterase",     0,              0,              LCRTERA,        LPRTERA,
+"-crterase",    0,              0,              0,              LCRTERA,
+"crtkill",      0,              0,              LCRTKIL,        LPRTERA,
+"-crtkill",     0,              0,              0,              LCRTKIL,
+"tilde",        0,              0,              LTILDE,         0,
+"-tilde",       0,              0,              0,              LTILDE,
+"mdmbuf",       0,              0,              LMDMBUF,        0,
+"-mdmbuf",      0,              0,              0,              LMDMBUF,
+"litout",       0,              0,              LLITOUT,        0,
+"-litout",      0,              0,              0,              LLITOUT,
+"tostop",       0,              0,              LTOSTOP,        0,
+"-tostop",      0,              0,              0,              LTOSTOP,
+"flusho",       0,              0,              LFLUSHO,        0,
+"-flusho",      0,              0,              0,              LFLUSHO,
+"nohang",       0,              0,              LNOHANG,        0,
+"-nohang",      0,              0,              0,              LNOHANG,
+"znak",         0,              0,              LZNAK,          0,
+"-znak",        0,              0,              0,              LZNAK,
+"intrup",       0,              0,              LINTRUP,        0,
+"-intrup",      0,              0,              0,              LINTRUP,
+"ctlecho",      0,              0,              LCTLECH,        0,
+"-ctlecho",     0,              0,              0,              LCTLECH,
+"pendin",       0,              0,              LPENDIN,        0,
+"-pendin",      0,              0,              0,              LPENDIN,
+"decctlq",      0,              0,              LDECCTQ,        0,
+"-decctlq",     0,              0,              0,              LDECCTQ,
+"noflsh",       0,              0,              LNOFLSH,        0,
+"-noflsh",      0,              0,              0,              LNOFLSH,
+"cyrill",       CYRILL+CEL15,   CSTYLE,         0,              0,
+"-cyrill",      0,              CYRILL+CSTYLE,  0,              0,
+"cbits8",       CBITS8+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cel15",        CEL15+CYRILL,   CSTYLE+LCASE,   0,              0,
+"cel15i",       CEL15I+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cel15k",       CEL15K+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cbmkbd",       CBMKBD+CYRILL,  CSTYLE+LCASE,   0,              0,
+"c52130",       C52130+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cbits8q",      CBITS8Q+CYRILL, CSTYLE+LCASE,   0,              0,
+"csisoq",       CSISOQ+CYRILL,  CSTYLE+LCASE,   0,              0,
+"ucase",        UCASE+LCASE,    CSTYLE-SISO,    0,              0,
+"-ucase",       LCASE,          CSTYLE-SISO,    0,              0,
+"siso",         SISO+LCASE,     CSTYLE-UCASE,   0,              0,
+"-siso",        LCASE,          CSTYLE-UCASE,   0,              0,
+"esch",         0,              0,              LESCH,          0,
+"-esch",        0,              0,              0,              LESCH,
+0,
+};
+
+struct sgttyb1 mode;
+#define lmode (mode.sg_local)
+int     oldisc, ldisc;
+
+#define CTRL(x)         ('x'&037)
+
+struct  special {
+	char    *name;
+	char    *cp;
+	char    def;
+} special[] = {
+	"erase",        &mode.sg_erase,         0177,
+	"kill",         &mode.sg_kill,          CTRL(u),
+	"intr",         &mode.sg_intrc,         CTRL(c),
+	"quit",         &mode.sg_quitc,         CTRL(\\\\),
+	"start",        &mode.sg_startc,        CTRL(q),
+	"stop",         &mode.sg_stopc,         CTRL(s),
+	"eof",          &mode.sg_eofc,          CTRL(d),
+	"brk",          &mode.sg_brkc,          0377,
+	"susp",         &mode.sg_suspc,         CTRL(z),
+	"dsusp",        &mode.sg_dsuspc,        CTRL(y),
+	"rprnt",        &mode.sg_rprntc,        CTRL(r),
+	"flush",        &mode.sg_flushc,        CTRL(t),
+	"werase",       &mode.sg_werasc,        CTRL(w),
+	"lnext",        &mode.sg_lnextc,        CTRL(v),
+	0
+};
+char    *arg;
+
+int     argc;
+char    **argv;
+main(iargc, iargv)
+char    **iargv;
+{
+	int i, SAVEF = 0;
+	register struct special *sp;
+	char obuf[BUFSIZ];
+
+	setbuf(stderr, obuf);
+	argc = iargc;
+	argv = iargv;
+	if( argc == 2 && !strcmp(argv[1], "-e") )
+		SAVEF = 1;
+	ioctl((SAVEF?0:1), TIOCGETD, (struct sgttyb *) &ldisc);
+	ioctl((SAVEF?0:1), TIOCGETA, (struct sgttyb *) &mode );
+	oldisc = ldisc;
+	if(argc == 1) {
+		prmodes(0);
+		exit(0);
+	}
+	if (argc == 2 && !strcmp(argv[1], "all")) {
+		prmodes(1);
+		exit(0);
+	}
+	if (argc == 2 &&(!strcmp(argv[1], "everything")
+		      || !strcmp(argv[1], "e")
+		      || !strcmp(argv[1], "-a")) ) {
+		prmodes(2);
+		exit(0);
+	}
+	if(SAVEF) {
+		prEmodes();
+		exit(0);
+	}
+/*
+	if (argc == 2 && !strcmp(argv[1], "all")) {
+		prmodes(2);
+		exit(0);
+	}
+*/
+	while(--argc > 0) {
+		arg = *++argv;
+		if (eq("ek")){
+			mode.sg_erase = '#';
+			mode.sg_kill = '@@';
+			continue;
+		}
+		if (eq("new")){
+			ldisc = NTTYDISC;
+			if (ioctl(1, TIOCSETD, (struct sgttyb *) &ldisc)<0)
+				perror("ioctl");
+			continue;
+		}
+		if (eq("newcrt")){
+			ldisc = NTTYDISC;
+			lmode &= ~LPRTERA;
+			lmode |= LCRTBS|LCTLECH;
+			if (mode.sg_ospeed >= B1200)
+				lmode |= LCRTERA|LCRTKIL;
+			if (ioctl(1, TIOCSETD, (struct sgttyb *) &ldisc)<0)
+				perror("ioctl");
+			continue;
+		}
+		if (eq("crt")){
+			lmode &= ~LPRTERA;
+			lmode |= LCRTBS|LCTLECH|LCRTERA;
+			if (mode.sg_ospeed >= B1200)
+				lmode |= LCRTKIL;
+			continue;
+		}
+		if (eq("old")){
+			ldisc = OTTYDISC;
+			if (ioctl(1, TIOCSETD, (struct sgttyb *) &ldisc)<0)
+				perror("ioctl");
+			continue;
+		}
+		if (eq("dec")){
+			mode.sg_erase = 0177;
+			mode.sg_kill = CTRL(u);
+			mode.sg_intrc = CTRL(c);
+			ldisc = NTTYDISC;
+			lmode &= ~LPRTERA;
+			lmode |= LCRTBS|LCTLECH|LDECCTQ;
+			if (mode.sg_ospeed >= B1200)
+				lmode |= LCRTERA|LCRTKIL;
+			if (ioctl(1, TIOCSETD, (struct sgttyb *) &ldisc)<0)
+				perror("ioctl");
+			continue;
+		}
+		for (sp = special; sp->name; sp++)
+			if (eq(sp->name)) {
+				if (--argc == 0)
+					goto done;
+				if (**++argv == 'u')
+					*sp->cp = 0377;
+				else if (**argv == '^')
+					*sp->cp = ((*argv)[1] == '?') ?
+					    0177 : (*argv)[1] & 037;
+				else
+					*sp->cp = **argv;
+				goto cont;
+			}
+		if (eq("gspeed")) {
+			mode.sg_ispeed = B300;
+			mode.sg_ospeed = B9600;
+			continue;
+		}
+		if (eq("hup")) {
+			ioctl(1, TIOCHPCL, (struct sgttyb *) NULL);
+			continue;
+		}
+		for(i=0; speeds[i].string; i++)
+			if(eq(speeds[i].string)) {
+				mode.sg_ispeed = mode.sg_ospeed = speeds[i].speed;
+				goto cont;
+			}
+		if (eq("ispeed")) {
+			if (--argc == 0)
+				goto done;
+			arg = *++argv;
+			for(i=0; speeds[i].string; i++)
+				if(eq(speeds[i].string)) {
+					mode.sg_ispeed = speeds[i].speed;
+					goto cont;
+				}
+			fprintf(stderr, "ispeed %s?\n", *argv);
+			goto cont;
+		}
+		if (eq("ospeed")) {
+			if (--argc == 0)
+				goto done;
+			arg = *++argv;
+			for(i=0; speeds[i].string; i++)
+				if(eq(speeds[i].string)) {
+					mode.sg_ospeed = speeds[i].speed;
+					goto cont;
+				}
+			fprintf(stderr, "ispeed %s?\n", *argv);
+			goto cont;
+		}
+		if (eq("speed")) {
+			gtty(open("/dev/tty", 0), &mode);
+			for(i=0; speeds[i].string; i++)
+				if (mode.sg_ospeed == speeds[i].speed) {
+					printf("%s\n", speeds[i].string);
+					exit(0);
+				}
+			printf("unknown\n");
+			exit(1);
+		}
+		if (eq("width") && (arg = *++argv) ) {
+			argc--;
+			mode.sg_width = atoi(arg);
+			continue;
+		}
+		if (eq("htdelay") && (arg = *++argv) ) {
+			argc--;
+			if( *arg == 'c' || *arg == 'C' )
+				mode.sg_htdly = atoi(arg+1) | 0200;
+			else
+				mode.sg_htdly = atoi(arg);
+			continue;
+		}
+		if (eq("crdelay") && (arg = *++argv) ) {
+			argc--;
+			if( *arg == 'c' || *arg == 'C' )
+				mode.sg_crdly = atoi(arg+1) | 0200;
+			else
+				mode.sg_crdly = atoi(arg);
+			continue;
+		}
+		if (eq("nldelay") && (arg = *++argv) ) {
+			argc--;
+			if( *arg == 'c' || *arg == 'C' )
+				mode.sg_nldly = atoi(arg+1) | 0200;
+			else
+				mode.sg_nldly = atoi(arg);
+			continue;
+		}
+		if (eq("vtdelay") && (arg = *++argv) ) {
+			argc--;
+			if( *arg == 'c' || *arg == 'C' )
+				mode.sg_vtdly = atoi(arg+1) | 0200;
+			else
+				mode.sg_vtdly = atoi(arg);
+			continue;
+		}
+		for(i=0; modes[i].string; i++)
+			if(eq(modes[i].string)) {
+				mode.sg_flags &= ~modes[i].reset;
+				mode.sg_flags |= modes[i].set;
+				lmode &= ~modes[i].lreset;
+				lmode |= modes[i].lset;
+			}
+		if(arg)
+			fprintf(stderr,"unknown mode: %s\n", arg);
+cont:
+		;
+	}
+done:
+	ioctl(1, TIOCSETB, (struct sgttyb *) &mode);
+}
+
+eq(string)
+char *string;
+{
+	int i;
+
+	if(!arg)
+		return(0);
+	i = 0;
+loop:
+	if(arg[i] != string[i])
+		return(0);
+	if(arg[i++] != '\0')
+		goto loop;
+	arg = 0;
+	return(1);
+}
+
+int     Lowerflag = 0;
+
+prmodes(all)
+{
+	register m;
+	int any;
+	char *pp;
+
+	if(ldisc==NETLDISC)
+		fprintf(stderr, "net discipline, ");
+	else if(ldisc==NTTYDISC)
+		fprintf(stderr, "new tty, ");
+	else if(all==2)
+		fprintf(stderr, "old tty, ");
+	if(mode.sg_ispeed != mode.sg_ospeed) {
+		prspeed("input speed ", mode.sg_ispeed);
+		prspeed(" output speed ", mode.sg_ospeed);
+	} else
+		prspeed("speed ", mode.sg_ispeed);
+	fprintf(stderr, all==2 ? "\n" : "; ");
+	m = mode.sg_flags;
+	if( (m & (LCASE|UCASE)) == (LCASE|UCASE) )
+		Lowerflag++;
+	if(all==2 || (m&(EVENP|ODDP))!=(EVENP|ODDP)) {
+		if(m & EVENP)   fprintf(stderr,"even ");
+		if(m & ODDP)    fprintf(stderr,"odd ");
+	}
+	if(all==2 || m&RAW)
+		fprintf(stderr,"-raw "+((m&RAW)!=0));
+	if(all==2 || (m&CRMOD)==0)
+		fprintf(stderr,"-nl "+((m&CRMOD)==0));
+	if(all==2 || (m&ECHO)==0)
+		fprintf(stderr,"-echo "+((m&ECHO)!=0));
+	if(all==2 || (m&LCASE)) {
+		fprintf(stderr,"-lcase "+((m&LCASE)!=0));
+	if( (m&LCASE) && (all==2 || (m&UCASE)) )
+		fprintf(stderr,"-ucase "+((m&UCASE)!=0));
+	}
+	if(all==2 || (m&TANDEM))
+		fprintf(stderr,"-tandem "+((m&TANDEM)!=0));
+	fprintf(stderr,"-tabs "+((m&XTABS)!=XTABS));
+	fprintf(stderr,"-cyrill "+((m&CYRILL)!=0));
+	if(all==2 || (m&CBREAK))
+		fprintf(stderr,"-cbreak "+((m&CBREAK)!=0));
+	fprintf(stderr, "\n" );
+	if(all==2) {
+		static char Sc[] = "c", Se[] = "";
+
+		fprintf(stderr,"\
+crdelay=%s%d  nldelay=%s%d  htdelay=%s%d vtdelay=%s%d width=%d\n",
+(mode.sg_crdly&0200)? Sc: Se, mode.sg_crdly & 0177,
+(mode.sg_nldly&0200)? Sc: Se, mode.sg_nldly & 0177,
+(mode.sg_htdly&0200)? Sc: Se, mode.sg_htdly & 0177,
+(mode.sg_vtdly&0200)? Sc: Se, mode.sg_vtdly & 0177,
+ mode.sg_width );
+	}
+	if(m & CYRILL) {
+		switch( m & (CSTYLE|LCASE) ) {
+		default:
+			pp = "unknown";
+			break;
+		case LCASE:
+		case LCASE|UCASE:
+			pp = "-siso";
+			break;
+		case LCASE|SISO:
+		case LCASE|SISO|UCASE:
+			pp = "siso";
+			break;
+		case CEL15:
+			pp = "cel15";
+			break;
+		case CEL15I:
+			pp = "cel15i";
+			break;
+		case CEL15K:
+			pp = "cel15k";
+			break;
+		case CBITS8:
+			pp = "cbits8";
+			break;
+		case CBITS8Q:
+			pp = "cbits8q";
+			break;
+		case CSISOQ:
+			pp = "csisoq";
+			break;
+		case CBMKBD:
+			pp = "cbmkbd";
+
+		}
+		fprintf(stderr,"cyrillic style: %s\n", pp);
+	}
+
+#define lpit(what,str) \
+	if (all==2||(lmode&what)) { \
+		fprintf(stderr,(str)+((lmode&what)!=0)); any++; \
+	}
+	if (ldisc == NTTYDISC) {
+		int newcrt = (lmode&(LCTLECH|LCRTBS)) == (LCTLECH|LCRTBS) &&
+		    (lmode&(LCRTERA|LCRTKIL)) ==
+		      ((mode.sg_ospeed > B300) ? LCRTERA|LCRTKIL : 0);
+		if (newcrt) {
+			if (all==2)
+				fprintf(stderr, "crt: (crtbs crterase crtkill ctlecho) ");
+			else
+				fprintf(stderr, "crt ");
+			any++;
+		} else {
+			lpit(LCRTBS, "-crtbs ");
+			lpit(LCRTERA, "-crterase ");
+			lpit(LCRTKIL, "-crtkill ");
+			lpit(LCTLECH, "-ctlecho ");
+			lpit(LPRTERA, "-prterase ");
+		}
+		lpit(LTOSTOP, "-tostop ");
+		lpit(LINTRUP, "-intrup ");
+		if (all==2) {
+			fprintf(stderr, "\n");
+			any = 0;
+		}
+		lpit(LTILDE, (m&CYRILL)? "-znak ": "-tilde ");
+		lpit(LFLUSHO, "-flusho ");
+		lpit(LMDMBUF, "-mdmbuf ");
+		lpit(LLITOUT, "-litout ");
+		lpit(LNOHANG, "-nohang ");
+		lpit(LESCH, "-esch");
+		if (any) {
+			fprintf(stderr,"\n");
+			any = 0;
+		}
+		lpit(LPENDIN, "-pendin ");
+		lpit(LDECCTQ, "-decctlq ");
+		lpit(LNOFLSH, "-noflsh ");
+		if( all == 2 ) {
+			fprintf( stderr, ((m & DSTOPS)!=0) + "-dstops " );
+			fprintf( stderr, ((m & FRAME7)!=0) + "-frame7 " );
+		}
+		if (any)
+			fprintf(stderr,"\n");
+	} else if (!all)
+		fprintf(stderr,"\n");
+	else if( all == 2 && ldisc == OTTYDISC ) {
+		fprintf( stderr, ((m & DSTOPS)!=0) + "-dstops " );
+		fprintf( stderr, ((m & FRAME7)!=0) + "-frame7\n" );
+	}
+	if (all) {
+		switch (ldisc) {
+
+		case OTTYDISC:
+			fprintf(stderr,"\
+erase  kill   intr   quit   stop   eof\
+\n");
+			pcol(mode.sg_erase, -1);
+			pcol(mode.sg_kill, -1);
+			pcol(mode.sg_intrc, -1);
+			pcol(mode.sg_quitc, -1);
+			pcol(mode.sg_stopc, mode.sg_startc);
+			pcol(mode.sg_eofc, mode.sg_brkc);
+			fprintf(stderr,"\n");
+			break;
+
+		case NTTYDISC:
+			fprintf(stderr,"\
+erase  kill   werase rprnt  flush  lnext  susp   intr   quit   stop   eof\
+\n");
+			pcol(mode.sg_erase, -1);
+			pcol(mode.sg_kill, -1);
+			pcol(mode.sg_werasc, -1);
+			pcol(mode.sg_rprntc, -1);
+			pcol(mode.sg_flushc, -1);
+			pcol(mode.sg_lnextc, -1);
+			pcol(mode.sg_suspc, mode.sg_dsuspc);
+			pcol(mode.sg_intrc, -1);
+			pcol(mode.sg_quitc, -1);
+			pcol(mode.sg_stopc, mode.sg_startc);
+			pcol(mode.sg_eofc, mode.sg_brkc);
+			fprintf(stderr,"\n");
+			break;
+		}
+	} else if (ldisc != NETLDISC) {
+		register struct special *sp;
+		int first = 1;
+		for (sp = special; sp->name; sp++) {
+			if ((*sp->cp&0377) != (sp->def&0377)) {
+				pit((unsigned) (*sp->cp), sp->name, first ? "" : ", ");
+				first = 0;
+			};
+			if (sp->cp == &mode.sg_brkc && ldisc == OTTYDISC)
+				break;
+		}
+		if (first == 0)
+			fprintf(stderr, "\n");
+	}
+}
+
+pcol(ch1, ch2)
+	int ch1, ch2;
+{
+	int nout = 0;
+
+	ch1 &= 0377;
+	ch2 &= 0377;
+	if (ch1 == ch2)
+		ch2 = 0377;
+	for (; ch1 != 0377 || ch2 != 0377; ch1 = ch2, ch2 = 0377) {
+		if (ch1 == 0377)
+			continue;
+		if (ch1 & 0200) {
+			fprintf(stderr, "M-");
+			nout += 2;
+			ch1 &= ~ 0200;
+		}
+		if (ch1 == 0177) {
+			fprintf(stderr, "^");
+			nout++;
+			ch1 = '?';
+		} else if (ch1 < ' ') {
+			fprintf(stderr, "^");
+			nout++;
+			ch1 += '@@';
+			if( Lowerflag && ('A'<=ch1 && ch1<='Z'))
+				ch1 += 040;
+		}
+		if( Lowerflag && (('A'<=ch1&&ch1<='Z') ||
+		    ch1=='|'||ch1=='{'||ch1=='}'||ch1=='`'||ch1=='~'))
+			nout++;
+		fprintf(stderr, "%c", ch1);
+		nout++;
+		if (ch2 != 0377) {
+			fprintf(stderr, "/");
+			nout++;
+		}
+	}
+	while (nout < 7) {
+		fprintf(stderr, " ");
+		nout++;
+	}
+}
+
+pit(what, itsname, sep)
+	unsigned what;
+	char *itsname, *sep;
+{
+
+	what &= 0377;
+	fprintf(stderr, "%s%s", sep, itsname);
+	if (what == 0377) {
+		fprintf(stderr, " <undef>");
+		return;
+	}
+	fprintf(stderr, " = ");
+	if (what & 0200) {
+		fprintf(stderr, "M-");
+		what &= ~ 0200;
+	}
+	if (what == 0177) {
+		fprintf(stderr, "^");
+		what = '?';
+	} else if (what < ' ') {
+		fprintf(stderr, "^");
+		what += '@@';
+	}
+	fprintf(stderr, "%c", what);
+}
+
+int     speed[] = {
+	0,50,75,110,134,150,200,300,600,1200,1800,2400,4800,9600,19200,38400
+};
+
+prspeed(c, s)
+char *c;
+{
+
+	if( s > 15 )
+		fprintf(stderr,"%s <%d units>", c, s&0377);
+	else
+		fprintf(stderr,"%s%d baud",  c, speed[s]);
+}
+
+prEmodes()
+{
+	register char *p;
+
+	switch(ldisc) {
+	    case OTTYDISC: p = "old"; break;
+	    case NTTYDISC: p = "new"; break;
+	    case NETLDISC: p = "net";
+	}
+	printf( "%s ", p );
+	if( mode.sg_ispeed == mode.sg_ospeed ) {
+		printf( "%d ", speed[mode.sg_ospeed] );
+	} else {
+		printf( "ispeed %d ", speed[mode.sg_ispeed] );
+		printf( "ospeed %d ", speed[mode.sg_ospeed] );
+	}
+	switch(mode.sg_flags & ANYP) {
+	    case ODDP:  p = "odd -even"; break;
+	    case EVENP: p = "even -odd"; break;
+	    case ANYP:  p = "any"; break;
+	    case 0:     p = "-odd -even";
+	}
+	printf( "%s ", p );
+	printf( "%sraw ", (mode.sg_flags&RAW)?"":"-" );
+	printf( "%scbreak ", (mode.sg_flags&CBREAK)?"":"-" );
+	printf( "%secho ", (mode.sg_flags&ECHO)?"":"-" );
+	printf( "%standem ", (mode.sg_flags&TANDEM)?"":"-" );
+	printf( "%sframe7 ", (mode.sg_flags&FRAME7)?"":"-" );
+	printf( "%sdstops", (mode.sg_flags&DSTOPS)?"":"-" );
+	if(ldisc == NETLDISC ) {
+		printf( "\n" );
+		return;
+	}
+	printf( " %snl ", (mode.sg_flags&CRMOD)?"-":"" );
+	printf( "%slcase ", (mode.sg_flags&LCASE)?"":"-" );
+	printf( "%scyrill ", (mode.sg_flags&CYRILL)?"":"-" );
+	printf( "%stabs ", (mode.sg_flags&XTABS)?"-":"" );
+	if( mode.sg_flags & LCASE ) {
+		printf( "lcase %sucase ", (mode.sg_flags & UCASE)?"": "-" );
+		if( mode.sg_flags & CYRILL )
+			printf( "%ssiso ", (mode.sg_flags&SISO)?"": "-" );
+	} else if( mode.sg_flags & CYRILL ) {
+		switch( mode.sg_flags & CSTYLE ) {
+		    case CBITS8: p = "cbits8"; break;
+		    case CEL15:  p = "cel15"; break;
+		    case CEL15I: p = "cel15i"; break;
+		    case CEL15K: p = "cel15k"; break;
+		    case CBMKBD: p = "cbmkbd"; break;
+		    case C52130: p = "c52130"; break;
+		    case CBITS8Q:p = "cbits8q"; break;
+		    case CSISOQ: p = "csisoq";
+		}
+		printf( "%s ", p );
+	}
+	prEc( "erase", mode.sg_erase );
+	prEc( " kill", mode.sg_kill );
+	prEc( " intr", mode.sg_intrc );
+	prEc( " quit",  mode.sg_quitc );
+	prEc( " start", mode.sg_startc );
+	prEc( " stop", mode.sg_stopc );
+	prEc( " eof", mode.sg_eofc );
+	prEc( " brk", mode.sg_brkc );
+	if( ldisc == OTTYDISC ) {
+		printf( "\n" );
+		return;
+	}
+	prEc( " susp", mode.sg_suspc );
+	prEc( " dsusp", mode.sg_dsuspc );
+	prEc( " rprnt", mode.sg_rprntc );
+	prEc( " flush", mode.sg_flushc );
+	prEc( " werase", mode.sg_werasc );
+	prEc( " lnext", mode.sg_lnextc );
+	printf( " width %d", mode.sg_width );
+	printf( " nldelay %s%d", (mode.sg_nldly&0200)?"c":"", mode.sg_nldly & 0177 );
+	printf( " crdelay %s%d", (mode.sg_crdly&0200)?"c":"", mode.sg_crdly & 0177 );
+	printf( " htdelay %s%d", (mode.sg_htdly&0200)?"c":"", mode.sg_htdly & 0177 );
+	printf( " vtdelay %s%d", (mode.sg_vtdly&0200)?"c":"", mode.sg_vtdly & 0177 );
+	printf( " %scrtbs", (mode.sg_local&LCRTBS)?"":"-" );
+	printf( " %sprterase", (mode.sg_local&LPRTERA)?"":"-" );
+	printf( " %scrterase", (mode.sg_local&LCRTERA)?"":"-" );
+	if( mode.sg_flags & CYRILL )
+		printf( " %sznak", (mode.sg_local&LZNAK)?"":"-" );
+	else
+		printf( " %stilde", (mode.sg_local&LTILDE)?"":"-" );
+	printf( " %smdmbuf", (mode.sg_local&LMDMBUF)?"":"-" );
+	printf( " %slitout", (mode.sg_local&LLITOUT)?"":"-" );
+	printf( " %stostop", (mode.sg_local&LTOSTOP)?"":"-" );
+	printf( " %sflusho", (mode.sg_local&LFLUSHO)?"":"-" );
+	printf( " %snohang", (mode.sg_local&LNOHANG)?"":"-" );
+	printf( " %sesch", (mode.sg_local&LESCH)?"":"-" );
+	printf( " %scrtkill", (mode.sg_local&LCRTKIL)?"":"-" );
+	printf( " %sintrup", (mode.sg_local&LINTRUP)?"":"-" );
+	printf( " %sctlecho", (mode.sg_local&LCTLECH)?"":"-" );
+	printf( " %spendin", (mode.sg_local&LPENDIN)?"":"-" );
+	printf( " %sdecctlq", (mode.sg_local&LDECCTQ)?"":"-" );
+	printf( " %snoflsh\n", (mode.sg_local&LNOFLSH)?"":"-" );
+}
+
+prEc( prompt, c )
+{
+	c &= 0377;
+	printf( "%s ", prompt );
+	if( c < 040 ) {
+		c += 0100;
+		printf( "^%c", c );
+	} else if( c == 0177 ) {
+		printf( "^?" );
+	} else if( c == 0377 ) {
+		printf( "u" );
+	} else {
+		putchar(c);
+	}
+}
+@
+
+
+1.12
+log
+@Вставлены два флага CSISOQ и C8BITSQ.
+@
+text
+@d5 3
+d40 1
+a40 1
+static char rcsid[] = "$Header: stty.c,v 1.11 88/07/05 20:30:12 avg Exp $";
+d490 6
+@
+
+
+1.11
+log
+@Исправлена диагостика при ??delay.
+@
+text
+@d5 3
+d37 1
+a37 1
+static char rcsid[] = "$Header: stty.c,v 1.10 88/07/05 20:15:28 avg Exp $";
+d145 3
+d729 3
+a731 3
+		    case C52130: p = "cstyle5"; break;
+		    case CBD1:   p = "cstyle6"; break;
+		    case CBD2:   p = "csytle7";
+@
+
+
+1.10
+log
+@Сделаны ключи -a и -e в стиле System V,
+сделана установка ispeed и ospeed отдельно.
+@
+text
+@d4 5
+a8 1
+ * $Log:        stty.c,v $
+d34 1
+a34 1
+static char rcsid[] = "$Header: stty.c,v 1.9 86/09/29 20:17:23 avg Stab $";
+d332 1
+d337 1
+d345 1
+d353 1
+d361 1
+d764 1
+a764 1
+	printf( " %slesch", (mode.sg_local&LESCH)?"":"-" );
+@
+
+
+1.9
+log
+@Добавлены флажки dstops и frame7.
+@
+text
+@d5 3
+d30 1
+a30 1
+static char rcsid[] = "$Header: stty.c,v 1.8 86/07/19 12:31:48 avg Exp $";
+a45 1
+	"134",  B134,
+d47 2
+a48 1
+	"150",  B150,
+d181 1
+a181 1
+	int i;
+d188 4
+a191 2
+	ioctl(1, TIOCGETD, (struct sgttyb *) &ldisc);
+	ioctl(1, TIOCGETA, (struct sgttyb *) &mode );
+d202 2
+a203 1
+		      || !strcmp(argv[1], "e")) ) {
+d207 4
+d293 24
+d408 1
+a408 1
+		prspeed("output speed ", mode.sg_ospeed);
+d664 114
+@
+
+
+1.8
+log
+@Исправлена ошибка - неправильно отображался znak.
+@
+text
+@d5 3
+d27 1
+a27 1
+static char rcsid[] = "$Header: stty.c,v 1.7 86/05/20 14:09:09 avg Exp $";
+d59 1
+d88 4
+d403 3
+a405 1
+	if(all==2)
+d407 5
+a411 5
+crdelay=%c%d  nldelay=%c%d  htdelay=%c%d vtdelay=%c%d width=%d\n",
+(mode.sg_crdly&0200)? 'c': ' ', mode.sg_crdly & 0177,
+(mode.sg_nldly&0200)? 'c': ' ', mode.sg_nldly & 0177,
+(mode.sg_htdly&0200)? 'c': ' ', mode.sg_htdly & 0177,
+(mode.sg_vtdly&0200)? 'c': ' ', mode.sg_vtdly & 0177,
+d413 1
+d486 4
+d494 4
+@
+
+
+1.7
+log
+@Когда стоит CYRILL, выдается не tilde, а znak.
+@
+text
+@d5 3
+d24 1
+a24 1
+static char rcsid[] = "$Header: stty.c,v 1.6 86/04/28 12:59:13 avg Exp $";
+d437 1
+a437 1
+		fprintf(stderr,str+((lmode&what)!=0)); any++; \
+@
+
+
+1.6
+log
+@Поправлена выдача параметров:
+теперь ucase выдается ТОЛЬКО ТОГДА, когда установлен lcase.
+@
+text
+@d5 4
+d21 1
+a21 1
+static char rcsid[] = "$Header: stty.c,v 1.5 86/04/20 18:41:22 avg Exp $";
+d459 1
+a459 1
+		lpit(LTILDE, "-tilde ");
+@
+
+
+1.5
+log
+@При работе с LCASE и UCASE неплохо было бы выводить
+^A как ^a (т.к. ^A выведется как ^\A).
+@
+text
+@d5 4
+d17 1
+a17 1
+static char rcsid[] = "$Header: stty.c,v 1.4 86/04/18 22:38:36 root Stab $";
+d378 2
+a379 2
+		if( all==2 || (m&UCASE) )
+			fprintf(stderr,"-ucase "+((m&UCASE)!=0));
+d547 1
+a547 1
+			if( Lowerflag )
+@
+
+
+1.4
+log
+@Исправлена обработка флагов siso и -siso.
+@
+text
+@d5 3
+d13 1
+a13 1
+static char rcsid[] = "$Header: stty.c,v 1.3 86/04/17 18:40:37 root Exp $";
+d339 2
+d360 2
+d372 1
+a372 1
+	if(all==2 || (m&LCASE))
+d374 3
+a397 2
+			pp = "-siso -ucase";
+			break;
+d399 1
+a399 1
+			pp = "-siso ucase";
+a401 2
+			pp = "siso -ucase";
+			break;
+d403 1
+a403 1
+			pp = "siso ucase";
+d543 2
+d546 3
+d589 1
+a589 1
+	0,50,75,110,134,150,200,300,600,1200,1800,2400,4800,9600,0,0
+d596 4
+a599 1
+	fprintf(stderr,"%s%d baud",  c, speed[s]);
+@
+
+
+1.3
+log
+@Мелкие правочки.
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d10 1
+a10 1
+static char rcsid[] = "$Header$";
+d115 2
+a116 2
+"siso",         SISO+LCASE,     CSTYLE-SISO,    0,              0,
+"-siso",        LCASE,          CSTYLE-SISO,    0,              0,
+@
+
+
+1.2
+log
+@Правки под новый драйвер терминала by @@VG.
+@
+text
+@d47 70
+a116 67
+	"even",         EVENP, 0, 0, 0,
+	"-even",        0, EVENP, 0, 0,
+	"odd",          ODDP, 0, 0, 0,
+	"-odd",         0, ODDP, 0, 0,
+	"raw",          RAW, 0, 0, 0,
+	"-raw",         0, RAW, 0, 0,
+	"cooked",       0, RAW, 0, 0,
+	"-nl",          CRMOD, 0, 0, 0,
+	"nl",           0, CRMOD, 0, 0,
+	"echo",         ECHO, 0, 0, 0,
+	"-echo",        0, ECHO, 0, 0,
+	"LCASE",        LCASE, CSTYLE, 0, 0,
+	"lcase",        LCASE, CSTYLE, 0, 0,
+	"-LCASE",       CEL15, LCASE+CSTYLE, 0, 0,
+	"-lcase",       CEL15, LCASE+CSTYLE, 0, 0,
+	"-tabs",        XTABS, 0, 0, 0,
+	"tabs",         0, XTABS, 0, 0,
+	"tandem",       TANDEM, 0, 0, 0,
+	"-tandem",      0, TANDEM, 0, 0,
+	"cbreak",       CBREAK, 0, 0, 0,
+	"-cbreak",      0, CBREAK, 0, 0,
+	"crtbs",        0, 0, LCRTBS, LPRTERA,
+	"-crtbs",       0, 0, 0, LCRTBS,
+	"prterase",     0, 0, LPRTERA, LCRTBS+LCRTKIL+LCRTERA,
+	"-prterase",    0, 0, 0, LPRTERA,
+	"crterase",     0, 0, LCRTERA, LPRTERA,
+	"-crterase",    0, 0, 0, LCRTERA,
+	"crtkill",      0, 0, LCRTKIL, LPRTERA,
+	"-crtkill",     0, 0, 0, LCRTKIL,
+	"tilde",        0, 0, LTILDE, 0,
+	"-tilde",       0, 0, 0, LTILDE,
+	"mdmbuf",       0, 0, LMDMBUF, 0,
+	"-mdmbuf",      0, 0, 0, LMDMBUF,
+	"litout",       0, 0, LLITOUT, 0,
+	"-litout",      0, 0, 0, LLITOUT,
+	"tostop",       0, 0, LTOSTOP, 0,
+	"-tostop",      0, 0, 0, LTOSTOP,
+	"flusho",       0, 0, LFLUSHO, 0,
+	"-flusho",      0, 0, 0, LFLUSHO,
+	"nohang",       0, 0, LNOHANG, 0,
+	"-nohang",      0, 0, 0, LNOHANG,
+     /* "etxack",       0, 0, LETXACK, 0,
+	"-etxack",      0, 0, 0, LETXACK, */
+	"intrup",       0, 0, LINTRUP, 0,
+	"-intrup",      0, 0, 0, LINTRUP,
+	"ctlecho",      0, 0, LCTLECH, 0,
+	"-ctlecho",     0, 0, 0, LCTLECH,
+	"pendin",       0, 0, LPENDIN, 0,
+	"-pendin",      0, 0, 0, LPENDIN,
+	"decctlq",      0, 0, LDECCTQ, 0,
+	"-decctlq",     0, 0, 0, LDECCTQ,
+	"noflsh",       0, 0, LNOFLSH, 0,
+	"-noflsh",      0, 0, 0, LNOFLSH,
+	"cyrill",       CYRILL+CEL15, CSTYLE, 0, 0,
+	"-cyrill",      0, CYRILL+CSTYLE, 0, 0,
+	"cbits8",       CBITS8+CYRILL, CSTYLE+LCASE, 0, 0,
+	"cel15",        CEL15+CYRILL, CSTYLE+LCASE, 0, 0,
+	"cel15i",       CEL15I+CYRILL, CSTYLE+LCASE, 0, 0,
+	"cel15k",       CEL15K+CYRILL, CSTYLE+LCASE, 0, 0,
+	"cbmkbd",       CBMKBD+CYRILL, CSTYLE+LCASE, 0, 0,
+	"ucase",        UCASE+LCASE, CSTYLE-SISO, 0, 0,
+	"-ucase",       LCASE, CSTYLE-SISO, 0, 0,
+	"siso",         SISO+LCASE, CSTYLE-SISO, 0, 0,
+	"-siso",        LCASE, CSTYLE-SISO, 0, 0,
+	"esch",         0, 0, LESCH, 0,
+	"-esch",        0, 0, 0, LESCH,
+	0,
+a451 3
+		/*
+		lpit(LETXACK, "-etxack ");
+		  */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+ * set teletype modes
+d7 1
+a7 1
+static char rcsid[] ="$Header$";
+d31 6
+a36 5
+	"2400",	B2400,
+	"4800",	B4800,
+	"9600",	B9600,
+	"exta",	EXTA,
+	"extb",	EXTB,
+d41 5
+a45 5
+	char	*string;
+	int	set;
+	int	reset;
+	int	lset;
+	int	lreset;
+d47 66
+a112 79
+	"even",		EVENP, 0, 0, 0,
+	"-even",	0, EVENP, 0, 0,
+	"odd",		ODDP, 0, 0, 0,
+	"-odd",		0, ODDP, 0, 0,
+	"raw",		RAW, 0, 0, 0,
+	"-raw",		0, RAW, 0, 0,
+	"cooked",	0, RAW, 0, 0,
+	"-nl",		CRMOD, 0, 0, 0,
+	"nl",		0, CRMOD, 0, 0,
+	"echo",		ECHO, 0, 0, 0,
+	"-echo",	0, ECHO, 0, 0,
+	"LCASE",	LCASE, 0, 0, 0,
+	"lcase",	LCASE, 0, 0, 0,
+	"-LCASE",	0, LCASE, 0, 0,
+	"-lcase",	0, LCASE, 0, 0,
+	"-tabs",	XTABS, 0, 0, 0,
+	"tabs",		0, XTABS, 0, 0,
+	"tandem",	TANDEM, 0, 0, 0,
+	"-tandem",	0, TANDEM, 0, 0,
+	"cbreak",	CBREAK, 0, 0, 0,
+	"-cbreak",	0, CBREAK, 0, 0,
+	"cr0",		CR0, CR3, 0, 0,
+	"cr1",		CR1, CR3, 0, 0,
+	"cr2",		CR2, CR3, 0, 0,
+	"cr3",		CR3, CR3, 0, 0,
+	"tab0",		TAB0, XTABS, 0, 0,
+	"tab1",		TAB1, XTABS, 0, 0,
+	"tab2",		TAB2, XTABS, 0, 0,
+	"nl0",		NL0, NL3, 0, 0,
+	"nl1",		NL1, NL3, 0, 0,
+	"nl2",		NL2, NL3, 0, 0,
+	"nl3",		NL3, NL3, 0, 0,
+	"ff0",		FF0, FF1, 0, 0,
+	"ff1",		FF1, FF1, 0, 0,
+	"bs0",		BS0, BS1, 0, 0,
+	"bs1",		BS1, BS1, 0, 0,
+	"33",		CR1, ALLDELAY, 0, 0,
+	"tty33",	CR1, ALLDELAY, 0, 0,
+	"37",		FF1+CR2+TAB1+NL1, ALLDELAY, 0, 0,
+	"tty37",	FF1+CR2+TAB1+NL1, ALLDELAY, 0, 0,
+	"05",		NL2, ALLDELAY, 0, 0,
+	"vt05",		NL2, ALLDELAY, 0, 0,
+	"tn",		CR1, ALLDELAY, 0, 0,
+	"tn300",	CR1, ALLDELAY, 0, 0,
+	"ti",		CR2, ALLDELAY, 0, 0,
+	"ti700",	CR2, ALLDELAY, 0, 0,
+	"tek",		FF1, ALLDELAY, 0, 0,
+	"crtbs",	0, 0, LCRTBS, LPRTERA,
+	"-crtbs",	0, 0, 0, LCRTBS,
+	"prterase",	0, 0, LPRTERA, LCRTBS+LCRTKIL+LCRTERA,
+	"-prterase",	0, 0, 0, LPRTERA,
+	"crterase",	0, 0, LCRTERA, LPRTERA,
+	"-crterase",	0, 0, 0, LCRTERA,
+	"crtkill",	0, 0, LCRTKIL, LPRTERA,
+	"-crtkill",	0, 0, 0, LCRTKIL,
+	"tilde",	0, 0, LTILDE, 0,
+	"-tilde",	0, 0, 0, LTILDE,
+	"mdmbuf",	0, 0, LMDMBUF, 0,
+	"-mdmbuf",	0, 0, 0, LMDMBUF,
+	"litout",	0, 0, LLITOUT, 0,
+	"-litout",	0, 0, 0, LLITOUT,
+	"tostop",	0, 0, LTOSTOP, 0,
+	"-tostop",	0, 0, 0, LTOSTOP,
+	"flusho",	0, 0, LFLUSHO, 0,
+	"-flusho",	0, 0, 0, LFLUSHO,
+	"nohang",	0, 0, LNOHANG, 0,
+	"-nohang",	0, 0, 0, LNOHANG,
+	"etxack",	0, 0, LETXACK, 0,
+	"-etxack",	0, 0, 0, LETXACK,
+	"intrup",	0, 0, LINTRUP, 0,
+	"-intrup",	0, 0, 0, LINTRUP,
+	"ctlecho",	0, 0, LCTLECH, 0,
+	"-ctlecho",	0, 0, 0, LCTLECH,
+	"pendin",	0, 0, LPENDIN, 0,
+	"-pendin",	0, 0, 0, LPENDIN,
+	"decctlq",	0, 0, LDECCTQ, 0,
+	"-decctlq",	0, 0, 0, LDECCTQ,
+	"noflsh",	0, 0, LNOFLSH, 0,
+	"-noflsh",	0, 0, 0, LNOFLSH,
+d116 3
+a118 5
+struct tchars tc;
+struct ltchars ltc;
+struct sgttyb mode;
+int	lmode;
+int	oldisc, ldisc;
+d120 1
+a120 1
+#define	CTRL(x)		('x'&037)
+d122 4
+a125 4
+struct	special {
+	char	*name;
+	char	*cp;
+	char	def;
+d127 14
+a140 14
+	"erase",	&mode.sg_erase,		CTRL(h),
+	"kill",		&mode.sg_kill,		'@@',
+	"intr",		&tc.t_intrc,		0177,
+	"quit",		&tc.t_quitc,		CTRL(\\\\),
+	"start",	&tc.t_startc,		CTRL(q),
+	"stop",		&tc.t_stopc,		CTRL(s),
+	"eof",		&tc.t_eofc,		CTRL(d),
+	"brk",		&tc.t_brkc,		0377,
+	"susp",		&ltc.t_suspc,		CTRL(z),
+	"dsusp",	&ltc.t_dsuspc,		CTRL(y),
+	"rprnt",	&ltc.t_rprntc,		CTRL(r),
+	"flush",	&ltc.t_flushc,		CTRL(o),
+	"werase",	&ltc.t_werasc,		CTRL(w),
+	"lnext",	&ltc.t_lnextc,		CTRL(v),
+d143 1
+a143 1
+char	*arg;
+d145 2
+a146 2
+int	argc;
+char	**argv;
+d148 1
+a148 1
+char	**iargv;
+a156 1
+	gtty(1, &mode);
+d158 1
+a159 3
+	ioctl(1, TIOCGETC, (struct sgttyb *) &tc);
+	ioctl(1, TIOCLGET, (struct sgttyb *) &lmode);
+	ioctl(1, TIOCGLTC, (struct sgttyb *) &ltc);
+d168 2
+a169 1
+	if (argc == 2 && !strcmp(argv[1], "everything")) {
+d204 1
+a204 1
+			lmode |= LCRTBS|LCTLECH;
+d206 1
+a206 1
+				lmode |= LCRTERA|LCRTKIL;
+d218 1
+a218 1
+			tc.t_intrc = CTRL(c);
+d265 32
+d310 1
+a310 4
+	ioctl(1, TIOCSETN, (struct sgttyb *) &mode);
+	ioctl(1, TIOCSETC, (struct sgttyb *) &tc);
+	ioctl(1, TIOCSLTC, (struct sgttyb *) &ltc);
+	ioctl(1, TIOCLSET, (struct sgttyb *) &lmode);
+d334 1
+d350 2
+a351 2
+		if(m & EVENP)	fprintf(stderr,"even ");
+		if(m & ODDP)	fprintf(stderr,"odd ");
+d364 1
+d367 46
+a412 13
+	if(all==2 || (m&NLDELAY))
+		delay((m&NLDELAY)/NL1,	"nl");
+	if ((m&TBDELAY)!=XTABS)
+		delay((m&TBDELAY)/TAB1,	"tab");
+	if(all==2 || (m&CRDELAY))
+		delay((m&CRDELAY)/CR1,	"cr");
+	if(all==2 || (m&VTDELAY))
+		delay((m&VTDELAY)/FF1,	"ff");
+	if(all==2 || (m&BSDELAY))
+		delay((m&BSDELAY)/BS1,	"bs");
+	if (all)
+		fprintf(stderr,"\n");
+#define	lpit(what,str) \
+d444 1
+d449 1
+d451 1
+d468 4
+a471 4
+			pcol(tc.t_intrc, -1);
+			pcol(tc.t_quitc, -1);
+			pcol(tc.t_stopc, tc.t_startc);
+			pcol(tc.t_eofc, tc.t_brkc);
+d478 1
+a478 1
+\n"); 
+d481 9
+a489 9
+			pcol(ltc.t_werasc, -1);
+			pcol(ltc.t_rprntc, -1);
+			pcol(ltc.t_flushc, -1);
+			pcol(ltc.t_lnextc, -1);
+			pcol(ltc.t_suspc, ltc.t_dsuspc);
+			pcol(tc.t_intrc, -1);
+			pcol(tc.t_quitc, -1);
+			pcol(tc.t_stopc, tc.t_startc);
+			pcol(tc.t_eofc, tc.t_brkc);
+d501 1
+a501 1
+			if (sp->cp == &tc.t_brkc && ldisc == OTTYDISC)
+d574 1
+a574 9
+delay(m, s)
+char *s;
+{
+
+	if(m)
+		fprintf(stderr,"%s%d ", s, m);
+}
+
+int	speed[] = {
+@

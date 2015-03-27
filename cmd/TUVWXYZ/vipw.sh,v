@@ -1,0 +1,46 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.05.23.13.23.58;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#! /bin/sh
+# $Header$
+# $Log$
+#
+cp /dev/null /etc/vipw.lock
+chmod 0 /etc/vipw.lock
+ln /etc/vipw.lock /etc/ptmp > /dev/null 2>& 1
+case $? in
+0)
+	trap '' 1 2 3 15
+	red /etc/passwd
+	rm  /etc/ptmp
+	;;
+*)
+	if [ '(' $MSG"" = l ')' -o '(' -z $MSG"" ')' ]
+	then echo 'Temporary file busy, try again later.'
+	elif [ $MSG"" = r ]
+		then echo "Файл passwd занят."
+	fi
+	;;
+esac
+@

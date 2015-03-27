@@ -1,0 +1,37 @@
+From relcom.postmasters.d Sat May  7 19:08:42 1994
+Xref: zigzag relcom.fido.ru.unix:1036 relcom.postmasters.d:4865
+Path: zigzag!ipmce!demos1!andy
+From: andy@fantom.demos.su (Andrew A. Vasilyev)
+Newsgroups: relcom.fido.ru.unix,relcom.postmasters.d
+Subject: Re: UNIX для СМ ЭВМ
+Followup-To: relcom.fido.ru.unix,relcom.postmasters.d
+Date: 7 May 1994 11:05:14 GMT
+Organization: Demos Plus Co.
+Lines: 20
+Distribution: su
+Message-ID: <2qfslo$khu@news.demos.su>
+References: <AAmt_njO82@roost.lipetsk.su> <CpF7E6.1MI@ipmce.su>
+NNTP-Posting-Host: andy%@fantom.demos.su
+X-Newsreader: TIN [version 1.2 PL2]
+
+Pete A. Zaitcev (zaitcev@ipmce.su) wrote:
+
+: Если кто будет брать тексты ДЕМОСа с ftp.demos.su или ms@demos.su,
+: то он скоро поймет, что там кое-чего не хватает. Пока что я обнаружил
+: отсутствие ld и заголовков для драйверов устройств. Ld я взял из МНОС -
+: вроде работает (кроме оверлеев, конечно). Заголовки для устройств я
+: получил от Андрея Рыжова. Так что если кому надо, то обращайтесь.
+
+: Также я в свое дерево влил флеровские утилиты (comint, cdeb). Однако
+: похоже, что eda, dpi и devicetest потеряны навсегда. Если кто-нибудь
+: найдет что-нибудь из вышеперечисленного (включая ld от ДЕМОС), то
+: прошу дать мне знать.
+
+  Если кому-то что-то из всего вышеупомянутого нужно -
+  обратитесь к Ивану Попову <pin@demos.su>, кроме доведения
+  до коммерческого вида наследства Флерова он может влегкую
+  с наших многочисленных лент снять слепок старины глубокой
+  и кого-нибудь осчастливить :)
+______
+	ANDY
+

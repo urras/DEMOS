@@ -1,0 +1,41 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.12.30.19.29.16;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Сравнение тестовых строк по значениям байт.
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * Сравнение тестовых строк по значениям байт:
+ *      s1>s2: >0  s1==s2: 0  s1<s2: <0
+ * $Log$
+ */
+
+strcmp(s1, s2)
+register char *s1, *s2;
+{
+	while (*s1 == *s2++)
+		if (*s1++=='\0')
+			return(0);
+	return((unsigned) (*s1) - (unsigned) (*--s2));
+}
+@

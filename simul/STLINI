@@ -1,0 +1,52 @@
+%- - - - - - - - - - - - - -% 22.08.87 VERSION 42
+%-   PEÁÈCTP˘ PO„ECCOPA   -%
+%- - - - - - - - - - - - - -%
+LOCALS LSTLIM
+  EQUALS DINI=0,DRD=1,DWR=2,DTST=3,DITA=4,DTXT=6,DTICK=8
+  DATA DV:BEG=&FFF6,DV:END=&FFFE
+  EQUALS CUSTAT=&30                               %TEK. CTATıC
+  DATA BYT:FL
+  DATA IPSW=&8,ISTL=&6,ICPERR=&0,IUPAR=&2
+  DATA DATW
+
+PROGRAM STLINI()
+  (IF ^A<>0 AND #PSW:.AND.'CUSTAT'=
+    #CPUERR=#UBREAK=#PIRQ=#SREG=0
+    #PSW=#PSW.AND.&F0
+  IF)
+  RETURN ,
+
+PROGRAM STL:RD()
+  AREG=((IF <DV:BEG OR >DV:END THEN RETURN ,,2))-DV:BEG
+  (IF .XAE.<>0                %‚AÍT
+    IF ^E.AND.&1<> THEN =^E.AND.&FE ELSE =^E.IOR.&1
+    =#CPREGS()[#CPREGS(.XAX.):
+  ELSE                        %CÏOBO
+    IF ^E.AND.&1<> THEN CALL IT ,,'CHANER'
+    =#CPREGS(AREG)
+  IF)
+  RETURN ,,0
+
+*--- A: A‰PEC, E: ÊÏAÁ, X: ˛ÈCÏO --------
+PROGRAM STL:WR(,BYT:FL,DATW)
+  AREG=((IF <DV:BEG OR >DV:END THEN RETURN ,,2))-DV:BEG
+  (IF =IPSW
+    DATW=DATW.AND.&FF
+    #PSW=#PSW.AND.'TRACE'
+    #PSW='TRACE'.CCA..AND.DATW.IOR.#PSW
+  ELSE IF =ISTL                         %CM-3
+    =
+  ELSE IF <>ICPERR AND <>IUPAR
+    (IF .XAE.<>0                        %‚AÍT
+      AREG=((IF ^E.AND.&1<> THEN =^E.AND.&FE ELSE =^E.IOR.&1))
+      #CPREGS(AREG)[=^X
+    ELSE                                %CÏOBO
+      IF ^E.AND.&1<> THEN CALL IT ,,'CHANER'
+      #CPREGS(AREG)=^X
+    IF)
+  IF)
+  RETURN ,,0
+
+PROGRAM STLINF()
+PROGRAM STL:IT()
+  RETURN 0

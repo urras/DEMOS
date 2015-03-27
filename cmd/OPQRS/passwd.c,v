@@ -1,0 +1,367 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.06.19.20.15.48;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.06.19.16.11.20;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.31.22;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.3
+log
+@Дочинена обработка пустых строк
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: passwd.c,v 1.2 88/06/19 16:11:20 avg Exp $
+** $Log:        passwd.c,v $
+ * Revision 1.2  88/06/19  16:11:20  avg
+ * Сделаны русские диагностики + теперь пустые строки в passwd
+ * игнорируются.
+ *
+ * Revision 1.1  88/05/03  20:31:22  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: passwd.c,v 1.2 88/06/19 16:11:20 avg Exp $";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * enter a password in the password file
+ * this program should be suid with owner
+ * with an owner with write permission on /etc/passwd
+ */
+
+/*NOXSTR*/
+#include <stdio.h>
+#include <signal.h>
+#include <pwd.h>
+#include <ediag.h>
+
+char    passwd[] = "/etc/passwd";
+char    temp[]   = "/tmp/change_passwd ";
+struct  passwd *pwd;
+struct  passwd *getpwent();
+int     endpwent();
+char    *strcpy();
+char    *crypt();
+char    *getpass();
+char    *getlogin();
+char    *pw;
+char    pwbuf[10];
+char    buf[512];
+/*YESXSTR*/
+
+main(argc, argv)
+char *argv[];
+{
+	char *p;
+	int i;
+	char saltc[2];
+	long salt;
+	int u,fi,fo;
+#ifdef  UCB_GRPMAST
+	int g;
+#endif
+	int insist;
+	int ok, flags;
+	int c;
+	int pwlen;
+	FILE *tf;
+	char *uname;
+
+	insist = 0;
+	if(argc < 2) {
+		if ((uname = getlogin()) == NULL) {
+			printf (ediag("Usage: passwd [user]\n",
+				      "Вызов: passwd [пользователь]\n"));
+			goto bex;
+		} else {
+			printf(ediag("Changing password for %s\n",
+				     "Смена пароля для %s\n"), uname);
+		}
+	} else {
+		uname = argv[1];
+	}
+	while(((pwd=getpwent()) != NULL)&&(strcmp(pwd->pw_name,uname)!=0));
+	u = getuid();
+#ifdef  UCB_GRPMAST
+	g = getgid();
+#endif
+	if (    (pwd == NULL)
+	     || ((u != 0)
+	     && (u != pwd -> pw_uid)
+#ifdef  UCB_GRPMAST
+	     && ((u != g) || (g != pwd -> pw_gid) || (pwd ->pw_uid == 0))
+#endif
+		)
+	   )
+		{
+		printf(ediag("Permission denied.\n",
+			     "Не имеете права.\n"));
+		goto bex;
+		}
+	endpwent();
+	if (pwd->pw_passwd[0] && u != 0) {
+		strcpy(pwbuf, getpass(ediag("Old password:",
+					    "Старый пароль:")));
+		pw = crypt(pwbuf, pwd->pw_passwd);
+		if(strcmp(pw, pwd->pw_passwd) != 0) {
+			printf(ediag("Sorry.\n", "Облом.\n"));
+			goto bex;
+		}
+	}
+tryagn:
+	strcpy(pwbuf, getpass(ediag("New password:", "Новый пароль:")));
+	pwlen = strlen(pwbuf);
+	if (pwlen == 0) {
+		printf(ediag("Password unchanged.\n",
+			     "Пароль не изменен.\n"));
+		goto bex;
+	}
+	ok = 0;
+	flags = 0;
+	p = pwbuf;
+	while(c = *p++){
+		if((c>='a' && c<='z') || ((c&0340) == 0300)) flags |= 2;
+		else if((c>='A' && c<='Z') || ((c&0340)==0340)) flags |= 4;
+		else if(c>='0' && c<='9') flags |= 1;
+		else flags |= 8;
+	}
+	if(flags >=7 && pwlen>= 4) ok = 1;
+	if(((flags==2)||(flags==4)) && pwlen>=6) ok = 1;
+	if(((flags==3)||(flags==5)||(flags==6))&&pwlen>=5) ok = 1;
+
+	if((ok==0) && (insist<2)){
+		if(flags==1)
+		printf(ediag("Please use at least one non-numeric character.\n",
+			     "Используйте слова, а не числа.\n"));
+		else
+		printf(ediag("Please use a longer password.\n",
+			     "Выберите более длинный пароль.\n"));
+		insist++;
+		goto tryagn;
+		}
+
+	if (strcmp(pwbuf,getpass(ediag("Retype new password:",
+				       "Повторите новый пароль:"))) != 0) {
+		printf (ediag("Mismatch - password unchanged.\n",
+			      "Ошибка - пароль не изменен.\n"));
+		goto bex;
+	}
+
+	time(&salt);
+	salt += getpid();
+
+	saltc[0] = salt & 077;
+	saltc[1] = (salt>>6) & 077;
+	for(i=0;i<2;i++){
+		c = saltc[i] + '.';
+		if(c>'9') c += 7;
+		if(c>'Z') c += 6;
+		saltc[i] = c;
+	}
+	pw = crypt(pwbuf, saltc);
+	signal(SIGHUP, SIG_IGN);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGQUIT, SIG_IGN);
+
+	if(access(temp, 0) >= 0) {
+		printf(ediag("Temporary file busy -- try again\n",
+			     "Временный файл занят -- попробуйте еще раз\n"));
+		goto bex;
+	}
+	close(creat(temp,0600));
+	if((tf=fopen(temp,"w")) == NULL) {
+		printf(ediag("Cannot create temporary file\n",
+			     "Не могу создать временный файл\n"));
+		goto bex;
+	}
+
+/*
+ *      copy passwd to temp, replacing matching lines
+ *      with new password.
+ */
+
+	while((pwd=getpwent()) != NULL) {
+		if(strlen(pwd->pw_name) == 0 || index(pwd->pw_name, '\n'))
+			continue;
+		if(strcmp(pwd->pw_name,uname) == 0) {
+			u = getuid();
+			if (    (u != 0)
+			     && (u != pwd -> pw_uid)
+#ifdef  UCB_GRPMAST
+			     && ((u != g) || (g != pwd -> pw_gid) || (pwd ->pw_uid == 0))
+#endif
+			    )
+				{
+				printf(ediag("Permission denied.\n",
+					     "Не имеете права.\n"));
+				goto out;
+			}
+			pwd->pw_passwd = pw;
+		}
+		fprintf(tf,"%s:%s:%u:%u:%s:%s:%s\n",
+			pwd->pw_name,
+			pwd->pw_passwd,
+			pwd->pw_uid,
+			pwd->pw_gid,
+			pwd->pw_gecos,
+			pwd->pw_dir,
+			pwd->pw_shell);
+	}
+	if( ferror(tf) != 0 ){
+		printf(ediag("Write error: temporary file\n",
+			     "Ошибка записи во временном файле\n"));
+		fclose(tf);
+		goto out;
+	}
+	endpwent();
+	fclose(tf);
+
+/*
+ *      copy temp back to passwd file
+ */
+
+	if((fi=open(temp,0)) < 0) {
+		printf(ediag("Temp file disappeared!\n",
+			     "Пропал временный файл!\n"));
+		goto out;
+	}
+	if((fo=creat(passwd, 0644)) < 0) {
+		printf(ediag("Cannot recreat passwd file.\n",
+			     "Не могу пересоздать файл passwd.\n"));
+		goto out;
+	}
+	while((u=read(fi,buf,sizeof(buf))) > 0) write(fo,buf,u);
+	unlink(temp);
+	exit(0);
+out:
+	unlink(temp);
+
+bex:
+	exit(1);
+}
+@
+
+
+1.2
+log
+@Сделаны русские диагностики + теперь пустые строки в passwd
+игнорируются.
+@
+text
+@d6 1
+a6 1
+** $Header: passwd.c,v 1.1 88/05/03 20:31:22 root Exp $
+d8 4
+d19 1
+a19 1
+static char     Rcs_id[] = "$Header: passwd.c,v 1.1 88/05/03 20:31:22 root Exp $";
+d181 1
+a181 1
+		if(strlen(pwd->pw_name) == 0)
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d29 1
+d66 2
+a67 1
+			printf ("Usage: passwd user\n");
+d70 2
+a71 1
+			printf("Changing password for %s\n", uname);
+d90 2
+a91 1
+		printf("Permission denied.\n");
+d96 2
+a97 1
+		strcpy(pwbuf, getpass("Old password:"));
+d100 1
+a100 1
+			printf("Sorry.\n");
+d105 1
+a105 1
+	strcpy(pwbuf, getpass("New password:"));
+d108 2
+a109 1
+		printf("Password unchanged.\n");
+d116 2
+a117 2
+		if(c>='a' && c<='z') flags |= 2;
+		else if(c>='A' && c<='Z') flags |= 4;
+d127 2
+a128 1
+		printf("Please use at least one non-numeric character.\n");
+d130 2
+a131 1
+		printf("Please use a longer password.\n");
+d136 4
+a139 2
+	if (strcmp(pwbuf,getpass("Retype new password:")) != 0) {
+		printf ("Mismatch - password unchanged.\n");
+d160 2
+a161 1
+		printf("Temporary file busy -- try again\n");
+d166 2
+a167 1
+		printf("Cannot create temporary file\n");
+d177 2
+d188 2
+a189 1
+				printf("Permission denied.\n");
+d204 2
+a205 1
+		printf("Write error: temporary file\n");
+d217 2
+a218 1
+		printf("Temp file disappeared!\n");
+d222 2
+a223 1
+		printf("Cannot recreat passwd file.\n");
+d227 2
+a228 1
+
+@

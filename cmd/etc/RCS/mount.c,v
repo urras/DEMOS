@@ -1,0 +1,1264 @@
+head     1.10;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.10
+date     89.07.31.22.07.17;  author ache;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.07.07.16.39.26;  author ache;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.10.05.14.48.16;  author dvolodin;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.10.05.13.39.48;  author dvolodin;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.03.25.17.26.32;  author nms;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.12.19.09.07.11;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.11.19.23.14.45;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.04.05.29.21;  author alex;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.10.17.23.11.09;  author alex;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.10.15.19.27.17;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Монтирование.
+@
+
+
+1.10
+log
+@Исправлены блокировки.
+@
+text
+@#
+/*
+ * mount-- Смонтировать файловую систему
+ *
+ * $Log:	mount.c,v $
+ * Revision 1.9  89/07/07  16:39:26  ache
+ * fsck работают параллельно по смыслу fstab,
+ * ключ -p понимает номера проходов,
+ * заполняется поле m_dev в mtab,
+ * правлены мелкие ошибки,
+ * введен flock (thnx avg),
+ * диагностики.
+ * 
+ * Revision 1.8  88/10/05  14:48:16  dvolodin
+ * stat на name делался не там.
+ * 
+ * Revision 1.7  88/10/05  13:39:48  dvolodin
+ * Поправлена ошибочка - в случае отсутствия или недоступности
+ * каталога, к которому монтируем, выдавалось сообщение об ошибке
+ * об устройстве.
+ * 
+ * Revision 1.6  88/03/25  17:26:32  nms
+ * При автоматическом режиме ( -a) читает имя файловой системы через
+ * "сырой" файл, но НЕ ЗАКРЫВАЕТ его, в результате чего при большом
+ * количестве файловых систем исчерпывает системный лимит на количество
+ * одновременно открытых файлов
+ * 
+ * Revision 1.5  86/12/19  09:07:11  alex
+ * При "mount -a" вставлен "sync" и задержка для того,
+ * чтобы в момент обращения к новому диску не было обменов
+ * с другими дисками (при работе файла /etc/rc).
+ * Это связано с нашим кривым драйвером "hk".
+ * 
+ * Revision 1.4  86/11/19  23:14:45  alex
+ * Добавлен сброс флага специального сеанса.
+ * 
+ * Revision 1.3  86/11/04  05:29:21  alex
+ * Введены флаги -p, -t tmpfile, -g для автоматического
+ * запуска fsck при монтировании.
+ * Если имя файловой системы не указано, либо (в fstab) указано как "?",
+ * имя считывается из супер-блока.
+ * 
+ * Revision 1.2  86/10/17  23:11:09  alex
+ * Внесено #include <mtab> и все, что с этим связано.
+ * 
+ * Revision 1.1  86/10/15  19:27:17  alex
+ * Initial revision
+ *
+ * Флаги:
+ * -p - проверить с помощью fsck прежде, чем монтировать
+ * -g - то же, но использовать fsck -pg вместо fsck -p
+ * -t name - задание имени рабочего файла для fsck
+ * -a - монтировать в соответствии с таблицей /etc/fstab
+ * -r - монтировать на чтение
+ *  mount [ключи] [устройство [файловая система]]
+ * если не указано имя файловой системы, оно берется с диска
+ * В fstab для этого служит указание имени "?" в поле имени
+ */
+#ifndef lint
+static char rcsid[] = "$Header: mount.c,v 1.10 89/07/31 21:21:50 ache Exp $";
+#endif
+#include <ediag.h>
+#include <signal.h>
+#include <stdio.h>
+#include <fstab.h>
+#include <sys/file.h>
+#include <mtab.h>
+#include <sys/types.h>
+#include <sys/param.h>
+#include <stat.h>
+#include <sys/fblk.h>
+#include <sys/ino.h>
+#include <sys/filsys.h>
+
+/*
+ * mount
+ */
+#define min(a,b) ((a)<(b)?(a):(b))
+
+#define FSCK "/etc/fsck"
+
+int mountall, ronly, fsck;
+char *tname;
+
+#define NMOUNT  MAXMOUNT
+
+struct mtab mtab[NMOUNT];
+struct ptab {
+	int     p_pid;                  /* process id */
+	struct  fstab p_fst;
+} ptab[NMOUNT];
+
+main(argc, argv)
+char **argv;
+{
+    struct  mtab    *mp;
+    register char *v;
+    char *dname=NULL, *fsname = NULL;
+
+    while(--argc > 0 )
+    {
+	if(*(v= *++argv)=='-') while(*++v) switch(*v) {
+        case 'a': 
+            mountall=1; 
+            break;
+        case 'p': 
+            fsck = 1;   
+	    getpasses(v+1);
+            break;
+        case 'r': 
+            ronly = 1; 
+            break;
+        case 't': 
+            if ( argc-- > 0 ) tname = *++argv;
+            else { 
+                fprintf(stderr,"-t ?\n"); 
+                usage(); 
+            }
+            break;
+        default:  
+	    fprintf(stderr,ediag("Unknown key -%c\n","Неизвестный ключ -%c\n"), *v);
+            usage(); 
+        } 
+        else { 
+            if ( !dname) dname = v; 
+            else if (!fsname) fsname = v;
+            else {
+                fprintf(stderr,ediag("Bad argument %s\n","Плохой аргумент %s\n"),v);
+                usage();
+            }
+        }
+    }
+    if (dname && !mountall)
+	exit (mntone(dname,fsname,ronly));
+    else if (mountall)
+	exit (mntall());
+    else
+        /* Если аргументов нет - печать таблицы */
+    {
+	readmtab (1);
+        for (mp = mtab; mp < &mtab[NMOUNT]; mp++)
+            if (mp->m_name[0])
+		printf(ediag ("%s on %s\n", "%s к %s\n"), mp->m_dname, mp->m_name);
+    }
+    exit(0);
+}
+
+int     startpass = 1;          /* first pass for preen */
+int     endpass = 30000;        /* last pass for preen */
+
+getpasses(s)
+char *s;
+{
+	register char *p;
+
+	for (p = s; *p; p++)
+		if (*p == '-')
+			break;
+	if (*p == '-') {
+		*p = '\0';
+		if (*(p+1))
+			endpass = atoi(p+1);
+		if (*s)
+			startpass = atoi(s);
+		*p = '-';
+	} else if (*s)
+		startpass = atoi(s);
+	if (startpass <= 0 || startpass > endpass) {
+		fprintf (stderr, ediag("-p: invalid pass numbers\n",
+			      "-p: недопустимые номера проходов\n"));
+		exit (1);
+	}
+}
+
+enablesigs ()
+{
+	signal(SIGINT, SIG_DFL);
+	signal(SIGQUIT, SIG_DFL);
+	signal(SIGTERM, SIG_DFL);
+}
+
+disablesigs ()
+{
+	signal(SIGINT, SIG_IGN);
+	signal(SIGQUIT, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
+}
+
+mntone (dname,fsname,ronly)
+char *dname, *fsname;
+{
+	int pid, status, w;
+
+	if (checkdev (dname, 1))
+		return 1;
+	if (fsck && strcmp (fsname, "/") != 0) {
+		disablesigs ();
+		if ((pid = fscheck(dname)) <= 0) {
+			enablesigs ();
+			return 1;
+		}
+		while ((w = wait(&status)) != pid && w != -1)
+			;
+		enablesigs ();
+		if (w == -1 || status) {
+			fprintf (stderr, ediag ("%s: fsck failed.\n",
+						"%s: fsck завершилась неудачно.\n"),
+						dname);
+			return 1;
+		}
+	}
+	return mountfs(dname,fsname,ronly,0);
+}
+
+int lckfd = -1;
+
+lockmtab ()
+{
+	if ((lckfd = open(MOUNTTABLE, 2)) < 0 &&
+	    (lckfd = creat(MOUNTTABLE, 0644)) < 0) {
+		printf (stderr, ediag ("Can't change %s!\n",
+				       "Нельзя изменить %s!\n"), MOUNTTABLE);
+		return 1;
+	}
+	flock (lckfd, LOCK_EX);
+	return 0;
+}
+
+unlockmtab ()
+{
+	if (lckfd >= 0) {
+		flock (lckfd, LOCK_UN);
+		close (lckfd);
+		lckfd = -1;
+	}
+}
+
+writemtab (lock)
+{
+	register i, n, mf;
+
+	for (i = NMOUNT - 1; i >= 0 && mtab[i].m_name[0] == '\0'; i--)
+		;
+	i++;
+
+	if ((mf = creat(MOUNTTABLE, 0644)) < 0) {
+		fprintf (stderr,ediag("Can't creat %s!\n",
+				      "Нельзя создать %s!\n"), MOUNTTABLE);
+		return 1;
+	}
+
+	if (lock)
+		flock (mf, LOCK_EX);
+
+	n = write(mf, (char *)mtab, i * sizeof (struct mtab));
+
+	if (n != i * sizeof (struct mtab)) {
+		fprintf (stderr, ediag (
+			"%s: write error\n",
+			"%s: ошибка записи\n"), MOUNTTABLE);
+		close (mf);
+		return 1;
+	}
+
+	close (mf);
+	return 0;
+}
+
+readmtab (lock)
+{
+	register i, rf;
+
+	for (i = 0; i < NMOUNT; i++)
+		mtab[i].m_name[0] = '\0';
+
+	if ((rf = open(MOUNTTABLE, 0)) < 0)
+		return 1;
+
+	if (lock)
+		flock (rf, LOCK_SH);
+
+	read (rf, (char *)mtab, sizeof mtab);
+
+	close (rf);
+	return 0;
+}
+
+#define TFS(x) (strcmp(fsp->fs_type,x) == 0)
+
+int passno;     /* Номер текущего pass      \ для fscheck() */
+int current;    /* Номер текущей fsck в pass/               */
+
+mntall()
+{ 
+	register struct fstab *fsp;
+	int ro, maxpassno;
+	char *fsname, *spec;
+	struct stat stbuf;
+	register j;
+	int w, status, pt;
+	int errall = 0;
+
+	if (setfsent() == NULL) {
+		perror(FSTAB);
+		return 1;
+	}
+	pt = 0;
+	maxpassno = 1;
+	while ((fsp = getfsent()) != NULL) {
+		if (!TFS(FSTAB_RO) && !TFS(FSTAB_RW))
+			continue;
+		if (pt >= NMOUNT) {
+			fprintf (stderr, ediag ("Too many fs's in %s.\n",
+						"Слишком много файловых систем в %s.\n"),
+						FSTAB);
+			return 1;
+		}
+		ptab[pt++].p_fst = *fsp;
+		if (fsp->fs_passno > maxpassno)
+			maxpassno = fsp->fs_passno;
+	}
+	endfsent ();
+
+	maxpassno = min (maxpassno, endpass);
+
+	for (passno = startpass; passno <= maxpassno; passno++) {
+		current = 1;
+
+		disablesigs ();
+
+		for (j = 0; j < pt; j++) {
+			if (ptab[j].p_fst.fs_passno == passno) {
+				ptab[j].p_pid = 0;
+				spec = ptab[j].p_fst.fs_spec;
+				if (checkdev (spec, 1))
+					continue;
+				fsname = ptab[j].p_fst.fs_file;
+				if (!fsck || strcmp (fsname, "/") == 0) {
+					errall += ptabmnt (j);
+					continue;
+				}
+				ptab[j].p_pid = fscheck (spec);
+			}
+		}
+		while ((w = wait(&status)) != -1) {
+			for (j = 0; j < pt; j++) {
+				if (ptab[j].p_pid == w &&
+				    ptab[j].p_fst.fs_passno == passno) {
+					if (status == 0)
+						errall += ptabmnt (j);
+					else {
+						errall++;
+						fprintf (stderr, ediag (
+							"%s: fsck failed.\n",
+							"%s: fsck завершилась неудачно.\n"),
+							ptab[j].p_fst.fs_spec);
+					}
+					ptab[j].p_pid = 0;
+					goto Next;
+				}
+			}
+			fprintf (stderr, ediag ("Wait error!\n",
+						"Ошибка ожидания!\n"));
+			return ++errall;
+		Next:   ;
+		}
+
+		/* Дождались всех fsck */
+		enablesigs ();
+
+		for (j = 0; j < pt; j++) {
+			if (ptab[j].p_fst.fs_passno == passno &&
+			    ptab[j].p_pid != 0) {
+				errall++;
+				fprintf (stderr, ediag (
+					"%s: fsck failed.\n",
+					"%s: fsck завершилась неудачно.\n"),
+					ptab[j].p_fst.fs_spec);
+			}
+		}
+	}
+
+	return errall;
+}
+
+ptabmnt (j)
+register j;
+{
+	register ro;
+	register char *fsname;
+	char *spec;
+
+	if (strcmp(ptab[j].p_fst.fs_type, FSTAB_RO) == 0) ro = 1;
+	else if (strcmp(ptab[j].p_fst.fs_type, FSTAB_RW) == 0) ro = 0;
+	else return 1;
+
+	fsname = ptab[j].p_fst.fs_file;
+	if ( *fsname == '?') fsname = NULL;
+
+	return mountfs(ptab[j].p_fst.fs_spec,fsname,ro,1);
+}
+
+setmtab(spec, name, mdev, ro)
+char	*spec, *name;
+dev_t   mdev;
+int	ro;
+{
+	register	char	*np;
+	register	struct	mtab	*mp;
+	char *specname;
+
+	np = spec;
+	while(*np++)
+		;
+	np--;
+	while(*--np == '/')
+		*np = '\0';
+	while(np > spec && *--np != '/')
+		;
+	if(*np == '/')
+		np++;
+	specname = spec = np;
+	for (mp = mtab; mp < &mtab[NMOUNT]; mp++) {
+		if (mp->m_name[0] == 0) {
+		Set:
+			for (np = mp->m_dname; np < &mp->m_dname[DEVSIZE-1];)
+				if ((*np++ = *spec++) == 0)
+					spec--;
+			for (np = mp->m_name; np < &mp->m_name[PATHSIZE-1];)
+				if ((*np++ = *name++) == 0)
+					name--;
+			mp->m_dev = mdev;
+		} 
+		else if(strcmp(mp->m_dname,specname) == 0 )
+		{ 
+			mp->m_name[0]=0; 
+			fprintf(stderr,ediag("WARNING: duplicate %s in %s\n",
+				"ПРЕДУПРЕЖДЕНИЕ: %s уже записан в %s\n"),specname, MOUNTTABLE);
+			goto Set;
+		}
+	}
+
+	return writemtab (0);
+}
+
+usage()
+{
+	fprintf(stderr,ediag("Usage: ","Вызов: "));
+	fprintf(stderr,ediag("mount [-a] [-p[range]] [-r] [-t tmpfile] [dev [filesys]]\n",
+			     "mount [-a] [-p[диап]] [-r] [-t врем_файл] [ус-во [файл_сис]]\n"));
+	exit(1);
+}
+
+#define MFSNAME sizeof (((struct filsys *)0)->s_fsmnt)
+
+char *getname(spec, warn)
+char *spec;
+{
+	struct filsys fsbuf;
+	static char fsname[MFSNAME+1];
+	int id;
+
+	if ((id=open(spec,0)) < 0 ||
+	    (lseek(id,(long)(SUPERB*BSIZE),0),read(id, &fsbuf, sizeof fsbuf))
+	     != sizeof fsbuf)
+	{ 
+		if (warn)
+		    fprintf(stderr,
+			ediag("Can not read header on %s\n",
+			"Нельзя прочесть заголовок на %s\n"),spec);
+		if(id >= 0)
+			close(id);
+		return(NULL); 
+	}
+	close(id);
+	strncpy(fsname,fsbuf.s_fsmnt,MFSNAME);
+	fsname[MFSNAME] = '\0';
+	if (fsname[0] != '/' || fsname[1] == '\0') {
+		if (warn)
+		    fprintf(stderr,
+		       ediag("%s not marked\n","%s не маркирован\n"), spec);
+	       return(NULL);
+	}
+	return(fsname);
+}
+
+/* Перед ним закрыть сигналы */
+
+fscheck(spec)
+register char *spec;
+{ 
+	char rspec[64];
+	char tbuf[64];
+	register char *fp, *tp;
+	char *stp;
+	char *bufs[10];
+	int i, pid, j, w, status;
+
+	/* Делаем из блокового сырое устройство */
+	fp = spec; 
+	tp = rspec;
+	stp = NULL;
+	while ( *fp ) { 
+		if ( (*tp++ = *fp++) =='/') stp = tp;
+	}
+	if ( stp ) { 
+		fp = fp - (tp - stp); 
+		tp = stp; 
+		*tp++ = 'r';
+		while(*fp) *tp++ = *fp++;
+	}
+	*tp++ = 0;
+	i = 0;
+	bufs[i++] = "fsck";
+	bufs[i++] = "-p";
+	if (tname) {
+		bufs[i++] = "-t";
+		if (mountall) {
+			sprintf (tbuf, "%s%d.%d", tname, passno, current++);
+			bufs[i++] = tbuf;
+		}
+		else
+			bufs[i++] = tname;
+	}
+	bufs[i++] = rspec;
+	bufs[i] = NULL;
+
+	for (j = 0; j < i; j++)
+	    printf ("%s ",bufs[j]);
+	printf ("\n");
+	fflush (stdout);
+
+	if ((pid = fork()) == -1) {
+		perror ("fork");
+		return -1;
+	}
+	else if (pid == 0) { /* Сын */
+		enablesigs ();
+		execv (FSCK, bufs);
+		_exit (1);
+	}
+	return pid;
+}
+
+struct stat devbuf;     /* Для возврата rdev */
+
+checkdev (spec, lock)
+char *spec;
+{
+	register struct mtab *mp;
+
+	if (stat (spec, &devbuf)) {
+		perror(spec);
+		return(1);
+	}
+	if ( (devbuf.st_mode&S_IFMT) != S_IFBLK)
+	{
+		fprintf(stderr,
+		 ediag("%s not a block device\n","%s не блоковое устройство\n"),
+		 spec);
+		return(1);
+	}
+	if (!lock && readmtab (0) == 0) {
+		for (mp = mtab; mp < &mtab[NMOUNT]; mp++)
+			if (mp->m_name[0] && mp->m_dev == devbuf.st_rdev) {
+				fprintf (stderr, ediag ("WARNING: %s already in %s.\n",
+							"ПРЕДУПРЕЖДЕНИЕ: %s уже есть в %s.\n"),
+							spec, MOUNTTABLE);
+				break;
+			}
+	}
+	return 0;
+}
+
+checkdir (name)
+char *name;
+{
+	struct stat stbuf;
+	dev_t dev;
+	char buf[100];
+
+	if (stat (name, &stbuf)) {
+		perror (name);
+		return 1;
+	}
+	if ((stbuf.st_mode & S_IFMT) != S_IFDIR) {
+		fprintf (stderr, ediag ("%s: not a directory.\n",
+					"%s: не каталог.\n"),
+				name);
+		return 1;
+	}
+	dev = stbuf.st_dev;
+	strcpy (buf, name);
+	strcat (buf, "/..");
+	if (stat (buf, &stbuf)) {
+		perror (buf);
+		return 1;
+	}
+	if (stbuf.st_dev != dev) {
+		fprintf (stderr, ediag ("Directory %s busy!\n",
+					"Каталог %s занят!\n"), name);
+		return 1;
+	}
+	return 0;
+}
+
+mountfs(spec, name, ro, pr)
+char *spec, *name;
+int ro;
+{
+	int pid, w, status, rval;
+	dev_t mdev;
+	char *s;
+
+	rval = 1;
+	if (lockmtab ())
+		return rval;
+	if (readmtab (0) || checkdev (spec, 0))
+		goto unlock;
+	mdev = devbuf.st_rdev;
+
+	s = getname (spec, !name);
+	if(!name && !s)
+		goto unlock;
+	else if (name && s && strcmp (name, s) != 0)
+		fprintf (stderr,
+		ediag ("WARNING: %s was mounted to %s\n",
+		       "ПРЕДУПРЕЖДЕНИЕ: %s была смонтирована к %s\n"),
+		       spec, s);
+	else if (!name)
+		name = s;
+
+	if (checkdir (name))
+		goto unlock;
+
+	if (strcmp(name,"/") != 0) {
+		if (pr) {
+			printf("mount %s %s %s", spec, name, ro ? "-r " : "");
+			fflush (stdout);
+		}
+		if (mount(spec,name,ro) < 0) {
+			perror (pr ? "\t" : spec);
+			goto unlock;
+		}
+		if (pr) {
+			printf ("\n");
+			fflush (stdout);
+		}
+	}
+	rval = setmtab(spec,name,mdev,ro);
+
+unlock:
+	unlockmtab ();
+	return rval;
+}
+@
+
+
+1.9
+log
+@fsck работают параллельно по смыслу fstab,
+ключ -p понимает номера проходов,
+заполняется поле m_dev в mtab,
+правлены мелкие ошибки,
+введен flock (thnx avg),
+диагностики.
+@
+text
+@d6 8
+d60 1
+a60 1
+static char rcsid[] = "$Header: mount.c,v 1.9 89/07/07 16:06:18 ache Exp $";
+a92 3
+int rf = -1;
+int mf = -1;
+
+d140 1
+a140 2
+	if (readmtab () == 0)
+	    close (rf);
+d194 1
+a194 1
+	if (checkdev (dname))
+d215 3
+a217 1
+writemtab ()
+d219 9
+a227 1
+	register i, n;
+d229 13
+d252 3
+a254 1
+	flock (mf, LOCK_EX);
+d265 2
+a266 1
+	return 0; /* not close */
+d269 1
+a269 1
+readmtab ()
+d271 1
+a271 1
+	register i;
+d279 3
+a281 1
+	flock (rf, LOCK_SH);
+d284 2
+a285 1
+	return 0;       /* not close */
+d335 1
+a335 1
+				if (checkdev (spec))
+d425 1
+d438 2
+a439 1
+				"ПРЕДУПРЕЖДЕНИЕ: %s дважды в %s\n"),specname, MOUNTTABLE);
+d443 1
+a443 6
+	if (writemtab () == 0) {
+		close (mf);
+		return 0;
+	}
+
+	return 1;
+d547 1
+a547 1
+checkdev (spec)
+d563 1
+a563 2
+	if (readmtab () == 0) {
+		close (rf);
+d566 4
+a569 4
+				fprintf (stderr, ediag ("%s already mounted.\n",
+							"%s уже смонтирован.\n"),
+							spec);
+				return 1;
+d611 1
+a611 1
+	int pid, w, status, bl, rval;
+d616 1
+a616 11
+	if (readmtab () == 0) {
+		bl = dup (rf);
+		flock (bl, LOCK_EX);
+		close (rf);
+	}
+	else if (writemtab () == 0) {
+		bl = dup (mf);
+		flock (bl, LOCK_EX);
+		close (mf);
+	}
+	else
+d618 1
+a618 1
+	if (checkdev (spec))
+d652 2
+a653 1
+unlock: close (bl);
+@
+
+
+1.8
+log
+@stat на name делался не там.
+@
+text
+@d6 3
+d52 1
+a52 1
+static char rcsid[] = "$Header: mount.c,v 1.7 88/10/05 13:39:48 dvolodin Exp $";
+d55 1
+a55 2
+
+
+d58 1
+d60 6
+d70 2
+d74 1
+a74 1
+int mountall, ronly, fsck, gflag;
+d80 4
+d85 3
+a87 1
+int ro;
+a91 1
+    int mf;
+d94 1
+a94 2
+    mf = open("/etc/mtab", 0);
+    read(mf, (char *)mtab, sizeof mtab);
+d103 1
+a104 4
+        case 'g': 
+            fsck = 1; 
+            gflag = 1; 
+            break;
+a112 1
+                exit(2); 
+d116 1
+a116 1
+            fprintf(stderr,ediag("Unknown key -%c\n","неизвестный ключ -%c\n"), *v);
+a117 1
+            exit(2);
+a124 1
+                exit(2);
+d128 4
+a131 2
+    if ( dname && !mountall ) exit(mountfs(dname,fsname,ronly,0));
+    else if (mountall) mntall();
+d135 2
+d139 1
+a139 1
+                printf("%s on %s\n", mp->m_dname, mp->m_name);
+d144 111
+d256 4
+d263 10
+a272 14
+	int ro;
+	char *fsname;
+	if (setfsent() == 0)
+		perror(FSTAB), exit(1);
+	while ( (fsp = getfsent()) != 0){
+		fsname = fsp->fs_file;
+		ro = 0;
+		if ( *fsname == '?') fsname = NULL;
+		if ( TFS(FSTAB_RO)) ro = 1;
+		else if ( TFS(FSTAB_RW)) ro = 0;
+		else continue;
+		mountfs(fsp->fs_spec, fsname,ro,1);
+		sync();     /* Из за отдельных ляпов в системе */
+		sleep(2);
+d274 77
+a350 2
+	endfsent();
+	return;
+d353 18
+a370 1
+setmtab(spec, name, ro)
+d372 1
+a376 1
+	int     mf;  
+d378 1
+d398 1
+d403 2
+a404 1
+			fprintf(stderr,ediag("WARN: duplicate %s in mtab\n","Предупреждение: дважды %s в /etc/mtab\n"),specname);
+d407 7
+a413 6
+	mp = &mtab[NMOUNT];
+	while ((--mp)->m_name[0] == 0);
+	mf = creat("/etc/mtab", 0644);
+	write(mf, (char *)mtab, (mp-mtab+1)*(sizeof *mp));
+	return(0);
+	return(0);
+d418 4
+a421 2
+	fprintf(stderr,ediag("Usage:","Вызов:"));
+	fprintf(stderr," mount [-apgr] [-t tmpfile] [dev [filesys]]\n");
+d424 1
+a424 6
+#include <sys/types.h>
+#include <sys/param.h>
+#include <stat.h>
+#include <sys/fblk.h>
+#include <sys/ino.h>
+#include <sys/filsys.h>
+d426 1
+a426 2
+#define MFSNAME 12 /* см. filsys.h - длина массива под имя */
+char *getname(spec)
+d430 1
+a430 1
+	static char fsname[MFSNAME+2];
+d432 1
+d437 2
+a438 1
+		fprintf(stderr,
+d440 1
+a440 1
+			"Не могу прочесть заголовок на %s\n"),spec);
+d447 5
+a451 3
+	if ( fsname[0] != '/' || fsname[1]==0) {
+	       fprintf(stderr,
+	       ediag("Not marked:%s\n","Не маркирован: %s \n"), spec);
+d457 2
+d462 2
+a463 1
+	char *rspec[64];
+d466 3
+a468 1
+	char bufs[128];
+d483 30
+a512 4
+	sprintf(bufs, "%s %s %s %s %s",FSCK,gflag?"-pg ":"-p ",tname?"-t ":"",tname?tname:"",
+	rspec);
+	fprintf(stderr,"%s \n",bufs);
+	return(system(bufs));
+d515 4
+a518 3
+mountfs(spec, name, ro, vflag)
+char *spec, *name;
+int ro, vflag;
+d520 5
+a524 5
+	struct stat stbuf;
+	int askflag = ( name != NULL);
+	if (stat(spec, &stbuf)) { 
+		perror(spec); 
+		return(1); 
+d526 2
+a527 2
+	if ( (stbuf.st_mode&S_IFMT) != S_IFBLK)
+	{ 
+d529 2
+a530 2
+	     ediag("%s not a block device\n","%s не блоковое устройство\n"),
+		spec);
+d533 9
+a541 5
+	if(!name && !(name=getname(spec)))
+	    return(1);
+	if (stat(name, &stbuf)) {
+		perror(name);
+		return(1); 
+d543 92
+a634 9
+	if ( strcmp(name,"/")==0 ) {setmtab(spec,"/"); return(0); }
+	if ( fsck  && fscheck(spec) ) return(1);
+	if(vflag) fprintf(stderr,"mount %s %s %s ",spec, name,ro?"-r":"");
+	if ( mount(spec,name,ro) < 0) {
+		perror(spec);
+		return(1);
+	} else fprintf(stderr,"\n");
+	setmtab(spec,name,ro);
+	return(0);
+@
+
+
+1.7
+log
+@Поправлена ошибочка - в случае отсутствия или недоступности
+каталога, к которому монтируем, выдавалось сообщение об ошибке
+об устройстве.
+@
+text
+@d6 5
+d49 1
+a49 1
+static char rcsid[] = "$Header: mount.c,v 1.6 88/03/25 17:26:32 nms Exp $";
+a269 4
+	if (stat(name, &stbuf)) {
+		perror(name);
+		return(1); 
+	}
+d283 4
+@
+
+
+1.6
+log
+@При автоматическом режиме ( -a) читает имя файловой системы через
+"сырой" файл, но НЕ ЗАКРЫВАЕТ его, в результате чего при большом
+количестве файловых систем исчерпывает системный лимит на количество
+одновременно открытых файлов
+@
+text
+@d6 6
+d44 1
+a44 1
+static char rcsid[] = "$Header: mount.c,v 1.5 86/12/19 09:07:11 alex Exp $";
+d265 4
+@
+
+
+1.5
+log
+@При "mount -a" вставлен "sync" и задержка для того,
+чтобы в момент обращения к новому диску не было обменов
+с другими дисками (при работе файла /etc/rc).
+Это связано с нашим кривым драйвером "hk".
+@
+text
+@d6 6
+d38 1
+a38 1
+static char rcsid[] = "$Header: mount.c,v 1.4 86/11/19 23:14:45 alex Exp $";
+d212 2
+d216 1
+@
+
+
+1.4
+log
+@Добавлен сброс флага специального сеанса.
+@
+text
+@d6 3
+d32 1
+a32 1
+static char rcsid[] = "$Header: mount.c,v 1.3 86/11/04 05:29:21 alex Exp $";
+d130 2
+@
+
+
+1.3
+log
+@Введены флаги -p, -t tmpfile, -g для автоматического
+запуска fsck при монтировании.
+Если имя файловой системы не указано, либо (в fstab) указано как "?",
+имя считывается из супер-блока.
+@
+text
+@d6 6
+d29 1
+a29 1
+static char rcsid[] = "$Header: mount.c,v 1.2 86/10/17 23:11:09 alex Stab $";
+d169 1
+a169 1
+	write(mf, (char *)mtab, (mp-mtab+1)*(sizeof mtab));
+d199 1
+a199 1
+			ediag("Can not read header on %s\n:",
+@
+
+
+1.2
+log
+@Внесено #include <mtab> и все, что с этим связано.
+@
+text
+@d6 3
+d12 9
+a21 1
+
+d23 1
+a23 1
+static char rcsid[] = "$Header: mount.c,v 1.1 86/10/15 19:27:17 alex Stab $";
+d35 1
+d37 3
+a39 1
+int	mountall;
+d44 1
+a44 1
+int	ro;
+d48 56
+a103 3
+	register struct mtab *mp;
+	register char *np;
+	int mf;
+d105 10
+a114 20
+	mountall = 0;
+	mf = open("/etc/mtab", 0);
+	read(mf, (char *)mtab, sizeof mtab);
+	if (argc==1) {
+		for (mp = mtab; mp < &mtab[NMOUNT]; mp++)
+			if (mp->m_name[0])
+				printf("%s on %s\n", mp->m_dname, mp->m_name);
+		exit(0);
+	}
+
+	if (argc == 2){
+		if (strcmp(argv[1], "-a") == 0)
+			mountall++;
+		else {
+			fprintf(stdout,"arg count\n");
+			exit(1);
+		}
+	}
+
+	if (!mountall){
+d116 5
+a120 23
+		if(argc > 3)
+			ro++;
+		if (mountfs(argv[1], argv[2], ro)){
+			perror("mount");
+			exit(1);
+		}
+	} else {
+		struct	fstab	*fsp;
+		close(2); dup(1);
+		if (setfsent() == 0)
+			perror(FSTAB), exit(1);
+		while ( (fsp = getfsent()) != 0){
+			if (strcmp(fsp->fs_file, "/") == 0)
+				continue;
+			ro = !strcmp(fsp->fs_type, FSTAB_RO);
+			if (ro==0 && strcmp(fsp->fs_type, FSTAB_RW))
+				continue;
+			if (mountfs(fsp->fs_spec, fsp->fs_file, ro))
+				failed(fsp);
+			else
+				succeed(fsp);
+		}
+		endfsent();
+d122 2
+a123 1
+	exit(0);
+a124 25
+failed(fsp)
+	register	struct	fstab *fsp;
+{
+	extern int errno;
+	extern char *sys_errlist[];
+	int err = errno;
+	printf("Attempt to mount ");
+	location(fsp);
+	printf("FAILED: %s\n", sys_errlist[err]);
+}
+succeed(fsp)
+	register	struct	fstab *fsp;
+{
+	printf("Mounted ");
+	location(fsp);
+	printf("\n");
+}
+location(fsp)
+	register	struct	fstab *fsp;
+{
+	extern	int	ro;
+	printf("%s on %s %s ",
+		fsp->fs_file, fsp->fs_spec,
+		ro ? "(Read Only)" : "");
+}
+d126 3
+a128 3
+mountfs(spec, name, ro)
+	char	*spec, *name;
+	int	ro;
+d132 2
+a133 5
+	int	mf;
+
+	if(mount(spec, name, ro) < 0) {
+		return(1);
+	}
+d144 1
+a144 1
+	spec = np;
+d153 5
+a157 5
+			mp = &mtab[NMOUNT];
+			while ((--mp)->m_name[0] == 0);
+			mf = creat("/etc/mtab", 0644);
+			write(mf, (char *)mtab, (mp-mtab+1)*(sizeof mtab));
+			return(0);
+d160 100
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d12 1
+a12 1
+static char rcsid[] = "$Header$";
+d19 1
+d26 1
+a26 2
+#define	NMOUNT	16
+#define	NAMSIZ	32
+d28 1
+a28 4
+struct mtab {
+	char	file[NAMSIZ];
+	char	spec[NAMSIZ];
+} mtab[NMOUNT];
+d40 1
+a40 1
+	read(mf, (char *)mtab, NMOUNT*2*NAMSIZ);
+d43 2
+a44 2
+			if (mp->file[0])
+				printf("%s on %s\n", mp->spec, mp->file);
+d134 2
+a135 2
+		if (mp->file[0] == 0) {
+			for (np = mp->spec; np < &mp->spec[NAMSIZ-1];)
+d138 1
+a138 1
+			for (np = mp->file; np < &mp->file[NAMSIZ-1];)
+d142 1
+a142 1
+			while ((--mp)->file[0] == 0);
+d144 1
+a144 1
+			write(mf, (char *)mtab, (mp-mtab+1)*2*NAMSIZ);
+@

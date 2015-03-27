@@ -1,0 +1,1935 @@
+head     1.19;
+access   avg dmitry alex andrew ache korotaev abs;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.19
+date     89.06.29.10.34.06;  author korotaev;  state Exp;
+branches ;
+next     1.18;
+
+1.18
+date     89.06.10.20.48.08;  author avg;  state Exp;
+branches ;
+next     1.17;
+
+1.17
+date     89.06.10.19.37.16;  author avg;  state Exp;
+branches ;
+next     1.16;
+
+1.16
+date     88.09.30.16.47.37;  author abs;  state Exp;
+branches ;
+next     1.15;
+
+1.15
+date     88.09.13.18.04.26;  author korotaev;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     88.09.09.16.30.39;  author root;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     88.09.09.15.56.48;  author korotaev;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.06.24.15.20.15;  author ache;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.06.23.23.02.04;  author ache;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.06.23.17.17.14;  author ache;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.06.21.21.22.25;  author ache;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.06.20.22.42.52;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.04.04.16.46.15;  author andrew;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.04.02.20.27.23;  author andrew;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.03.22.17.40.54;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.03.21.18.51.02;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.04.22.13.19.44;  author avg;  state Stab;
+branches ;
+next     1.2;
+
+1.2
+date     86.04.21.22.37.41;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.21.17.12.14;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Вход в систему -
+ 	запрашивает имя и пароль.
+@
+
+
+1.19
+log
+@???
+@
+text
+@/*
+ * login [ name [+-echo]]
+ * login [ name.group [+-echo]]
+ *
+ * $Log:        login.c,v $
+ * Revision 1.18  89/06/10  20:48:08  avg
+ * Немного ошибся.
+ *
+ * Revision 1.17  89/06/10  19:37:16  avg
+ * Если login вызывался с аргументом, он не будет зацикливаться на вводе имени.
+ *
+ * Revision 1.16  88/09/30  16:47:37  abs
+ * исправлено русское правописание.
+ *
+ * Revision 1.15  88/09/13  18:04:26  korotaev
+ * Изменен path.
+ *
+ * Revision 1.14  88/09/09  16:30:39  root
+ * От-xstr-ено.
+ *
+ * Revision 1.14  88/09/09  16:16:03  root
+ * От-xstr-ено.
+ *
+ *
+ * Revision 1.13  88/09/09  15:56:48  korotaev
+ * Вставлен новый PATH.
+ *
+ * Revision 1.12  88/06/24  15:20:15  ache
+ * Разбор флагов pw_shell + формат sulog
+ *
+ * Revision 1.11  88/06/23  23:02:04  ache
+ * В файл регистрации не записывалось неправильное имя пользователя.
+ *
+ * Revision 1.10  88/06/23  17:17:14  ache
+ * flock + общий файл регистрации неверных входов для login и su +
+ * мелкие правки
+ *
+ * Revision 1.9  88/06/21  21:22:25  ache
+ * Теперь выдается имя каталога, в который нельзя перейти +
+ * обрабатывается файл .hushlogin (см. man) +
+ * мелкие правки.
+ *
+ * Revision 1.8  88/06/20  22:42:52  avg
+ * Если в поле пароля установлен символ ?, то login
+ * не будет проверять пароль, а su не даст войти.
+ *
+ * Revision 1.7  88/04/04  16:46:15  andrew
+ * При отсутствии в окружении переменных TERM и TERMCAP
+ * login мог падать при чтении из NULL.
+ *
+ * Revision 1.6  88/04/02  20:27:23  andrew
+ * Теперь из environ передается еще и TERMCAP и правлен формат выдачи.
+ *
+ * -----------
+ * 1.5
+ * Заifdefлены некоторые добавления. (слишком мешают работать на
+ * консоли !!!).
+ * 1.4
+ * 1) Сделана работа с файлом бюджетов.
+ * 2) При входе в систему пользователю посылается приветствие.
+ * 3) При удачной или неудачной регистрации посылается сообщение
+ * на /dev/console.
+ *
+ * Revision 1.3  86/04/22  13:19:44  avg
+ * Правлена ошибка - не передавались environ-переменные TERM и MSG.
+ *
+ * Revision 1.2  86/04/21  22:37:41  avg
+ * Сделаны правки для работы без ttytypes и с двуязычными диагностиками.
+ *
+ * Revision 1.1  86/04/21  17:12:14  root
+ * Initial revision
+ *
+ */
+
+/*NOXSTR*/
+
+#ifndef lint
+static char rcsid[] = "$Header: login.c,v 1.18 89/06/10 20:48:08 avg Exp $";
+#endif
+
+#define GROUP                   /* allow login as name.group */
+#define SP_SESS                 /* "special session"-- root logins only */
+/* used after autoreboot failures */
+
+#include <whoami.h>
+#include <sys/types.h>
+#include <sgtty.h>
+#include <utmp.h>
+#include <sys/file.h>
+#include <signal.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <sys/stat.h>
+#include <lastlog.h>
+#include <bud.h>
+#ifdef  GROUP
+#include <grp.h>
+#endif
+#include <ediag.h>
+
+#define BUJET       "/usr/adm/budget"
+#define PATH "PATH=:/bin:/usr/local/bin:/usr/bin:/usr/ucb/bin:/usr/new/bin"
+					  /* default path */
+#define SHELL   "/bin/sh"                               /* default shell */
+#define JCLCSH  "/bin/csh"      /* job control shell, needs new line disc. */
+/*
+	 * The umask is a local decision.  077 is very paranoid (everything
+	 * is highly secret).  0 is wide open (everything readable and writable
+	 * by anyone.)  022 is moderate.  027 is also a possibility.
+	 */
+#define UMASK   02
+
+#define SCPYN(a, b)     strncpy(a, b, sizeof(a))
+#define NMAX    sizeof(utmp.ut_name)
+#define LMAX    sizeof(utmp.ut_line)
+#define CNTL(x) ('x'&037)
+#define UNDEF   '\377'
+
+char    maildir[30] =   "/usr/spool/mail/";
+char    lastlog[] =     "/usr/adm/lastlog";
+char    nolog[] =       "/etc/nologin";
+char    hushlogin[] =   "/.hushlogin";
+#ifdef CONSOLE_DIAG
+char    CONSOLE[] =     "/dev/console";
+#endif CONSOLE_DIAG
+char    BADLOGFILE[] =  "/usr/adm/sulog";
+struct  passwd nouser = {
+	"", "nope"};
+struct  sgttyb ttyb;
+struct  utmp utmp,utmpx;
+char    hostname[32];
+char    minusnam[16] = "-";
+char    homedir[128] = "HOME=";
+char    term[64] = "TERM=";
+char    termcap[1040] = "TERMCAP=";
+char    shell[64] = "SHELL=";
+char    user[NMAX+9] = "USER=";
+char    lang[16] = "MSG=";
+#define I_TERM 5   /* Индексы */
+#define I_TERMCAP 6
+char    *envinit[] = {
+	homedir, PATH, shell, user, lang, term, termcap, NULL};
+
+struct  ltchars ltc =
+{
+	CNTL(z), CNTL(y), CNTL(r), CNTL(t), CNTL(w), CNTL(v)
+};
+struct  passwd *pwd;
+
+struct  passwd *getpwnam();
+char    *strcat();
+int     setpwent();
+char    *ttyname();
+char    *crypt();
+char    *getpass();
+#ifdef  GROUP
+#define GRLEN   30              /* max length of group name */
+struct group *grp, *getgrnam();
+#endif
+#ifdef  SP_SESS
+int     sp_sess = 0;
+#endif
+char    *rindex(), *index();
+extern  char **environ;
+extern  char _sobuf[];
+char   *ttyn;
+short Silent = 0;       /* Молчаливый вход */
+int gptr;
+int probel,dost;
+FILE *yfc;
+FILE *fb;
+int yf,yyc,yntty;
+struct USER B;
+int WASEXIT = 0;
+long yctime;
+int zero[8] = {
+	0, 0, 0, 0, 0, 0, 0, 0 };
+int SetEcho, ResetEcho;
+struct sgttya sm, wm;
+
+/*YESXSTR*/
+
+main(argc, argv)
+char **argv;
+{
+	register char *namep;
+	int t, f, c, wasslash, ldisc, xargc;
+	char *cp;
+	FILE *nlfd;
+#ifdef  GROUP
+	char group[GRLEN];
+#endif
+	char *parms[128];
+
+	xargc = argc;
+	setbuf(stdout, _sobuf);
+	alarm(180);
+	signal(SIGQUIT, SIG_IGN);
+	nice(-100);
+	nice(20);
+	nice(0);
+
+#ifdef  SP_SESS
+	if (argv[0][0] == 's')
+		sp_sess++;
+#endif
+
+	for (t=3; t<20; t++)
+		close(t);
+
+	ioctl(0, TIOCGETA, &sm);
+	ttyn = ttyname(0);
+	if( ttyn==0 )
+		ttyn = "/dev/tty??";
+
+	t = 0;
+	if( argc == 3 ) {
+		if( !strcmp(argv[2], "-echo") )
+			ResetEcho++, argc--;
+		else
+		if( !strcmp(argv[2], "+echo") )
+			SetEcho++, argc--;
+	}
+	if( argc > 2 ) {
+		printf(ediag("Usage: login [user[.group]]\n",
+			     "Вызов: login [польз[.группа]]\n"));
+		exit(1);
+	}
+	goto entry;
+loop:
+	if( xargc == 3 )         /* если вызван из getty, то не зацикиваться */
+		exit(0);
+entry:
+	if (++t >10) {
+		ioctl(0, TIOCHPCL, (struct sgttyb *) 0);
+		close(0);
+		sleep(2);
+		exit(1);
+	}
+	SCPYN(utmp.ut_name, "");
+#ifdef  GROUP
+	SCPYN(group, "");
+	if (argc>1) {
+		register char *av = argv[1];
+		namep = utmp.ut_name;
+		while (namep < utmp.ut_name+NMAX) {
+			if (*av == 0 || *av == '.')
+				break;
+			*namep++ = *av++;
+		}
+		if (*av++ == '.')
+			for (namep=group; namep<group+GRLEN; )
+				if ((*namep++ = *av++) == 0)
+					break;
+		argc = 0;
+	}
+#else
+	if (argc>1) {
+		SCPYN(utmp.ut_name, argv[1]);
+		argc = 0;
+	}
+#endif
+	gethostname(hostname, sizeof (hostname));
+	while (utmp.ut_name[0] == '\0') {
+		namep = utmp.ut_name;
+		if( _ediag == EDIAG_E )
+			printf("%s login: ", hostname);
+		else if( hostname && *hostname != '\0' )
+			printf("%s\nИмя: ", hostname);
+		else
+			printf("Имя: " );
+		fflush(stdout);
+		while ((c = getchar()) != '\n') {
+			if(c == ' ')
+				c = '_';
+			if (c == EOF)
+				exit(0);
+#ifdef  GROUP
+			if (c == '.')
+				break;
+#endif
+			if (namep < utmp.ut_name+NMAX)
+				*namep++ = c;
+		}
+#ifdef  GROUP
+		if (c == '.') {
+			char *pgrp = group;
+
+			while ((c = getchar()) != '\n') {
+				if (c == EOF)
+					exit(0);
+				if (pgrp < &group[GRLEN])
+					*pgrp++ = c;
+			}
+		}
+#endif
+	}
+	setpwent();
+	if ((pwd = getpwnam(utmp.ut_name)) == NULL)
+		pwd = &nouser;
+	endpwent();
+	if (*pwd->pw_passwd != '\0' &&
+	    (pwd->pw_passwd[0] != '?' || pwd->pw_passwd[1] != '\0')) {
+		namep = crypt(cp = getpass(ediag("Password: ",
+		"Пароль: ")), pwd->pw_passwd);
+		if (strcmp(namep, pwd->pw_passwd)) {
+			printf(ediag("Login incorrect\n",
+			"Неправильное имя или пароль\n"));
+#ifdef CONSOLE_DIAG
+			yfc = fopen(CONSOLE,"w");
+			if(yfc != NULL) {
+				fprintf(yfc,"\007BAD Login: %s on %s\n",
+				pwd->pw_name,ttyn);
+				fclose(yfc);
+			}
+#endif CONSOLE_DIAG
+			badlog (utmp.ut_name, ttyn, cp, group);
+			goto loop;
+		}
+	}
+#ifdef  GROUP
+	if (group[0]) {
+		register i;
+		grp = getgrnam(group);
+		endgrent();
+		if(grp == 0) {
+			printf(ediag("Login incorrect\n",
+			"Неправильное имя или пароль\n"));
+#ifdef CONSOLE_DIAG
+			yfc=fopen(CONSOLE,"w");
+			if(yfc != NULL) {
+				fprintf(yfc,"\007BAD Login: %s on %s\n",
+				pwd->pw_name,ttyn);
+				fclose(yfc);
+			}
+#endif CONSOLE_DIAG
+			badlog (utmp.ut_name, ttyn, (char *) NULL, group);
+			goto loop;
+		}
+		for(i=0;grp->gr_mem[i];i++)
+			if(strcmp(grp->gr_mem[i], pwd->pw_name) == 0)
+				break;
+		if(grp->gr_mem[i] == 0) {
+			printf(ediag("Login incorrect\n",
+			"Неправильное имя или пароль\n"));
+#ifdef CONSOLE_DIAG
+			yfc=fopen(CONSOLE,"w");
+			if(yfc != NULL) {
+				fprintf(yfc,"\007BAD Login: %s on %s\n",
+				pwd->pw_name,ttyn);
+				fclose(yfc);
+			}
+#endif CONSOLE_DIAG
+			badlog (utmp.ut_name, ttyn, (char *) NULL, group);
+			goto loop;
+		}
+
+		if(grp->gr_passwd[0] != '\0' && pwd->pw_passwd[0] == '\0') {
+			if(strcmp(grp->gr_passwd,
+			crypt(cp = getpass(ediag("Password: ",
+			"Пароль: ")),grp->gr_passwd)) != 0) {
+				printf(ediag("Login incorrect\n",
+				"Неправильное имя или пароль\n"));
+#ifdef CONSOLE_DIAG
+				yfc=fopen(CONSOLE,"w");
+				if(yfc != NULL) {
+					fprintf(yfc,"\007BAD Login: %s on %s\n",
+					pwd->pw_name,ttyn);
+					fclose(yfc);
+				}
+#endif CONSOLE_DIAG
+				badlog (utmp.ut_name, ttyn, cp, group);
+				goto loop;
+			}
+		}
+		pwd->pw_gid = grp->gr_gid;
+	}
+#endif
+	if (pwd->pw_uid != 0 && (nlfd = fopen(nolog, "r")) > 0) {
+		/* logins are disabled except for root */
+		while ((c = getc(nlfd)) != EOF)
+			putchar(c);
+		fflush(stdout);
+		sleep(5);
+		exit(0);
+	}
+#ifdef  SP_SESS
+	if(sp_sess && pwd->pw_uid != 0) {
+		printf(ediag("Sorry.  You cannot login at this time.\n",
+		"Вы не можете пока войти в систему. Сожалею.\n"));
+		exit(0);
+	}
+#endif
+	time(&yctime);
+	dost = 300;
+	yntty=0;
+	if( ( fb = open( BUJET, 0 ) ) != -1 ) {
+		if( !WASEXIT && (yf = open( "/etc/utmp", 0 )) != -1 ) {
+			flock (yf, LOCK_SH);
+			while( read( yf, &utmpx, sizeof utmpx ) == (sizeof utmpx) )
+				if( utmpx.ut_line !=NULL)
+					if(strcmp(utmpx.ut_name,pwd->pw_name) == 0)
+						++yntty;
+			WASEXIT++;
+			close( yf );
+		}
+		yyc = (pwd->pw_uid)&0377;
+		while( read( fb, &B, sizeof B ) == (sizeof B) )
+			if( yyc == B.B_uid ) {
+				if( B.B_flags & B_SHTRAF ) {
+					printf( ediag( "Closed by system manager.\n",
+					"Вход запрещен администратором системы.\n") );
+					close( fb );
+					goto loop;
+				}
+				if( B.B_ttymins != -1L && (B.B_ttyused+B.B_pad) >= B.B_ttymins ) {
+					printf( ediag( "No more connect time.\n",
+					"Кончился бюджет терминального времени.\n") );
+					close( fb );
+					goto loop;
+				}
+				if( B.B_diskblk != -1L && B.B_diskused > B.B_diskblk ) {
+					printf( ediag( "No more disk blocks: you can't work now.\n",
+					"Вход запрещен: кончился бюджет дисковой памяти.\n") );
+					close( fb );
+					goto loop;
+				}
+				if(B.B_ntty != -1 && yntty >= B.B_ntty) {
+					printf( ediag( "No more ttys for You.\n",
+					"Нельзя занимать так много терминалов.\n"));
+					close(fb);
+					goto loop;
+				}
+				dost = (unsigned)( B.B_diskblk-B.B_diskused );
+				break;
+			}
+		close( fb );
+	}
+	signal(SIGINT, SIG_IGN);
+	alarm(0);
+	{
+	    char    hushbuf[128];
+
+	    if (strlen(pwd->pw_dir)+sizeof(hushlogin) <= sizeof(hushbuf)) {
+		strcpy (hushbuf, pwd->pw_dir);
+		strcat (hushbuf, hushlogin);
+		Silent = (access (hushbuf, 0) == 0);
+	    }
+	}
+	if((f = open(lastlog, 2)) >= 0) {
+		struct lastlog ll;
+
+		flock (f, LOCK_SH);
+		lseek(f, (long) ((unsigned) (pwd->pw_uid) * sizeof (struct lastlog)), 0);
+		if (read(f, (char *) &ll, sizeof ll) == sizeof ll &&
+		    ll.ll_time != 0 && !Silent) {
+			register char *ep = (char *) ctime(&ll.ll_time);
+
+			printf(ediag("Last login: ",
+			"Последний раз входили в систему: "));
+			ep[24 - 5] = 0;
+			printf(ediag("%s on %.*s\n",
+			"%s на %.*s\n"), ep, LMAX, ll.ll_line);
+			fflush(stdout); /* So user sees the message quickly! */
+		}
+		flock (f, LOCK_EX);
+		lseek(f, (long) ((unsigned) (pwd->pw_uid) * sizeof (struct lastlog)), 0);
+		time(&ll.ll_time);
+		strncpy(ll.ll_line, ttyn+5, LMAX);
+		write(f, (char *) &ll, sizeof ll);
+		close(f);
+	}
+	if (!Silent)
+		showfile(ediag("/etc/motd_e", "/etc/motd_r"));
+	time(&utmp.ut_time);
+	t = ttyslot();
+	if (t>0 && (f = open("/etc/utmp", 1)) >= 0) {
+		flock (f, LOCK_EX);
+		lseek(f, (long)(t*sizeof(utmp)), 0);
+		SCPYN(utmp.ut_line, rindex(ttyn, '/')+1);
+		write(f, (char *)&utmp, sizeof(utmp));
+		close(f);
+	}
+	if (t>0 && (f = open("/usr/adm/wtmp", 1)) >= 0) {
+		flock (f, LOCK_EX);
+		lseek(f, 0L, 2);
+		write(f, (char *)&utmp, sizeof(utmp));
+		close(f);
+	}
+	chown(ttyn, pwd->pw_uid, pwd->pw_gid);
+	chmod(ttyn, 0622);
+	setgid(pwd->pw_gid);
+#ifdef  notyet
+	initgroups(pwd->pw_name, pwd->pw_gid);
+#endif
+	setuid(pwd->pw_uid);
+	namep = pwd->pw_dir;
+	for (;;) {
+		if (*namep == '\0')
+			break;
+		cp = namep++;
+		for (; *namep != '/' && *namep != '\0'; namep++);
+		wasslash = 0;
+		if (*namep == '/') {
+			*namep = '\0';
+			wasslash++;
+		}
+		if (chdir(cp)<0) {
+			if (chdir("/") < 0) {
+				printf(ediag("No %s and root directories!\n",
+		"Каталог %s и корневой каталог недоступны!\n"), cp);
+				exit(1);
+			}
+			else {
+				if (!Silent)
+				    printf(ediag("No directory %s! Logging in with home=/\n",
+		"Недоступен каталог %s! Вы в корневом каталоге.\n"), cp);
+				break;
+			}
+		}
+		if (!Silent)
+		    showfile(".broadcast");
+		if (wasslash)
+			*namep++ = '/';
+	}
+	if (!Silent)
+	    showfile(".reminder");
+
+	if (*pwd->pw_shell == '\0')
+		pwd->pw_shell = SHELL;
+
+	{short first, cnt;
+	first = 1;
+	cnt = 1;
+	for (cp = pwd->pw_shell; *cp; cp++)
+	    if (first) {
+		if (!isspace (*cp)) {
+		    first = 0;
+		    while (*(cp + 1) && !isspace (*(cp + 1))) cp++;
+		}
+	    }
+	    else
+		if (isspace (*cp))
+		    *cp = '\0';
+		else {
+		    parms[cnt++] = cp;
+		    while (*(cp + 1) && !isspace (*(cp + 1))) cp++;
+		}
+	parms[cnt] = (char *) 0;
+	}
+
+	if (!strcmp(pwd->pw_shell, JCLCSH)) {
+		ldisc = NTTYDISC;
+		ioctl(0, TIOCSETD, &ldisc);
+	}
+	else {
+		ltc.t_suspc = ltc.t_dsuspc = UNDEF;
+		ioctl(0, TIOCSLTC, &ltc);
+	}
+	{
+	register char *s;
+
+	if ((s = getenv("TERM")) != NULL) {
+		strncat(term, s, sizeof(term)-6);
+		if ((s = getenv("TERMCAP")) != NULL)
+			strncat(termcap, s, sizeof(termcap)-9);
+		else
+			envinit[I_TERMCAP] = NULL;
+	}
+	else
+		envinit[I_TERM] = NULL;
+	}
+	environ = envinit;
+	strncat(homedir, pwd->pw_dir, sizeof(homedir)-6);
+	strncat(user, pwd->pw_name, sizeof(user)-6);
+	if ((namep = rindex(pwd->pw_shell, '/')) == NULL)
+		namep = pwd->pw_shell;
+	else
+		namep++;
+#ifdef CONSOLE_DIAG
+	yfc=fopen(CONSOLE,"w");
+	if(yfc!=NULL) {
+		fprintf(yfc,"Login: %s on %s\n",pwd->pw_name,ttyn);
+		fclose(yfc);
+	}
+#endif CONSOLE_DIAG
+	gptr=0;
+	if (!Silent) {
+#ifdef WELCOME
+	    char hello[80];
+
+	    probel= -1;
+	    if(pwd->pw_gecos[0] != NULL) {
+		    while(pwd->pw_gecos[gptr] !=',' && probel < 79) {
+			    if(pwd->pw_gecos[gptr] != ' ' && pwd->pw_gecos[gptr] !='\t' && probel < 0)
+				    probel = 0;
+			    else if(probel == 0 && pwd->pw_gecos[gptr] ==' ')
+				    probel=1;
+			    else if(probel > 0) {
+				    hello[probel-1] = (pwd->pw_gecos[gptr])&0377;
+				    ++probel;
+			    }
+			    gptr++;
+		    }
+	    }
+	    if(probel >= 0) hello[probel]='\0';
+	    else hello[0]='\0';
+	    printf(ediag("\tHello, %s.\n","\tЗдравствуйте, %s.\n"),hello);
+#endif WELCOME
+	    if(dost < 100 && dost >= 0) {
+		    printf(ediag("You have only %dК free disk space - remove your garbage!\n\007",
+		"У Вас осталось только %dК памяти на дисках - сотрите лишние файлы!\n\007"),dost );
+	    }
+	}
+	/* конец приветствия */
+	strncat(shell, pwd->pw_shell, sizeof(shell)-7);
+	lang[4] = ediag('e', 'r');
+	lang[5] = 0;
+	strcat(minusnam, namep);
+	parms[0] = minusnam;
+	umask(UMASK);
+	strcat(maildir, pwd->pw_name);
+	if(!Silent && access(maildir,4)==0) {
+		struct stat statb;
+
+		stat(maildir, &statb);
+		if (statb.st_size)
+			printf(ediag("You have mail.\n",
+			"Вам пришла почта.\n"));
+	}
+	signal(SIGQUIT, SIG_DFL);
+	signal(SIGINT, SIG_DFL);
+#ifdef  SIGTSTP
+	signal(SIGTSTP, SIG_IGN);
+#endif
+	fflush(stdout);
+	if( SetEcho && !(sm.sg_flags & ECHO) ) {
+		sm.sg_flags |= ECHO;
+		ioctl(0, TIOCSETA, &sm);
+	} else if( ResetEcho && (sm.sg_flags & ECHO) ) {
+		sm.sg_flags &= ~ECHO;
+		ioctl(0, TIOCSETA, &sm);
+	}
+	execvp(pwd->pw_shell, parms);
+	printf(ediag("No shell\n", "Нет интерпретатора командного языка\n"));
+	exit(0);
+}
+
+int     stopmotd;
+catch()
+{
+	signal(SIGINT, SIG_IGN);
+	stopmotd++;
+	printf("\n");
+	fflush(stdout);         /* Immediate-looking response. */
+}
+
+showfile(name)
+	char *name;
+{
+	FILE *mf;
+	register c;
+
+	stopmotd = 0;
+	signal(SIGINT, catch);
+	if((mf = fopen(name,"r")) != NULL) {
+		while((c = getc(mf)) != EOF && stopmotd == 0)
+			putchar(c);
+		fclose(mf);
+		fflush(stdout);
+	}
+	signal(SIGINT, SIG_IGN);
+}
+
+badlog (whoto, ttyn, password, group)
+register char   *whoto, *ttyn, *password, *group;
+{
+	register FILE   *logf;
+	int     i;
+	long    now;
+	struct  stat statb;
+
+	if (stat(BADLOGFILE, &statb) < 0)
+		return;
+	if ((logf = fopen (BADLOGFILE, "a")) == NULL)
+		return;
+
+	flock (fileno (logf), LOCK_EX);
+	time (&now);
+	i = _ediag;
+	_ediag = EDIAG_E;
+	fprintf (logf, "LOG: %24.24s  %-8.8s %-8.8s.  %-8.8s ",
+			ctime(&now), ttyn+5, whoto, group);
+	_ediag = i;
+	if (password == (char *) 0)
+		fprintf(logf, "BAD: GROUP\n");
+	else
+		fprintf(logf, "BAD: PW='%s'\n", password);
+	fclose (logf);
+}
+
+char *getpass(s)
+{
+	static char buf[160];
+
+	printf("%s", s);
+	fflush(stdout);
+	if( sm.sg_flags & ECHO ) {
+		wm = sm;
+		wm.sg_flags &= ~ECHO;
+		ioctl(0, TIOCSETA, &wm);
+		gets(buf);
+		ioctl(0, TIOCSETA, &sm);
+	} else
+		gets(buf);
+	printf("\n");
+	fflush(stdout);
+	return buf;
+}
+@
+
+
+1.18
+log
+@Немного ошибся.
+@
+text
+@d2 2
+a3 2
+ * login [ name ]
+ * login [ name.group ]
+d6 3
+d78 1
+a78 1
+static char rcsid[] = "$Header: login.c,v 1.17 89/06/10 19:37:16 avg Exp $";
+d179 2
+d212 1
+d218 12
+d232 1
+a232 1
+	if( xargc > 1 )         /* если вызван из getty, то не зацикиваться */
+d306 1
+a306 1
+		"Пароль: ")),pwd->pw_passwd);
+d311 1
+a311 1
+			yfc=fopen(CONSOLE,"w");
+d638 7
+d701 19
+@
+
+
+1.17
+log
+@Если login вызывался с аргументом, он не будет зацикливаться на вводе имени.
+@
+text
+@d6 3
+d53 1
+a53 1
+ * Заifdefлены некоторые добавления by yst. (слишком мешают работать на
+d75 1
+a75 1
+static char rcsid[] = "$Header: login.c,v 1.16 88/09/30 16:47:37 abs Exp $";
+a141 1
+#ifdef MENLO_JCL
+a145 1
+#endif
+d166 1
+a166 1
+int yst;
+d183 1
+a183 1
+	int t, f, c, wasslash, ldisc;
+d191 1
+d214 1
+a214 1
+	if( argc > 1 )          /* если вызван из getty, то не зацикиваться */
+a534 1
+#ifdef  MENLO_JCL
+a542 1
+#endif
+a563 1
+	/* Приветствие yst 18.11.86 */
+a568 1
+	yst=0;
+d570 1
+d577 2
+a578 2
+		    while(pwd->pw_gecos[yst] !=',' && probel < 79) {
+			    if(pwd->pw_gecos[yst] != ' ' && pwd->pw_gecos[yst] !='\t' && probel < 0)
+d580 1
+a580 1
+			    else if(probel == 0 && pwd->pw_gecos[yst] ==' ')
+d583 1
+a583 1
+				    hello[probel-1] = (pwd->pw_gecos[yst])&0377;
+d586 1
+a586 1
+			    ++yst;
+@
+
+
+1.16
+log
+@исправлено русское правописание.
+@
+text
+@d6 3
+d72 1
+a72 1
+static char rcsid[] = "$Header: login.c,v 1.15 88/09/13 18:04:26 korotaev Exp $";
+d210 1
+d212 3
+@
+
+
+1.15
+log
+@Изменен path.
+@
+text
+@d6 3
+d69 1
+a69 1
+static char rcsid[] = "$Header: login.c,v 1.14 88/09/09 16:30:39 root Exp $";
+d485 1
+a485 1
+		"Каталог %s и корневой каталог не доступны!\n"), cp);
+d491 1
+a491 1
+		"Не доступен каталог %s! Вы в корневом каталоге.\n"), cp);
+@
+
+
+1.14
+log
+@От-xstr-ено.
+@
+text
+@d5 4
+a8 1
+ * $Log:	login.c,v $
+d11 2
+a12 2
+ * 
+ * 
+d15 1
+a15 1
+ * 
+d18 1
+a18 1
+ * 
+d21 1
+a21 1
+ * 
+d25 1
+a25 1
+ * 
+d30 1
+a30 1
+ * 
+d34 1
+a34 1
+ * 
+d66 1
+a66 1
+static char rcsid[] = "$Header: login.c,v 1.14 88/09/09 16:16:03 root Exp $";
+d91 1
+a91 1
+#define PATH "PATH=:/bin:/usr/local/bin:/usr/bin:/usr/ucb:/usr/new/bin"
+@
+
+
+1.13
+log
+@Вставлен новый PATH.
+@
+text
+@d6 7
+d60 2
+d63 1
+a63 1
+static char rcsid[] = "$Header: login.c,v 1.12 88/06/24 15:20:15 ache Exp $";
+d166 2
+@
+
+
+1.12
+log
+@Разбор флагов pw_shell + формат sulog
+@
+text
+@d6 3
+d54 1
+a54 1
+static char rcsid[] = "$Header: login.c,v 1.11 88/06/23 23:02:04 ache Exp $";
+d79 2
+a80 1
+#define PATH    "PATH=:/bin:/usr/ucb:/usr/bin"          /* default path */
+@
+
+
+1.11
+log
+@В файл регистрации не записывалось неправильное имя пользователя.
+@
+text
+@d6 3
+d51 1
+a51 1
+static char rcsid[] = "$Header: login.c,v 1.10 88/06/23 17:17:14 ache Exp $";
+d66 1
+d164 1
+d270 1
+a270 1
+			badlog (utmp.ut_name, ttyn, cp, (char *) NULL);
+d325 1
+a325 1
+				badlog (utmp.ut_name, ttyn, cp, (char *) NULL);
+d484 21
+d576 1
+d593 1
+a593 1
+	execlp(pwd->pw_shell, minusnam, 0);
+a630 1
+	static  Badflag = 0;
+a631 2
+	if (!Badflag++)
+		return;
+d641 2
+a642 2
+	fprintf (logf, "LOG: %24.24s  %-8.8s %-8.8s            ",
+			ctime(&now), ttyn+5, whoto);
+d645 1
+a645 1
+		fprintf(logf, "BAD: GROUP=%s\n", group);
+@
+
+
+1.10
+log
+@flock + общий файл регистрации неверных входов для login и su +
+мелкие правки
+@
+text
+@d6 4
+d48 1
+a48 1
+static char rcsid[] = "$Header: login.c,v 1.10 88/06/23 16:58:37 ache Exp $";
+d265 1
+a265 1
+			badlog (pwd->pw_name, ttyn, cp, (char *) NULL);
+d285 1
+a285 1
+			badlog (pwd->pw_name, ttyn, (char *) NULL, group);
+d302 1
+a302 1
+			badlog (pwd->pw_name, ttyn, (char *) NULL, group);
+d320 1
+a320 1
+				badlog (pwd->pw_name, ttyn, cp, (char *) NULL);
+@
+
+
+1.9
+log
+@Теперь выдается имя каталога, в который нельзя перейти +
+обрабатывается файл .hushlogin (см. man) +
+мелкие правки.
+@
+text
+@d6 5
+d44 1
+a44 1
+static char rcsid[] = "$Header: login.c,v 1.8 88/06/20 22:42:52 avg Exp $";
+d55 1
+a55 1
+
+d87 1
+a87 1
+char    hushlogin[] =   ".hushlogin";
+d91 1
+d210 1
+a210 1
+		if( _ediag )
+d232 1
+d248 1
+a248 1
+		namep = crypt(getpass(ediag("Password: ",
+d261 1
+d281 1
+d298 1
+d304 1
+a304 1
+			crypt(getpass(ediag("Password: ",
+d316 1
+d341 5
+a345 4
+	if( ( fb = open( BUJET, 2 ) ) != -1 ) {
+	      if( !WASEXIT && (yf = open( "/etc/utmp", 2 )) != -1 ) {
+			while( read( yf, &utmpx, sizeof utmpx ) == (sizeof utmpx) ) {
+				if( utmpx.ut_line !=NULL) {
+a347 2
+				}
+			}
+a349 1
+			lseek( fb, 0l, 0 );
+a378 2
+
+
+d382 1
+a382 1
+		}
+d388 1
+a388 1
+	    if (strlen(pwd->pw_dir)+1+sizeof(hushlogin) <= sizeof(hushbuf)) {
+a389 1
+		strcat (hushbuf, "/");
+d397 1
+d410 1
+d422 1
+d429 1
+d591 30
+@
+
+
+1.8
+log
+@Если в поле пароля установлен символ ?, то login
+не будет проверять пароль, а su не даст войти.
+@
+text
+@d5 5
+a9 1
+ * $Log:        login.c,v $
+d39 1
+a39 1
+static char rcsid[] = "$Header: login.c,v 1.7 88/04/04 16:46:15 andrew Exp $";
+a62 1
+#define CONSOLE   "/dev/console"
+d82 4
+d92 1
+a92 1
+char    homedir[64] = "HOME=";
+d98 1
+a98 2
+char    hello[80];
+#define I_TERM 5
+d128 1
+d265 1
+d272 1
+d298 1
+d305 1
+d378 10
+d392 2
+a393 1
+		if (read(f, (char *) &ll, sizeof ll) == sizeof ll && ll.ll_time != 0) {
+d395 1
+d409 2
+a410 1
+	showfile(ediag("/etc/motd_e", "/etc/motd_r"));
+d444 2
+a445 2
+				printf(ediag("No directory!\n",
+				"Нет каталога!\n"));
+d449 3
+a451 2
+				printf(ediag("No directory!  Logging in with home=/\n",
+				"Нет вашего каталога!  Вы в корневом каталоге.\n"));
+d455 2
+a456 1
+		showfile(".broadcast");
+d460 2
+a461 1
+	showfile(".reminder");
+d504 1
+d506 19
+a524 18
+	probel= -1;
+	if(pwd->pw_gecos[0] != NULL) {
+		while(pwd->pw_gecos[yst] !=',' && probel < 79) {
+			if(pwd->pw_gecos[yst] != ' ' && pwd->pw_gecos[yst] !='\t' && probel < 0)
+				probel = 0;
+			else if(probel == 0 && pwd->pw_gecos[yst] ==' ')
+				probel=1;
+			else if(probel > 0) {
+				hello[probel-1] = (pwd->pw_gecos[yst])&0377;
+				++probel;
+			}
+			++yst;
+		}
+	}
+	if(probel >= 0) hello[probel]='\0';
+	else hello[0]='\0';
+	printf("\n\n");
+	printf(ediag("\tHello, %s.\n","\tЗдравствуйте, %s.\n"),hello);
+d526 4
+a529 3
+	if(dost < 100 && dost >= 0) {
+		printf(ediag(" You have only %dК free disk space - remove your garbage!\n\007",
+		" У Вас осталось только %dК памяти на дисках - сотрите лишние файлы!\n\007"),dost );
+a530 1
+	printf("\n\n");
+d538 1
+a538 1
+	if(access(maildir,4)==0) {
+d540 1
+@
+
+
+1.7
+log
+@При отсутствии в окружении переменных TERM и TERMCAP 
+login мог падать при чтении из NULL.
+@
+text
+@d5 5
+a9 1
+ * $Log$
+d35 1
+a35 1
+static char rcsid[] = "$Header: login.c,v 1.6 88/04/02 20:27:23 andrew Exp $";
+d232 2
+a233 1
+	if (*pwd->pw_passwd != '\0') {
+@
+
+
+1.6
+log
+@Теперь из environ передается еще и TERMCAP и правлен формат выдачи.
+@
+text
+@d5 3
+d9 10
+d31 1
+a31 1
+static char rcsid[] = "$Header: login.c,v 1.5 87/03/22 17:40:54 avg Exp $";
+d88 2
+d91 1
+a91 1
+	homedir, PATH, term, termcap, shell, user, lang, 0};
+d443 13
+a455 2
+	strncat(term, getenv("TERM"), sizeof(term)-6);
+	strncat(termcap, getenv("TERMCAP"), sizeof(termcap)-9);
+@
+
+
+1.5
+log
+@Заifdefлены некоторые добавления by yst. (слишком мешают работать на
+консоли !!!).
+@
+text
+@d18 1
+a18 1
+static char rcsid[] = "$Header: login.c,v 1.4 87/03/21 18:51:02 root Exp $";
+d70 1
+d76 1
+a76 1
+	homedir, PATH, term, shell, user, lang, 0};
+d181 1
+a181 1
+			printf("%s\nИмя : ", hostname);
+d183 1
+a183 1
+			printf("Имя : " );
+d214 2
+a215 2
+		namep = crypt(getpass(ediag("Password:",
+		"Пароль :")),pwd->pw_passwd);
+d265 2
+a266 2
+			crypt(getpass(ediag("Password:",
+			"Пароль :")),grp->gr_passwd)) != 0) {
+d429 1
+@
+
+
+1.4
+log
+@1) Сделана работа с файлом бюджетов.
+2) При входе в систему пользователю посылается приветствие.
+3) При удачной или неудачной регистрации посылается сообщение
+на /dev/console.
+			Стариков Ю.А. (НИИРП)
+@
+text
+@d18 1
+a18 1
+static char rcsid[] = "$Header: login.c,v 1.1 87/03/21 18:33:29 yst Exp $";
+d218 1
+d225 1
+d251 1
+d258 1
+d333 1
+a333 1
+					"Вы не можете занять так много терминалов.\n"));
+d365 17
+a381 17
+		showfile(ediag("/etc/motd_e", "/etc/motd_r"));
+		time(&utmp.ut_time);
+		t = ttyslot();
+		if (t>0 && (f = open("/etc/utmp", 1)) >= 0) {
+			lseek(f, (long)(t*sizeof(utmp)), 0);
+			SCPYN(utmp.ut_line, rindex(ttyn, '/')+1);
+			write(f, (char *)&utmp, sizeof(utmp));
+			close(f);
+		}
+		if (t>0 && (f = open("/usr/adm/wtmp", 1)) >= 0) {
+			lseek(f, 0L, 2);
+			write(f, (char *)&utmp, sizeof(utmp));
+			close(f);
+		}
+		chown(ttyn, pwd->pw_uid, pwd->pw_gid);
+		chmod(ttyn, 0622);
+		setgid(pwd->pw_gid);
+d383 1
+a383 1
+		initgroups(pwd->pw_name, pwd->pw_gid);
+d385 21
+a405 4
+		setuid(pwd->pw_uid);
+		namep = pwd->pw_dir;
+		for (;;) {
+			if (*namep == '\0')
+a406 6
+			cp = namep++;
+			for (; *namep != '/' && *namep != '\0'; namep++);
+			wasslash = 0;
+			if (*namep == '/') {
+				*namep = '\0';
+				wasslash++;
+a407 15
+			if (chdir(cp)<0) {
+				if (chdir("/") < 0) {
+					printf(ediag("No directory!\n",
+					"Нет каталога!\n"));
+					exit(1);
+				}
+				else {
+					printf(ediag("No directory!  Logging in with home=/\n",
+					"Нет вашего каталога!  Вы в корневом каталоге.\n"));
+					break;
+				}
+			}
+			showfile(".broadcast");
+			if (wasslash)
+				*namep++ = '/';
+d409 5
+a413 1
+		showfile(".reminder");
+d415 2
+a416 2
+		if (*pwd->pw_shell == '\0')
+			pwd->pw_shell = SHELL;
+d418 8
+a425 8
+		if (!strcmp(pwd->pw_shell, JCLCSH)) {
+			ldisc = NTTYDISC;
+			ioctl(0, TIOCSETD, &ldisc);
+		}
+		else {
+			ltc.t_suspc = ltc.t_dsuspc = UNDEF;
+			ioctl(0, TIOCSLTC, &ltc);
+		}
+d427 28
+a454 27
+		strncat(term, getenv("TERM"), sizeof(term)-6);
+		environ = envinit;
+		strncat(homedir, pwd->pw_dir, sizeof(homedir)-6);
+		strncat(user, pwd->pw_name, sizeof(user)-6);
+		if ((namep = rindex(pwd->pw_shell, '/')) == NULL)
+			namep = pwd->pw_shell;
+		else
+			namep++;
+		/* Приветствие yst 18.11.86 */
+		yfc=fopen(CONSOLE,"w");
+		if(yfc!=NULL) {
+			fprintf(yfc,"Login: %s on %s\n",pwd->pw_name,ttyn);
+			fclose(yfc);
+		}
+		yst=0;
+		probel= -1;
+		if(pwd->pw_gecos[0] != NULL) {
+			while(pwd->pw_gecos[yst] !=',' && probel < 79) {
+				if(pwd->pw_gecos[yst] != ' ' && pwd->pw_gecos[yst] !='\t' && probel < 0)
+					probel = 0;
+				else if(probel == 0 && pwd->pw_gecos[yst] ==' ')
+					probel=1;
+				else if(probel > 0) {
+					hello[probel-1] = (pwd->pw_gecos[yst])&0377;
+					++probel;
+				}
+				++yst;
+d456 1
+d458 27
+a484 30
+		if(probel >= 0) hello[probel]='\0';
+		else hello[0]='\0';
+		printf("\n\n");
+		printf(ediag("\tHello, %s.\n","\tЗдравствуйте, %s.\n"),hello);
+		if(dost < 100 && dost >= 0) {
+			printf(ediag("   You have only %d free disk blocks -\n\
+			remove some your files !\n\007",
+			"    У Вас осталось только %d блок%s дискового пространства -\n\
+			сотрите лишние файлы! \n\007"),dost,
+			(dost >= 5 && dost <=20) ? "ов" :
+			((( dost % 10) == 2 || (dost % 10) == 3 || (dost % 10 ) == 4) ? "а" :
+			( (dost % 10) == 1 ? "" : "ов" ) ) );
+		}
+		printf("\n\n");
+		/* конец приветствия */
+		strncat(shell, pwd->pw_shell, sizeof(shell)-7);
+		lang[4] = ediag('e', 'r');
+		lang[5] = 0;
+		strcat(minusnam, namep);
+		umask(UMASK);
+		strcat(maildir, pwd->pw_name);
+		if(access(maildir,4)==0) {
+			struct stat statb;
+			stat(maildir, &statb);
+			if (statb.st_size)
+				printf(ediag("You have mail.\n",
+				"Вам пришла почта.\n"));
+		}
+		signal(SIGQUIT, SIG_DFL);
+		signal(SIGINT, SIG_DFL);
+d486 1
+a486 1
+		signal(SIGTSTP, SIG_IGN);
+d488 5
+a492 5
+		fflush(stdout);
+		execlp(pwd->pw_shell, minusnam, 0);
+		printf(ediag("No shell\n", "Нет интерпретатора командного языка\n"));
+		exit(0);
+	}
+d494 8
+a501 8
+	int     stopmotd;
+	catch()
+	{
+		signal(SIGINT, SIG_IGN);
+		stopmotd++;
+		printf("\n");
+		fflush(stdout);         /* Immediate-looking response. */
+	}
+d503 5
+a507 5
+	showfile(name)
+		char *name;
+	{
+		FILE *mf;
+		register c;
+d509 7
+a515 9
+		stopmotd = 0;
+		signal(SIGINT, catch);
+		if((mf = fopen(name,"r")) != NULL) {
+			while((c = getc(mf)) != EOF && stopmotd == 0)
+				putchar(c);
+			fclose(mf);
+			fflush(stdout);
+		}
+		signal(SIGINT, SIG_IGN);
+d517 2
+@
+
+
+1.3
+log
+@Правлена ошибка - не передавались environ-переменные TERM и MSG.
+@
+text
+@d5 4
+a8 1
+ * $Log:        login.c,v $
+d18 1
+a18 1
+static char rcsid[] = "$Header: login.c,v 1.2 86/04/21 22:37:41 avg Exp $";
+d23 1
+a23 1
+				/* used after autoreboot failures */
+d35 1
+d41 2
+d46 1
+a46 1
+	/*
+d62 2
+a63 1
+struct  passwd nouser = {"", "nope"};
+d65 1
+a65 1
+struct  utmp utmp;
+d73 3
+a76 2
+char    *envinit[] = {homedir, PATH, term, shell, user, lang, 0};
+
+d79 2
+a80 1
+	{ CNTL(z), CNTL(y), CNTL(r), CNTL(t), CNTL(w), CNTL(v)
+d102 10
+a112 1
+
+d144 1
+a144 1
+    loop:
+d163 3
+a165 3
+		    for (namep=group; namep<group+GRLEN; )
+			if ((*namep++ = *av++) == 0)
+				break;
+d214 1
+a214 1
+					    "Пароль :")),pwd->pw_passwd);
+d217 7
+a223 1
+				     "Неправильное имя или пароль\n"));
+d229 4
+a232 21
+	    register i;
+	    grp = getgrnam(group);
+	    endgrent();
+	    if(grp == 0) {
+		printf(ediag("Login incorrect\n",
+			     "Неправильное имя или пароль\n"));
+		goto loop;
+	    }
+	    for(i=0;grp->gr_mem[i];i++)
+		if(strcmp(grp->gr_mem[i], pwd->pw_name) == 0)
+		    break;
+	    if(grp->gr_mem[i] == 0) {
+		printf(ediag("Login incorrect\n",
+			     "Неправильное имя или пароль\n"));
+		goto loop;
+	    }
+
+	    if(grp->gr_passwd[0] != '\0' && pwd->pw_passwd[0] == '\0') {
+		if(strcmp(grp->gr_passwd,
+		    crypt(getpass(ediag("Password:",
+					"Пароль :")),grp->gr_passwd)) != 0) {
+d234 7
+a240 1
+				     "Неправильное имя или пароль\n"));
+d243 31
+a273 2
+	    }
+	    pwd->pw_gid = grp->gr_gid;
+d287 1
+a287 1
+			     "Вы не можете пока войти в систему. Сожалею.\n"));
+d291 49
+d349 1
+a349 1
+				     "Последний раз входили в систему: "));
+d352 1
+a352 1
+				     "%s на %.*s\n"), ep, LMAX, ll.ll_line);
+d361 17
+a377 17
+	showfile(ediag("/etc/motd_e", "/etc/motd_r"));
+	time(&utmp.ut_time);
+	t = ttyslot();
+	if (t>0 && (f = open("/etc/utmp", 1)) >= 0) {
+		lseek(f, (long)(t*sizeof(utmp)), 0);
+		SCPYN(utmp.ut_line, rindex(ttyn, '/')+1);
+		write(f, (char *)&utmp, sizeof(utmp));
+		close(f);
+	}
+	if (t>0 && (f = open("/usr/adm/wtmp", 1)) >= 0) {
+		lseek(f, 0L, 2);
+		write(f, (char *)&utmp, sizeof(utmp));
+		close(f);
+	}
+	chown(ttyn, pwd->pw_uid, pwd->pw_gid);
+	chmod(ttyn, 0622);
+	setgid(pwd->pw_gid);
+d379 1
+a379 1
+	initgroups(pwd->pw_name, pwd->pw_gid);
+d381 11
+a391 21
+	setuid(pwd->pw_uid);
+	namep = pwd->pw_dir;
+	for (;;) {
+		if (*namep == '\0')
+			break;
+		cp = namep++;
+		for (; *namep != '/' && *namep != '\0'; namep++);
+		wasslash = 0;
+		if (*namep == '/') {
+			*namep = '\0';
+			wasslash++;
+		}
+		if (chdir(cp)<0) {
+			if (chdir("/") < 0) {
+			    printf(ediag("No directory!\n",
+					 "Нет каталога!\n"));
+			    exit(1);
+			} else {
+			    printf(ediag("No directory!  Logging in with home=/\n",
+					 "Нет вашего каталога!  Вы в корневом каталоге.\n"));
+			    break;
+d393 15
+d409 1
+a409 5
+		showfile(".broadcast");
+		if (wasslash)
+			*namep++ = '/';
+	}
+	showfile(".reminder");
+d411 2
+a412 2
+	if (*pwd->pw_shell == '\0')
+		pwd->pw_shell = SHELL;
+d414 8
+a421 7
+	if (!strcmp(pwd->pw_shell, JCLCSH)) {
+		ldisc = NTTYDISC;
+		ioctl(0, TIOCSETD, &ldisc);
+	} else {
+		ltc.t_suspc = ltc.t_dsuspc = UNDEF;
+		ioctl(0, TIOCSLTC, &ltc);
+	}
+d423 59
+a481 23
+	strncat(term, getenv("TERM"), sizeof(term)-6);
+	environ = envinit;
+	strncat(homedir, pwd->pw_dir, sizeof(homedir)-6);
+	strncat(user, pwd->pw_name, sizeof(user)-6);
+	if ((namep = rindex(pwd->pw_shell, '/')) == NULL)
+		namep = pwd->pw_shell;
+	else
+		namep++;
+	strncat(shell, pwd->pw_shell, sizeof(shell)-7);
+	lang[4] = ediag('e', 'r');
+	lang[5] = 0;
+	strcat(minusnam, namep);
+	umask(UMASK);
+	strcat(maildir, pwd->pw_name);
+	if(access(maildir,4)==0) {
+		struct stat statb;
+		stat(maildir, &statb);
+		if (statb.st_size)
+			printf(ediag("You have mail.\n",
+				     "Вам пришла почта.\n"));
+	}
+	signal(SIGQUIT, SIG_DFL);
+	signal(SIGINT, SIG_DFL);
+d483 1
+a483 1
+	signal(SIGTSTP, SIG_IGN);
+d485 5
+a489 5
+	fflush(stdout);
+	execlp(pwd->pw_shell, minusnam, 0);
+	printf(ediag("No shell\n", "Нет интерпретатора командного языка\n"));
+	exit(0);
+}
+d491 8
+a498 8
+int     stopmotd;
+catch()
+{
+	signal(SIGINT, SIG_IGN);
+	stopmotd++;
+	printf("\n");
+	fflush(stdout);         /* Immediate-looking response. */
+}
+d500 5
+a504 5
+showfile(name)
+char *name;
+{
+	FILE *mf;
+	register c;
+d506 9
+a514 7
+	stopmotd = 0;
+	signal(SIGINT, catch);
+	if((mf = fopen(name,"r")) != NULL) {
+		while((c = getc(mf)) != EOF && stopmotd == 0)
+			putchar(c);
+		fclose(mf);
+		fflush(stdout);
+a515 2
+	signal(SIGINT, SIG_IGN);
+}
+@
+
+
+1.2
+log
+@Сделаны правки для работы без ttytypes и с двуязычными диагностиками.
+@
+text
+@d6 3
+d15 1
+a15 1
+static char rcsid[] = "$Header: login.c,v 1.1 86/04/21 17:12:14 root Exp $";
+d330 1
+d339 2
+a340 3
+	strncat(term, getenv("TERM"), sizeof(term)-6);
+	lang[5] = ediag('e', 'r');
+	lang[6] = 0;
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d12 1
+a12 1
+static char rcsid[] = "$Header$";
+d32 1
+d36 1
+a36 1
+#define	JCLCSH	"/bin/csh"	/* job control shell, needs new line disc. */
+d42 1
+a42 1
+#define UMASK	022
+d44 5
+a48 5
+#define SCPYN(a, b)	strncpy(a, b, sizeof(a))
+#define NMAX	sizeof(utmp.ut_name)
+#define LMAX	sizeof(utmp.ut_line)
+#define CNTL(x)	('x'&037)
+#define UNDEF	'\377'
+d50 13
+a62 12
+char	maildir[30] =	"/usr/spool/mail/";
+char	lastlog[] =	"/usr/adm/lastlog";
+char	nolog[] =	"/etc/nologin";
+struct	passwd nouser = {"", "nope"};
+struct	sgttyb ttyb;
+struct	utmp utmp;
+char	hostname[32];
+char	minusnam[16] = "-";
+char	homedir[64] = "HOME=";
+char	term[64] = "TERM=";
+char	shell[64] = "SHELL=";
+char	user[NMAX+9] = "USER=";
+d64 1
+a65 2
+char	*envinit[] = {homedir, PATH, term, shell, user, 0};
+
+d67 2
+a68 2
+struct	ltchars ltc =
+	{ CNTL(z), CNTL(y), CNTL(r), CNTL(o), CNTL(w), CNTL(v)
+d71 1
+a71 1
+struct	passwd *pwd;
+d73 8
+a80 8
+struct	passwd *getpwnam();
+char	*strcat();
+int	setpwent();
+char	*ttyname();
+char	*crypt();
+char	*getpass();
+#ifdef	GROUP
+#define GRLEN	30		/* max length of group name */
+d83 2
+a84 2
+#ifdef	SP_SESS
+int	sp_sess = 0;
+d86 4
+a89 4
+char	*rindex(), *index();
+char	*ttyn;
+extern	char **environ;
+extern	char _sobuf[];
+d91 1
+d99 1
+a99 1
+#ifdef	GROUP
+d110 1
+a110 1
+#ifdef	SP_SESS
+d117 1
+d119 1
+a119 1
+	if (ttyn==0)
+d131 1
+a131 1
+#ifdef	GROUP
+d156 6
+a161 1
+		printf("%s login: ", hostname);
+d168 1
+a168 1
+#ifdef	GROUP
+d175 1
+a175 1
+#ifdef	GROUP
+d192 2
+a193 1
+		namep = crypt(getpass("Password:"),pwd->pw_passwd);
+d195 2
+a196 1
+			printf("Login incorrect\n");
+d200 1
+a200 1
+#ifdef	GROUP
+d206 2
+a207 1
+		printf("Login incorrect\n");
+d210 1
+a210 1
+	    for(i=0;grp->gr_mem[i];i++) 
+d214 2
+a215 1
+		printf("Login incorrect\n");
+d221 4
+a224 2
+		    crypt(getpass("Password:"),grp->gr_passwd)) != 0) {
+			printf("Login incorrect\n");
+d239 1
+a239 1
+#ifdef	SP_SESS
+d241 2
+a242 1
+		printf("Sorry.  You cannot login at this time.\n");
+d254 2
+a255 1
+			printf("Last login: ");
+d257 3
+a259 2
+			printf("%s on %.*s\n", ep, LMAX, ll.ll_line);
+			fflush(stdout);	/* So user sees the message quickly! */
+d267 1
+a267 1
+	showfile("/etc/motd");
+a280 1
+	getterm();
+d284 1
+a284 1
+#ifdef	notyet
+d301 2
+a302 1
+			    printf("No directory!\n");
+d305 2
+a306 1
+			    printf("No directory!  Logging in with home=/\n");
+d318 1
+a318 1
+#ifdef	MENLO_JCL
+d335 3
+d345 2
+a346 1
+			printf("You have mail.\n");
+d350 1
+a350 1
+#ifdef	SIGTSTP
+d355 1
+a355 1
+	printf("No shell\n");
+d359 1
+a359 1
+int	stopmotd;
+d365 1
+a365 1
+	fflush(stdout);		/* Immediate-looking response. */
+a382 44
+}
+
+/*
+ * make a reasonable guess as to the kind of terminal the user is on.
+ * We look in /etc/ttytype for this info (format: each line has two
+ * words, first word is a term type, second is a tty name), and default
+ * to "unknown" if we can't find any better.  In the case of dialups we get
+ * names like "dialup" which is a lousy guess but tset can
+ * take it from there.
+ */
+getterm()
+{
+
+	register char	*sp, *tname;
+	register int	i;
+	register FILE	*fdes;
+	char		*type, *t;
+	char		ttline[64];
+
+	if ((fdes = fopen("/etc/ttytype", "r")) == NULL) {
+unknown:
+		strcat(term, "unknown");
+		return;
+	}
+	for (tname = ttyn; *tname++; )
+		;
+	while (*--tname != '/')
+		;
+	tname++;
+	while (fgets(ttline, sizeof(ttline), fdes) != NULL) {
+		ttline[strlen(ttline)-1] = 0;	/* zap \n on end */
+		type = ttline;
+		for (t=ttline; *t && *t!=' ' && *t != '\t'; t++)
+			;
+		*t++ = 0;
+		/* Now have term and type pointing to the right guys */
+		if (strcmp(t, tname) == 0) {
+			strcat(term, type);
+			fclose(fdes);
+			return;
+		}
+	}
+	fclose(fdes);
+	goto unknown;
+@

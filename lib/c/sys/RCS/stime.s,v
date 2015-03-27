@@ -1,0 +1,44 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.43.53;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ error	= stime(tp);
+/	  long *tp;
+
+.globl	_stime
+.globl	cerror
+
+_stime:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(sp),r1
+	mov	(r1)+,r0
+	mov	(r1),r1
+	sys	stime
+	bec	1f
+	jmp	cerror
+1:
+	clr	r0
+	mov	(sp)+,r5
+	rts	pc
+@

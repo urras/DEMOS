@@ -1,0 +1,1065 @@
+head     22.4;
+access   avg flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз0:1.9.1;
+locks    ;
+comment  @ * @;
+
+
+22.4
+date     90.11.12.19.04.49;  author root;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.04.28.15.18.11;  author avg;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.34.46;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.17.15;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.21.41;  author korotaev;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.03.24.21.41.54;  author korotaev;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.07.15.16.30.08;  author alex;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.06.27.16.48.13;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.06.16.21.15.06;  author dvolodin;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.06.06.14.28.59;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.03.17.16.40.36;  author dvolodin;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.09.30.22.34.06;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.09.30.14.13.47;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.30.14.44.17;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.53.54;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.4
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	dh.c,v $
+ * Revision 22.3  89/04/28  15:18:11  avg
+ * Убран #ifdef IPK_SELECT
+ * 
+ * Revision 22.2  89/04/27  13:34:46  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  14:17:15  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:21:41  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.10  89/03/24  21:41:54  korotaev
+ * После unifdef'a.
+ * 
+ * Revision 1.9  88/07/15  16:30:08  alex
+ * Внесены правки для работы с КОИ-8/QWERTY терминалы
+ * 
+ * Revision 1.8  88/06/27  16:48:13  avg
+ * DH_8514BUG (see after) вставлен в драйвер.
+ * 
+ * Revision 1.7  88/06/16  21:15:06  dvolodin
+ * При передаче каждого символа снимается break.
+ * Это делается из-за подозрительного зависания линий на нашем
+ * мультиплексоре.
+ *
+ * Revision 1.6  88/06/06  14:28:59  korotaev
+ * Вставлен IPK_SELECT (from TCP/IP).
+ *
+ * Revision 1.5  88/03/17  16:40:36  dvolodin
+ * .
+ *
+ * Revision 1.5  87/09/30  22:43:14  dmitry
+ * Revision note 1.3 merged into Log.
+ *
+ * Revision 1.4  87/09/30  22:34:06  dmitry
+ * Изменен алгоритм просмотра линий на выдаче:
+ *      вместо того, чтобы каждый раз просматрижать линии с начала,
+ *      делаем аккуратный циклический просмотр.
+ *
+ * Revision 1.3  87/09/30  14:13:47  avg
+ * Значение бита 0200 в миноре изменено на противоположное.
+ *
+ * Revision 1.2  86/12/30  14:44:17  alex
+ * При открытии теперь ставим "RAW" для того, чтобы предотвратить
+ * срубание того, кто открывает, по сигналам от случайных символов из линии
+ * Руднев.
+ *
+ * Revision 1.1  86/04/19  17:53:54  avg
+ * Initial revision
+ *
+ */
+
+#include "h/dh.h"
+#if     NDH > 0
+#include <sys/param.h>
+#include <sys/conf.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/file.h>
+#include <sys/tty.h>
+#include "../include/dhreg.h"
+#include "../include/uba.h"
+
+/*#define DH_8514BUG              /* bug in 8514 */
+
+#define q3      tp->t_outq
+
+#if     defined (UNIBUS_MAP) || defined (UCB_CLIST)
+extern  ubadr_t clstaddr;
+#ifdef  UCB_CLIST
+extern  struct  cblock  *cfree;
+#else   UCB_CLIST
+extern  struct  cblock  cfree[];
+#endif  UCB_CLIST
+#define cpaddr(x)       (clstaddr + (ubadr_t)((x) - cfree))
+
+#else   defined (UNIBUS_MAP) || defined (UCB_CLIST)
+#define cpaddr(x)       (x)
+#endif  defined (UNIBUS_MAP) || defined (UCB_CLIST)
+
+#define DHLINE(dev)     (minor(dev) & 0177)
+
+#define NDHLINE (NDH * 16)
+struct  tty dh11[NDHLINE];
+int     ndh11   = NDHLINE; /* only for pstat */
+int     dhlowdm = LOWDM;
+int     dhndm   = NDM * 16;
+int     dhstart();
+int     ttrstrt();
+#ifdef  DH_SILO
+#define SILOSCANRATE    (hz / 10)
+int     dhchars[NDH];
+void    dhtimer();
+#endif  DH_SILO
+
+struct  dhdevice *dh_addr[NDH];
+#if     NDM > 0
+struct  dmdevice *dm_addr[NDM];
+#endif  NDM
+
+/*
+ * Software copy of last dhbar
+ */
+int     dhsar[NDH];
+
+/*
+ * Line to start lookup with
+ */
+int     dhlline[NDH] = { 0 } ;
+
+dhattach(addr, unit)
+struct dhdevice *addr;
+{
+	if ((unsigned) unit >= NDH)
+		return 0;
+	dh_addr[unit] = addr;
+	return 1;
+}
+
+/*
+ * Open a DH line.  Turn on this dh if this is
+ * the first use of it.  Also do a dmopen to wait for carrier.
+ */
+/*ARGSUSED*/
+dhopen(dev, flag)
+dev_t   dev;
+{
+	register struct tty *tp;
+	register unit;
+	register struct dhdevice *addr;
+#ifdef  DH_SILO
+	static  dh_timer;
+#endif  DH_SILO
+
+	unit = DHLINE(dev);
+	if ((unit >= NDHLINE) || ((addr = dh_addr[unit >> 4]) == 0)) {
+		u.u_error = ENXIO;
+		return;
+	}
+	tp = &dh11[unit];
+	if (tp->t_state & XCLUDE && u.u_uid != 0) {
+		u.u_error = EBUSY;
+		return;
+	}
+	tp->t_addr = (caddr_t) addr;
+	tp->t_oproc = dhstart;
+	tp->t_iproc = NULL;
+	tp->t_state |= WOPEN;
+
+#ifdef  DH_SILO
+	if (!dh_timer) {
+		dh_timer++;
+		timeout(dhtimer, (caddr_t) 0, SILOSCANRATE);
+	}
+#endif  DH_SILO
+
+	addr->un.dhcsr |= DH_IE;
+	/*
+	 * If this is first open, initialize tty state to default.
+	 */
+	if ((tp->t_state & ISOPEN) == 0) {
+		ttychars(tp);
+		if (tp->t_ispeed == 0) {
+			tp->t_ispeed = B9600;
+			tp->t_ospeed = B9600;
+			tp->t_flags = ODDP | EVENP | RAW /* ECHO | LCASE | CRMOD */ ;
+		}
+		tp->t_line = DFLT_LDISC;
+		dhparam(dev);
+	}
+#if     NDM > 0
+	dmopen(dev);
+#else
+	tp->t_state |= CARR_ON;
+#endif
+	ttyopen(dev,tp);
+}
+
+/*
+ * Close a DH line, turning off the DM11.
+ */
+/*ARGSUSED*/
+dhclose(dev, flag)
+dev_t   dev;
+int     flag;
+{
+	register struct tty *tp;
+	register unit;
+
+	unit = DHLINE(dev);
+	tp = &dh11[unit];
+	((struct dhdevice *) (tp->t_addr))->dhbreak &= ~(1 << (unit & 017));
+#if     NDM > 0
+	if (tp->t_state & HUPCLS)
+		dmctl(dev, DML_OFF, DMSET);
+#endif
+	ttyclose(tp);
+}
+
+/*
+ * Read from a DH line.
+ */
+dhread(dev)
+dev_t   dev;
+{
+	register struct tty *tp;
+
+	tp = &dh11[DHLINE(dev)];
+	(void) (*linesw[tp->t_line].l_read)(tp);
+}
+
+/*
+ * Write on a DH line.
+ */
+dhwrite(dev)
+{
+	register struct tty *tp;
+
+	tp = &dh11[DHLINE(dev)];
+	(void) (*linesw[tp->t_line].l_write)(tp);
+}
+
+/*
+ * DH11 receiver interrupt.
+ */
+dhrint(dh)
+int     dh;
+{
+	register struct tty *tp;
+	register int c;
+	register struct dhdevice *addr;
+	struct  tty *tp0;
+	int     overrun = 0;
+
+	addr = dh_addr[dh];
+	tp0 = &dh11[dh << 4];
+	/*
+	 * Loop fetching characters from the silo for this
+	 * dh until there are no more in the silo.
+	 */
+	while ((c = addr->dhrcr) < 0) {
+		tp = tp0 + ((c >> 8) & 017);
+		if (tp >= &dh11[NDHLINE])
+			continue;
+		if((tp->t_state & ISOPEN) == 0) {
+			wakeup((caddr_t)tp);
+			continue;
+		}
+#ifdef  DH_SILO
+		dhchars[dh]++;
+#endif  DH_SILO
+#ifdef  TEXAS_AUTOBAUD
+		if (image_mode(tp))
+			c &= ~(DH_PE|DH_FE);
+#endif
+		if (c & DH_PE)
+			if ((tp->t_flags & (EVENP | ODDP)) == EVENP
+			 || (tp->t_flags & (EVENP | ODDP)) == ODDP)
+				continue;
+		if ((c & DH_DO) && overrun == 0) {
+			printf("dh%d: silo overflow\n", dh);
+			overrun = 1;
+			}
+		if (c & DH_FE)
+			/*
+			 * At framing error (break) generate
+			 * a null (in raw mode, for getty), or an
+			 * interrupt (in cooked/cbreak mode).
+			 */
+			if (tp->t_flags & RAW)
+				c = 0;
+			else
+				c = tun.t_intrc;
+		(*linesw[tp->t_line].l_input)(c,tp);
+	}
+}
+
+/*
+ * Ioctl for DH11.
+ */
+dhioctl(dev, cmd, addr, flag)
+dev_t   dev;
+caddr_t addr;
+{
+	register struct tty *tp;
+	register unit = DHLINE(dev);
+
+	tp = &dh11[unit];
+	switch (ttioctl(tp, cmd, addr, flag)) {
+	    case TIOCSETP:
+	    case TIOCSETN:
+	    case TIOCSETA:
+	    case TIOCSETB:
+		dhparam(dev);
+		break;
+#ifdef  DH_IOCTL
+	    case TIOCSBRK:
+		((struct dhdevice *)(tp->t_addr))->dhbreak |= 1 << (unit & 017);
+		break;
+	    case TIOCCBRK:
+		((struct dhdevice *)(tp->t_addr))->dhbreak &= ~(1<<(unit&017));
+		break;
+#if     NDM > 0
+	    case TIOCSDTR:
+		dmctl (dev, DML_DTR | DML_RTS, DMBIS);
+		break;
+	    case TIOCCDTR:
+		dmctl (dev, DML_DTR | DML_RTS, DMBIC);
+		break;
+#endif
+#endif  DH_IOCTL
+	    case 0:
+		break;
+	    default:
+		u.u_error = ENOTTY;
+	}
+}
+
+/*
+ * Set parameters from open or stty into the DH hardware
+ * registers.
+ */
+dhparam(dev)
+int     dev;
+{
+	register struct tty *tp;
+	register struct dhdevice *addr;
+	int s;
+	register lpar;
+	int unit = DHLINE(dev);
+
+	tp = &dh11[unit];
+	addr = (struct dhdevice *) tp->t_addr;
+	/*
+	 * Block interrupts so parameters will be set
+	 * before the line interrupts.
+	 */
+	s = spl5();
+	addr->un.dhcsrl = (unit & 017) | DH_IE;
+	if ((tp->t_ispeed) == 0) {
+		tp->t_state |= HUPCLS;
+#if     NDM > 0
+		dmctl(dev, DML_OFF, DMSET);
+#endif
+		return;
+	}
+	lpar = ((tp->t_ospeed) << 10) | ((tp->t_ispeed) << 6);
+	if ((tp->t_ispeed) == B134)
+		lpar |= BITS6 | PENABLE | HDUPLX;
+	else
+		if ((tp->t_lstate&L8BITS))
+			lpar |= BITS8;
+		else
+			lpar |= BITS7 | PENABLE;
+	if ((tp->t_flags & EVENP) == 0)
+		lpar |= OPAR;
+	if (tp->t_ospeed == B110)       /* 110 baud */
+		lpar |= TWOSB;
+	addr->dhlpr = lpar;
+	splx(s);
+}
+
+/*
+ * DH transmitter interrupt.
+ * Restart each line which used to be active but has
+ * terminated transmission since the last interrupt.
+ */
+dhxint(dh)
+int     dh;
+{
+	register struct tty *tp;
+	register struct dhdevice *addr;
+	register unit;
+	unsigned short ttybit, bar, *sbar;
+#define BUMP16(x) ((x)=((x)+1)%16)
+#define ROTO16(x) ((x)=(((unsigned short)x)<<1)|(((unsigned short)x)>>15))
+
+	addr = dh_addr[dh];
+	if (addr->un.dhcsr & DH_NXM) {
+		addr->un.dhcsr |= DH_CNI;
+		printf("dh%d: NXM\n", dh);
+	}
+	sbar = &dhsar[dh];
+	bar = *sbar & ~addr->dhbar;
+	unit = (dh << 4) + dhlline[dh];
+	ttybit = 1 << dhlline[dh];
+	addr->un.dhcsr &= ~DH_TI;
+
+	for(; bar; BUMP16(unit), ROTO16(ttybit)) {
+		if(bar & ttybit) {
+			*sbar &= ~ttybit;
+			bar &= ~ttybit;
+			tp = &dh11[unit];
+			tp->t_state &= ~BUSY;
+			if (tp->t_state & FLUSH)
+				tp->t_state &= ~FLUSH;
+			else {
+#if     !defined(UCB_CLIST) || defined (UNIBUS_MAP)
+				/*
+				 * Clists are either:
+				 *      1)  in kernel virtual space,
+				 *          which in turn lies in the
+				 *          first 64K of physical memory or
+				 *      2)  at UNIBUS virtual address 0.
+				 *
+				 * In either case, the extension bits are 0.
+				 */
+				addr->un.dhcsrl = (unit & 017) | DH_IE;
+				ndflush(&q3,
+				    (short)(addr->dhcar - cpaddr(q3.c_cf)));
+#else   /* defined(UCB_CLIST) && !defined(UNIBUS_MAP) */
+				ubadr_t car;
+				int count;
+
+				addr->un.dhcsrl = (unit & 017) | DH_IE;
+				car = (ubadr_t) addr->dhcar
+				    | (ubadr_t)(addr->dhsilo & 0300) << 10;
+				count = car - cpaddr(q3.c_cf);
+				ndflush(&q3, count);
+#endif
+			}
+			dhstart(tp);
+		}
+	}
+	dhlline[dh] = unit%16 ;
+}
+
+/*
+ * Start (restart) transmission on the given DH line.
+ */
+dhstart(tp)
+register struct tty *tp;
+{
+	register struct dhdevice *addr;
+	register nch;
+	int s, unit;
+
+	unit = (int) (tp - dh11);
+	addr = (struct dhdevice *) tp->t_addr;
+
+	/*
+	 * Must hold interrupts in following code to prevent
+	 * state of the tp from changing.
+	 */
+	s = spl5();
+
+	/*
+	 * If it's currently active, or delaying, no need to do anything.
+	 */
+	if (tp->t_state & (TIMEOUT | BUSY | TTSTOP))
+		goto out;
+	/*
+	 * If there are sleepers, and the output has drained below low
+	 * water mark, wake up the sleepers.
+	 */
+	if (tp->t_outq.c_cc<=TTLOWAT(tp)) {
+		if (tp->t_state&ASLEEP) {
+			tp->t_state &= ~ASLEEP;
+				wakeup((caddr_t)&tp->t_outq);
+		}
+		if (tp->t_wsel) {
+			selwakeup(tp->t_wsel, tp->t_state & TS_WCOLL);
+			tp->t_wsel = 0;
+			tp->t_state &= ~TS_WCOLL;
+		}
+	}
+
+	/*
+	 * Now restart transmission unless the output queue is
+	 * empty.
+	 */
+	if (tp->t_outq.c_cc == 0)
+		goto out;
+	if ((tp->t_lstate&L8BITS))
+		nch = ndqb(&tp->t_outq, 0);
+	else {
+		nch = ndqb(&tp->t_outq, 0200);
+		/*
+		 * If first thing on queue is a delay, process it.
+		 */
+		if (nch == 0) {
+			nch = getc(&tp->t_outq);
+			timeout(ttrstrt, (caddr_t) tp, (nch & 0177) + 6);
+			tp->t_state |= TIMEOUT;
+			goto out;
+		}
+	}
+	/*
+	 * If characters to transmit, restart transmission.
+	 */
+	if (nch) {
+#ifdef DH_8514BUG
+		addr->dhbreak &= ~(1 << (unit & 017));
+#endif /* DH_8514BUG */
+#if     !defined(UCB_CLIST) || defined (UNIBUS_MAP)
+		addr->un.dhcsrl = (unit & 017) | DH_IE;
+		addr->dhcar = (short)cpaddr(tp->t_outq.c_cf);
+#else   /* defined(UCB_CLIST) && !defined(UNIBUS_MAP) */
+		ubadr_t uba;
+
+		uba = cpaddr(tp->t_outq.c_cf);
+		addr->un.dhcsrl = (unit&017) | DH_IE | ((hiint(uba) << 4) & 060);
+		addr->dhcar = loint(uba);
+#endif
+		addr->dhbcr = -nch;
+		nch = 1 << (unit & 017);
+		addr->dhbar |= nch;
+		dhsar[unit >> 4] |= nch;
+		tp->t_state |= BUSY;
+	}
+    out:
+	splx(s);
+}
+
+
+/*
+ * Stop output on a line, e.g. for ^S/^Q or output flush.
+ */
+/*ARGSUSED*/
+dhstop(tp, flag)
+register struct tty *tp;
+{
+	register struct dhdevice *addr;
+	register unit;
+	int s;
+
+	addr = (struct dhdevice *)tp->t_addr;
+	/*
+	 * Block input/output interrupts while messing with state.
+	 */
+	s = spl6();
+	if (tp->t_state & BUSY) {
+		/*
+		 * Device is transmitting; stop output
+		 * by selecting the line and setting the byte
+		 * count to -1.  We will clean up later
+		 * by examining the address where the dh stopped.
+		 */
+		unit = DHLINE(tp->t_dev);
+		addr->un.dhcsrl = (unit & 017) | DH_IE;
+		if ((tp->t_state & TTSTOP) == 0) {
+			tp->t_state |= FLUSH;
+		}
+		addr->dhbcr = -1;
+	}
+	splx(s);
+}
+
+#ifdef  DH_SILO
+void
+dhtimer(dev)
+dev_t   dev;
+{
+	register dh, cc;
+	register struct dhdevice *addr;
+
+	dh = 0;
+	do {
+		addr = dh_addr[dh];
+		cc = dhchars[dh];
+		dhchars[dh] = 0;
+		if (cc > 50)
+			cc = 32;
+		else
+			if (cc > 16)
+				cc = 16;
+			else
+				cc = 0;
+		addr->dhsilo = cc;
+		dhrint(dh++);
+	} while (dh < NDH);
+	timeout(dhtimer, (caddr_t) 0, SILOSCANRATE);
+}
+#endif  DH_SILO
+
+#if     NDM > 0
+dmattach(addr, unit)
+struct device *addr;
+{
+	if ((unsigned) unit >= NDM)
+		return 0;
+	dm_addr[unit] = addr;
+	return 1;
+}
+
+/*
+ * Turn on the line associated with the dh device dev.
+ */
+dmopen(dev)
+dev_t   dev;
+{
+	register struct tty *tp;
+	register struct dmdevice *addr;
+	register unit;
+	int s;
+
+	unit = DHLINE(dev);
+	tp = &dh11[unit];
+	if ((unit < dhlowdm) || (unit >= dhlowdm + dhndm)
+	   || ((addr = dm_addr[(unit - dhlowdm) >> 4]) == 0)
+#ifdef  DH_SOFTCAR
+	   || !(dev & 0200)
+#endif
+	   ) {
+		tp->t_state |= CARR_ON;
+		return;
+	}
+	s = spl5();
+	addr->dmcsr &= ~DM_SE;
+	while (addr->dmcsr & DM_BUSY)
+		;
+	addr->dmcsr = unit & 017;
+	addr->dmlstat = DML_ON;
+	if (addr->dmlstat & DML_CAR)
+		tp->t_state |= CARR_ON;
+	addr->dmcsr = DM_IE | DM_SE;
+	while ((tp->t_state & CARR_ON)==0)
+		sleep((caddr_t) &tp->t_rawq, TTIPRI);
+	addr->dmcsr = unit & 017;
+	if (addr->dmlstat & DML_SR) {
+		tp->t_ispeed = B1200;
+		tp->t_ospeed = B1200;
+		dhparam(dev);
+	}
+	addr->dmcsr = DM_IE | DM_SE;
+	splx(s);
+}
+
+/*
+ * Dump control bits into the DM registers.
+ */
+dmctl(dev, bits, how)
+int   dev;
+{
+	register struct dmdevice *addr;
+	register s;
+	register unit = DHLINE(dev);
+
+#ifdef DH_SOFTCAR
+	if( !(dev & 0200) )
+		return;
+#endif DH_SOFTCAR
+	if(unit < dhlowdm || unit >= dhlowdm + dhndm)
+		return;
+	addr = dm_addr[(unit - dhlowdm) >> 4];
+	s = spl5();
+	addr->dmcsr &= ~DM_SE;
+	while (addr->dmcsr & DM_BUSY)
+		;
+	addr->dmcsr = unit & 017;
+	switch (how) {
+		case DMSET:
+			addr->dmlstat = bits;
+			break;
+		case DMBIS:
+			addr->dmlstat |= bits;
+			break;
+		case DMBIC:
+			addr->dmlstat &= ~bits;
+			break;
+		}
+	addr->dmcsr = DM_IE | DM_SE;
+	splx(s);
+}
+
+/*
+ * DM interrupt; deal with carrier transitions.
+ */
+dmintr(dm)
+register dm;
+{
+	register struct tty *tp;
+	register struct dmdevice *addr;
+
+	addr = dm_addr[dm];
+	if (addr->dmcsr & DM_DONE) {
+		if (addr->dmcsr & DM_CF) {
+			tp = &dh11[(dm << 4) + (addr->dmcsr & 017)];
+			tp += dhlowdm;
+			if (tp < &dh11[dhlowdm + dhndm]) {
+				wakeup((caddr_t)&tp->t_rawq);
+				if ((tp->t_state & WOPEN) == 0
+				    && (tp->t_local & LMDMBUF)) {
+					if ((addr->dmlstat & DML_CAR)) {
+						tp->t_state &= ~TTSTOP;
+						ttstart(tp);
+					} else if ((tp->t_state&TTSTOP) == 0) {
+						tp->t_state |= TTSTOP;
+						dhstop(tp, 0);
+					}
+				} else
+				if ((addr->dmlstat & DML_CAR) == 0) {
+				    if ((tp->t_state & WOPEN)==0
+					&& (tp->t_local & LNOHANG)==0
+#ifdef  DH_SOFTCAR
+					&& (tp->t_dev & 0200)!=0
+#endif
+					&& (tp->t_pgrp > 2 )
+					) {
+					    gsignal(tp->t_pgrp, SIGHUP);
+					    addr->dmlstat = 0;
+					    flushtty(tp, FREAD|FWRITE);
+				    }
+				    tp->t_state &= ~CARR_ON;
+				} else
+					tp->t_state |= CARR_ON;
+			}
+		}
+		addr->dmcsr = DM_IE | DM_SE;
+	}
+}
+#endif  NDM
+#endif  NDH
+@
+
+
+22.3
+log
+@Убран #ifdef IPK_SELECT
+@
+text
+@d3 3
+d65 2
+a66 2
+#include <sys/dhreg.h>
+#include <sys/uba.h>
+d68 1
+a68 1
+#define DH_8514BUG              /* bug in 8514 */
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d3 3
+a461 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a466 1
+#endif
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d50 1
+a50 1
+#include "dh.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d3 3
+d49 1
+a49 1
+#include "param.h"
+d376 1
+a376 1
+		printf("dh%d:  NXM\n", dh);
+@
+
+
+1.10
+log
+@После unifdef'a.
+@
+text
+@d3 3
+@
+
+
+1.9
+log
+@Внесены правки для работы с КОИ-8/QWERTY терминалы
+@
+text
+@d3 3
+a339 1
+#ifdef  UCB_NTTY
+a340 3
+#else
+		if (tp->t_flags & RAW)
+#endif
+a447 5
+#ifdef  MPX_FILS
+			if (tp->t_chan)
+				mcstart(tp->t_chan, (caddr_t)&tp->t_outq);
+			else
+#endif
+a464 1
+#ifdef  UCB_NTTY
+a465 3
+#else
+	if (tp->t_flags & RAW)
+#endif
+a672 1
+#ifdef  UCB_NTTY
+a682 1
+#endif
+a684 1
+#ifdef  UCB_NTTY
+a685 1
+#endif
+@
+
+
+1.8
+log
+@DH_8514BUG (see after) вставлен в драйвер.
+@
+text
+@d2 4
+a5 1
+ * $Log:        dh.c,v $
+d338 1
+a338 1
+		if ((tp->t_flags & RAW) || (tp->t_local & LLITOUT))
+d472 1
+a472 1
+	if ((tp->t_flags & RAW) || (tp->t_local & LLITOUT))
+@
+
+
+1.7
+log
+@При передаче каждого символа снимается break.
+Это делается из-за подозрительного зависания линий на нашем
+мультиплексоре.
+@
+text
+@d2 6
+a7 1
+ * $Log:	dh.c,v $
+d10 1
+a10 1
+ * 
+d13 1
+a13 1
+ * 
+d16 1
+a16 1
+ * 
+d19 3
+a21 3
+ * 	вместо того, чтобы каждый раз просматрижать линии с начала,
+ * 	делаем аккуратный циклический просмотр.
+ * 
+d24 1
+a24 1
+ * 
+d46 2
+@
+
+
+1.6
+log
+@Вставлен IPK_SELECT (from TCP/IP).
+@
+text
+@d3 3
+d483 3
+@
+
+
+1.5
+log
+@.
+@
+text
+@d3 3
+d443 1
+a443 1
+#ifdef  UCB_NET
+@
+
+
+1.4
+log
+@Изменен алгоритм просмотра линий на выдаче:
+	вместо того, чтобы каждый раз просматрижать линии с начала,
+	делаем аккуратный циклический просмотр.
+@
+text
+@d2 12
+a13 1
+ * $Log:        dh.c,v $
+d79 1
+a79 1
+int     dhlline[NDH];   /* assume BSS is zeroed */
+d348 3
+a350 1
+	int ttybit, bar, *sbar;
+d359 2
+a360 1
+	unit = (dh << 4) + dhlline[dh]; ttybit = 1 << dhlline[dh];
+d363 1
+a363 2
+	for(; bar; unit++ % 16 == 15 ? ( unit = dh << 4 ) : 0,
+			( ttybit <<= 1 ) ? 0 : ( ttybit = 1 )) {
+@
+
+
+1.3
+log
+@Значение бита 0200 в миноре изменено на противоположное.
+@
+text
+@d65 5
+d346 1
+a346 1
+	unit = dh << 4; ttybit = 1;
+d349 2
+a350 1
+	for(; bar; unit++, ttybit <<= 1) {
+d386 1
+@
+
+
+1.2
+log
+@При открытии теперь ставим "RAW" для того, чтобы предотвратить
+срубание того, кто открывает, по сигналам от случайных символов из линии
+Руднев.
+@
+text
+@d2 6
+a7 1
+ * $Log:	dh.c,v $
+d10 1
+a10 1
+ * 
+a538 1
+
+d564 1
+a564 1
+	   || (dev & 0200)
+d602 1
+a602 1
+	if( dev & 0200 )
+d662 1
+a662 1
+					&& (tp->t_dev & 0200)==0
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d115 1
+a115 1
+			tp->t_flags = ODDP | EVENP | ECHO | LCASE | CRMOD;
+d660 1
+@

@@ -1,0 +1,583 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     90.12.12.16.46.17;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+
+Ус-во ДВК.
+@
+
+
+
+1.1
+log
+@Правки для ДВК
+@
+text
+@/*
+ *   DL/KiSi multiplexor driver
+ *
+ * $Log:	mk.c,v $
+ * Revision 1.2  88/12/08  15:24:02  chech
+ * Исправлена грубейшая ошибка в mkstart;
+ * Отладка оставлена под "ifdef DEBUG";
+ * Другие мелкие правки...
+ * 
+ * Revision 1.1  88/09/27  12:52:14  chech
+ * Initial revision
+ * 
+ *
+ */
+
+
+#include "h/mk.h"
+#if NMK > 0
+/* #define DEBUG /* Вынужен оставить отладку, т.к. дурит синхронизация */
+
+#include <sys/param.h>
+#include <sys/conf.h>
+#include <sys/file.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/systm.h>
+#include "../include/klreg.h"
+
+#define NMKLINE (NMK*16)	/* к-во лог. линий мультиплексора */
+extern char partab[];
+struct tty  mk11[NMKLINE];
+int     nmk11 = NMKLINE;	/* only for pstat */
+
+struct mk_soft {		/* структура на каждое устройство */
+    struct dldevice *mk_addr;	/* адрес устройства */
+    unsigned    mk_break;	/* битовая маска "break" символов */
+    unsigned    mk_block;       /* битовая маска "тандема" */
+    char    mk_flag;		/* флаг состояния мультиплексора */
+    char    mk_line;		/* текущаяя логическая линия */
+}       mksoft[NMK];
+#define MKADDR (mkline -> mk_addr)
+
+/* redefine for tp->t_state */
+#define MKTSTOP FLUSH           /* ks - "стоп передачи" (аналог TTSTOP) */
+
+/* байты управления линией */
+#define C_START         0001    /* ks - аналог t_startc */
+#define C_STOP          0002    /* ks - аналог t_stopc */
+#define C_BREAK         0003    /* ks - "break" */
+#define C_CDTR          0004    /* ks - clear dtr */
+#define C_SDTR          0005    /* ks - set dtr */
+#define C_HUPCL         0006    /* ks - send hup clear */
+
+/* mk_flag bits */
+#define MKXBUSY         001	/* устройство занято выводом */
+#define MKXTIMEOUT      002     /* идет таймаут по выводу */
+#define MKXWINT         004     /* ждем прер-я по выводу */
+#define MKXNRDY         010     /* ждем готовности по выводу */
+#define MKXABORT        020     /* таймаут сбрасывает канал */
+#define MKISOPEN        040     /* первое открытие устройства */
+
+/* timeouts */
+#define HZ              50      /* Несколько не корректно, но пользоваться
+			переменной hz я не хочу - глупо и медленно */
+#define MKR_TIMER       (HZ / 2)    /* прием */
+#define MKX_TIMER       (HZ * 50)   /* передача, нет запросов */
+#define MKX_TWINTR      (HZ * 10)   /* передача, ждем прерывание */
+#define MKX_TWRDY       (HZ * 15)   /* передача, ждем готовность */
+
+struct {
+    char    low;
+    char    hig;
+};
+int     ttrstrt (),
+	mkstart (),
+	mkrtimer (),
+	mkxtimer ();
+
+/* Вход для автоконфигуратора */
+mkattach (addr, unit)
+struct dldevice *addr;
+{
+    if ((unsigned) unit >= NMK)
+	return 0;
+    mksoft[unit].mk_addr = addr;
+    return 1;
+}
+
+mkopen (dev, flag)
+dev_t dev;
+{
+    register    d = minor (dev);
+    register struct mk_soft *mkline = &mksoft[d >> 4];
+    register struct tty *tp;
+
+    if ((d >= NMKLINE) || (MKADDR == 0)) {      /* правильность минора */
+	u.u_error = ENXIO;
+	return;
+    }
+    if (MKADDR -> dlxcsr & DLKX_OFFL) {         /* наличие связи */
+	u.u_error = EIO;
+	return;
+    }
+    tp = &mk11[d];                              /* монопольная линия ? */
+    if (tp -> t_state & XCLUDE && u.u_uid != 0) {
+	u.u_error = EBUSY;
+	return;
+    }
+
+    if ((tp -> t_state & ISOPEN) == 0) {        /* первое открытие линии */
+	tp -> t_state = WOPEN | CARR_ON;
+	tp -> t_flags = ANYP | RAW;
+	tp -> t_oproc = mkstart;
+	tp -> t_iproc = NULL;
+	tp -> t_ispeed = tp -> t_ospeed = B9600; /*  B600 ?!? */
+	tp -> t_line = DFLT_LDISC;
+	ttychars (tp);
+    }
+    if ((mkline -> mk_flag & MKISOPEN) == 0) {
+	mkline -> mk_flag = MKISOPEN;
+	MKADDR -> dlrcsr = DLKR_RIE | DLKR_RESET;
+	MKADDR -> dlxcsr = DLKX_TIE;
+    }
+    ttyopen (dev, tp);
+}
+
+mkclose (dev, flag)
+register    dev_t dev;
+int     flag;
+{
+    register struct tty *tp;
+
+    dev = minor (dev);
+    tp = &mk11[dev];
+    if (tp->t_state & HUPCLS)
+	mksctl (dev >> 4, dev & 017, C_HUPCL);
+    ttyclose (tp);
+}
+
+mkread (dev)
+register    dev_t dev;
+{
+    register struct tty *tp = &mk11[minor (dev)];
+    if (mkofflin (tp))
+	return;
+    (*linesw[tp -> t_line].l_read) (tp);
+}
+
+mkwrite (dev)
+register    dev_t dev;
+{
+    register struct tty *tp = &mk11[minor (dev)];
+    if (mkofflin (tp))
+	return;
+    (*linesw[tp -> t_line].l_write) (tp);
+}
+
+mkioctl (dev, cmd, addr, flag)
+caddr_t addr;
+register dev_t dev;
+{
+    register char c;
+    register struct tty *tp;
+
+    dev = minor (dev); tp = &mk11[dev];
+
+    switch (ttioctl (tp, cmd, addr, flag)) {
+	default:
+	    u.u_error = ENOTTY;
+
+	case TIOCSETN:
+	case TIOCSETP:
+	case TIOCSETA:
+	case TIOCSETB:
+/* Странная конструкция, связанная с возможной ошибкой синхронизации
+ *          if (tp -> t_ospeed > B600)
+ *              tp -> t_ispeed = tp -> t_ospeed = B600;
+ */
+	case 0:
+	case TIOCCBRK:                  /* заглушка -- не отрабатываем */
+	    return;
+
+	case TIOCSBRK:
+	    c = C_BREAK; break;
+	case TIOCSDTR:
+	    c = C_SDTR; break;
+	case TIOCCDTR:
+	    c = C_CDTR; break;
+    }
+    mksctl (dev >> 4, dev & 017, c);
+}
+
+/*
+ * Проверка замкнутости линии перед операциями read, write;
+ * устанавливает ошибку EIO.
+ */
+mkofflin (tp)
+register struct tty *tp;
+{
+    register    unit = (tp - mk11) >> 4;
+
+    if ((mksoft[unit].mk_addr) -> dlxcsr & DLKX_OFFL) {
+	mkabort (unit);
+	u.u_error = EIO;
+	return (1);
+    }
+    return (0);
+}
+
+/* авария - почистить все очереди, сбросить флаги */
+mkabort (unit)
+register    unit;
+{
+    register struct mk_soft *mkline = &mksoft[unit];
+    register struct tty *tp;
+
+#ifdef DEBUG
+    printf ("\rAbort minor %o\n", unit);
+#endif
+
+    if (MKADDR -> dlxcsr & DLKX_OFFL)
+#ifdef UCB_DEVERR
+	printf ("mk%d err: csx=%b\n", unit, MKADDR -> dlxcsr, DLKX_BITS);
+#else
+	printf ("mk%d err: csx=%o\n", unit, MKADDR -> dlxcsr);
+#endif
+    unit <<= 4;
+    for (tp = &mk11[unit]; tp < &mk11[unit + 16]; tp++)
+	if (tp -> t_state & ISOPEN) {
+	    tp -> t_state &= ~(CARR_ON | ASLEEP | BUSY | MKTSTOP);
+	    flushtty (tp, FREAD | FWRITE);
+	}
+    mkline -> mk_break = mkline -> mk_block = 0;
+    mkline -> mk_flag = 0;
+}
+
+/* Прерывание по приему */
+mkrint (unit)
+register    unit;
+{
+    register struct dldevice   *addr = mksoft[unit].mk_addr;
+    register struct tty *tp;
+    int     c, s;
+    unsigned l;
+
+    addr -> dlrcsr = 0;
+
+    c = addr -> dlrbuf;
+    l = c.hig & 017;
+    tp = &mk11[(unit << 4) + l];
+
+    if (addr -> dlrcsr & DLKR_RDPE) {
+#ifdef UCB_DEVERR
+	printf ("mk%d err: csr=%b\n", unit, addr -> dlrcsr, DLKR_BITS);
+#else
+	printf ("mk%d err: csr=%o\n", unit, addr -> dlrcsr);
+#endif
+	goto Exit;
+    }
+    if ((tp -> t_state & ISOPEN) == 0)
+	goto Exit;
+
+    if (c < 0) {                /* управляющий байт ? */
+	switch (c.low) {
+
+	    case C_STOP:                        /* stop output */
+		tp -> t_state |= MKTSTOP;
+#ifdef DEBUG
+		printf ("\rStop %o\n", tp - mk11);
+#endif
+		break;
+
+	    case C_START:                       /* start output */
+		if (tp -> t_state & MKTSTOP) {
+		    tp -> t_state &= ~MKTSTOP;
+#ifdef DEBUG
+		printf ("\rStart %o\n", tp - mk11);
+#endif
+		    mkstart (tp);
+		}
+		break;
+
+	    case C_BREAK:                       /* break */
+		if (tp -> t_flags & RAW)
+			c.low = 0;
+		else
+			c.low = tun.t_intrc;
+		goto Next;
+
+	    case C_CDTR:                        /* clear dtr */
+		tp->t_state &= ~CARR_ON;
+		/* fall into ... */
+	    case C_HUPCL:                       /* hup clear */
+#ifdef  UCB_NTTY
+		if ((tp -> t_local & LNOHANG) == 0)
+#endif
+		    if (tp -> t_pgrp > 2) {     /* Послать сигнал HANGUP */
+			gsignal(tp->t_pgrp, SIGHUP);
+			flushtty(tp, FREAD|FWRITE);
+		    }
+		break;
+
+	    case C_SDTR:                        /* set dtr */
+		tp->t_state |= CARR_ON;
+		ttstart (tp);
+		break;
+
+	    default:
+		printf ("mk%d uctrl %o\7\n", unit, c);
+		break;
+	}
+    goto Exit;
+    }
+    /* блокировка */
+Next:
+    if ((tp -> t_rawq.c_cc > (TTYHOG * 4 / 5)) &&
+      (tp -> t_flags & (RAW | CBREAK)) &&
+      ((mksoft[unit].mk_block & (1 << l)) == 0)) {
+	if (mksoft[unit].mk_block == 0)         /* включить тайм-аут */
+	    timeout (mkrtimer, (caddr_t) unit, MKR_TIMER);
+	mksoft[unit].mk_block |= 1 << l;        /* установить блокировку */
+	mksctl (unit, l, C_STOP);               /* передать "стоп" */
+    }
+    /* выполнить ввод на низком приоритете */
+    s = spl0 ();
+    (*linesw[tp -> t_line].l_input) (c.low, tp);
+    splx (s);
+Exit:
+     addr -> dlrcsr = DLKR_RIE;
+}
+
+/*
+ * Таймаут по приему. Запускается по переполнению ввода ( см.
+ * дисциплину обслуживания терминалов )
+ */
+mkrtimer (unit)
+{
+    register struct mk_soft *mkline = & mksoft[unit];
+    register unsigned i;
+    register int j;
+    struct tty *tp;
+
+#ifdef DEBUG
+    printf ("\rTimeout read unit %o\n", unit);
+#endif
+    for (i = 1, j = 0; j < 16; i <<= 1, j++) {
+	if ((mkline -> mk_block & i) == 0)
+	    continue;
+	tp = &mk11[(unit << 4) + j];
+	if (tp -> t_rawq.c_cc < TTYHOG / 4) {
+	    mkline -> mk_block &= ~i;
+	    mksctl (unit, j, C_START);
+	}
+    }
+    if (mkline -> mk_block)
+	timeout (mkrtimer, (caddr_t) unit, MKR_TIMER);
+}
+
+/*
+ * Послать управляющий байт ( он отрабатывается непосредственно драйвером)
+ */
+mksctl (unit, line, c)
+register unit, line;
+char c;
+{
+    register struct mk_soft *mkline = &mksoft[unit];
+    int s;
+
+    s = spl5 ();
+    mk11[(unit << 4) + line].t_char = c;
+    line = 1 << line;
+    if ((mkline -> mk_break) & line)
+	printf ("mk%d ctrl conflict\7\n", unit);
+    mkline -> mk_break |= line;
+    if ((mkline -> mk_flag & MKXBUSY) == 0) {
+	mkline -> mk_flag |= MKXBUSY;
+	if ((mkline -> mk_flag & MKXTIMEOUT) == 0) {
+	    mkline -> mk_flag |= MKXTIMEOUT;
+	    timeout (mkxtimer, (caddr_t) unit, MKX_TIMER);
+	}
+	mkout (unit);
+#ifdef DEBUG
+    printf ("\rSend ctrl %o unit %o\n", c, unit);
+#endif
+    }
+    splx (s);
+}
+
+/* Стартовая операция по выводу */
+mkstart (tp)
+register struct tty *tp;
+{
+    register    unit;
+    register struct mk_soft *mkline;
+    int     s, dev;
+
+    s = spl5 ();
+    dev = tp - mk11;                            /* chan number */
+    unit = dev >> 4;                            /* mk unit number */
+    mkline = &mksoft[unit];
+    tp -> t_state |= BUSY;
+    if ((mkline -> mk_flag & MKXBUSY) == 0) {
+	mkline -> mk_line = dev & 017;          /* soft line number */
+	mkline -> mk_flag |= MKXBUSY;
+	if ((mkline -> mk_flag & MKXTIMEOUT) == 0) {
+	    mkline -> mk_flag |= MKXTIMEOUT;
+	    timeout (mkxtimer, (caddr_t) unit, MKX_TIMER);
+	}
+	mkout (unit);
+    }
+    splx (s);
+}
+
+/* Прерывание от вывода */
+mkxint (unit)
+register unit;
+{
+    register struct mk_soft *mkline = &mksoft[unit];
+
+    mkline -> mk_flag &= ~(MKXWINT | MKXNRDY | MKXABORT);
+    --(mkline -> mk_line);              /* для лучшего перебору */
+    mkline -> mk_line &= 017;
+    mkout (unit);
+}
+
+/*
+ * Вывод байта в линию
+ */
+mkout (unit) {
+    register struct mk_soft *mkline = &mksoft[unit];
+    register struct tty *tp;
+    register unsigned   i;
+    int     c;
+
+    unit <<= 4;
+
+/* Проверка наличия "break" байтов */
+    for (i = 1, c = 0; mkline -> mk_break; i <<= 1, c++) {
+	if ((mkline -> mk_break & i) == 0)
+	    continue;
+	mkline -> mk_break &= ~i;
+	tp = &mk11[unit + c];
+	c.hig = c | 0200;           /* бит управления !!! */
+	c.low = tp -> t_char;
+	goto Out;
+    }
+
+/* Выбор выводимого канала */
+    for (i = 16; i--; (mkline -> mk_line)++, mkline -> mk_line &= 017) {
+	tp = &mk11[unit + mkline -> mk_line];
+	if ((tp -> t_state &
+	  (ISOPEN | CARR_ON | BUSY | TIMEOUT | TTSTOP | MKTSTOP)) ==
+	  (ISOPEN | CARR_ON | BUSY)) {
+	    if (tp -> t_state & ASLEEP && tp -> t_outq.c_cc <= TTLOWAT (tp)) {
+		tp -> t_state &= ~ASLEEP;
+#ifdef  MPX_FILS
+		if (tp -> t_chan)
+		    mcstart (tp -> t_chan, (caddr_t) & tp -> t_outq);
+		else
+#endif
+		    wakeup ((caddr_t) & tp -> t_outq);
+	    }
+	    if ((c = getc (&tp -> t_outq)) >= 0) {
+#ifdef  UCB_NTTY
+		if ((c.low>=0) || (tp->t_flags&RAW) || (tp->t_local&LLITOUT)) {
+#else
+		if ((c.low>=0) || (tp->t_flags&RAW)) {
+#endif
+		    c.hig = mkline -> mk_line;
+		    goto Out;
+		}
+		else {
+		    timeout (ttrstrt, (caddr_t) tp, (c & 0177) + DLDELAY);
+		    tp -> t_state |= TIMEOUT;
+		}
+	    }
+	}
+	tp -> t_state &= ~BUSY;
+    }
+    mkline -> mk_flag &= ~MKXBUSY;
+    return;
+Out:
+    if (MKADDR -> dlxcsr & DLKX_OFFL) {
+	mkabort (unit >> 4);
+	return;
+    }
+    mkline -> mk_flag &= ~MKXABORT;
+    if (MKADDR -> dlxcsr & DLKX_TRDY) {
+	mkline -> mk_flag |= MKXWINT;           /* - ждем прер-я */
+	MKADDR -> dlxbuf = c;
+	return;
+    }
+    mkline -> mk_flag |= MKXNRDY;               /* - ждем готовности */
+#ifdef DEBUG
+    printf ("\rDon't ready unit %o\n", unit>>4);
+#endif
+}
+
+/*
+ * Таймаут по выводу (на обрыв, потерю готовности и отстутствие прер-я)
+ */
+mkxtimer (unit)
+register unit;
+{
+    register struct mk_soft *mkline = &mksoft[unit];
+    register time = MKX_TIMER;
+
+#ifdef DEBUG
+    printf ("\rTimeout write unit %o\n", unit);
+#endif
+    if ((mkline -> mk_flag & (MKXBUSY | MKXTIMEOUT)) !=
+      (MKXBUSY | MKXTIMEOUT)) {                 /* выключение таймаута */
+	mkline -> mk_flag &= ~(MKXTIMEOUT | MKXWINT | MKXNRDY | MKXABORT);
+	return;
+    }
+    if (MKADDR -> dlxcsr & DLKX_OFFL) {         /* обрыв линии */
+Abort:  mkabort (unit);
+	return;
+    }
+    switch (mkline -> mk_flag & (MKXWINT | MKXNRDY | MKXABORT)) {
+
+	case MKXWINT:    /* ожидание прерывания */
+	    if ((MKADDR -> dlxcsr & DLKX_TIE) == 0)
+		MKADDR -> dlxcsr |= DLKX_TIE;
+	    mkline -> mk_flag |= MKXABORT;
+	    time = MKX_TWINTR;
+	    break;
+
+	case MKXNRDY:    /* отсутствовала готовность */
+	case (MKXNRDY | MKXWINT):       /* бред */
+	    if (MKADDR -> dlxcsr & DLKX_TRDY) {
+		mkline -> mk_flag &= ~MKXNRDY;
+		mkout (unit);
+	    }
+	    else {
+		mkline -> mk_flag |= MKXABORT;
+		time = MKX_TWRDY;
+	    }
+	    break;
+
+	case (MKXWINT | MKXABORT):
+	case (MKXWINT | MKXNRDY | MKXABORT):    /* бред */
+	    goto Abort;
+
+	case (MKXNRDY | MKXABORT):    /* отсутствовала готовность */
+	    if (MKADDR -> dlxcsr & DLKX_TRDY) {
+		mkline -> mk_flag &= ~(MKXNRDY | MKXABORT);
+		mkout (unit);
+		break;
+	    }
+	    goto Abort;
+    }
+    timeout (mkxtimer, (caddr_t) unit, time);
+}
+#endif NMK
+@

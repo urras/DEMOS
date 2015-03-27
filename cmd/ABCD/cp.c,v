@@ -1,0 +1,915 @@
+head     1.13;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.13
+date     89.07.11.16.39.40;  author avg;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     89.07.11.14.58.44;  author avg;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     89.07.04.17.22.39;  author abs;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.06.14.18.46.27;  author abs;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.06.14.18.04.39;  author abs;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.06.08.20.15.45;  author tasha;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.04.28.17.04.23;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.04.11.13.05.53;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.04.10.21.24.40;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.04.10.17.29.35;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.11.29.19.50.24;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.17.19.08.08;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.24.06;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.13
+log
+@Добавлен ключ -p (сохранять времена и коды доступа).
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: cp.c,v 1.12 89/07/11 14:58:44 avg Exp $
+** $Log:        cp.c,v $
+ * Revision 1.12  89/07/11  14:58:44  avg
+ * Перед rcopy надо проверять, что копируется каталог!
+ *
+ * Revision 1.11  89/07/04  17:22:39  abs
+ * пересылка неправильного числа байт теперь считается ошибкой.
+ *
+ * Revision 1.10  89/06/14  18:46:27  abs
+ * синт. ОШ.
+ *
+ * Revision 1.9  89/06/14  18:04:39  abs
+ * не копирует каталоги как простые файлы.
+ *
+ * Revision 1.8  89/06/08  20:15:45  tasha
+ * Правлена выдача Usage:.
+ *
+ * Revision 1.7  89/04/28  17:04:23  avg
+ * Првлен формат выдачи на более приличный.
+ *
+ * Revision 1.6  89/04/11  13:05:53  abs
+ * косметика
+ *
+ * Revision 1.5  89/04/10  21:24:40  abs
+ * переобозвал флаги.
+ *
+ * Revision 1.4  89/04/10  17:29:35  abs
+ * новые флаги и возможности:
+ *      -v      verbose: говорить выполняемую операцию
+ *      -u      unbuffered  дожидаться окончания записи (O_SYNC)
+ *      -r      recursive   рекурсивное копирование поддерева каталогов
+ *
+ * Revision 1.3  88/11/29  19:50:24  abs
+ * 1. Чуть изменены диагностики.
+ * 2. Добавлен флаг -s
+ *      -sN   или -sN,M   или -sN,M,L
+ *      позволяет копировать информацию с определенного места
+ *      (со смещения M в исходном файле)
+ *      в определенное место
+ *      (смещение L в целевом файле)
+ *      в определенном количестве
+ *      (не более N байт)
+ *
+ * Revision 1.2  88/09/17  19:08:08  avg
+ * Сделаны русские диагностики.
+ *
+ * Revision 1.1  88/05/03  20:24:06  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: cp.c,v 1.12 89/07/11 14:58:44 avg Exp $";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * cp oldfile newfile
+ */
+
+#define BSIZE   1024
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/dir.h>
+#include <sys/fcntl.h>
+#include <ediag.h>
+
+struct  stat    stbuf1, stbuf2;
+char    iobuf[BSIZE];
+int     iflag = 0;      /* interactive flag. If this flag is set,
+			 * the user is queried before files are
+			 * destroyed by cp.
+			 */
+long from_offset=0l,
+     to_offset  =0l,
+     max_len    =0l;
+int     sizeflag =0 ;
+
+int rflag = 0;    /* рекурсивное копирование */
+int verbose = 0;  /* болтливый флаг */
+int syncro = 0;   /* убедиться в успехе копирования */
+int pflag = 0;    /* сохранять времена и владельца */
+extern long atol();
+char *parm;
+int cont = 0;
+long send;      /* сколько байт уже переслали */
+
+main(argc, argv)
+char *argv[];
+{
+	register i, r;
+	register char *s;
+
+	/* get the flag(s) */
+
+	if (argc < 2)
+		goto usage;
+	if (*argv[1] == '-') {
+		argc--;
+		while (*++argv[1] != '\0')
+			switch (*argv[1]) {
+
+			/* interactive mode */
+			case 'i':
+				iflag++;
+				break;
+			case 'r':
+			case 'R':
+				rflag++;
+				break;
+			case 'v':
+				verbose++;
+				break;
+			case 'u':
+				syncro++;
+				break;
+			case 'p':
+				pflag++;
+				break;
+			/* size */
+			case 's':
+				sizeflag++;
+				s = parm = argv[1]+1;
+
+				while( *s && *s != ',' )s++;
+				if( *s == ',' ) cont++;
+				*s='\0';
+				max_len = atol( parm );
+
+				if( cont ){
+					cont = 0;
+					parm = ++s;
+
+					while( *s && *s != ',' )s++;
+					if( *s == ',' ) cont++;
+					*s='\0';
+					from_offset = atol( parm );
+
+					if( cont ){
+					    cont = 0;
+					    parm = ++s;
+					    while( *s && *s != ',' )s++;
+					    *s='\0';
+					    to_offset = atol( parm );
+					}
+				}
+				argv++;
+				goto DO;
+
+			/* don't live with bad options */
+			default:
+				goto usage;
+			}
+		argv++;
+	}
+DO:
+	if (argc < 3)
+		goto usage;
+
+	if( rflag ){
+		/* рекурсивное копирование */
+		recurs( argv+1 );
+		exit(0);
+	}
+	if (argc > 3) {
+		if (stat(argv[argc-1], &stbuf2) < 0)
+			goto usage;
+		if ((stbuf2.st_mode&S_IFMT) != S_IFDIR)
+			goto usage;
+	}
+	r = 0;
+	for(i=1; i<argc-1;i++)
+		r |= copy(argv[i], argv[argc-1]);
+	exit(r);
+usage:
+	fprintf(stderr, ediag("Usage: cp [-sHOW,FROM,TO] [-iruvp] source destination    or\n       cp [-iruvp] f1 ... fn directory\n",
+			      "Вызов: cp [-sN,M,L] [-iruvp] откуда куда   или\n       cp [-iruvp] ф1 ... фn каталог\n"));
+	exit(1);
+}
+
+copy(from, to)
+char *from, *to;
+{
+	int fold, fnew, n;
+	register char *p1, *p2, *bp;
+	int mode;
+	int c;
+	char i;
+	register code = 0;      /* число ошибок */
+
+	if( verbose )
+		fprintf( stderr, "\tcp %s %s\n", from, to );
+
+	if ((fold = open(from, 0)) < 0) {
+		fprintf(stderr, ediag("cp: cannot open %s\n",
+				      "cp: не могу открыть %s\n"), from);
+		return(1);
+	}
+
+	if( sizeflag ) lseek( fold, from_offset, 0 );
+
+	fstat(fold, &stbuf1);
+	if((stbuf1.st_mode & S_IFMT) == S_IFDIR ){
+		close(fold);
+		fprintf( stderr, ediag( "cp: %s is a directory\n",
+				 "cp: %s - каталог\n" ), from );
+		return(1);
+	}
+	if( !sizeflag ) max_len = stbuf1.st_size;
+	mode = stbuf1.st_mode;
+
+	/* is target a directory? */
+	if (stat(to, &stbuf2) >=0 &&
+	   (stbuf2.st_mode&S_IFMT) == S_IFDIR) {
+		p1 = from;
+		p2 = to;
+		bp = iobuf;
+		while(*bp++ = *p2++)
+			;
+		bp[-1] = '/';
+		p2 = bp;
+		while(*bp = *p1++)
+			if (*bp++ == '/')
+				bp = p2;
+		to = iobuf;
+	}
+
+	if ( !sizeflag && stat(to, &stbuf2) >= 0) {
+		if (stbuf1.st_dev == stbuf2.st_dev &&
+		    stbuf1.st_ino == stbuf2.st_ino) {
+			fprintf(stderr,
+				ediag("cp: cannot copy file to itself.\n",
+				      "cp: нельзя копировать файл сам в себя.\n"));
+			return(1);
+		} else if (iflag) {
+			fprintf (stderr, ediag("overwrite %s? ",
+					       "перезаписать %s? "),to);
+			c = getchar();
+			i = c & 0377;
+			while ((c & 0377) != '\n' && c != EOF)
+				c = getchar();
+			if( i != 'y' && i != 'Y' &&
+			    i != ('д'&0377) && i != ('Д'&0377) ){
+				return(1);
+			}
+		}
+	}
+
+	if ( sizeflag && ( fnew = open( to, 1 )) >= 0 );
+		/* то старый файл не уничтожается */
+	else if ((fnew = creat(to, mode)) < 0) {
+		fprintf(stderr, ediag("cp: cannot create %s\n",
+				      "cp: не могу создать %s\n"),to);
+		close(fold);
+		return(1);
+	}
+
+	if( syncro )
+	    fcntl( fnew, F_SETFL, O_SYNC );
+
+	if( sizeflag )lseek( fnew, to_offset, 0 );
+	send = 0l;
+
+	while(n = read(fold,  iobuf,  BSIZE)) {
+		if (n < 0) {
+			perror(ediag("cp: read","cp: чтение"));
+			close(fold);
+			close(fnew);
+			code++;break;
+		} else
+			if( sizeflag && send + n > max_len ){
+				n = max_len - send ;
+				/* можем переслатЬ не более max_len байт */
+			}
+
+			if (write(fnew, iobuf, n) != n) {
+				perror(ediag("cp: write","cp: запись"));
+				close(fold);
+				close(fnew);
+				code++; break;
+			}
+
+			send += n;
+			if( sizeflag && send >= max_len )break;
+	}
+
+	if( send != max_len ){
+		fprintf( stderr, ediag( "Send %ld instead of %ld\n",
+			 "Переписано %ld вместо %ld\n") , send , max_len );
+		code++;
+	}
+	close(fold);
+	close(fnew);
+	if( pflag ) {
+		long tv[2];
+
+		if( getuid() == 0 )
+			chown(to, stbuf1.st_uid, stbuf1.st_gid);
+		chmod(to, stbuf1.st_mode & 07777);
+		tv[0] = stbuf1.st_atime;
+		tv[1] = stbuf1.st_mtime;
+		utime(to, tv);
+	}
+	return (code);
+}
+
+/*----------------рекурсивное копирование----------------------*/
+struct stat st;
+struct direct dp;
+
+/* следует исключить зацикливание копирования вида:
+			* from
+		       / \
+		      /   \
+		   a *     * to
+	поскольку будет копироваться так:
+		rcopy from to
+		cp    a    to
+		      rcopy from/to to
+		      cp    from/to/a to
+			....
+*/
+
+char FROM[BSIZE];       /* from pathname */
+char TO  [BSIZE];       /* to   pathname */
+
+recurs( argv ) char **argv;
+{
+	char *to;
+	char **v;
+
+	sizeflag = 0;
+	v = argv;
+	while( v[1] ) v++;
+
+	to = *v;
+	*v = NULL;
+
+	while( *argv ){
+		strcpy( FROM, *argv++ );
+		strcpy( TO,   to );
+		if( stat(FROM, &st) < 0 ) {
+			fprintf(stderr, "%s %s\n", FROM,
+					ediag("not exist", "не существует"));
+			continue;
+		}
+		if( (st.st_mode & S_IFMT) == S_IFDIR )
+			rcopy(FROM, TO);
+		else
+			simplecopy(FROM, TO);
+	}
+}
+
+cpy( from, to, cls )
+	char *from, *to;
+{
+	switch( cls ){
+	    case DIR_IFDIR: goto dir;
+	    case DIR_IFREG: goto reg;
+	/* case 666: */
+	default:       ;/* do stat call */
+	}
+	if( stat( from, &st ) < 0 ){
+		fprintf( stderr, "%s %s\n",
+		    from, ediag( "not exist", "не существует"));
+		return;
+	}
+	if( (st.st_mode & S_IFMT) == S_IFDIR ) goto dir;
+reg:
+	return simplecopy( from, to );
+	/* копировать просто файл в каталог to */
+dir:
+	return rcopy( from, to );
+}
+
+rcopy( from, to )
+	char *from, *to;
+{
+	char *a, *b, *c, *d;
+	register i;
+	register ret = 0 ;
+	int fd;
+	char buf[100];
+
+	if( (fd = open( from, 0 )) < 0 ){
+		perror( from );
+		return 1;
+	}
+	strcpy(buf, to);
+Stat:
+	if( stat(to, &st) < 0 ){
+		if( MKDIR(to, 0777) < 0 ){
+			perror( "mkdir" );
+			close(fd);
+			return 1;
+		} else goto Stat;
+	} else
+	if( (st.st_mode & S_IFMT ) != S_IFDIR ){
+		fprintf( stderr, "%s %s\n",
+		ediag( "can not copy into existent regular file",
+		       "не могу копировать в существующий файл"), to );
+		close(fd);
+		return 1;
+	}
+
+	a = from + strlen( from );
+	b = to   + strlen( to );
+	*a++= '/';      *b++ = '/';
+	*a = *b = '\0';
+
+	while( read(fd, (char *) &dp , sizeof(dp)) > 0 ){
+		if( dp.d_ino == 0 ) continue;
+		if( strcmp( dp.d_name , ".." ) == 0   ||
+		    strcmp( dp.d_name , "."  ) == 0  ) continue;
+		c = a;
+		d = b;
+		for( i=0; i < DIRSIZ; i++ )
+			*c++ = *d++ = dp.d_name [ i ];
+		*c = *d = '\0';
+		ret += cpy( from, to, dp.d_class );
+	}       /* end while */
+	if( pflag ) {
+		long tp[2];
+
+		fstat(fd, &st);
+		chmod(buf, st.st_mode & 01777);
+		if( getuid() == 0 )
+			chown(buf, st.st_uid, st.st_gid);
+		tp[0] = st.st_atime;
+		tp[1] = st.st_mtime;
+		utime(buf, tp);
+	}
+	close( fd );
+	* --a = '\0';
+	* --b = '\0';
+
+	return ret;
+}
+
+simplecopy( from, to )
+	char *from, *to;
+{
+	return copy( from, to );
+}
+
+MKDIR( s, mode ) char *s;
+{
+	if( verbose )
+		fprintf( stderr, "\tmkdir %s\n", s );
+	return mkdir( s, mode );
+}
+@
+
+
+1.12
+log
+@Перед rcopy надо проверять, что копируется каталог!
+>
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.11 89/07/04 17:22:39 abs Exp $
+d8 3
+d59 1
+a59 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.11 89/07/04 17:22:39 abs Exp $";
+d89 1
+d124 3
+d183 2
+a184 2
+	fprintf(stderr, ediag("Usage: cp [-sHOW,FROM,TO] [-iruv] f1 f2   or\n\tcp [-uv] f1 ... fn directory\n",
+			      "Вызов: cp [-sN,M,L] [-iruv] из_файла в_файл    или\n\tcp [-uv] ф1 ... фn каталог\n"));
+d240 1
+a240 1
+				      "cp: нельзя копирвать файл сам в себя\n"));
+d246 1
+a246 1
+			i = (char) c;
+d249 2
+a250 1
+			if (i != 'y'){
+d301 10
+d390 1
+d396 1
+d399 1
+a399 1
+		if( MKDIR( to, 0777 ) < 0 ){
+d401 1
+d403 2
+a404 2
+		}else goto Stat;
+	}else
+d409 1
+d429 11
+@
+
+
+1.11
+log
+@пересылка неправильного числа байт теперь считается ошибкой.
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.10 89/06/14 18:46:27 abs Exp $
+d8 3
+d56 1
+a56 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.10 89/06/14 18:46:27 abs Exp $";
+d288 1
+a288 1
+			 "Переслано %ld вместо %ld\n") , send , max_len );
+d329 1
+a329 1
+		strcpy( FROM, *argv );
+d331 9
+a339 2
+		rcopy( FROM, TO );
+		argv++;
+a345 1
+#ifdef IPK_DIRECTORY
+d347 2
+a348 2
+	case DIR_IFDIR: goto dir;
+	case DIR_IFREG: goto reg;
+a351 1
+#endif
+d354 1
+a354 1
+		    from, ediag( "noexistent", "не существует"));
+d373 1
+a373 1
+	if( (fd=open( from, 0 )) < 0 ){
+d378 1
+a378 1
+	if( stat( to, &st ) < 0 ){
+d386 1
+a386 1
+		ediag( "can't copy to regular file",
+a404 1
+#ifdef IPK_DIRECTORY
+a405 3
+#else
+		ret += cpy( from, to, 666 );
+#endif
+@
+
+
+1.10
+log
+@синт. ОШ.
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.9 89/06/14 18:04:39 abs Exp $
+d8 3
+d53 1
+a53 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.9 89/06/14 18:04:39 abs Exp $";
+d186 1
+a186 1
+	register code = 0;
+d283 1
+a283 1
+	if( send != max_len )
+d286 2
+@
+
+
+1.9
+log
+@не копирует каталоги как простые файлы.
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.8 89/06/08 20:15:45 tasha Exp $
+d8 3
+d50 1
+a50 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.8 89/06/08 20:15:45 tasha Exp $";
+d199 2
+a200 2
+		fprintf( stderr, "cp: %s is a directory\n",
+				 "cp: %s - каталог\n", from );
+@
+
+
+1.8
+log
+@Правлена выдача Usage:.
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.7 89/04/28 17:04:23 avg Exp $
+d8 3
+d47 1
+a47 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.7 89/04/28 17:04:23 avg Exp $";
+d192 1
+d194 6
+@
+
+
+1.7
+log
+@Првлен форат выдачи на более приличный.
+@
+text
+@d6 5
+a10 2
+** $Header: cp.c,v 1.6 89/04/11 13:05:53 abs Exp $
+** $Log:	cp.c,v $
+d13 1
+a13 1
+ * 
+d44 1
+a44 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.6 89/04/11 13:05:53 abs Exp $";
+d164 2
+a165 2
+	fprintf(stderr, ediag("Usage: cp [-sHOW,FROM,TO]  f1 f2; or cp f1 ... fn d2\n",
+			      "Вызов:  cp [-rwv] из_файла  в_файл    или\n\tcp ф1 ... фn в_каталог\n"));
+d211 1
+a211 1
+		   stbuf1.st_ino == stbuf2.st_ino) {
+d214 1
+a214 1
+				   "cp: нельзя копирвать файл сам в себя\n"));
+@
+
+
+1.6
+log
+@косметика
+@
+text
+@d6 5
+a10 2
+** $Header: cp.c,v 1.5 89/04/10 21:24:40 abs Exp $
+** $Log:        cp.c,v $
+d41 1
+a41 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.5 89/04/10 21:24:40 abs Exp $";
+d177 1
+a177 1
+		fprintf( stderr, "  cp \"%s\"-->\"%s\"\n", from, to );
+a343 3
+	if( verbose )
+		fprintf( stderr, "rcopy \"%s\"-->\"%s\"\n", from, to );
+
+d398 1
+a398 1
+		fprintf( stderr, "mkdir %s\n", s );
+@
+
+
+1.5
+log
+@переобозвал флаги.
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.4 89/04/10 17:29:35 abs Exp $
+d8 3
+d38 1
+a38 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.4 89/04/10 17:29:35 abs Exp $";
+d171 1
+d184 1
+d217 1
+a217 1
+			if (i != 'y')
+d219 1
+d243 1
+a243 1
+			return(1);
+d254 1
+a254 1
+				return(1);
+d261 1
+a261 1
+	if( sizeflag && send != max_len )
+d266 1
+a266 1
+	return(0);
+d294 1
+d316 1
+d327 1
+a327 1
+	simplecopy( from, to );
+a328 1
+	return;
+d330 1
+a330 2
+	rcopy( from, to );
+	return;
+d338 1
+d377 1
+a377 1
+		cpy( from, to, dp.d_class );
+d379 1
+a379 1
+		cpy( from, to, 666 );
+d386 1
+a386 1
+	return 0;
+@
+
+
+1.4
+log
+@новые флаги и возможности:
+	-v 	verbose: говорить выполняемую операцию
+	-w      wait_write  дожидаться окончания записи (O_SYNC)
+	-r      recursive   рекурсивное копирование поддерева каталогов
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.3 88/11/29 19:50:24 abs Exp $
+d8 6
+d35 1
+a35 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.3 88/11/29 19:50:24 abs Exp $";
+d90 1
+d96 1
+a96 1
+			case 'w':
+@
+
+
+1.3
+log
+@1. Чуть изменены диагностики.
+2. Добавлен флаг -s
+	-sN   или -sN,M   или -sN,M,L
+	позволяет копировать информацию с определенного места
+	(со смещения M в исходном файле)
+	в определенное место 
+	(смещение L в целевом файле)
+	в определенном количестве
+	(не более N байт)
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.2 88/09/17 19:08:08 avg Exp $
+d8 11
+d29 1
+a29 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.2 88/09/17 19:08:08 avg Exp $";
+d41 2
+d44 1
+d55 4
+d83 9
+d131 6
+d149 1
+a149 1
+			      "Вызов:  cp из_файла  в_файл    или\n\tcp ф1 ... фn в_каталог\n"));
+d161 4
+d219 3
+d254 132
+@
+
+
+1.2
+log
+@Сделаны русские диагностики.
+@
+text
+@d6 1
+a6 1
+** $Header: cp.c,v 1.1 88/05/03 20:24:06 root Exp $
+d8 3
+d18 1
+a18 1
+static char     Rcs_id[] = "$Header: cp.c,v 1.1 88/05/03 20:24:06 root Exp $";
+d37 8
+d50 1
+d65 4
+d70 25
+d101 1
+d115 2
+a116 2
+	fprintf(stderr, ediag("Usage: cp f1 f2; or cp f1 ... fn d2\n",
+			      "Вызов: cp f1 f2; или cp f1 ... fn d2\n"));
+d133 2
+d137 1
+d153 2
+a154 1
+	if (stat(to, &stbuf2) >= 0) {
+d172 4
+a175 1
+	if ((fnew = creat(to, mode)) < 0) {
+d181 4
+d192 5
+d203 3
+d207 4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d117 1
+a117 1
+					       "стирать %s? "),to);
+@

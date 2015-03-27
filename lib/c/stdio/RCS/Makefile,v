@@ -1,0 +1,235 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.4
+date     89.04.18.17.45.22;  author ache;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.04.09.20.29.54;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.11.16.20.17.14;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.13.15.32.46;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.4
+log
+@vfprintf, vprintf, vsprintf.
+@
+text
+@# $Log:	Makefile,v $
+# Revision 1.3  89/04/09  20:29:54  abs
+# функция fgetstr
+# 
+# Revision 1.2  88/11/16  20:17:14  ache
+# Убрана ошибочная зависимость
+#
+# Revision 1.1  88/04/13  15:32:46  andrew
+# Initial revision
+#
+GET=co
+GFLAGS=-q
+I=/usr/include/
+IS=/usr/include/sys/
+S=/usr/include/stdio.h
+
+.DEFAULT:
+	$(GET) $(GFLAGS) $@@
+
+.s.o:
+	as -V -o $@@ /usr/include/sys.s $<
+	ld -r -x $@@ -o a.out.lib
+	mv a.out.lib $@@
+
+.c.o:
+	cc -O -c $<
+	ld -r -x $@@ -o a.out.lib
+	mv a.out.lib $@@
+
+all:    clrerr.o \
+	data.o \
+	doprnt.o \
+	doscan.o \
+	endopen.o \
+	fdopen.o \
+	ffltpr.o \
+	fgetc.o \
+	fgets.o \
+	fgetstr.o \
+	filbuf.o \
+	findiop.o \
+	flsbuf.o \
+	fltpr.o \
+	fopen.o \
+	fprintf.o \
+	fputc.o \
+	fputs.o \
+	freopen.o \
+	fseek.o \
+	fstab.o \
+	ftell.o \
+	gcvt.o \
+	getchar.o \
+	getgrent.o \
+	getgrgid.o \
+	getgrnam.o \
+	getpass.o \
+	getpw.o \
+	getpwent.o \
+	getpwnam.o \
+	getpwuid.o \
+	gets.o \
+	getw.o \
+	maxusers.o \
+	popen.o \
+	printf.o \
+	putchar.o \
+	puts.o \
+	putw.o \
+	rdwr.o \
+	rew.o \
+	scanf.o \
+	setbuf.o \
+	sprintf.o \
+	strout.o \
+	system.o \
+	tabify.o \
+	ucount.o \
+	ungetc.o \
+	vfprintf.o \
+	vprintf.o \
+	vsprintf.o
+
+clean:
+	rm -f *.[ob]
+
+CLRSRC: clean
+	rm -f *.[cs]
+
+clrerr.o: clrerr.c $(S)
+data.o: data.c $(S)
+doscan.o: doscan.c $(S) $(I)ctype.h
+endopen.o: endopen.c $(S) $(I)errno.h
+fdopen.o: fdopen.c $(S) $(I)errno.h
+fgetc.o: fgetc.c $(S)
+fgets.o: fgets.c $(S)
+fgetstr.o: fgetstr.c $(S)
+filbuf.o: filbuf.c $(S)
+findiop.o: findiop.c $(S)
+flsbuf.o: flsbuf.c $(S)
+fopen.o: fopen.c $(S)
+fprintf.o: fprintf.c $(S)
+fputc.o: fputc.c $(S)
+fputs.o: fputs.c $(S)
+freopen.o: freopen.c $(S)
+fseek.o: fseek.c $(S)
+fstab.o: fstab.c $(I)fstab.h $(S) $(I)ctype.h
+ftell.o: ftell.c $(S)
+gcvt.o: gcvt.c
+getchar.o: getchar.c $(S)
+getgrent.o: getgrent.c $(S) $(I)grp.h
+getgrgid.o: getgrgid.c $(I)grp.h
+getgrnam.o: getgrnam.c $(I)grp.h
+getpass.o: getpass.c $(S) $(I)signal.h $(I)sgtty.h
+getpw.o: getpw.c $(S)
+getpwent.o: getpwent.c $(I)whoami.h $(S) $(I)pwd.h
+getpwnam.o: getpwnam.c $(I)whoami.h $(I)pwd.h
+getpwuid.o: getpwuid.c $(I)whoami.h $(I)pwd.h
+gets.o: gets.c $(S)
+getw.o: getw.c $(S)
+maxusers.o: maxusers.c $(S)
+popen.o: popen.c $(I)whoami.h $(S) $(I)signal.h
+printf.o: printf.c $(S)
+putchar.o: putchar.c $(S)
+puts.o: puts.c $(S)
+putw.o: putw.c $(S)
+rdwr.o: rdwr.c $(S)
+rew.o: rew.c $(S)
+scanf.o: scanf.c $(S)
+setbuf.o: setbuf.c $(S)
+sprintf.o: sprintf.c $(S)
+strout.o: strout.c $(S)
+system.o: system.c $(I)whoami.h $(I)signal.h
+tabify.o: tabify.c $(S)
+ucount.o: ucount.c $(S) $(I)utmp.h
+ungetc.o: ungetc.c $(S)
+vfprintf.o: vfprintf.c $(S) $(I)varargs.h
+vprintf.o: vprintf.c $(S) $(I)varargs.h
+vsprintf.o: vsprintf.c $(S) $(I)varargs.h
+
+doprnt.o:       doprnt.s
+ffltpr.o:       ffltpr.s
+fltpr.o:        fltpr.s
+@
+
+
+1.3
+log
+@функция fgetstr
+@
+text
+@d1 4
+a4 1
+# $Log: Makefile,v $
+d11 2
+a12 1
+COFLAGS=-q
+d18 1
+a18 1
+	co $(COFLAGS) $@@
+d79 4
+a82 1
+	ungetc.o
+d137 3
+@
+
+
+1.2
+log
+@Убрана ошибочная зависимость
+@
+text
+@d1 4
+a4 1
+# $Log:	Makefile,v $
+d7 1
+a7 1
+# 
+d35 1
+d90 1
+d131 3
+a133 3
+doprnt.o:	doprnt.s
+ffltpr.o:	ffltpr.s
+fltpr.o:	fltpr.s
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 3
+d104 1
+a104 1
+getpwent.o: getpwent.c $(I)whoami.h $(S) $(I)pwd.h $(IS)types.h $(I)pwtable.h
+@

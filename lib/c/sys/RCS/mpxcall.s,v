@@ -1,0 +1,43 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.42.32;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+.globl _mpxcall, cerror
+
+_mpxcall:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(r5),0f
+	mov	6(r5),0f+2
+call:
+	sys	0; 9f
+	bec	1f
+	jmp	cerror
+1:
+	mov	(sp)+,r5
+	rts	pc
+.data
+9:
+	sys	mpx; 0:..; ..
+
+@

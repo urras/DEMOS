@@ -1,0 +1,11 @@
+mtboot 1
+mtboot 1
+boot 1
+* 1
+cat 2
+* 1
+tapes/contents.tm 2
+* 1
+mkfs 2
+* 1
+restor 2

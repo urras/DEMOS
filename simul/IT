@@ -1,0 +1,21 @@
+** = = = = = = = = = = = = = = = ** 22.08.86 VERSION 5
+**   ABTOMATי‏ECKOE נPEPשBAHיE   **
+** = = = = = = = = = = = = = = = **
+LOCALS -LINT
+  DATA P,L
+  DATA TYP:IT ,AD:IT
+  BYTES W:FLAG[1]                       %נPOTיB תAדיKליBAHיס
+
+PROGRAM IT(,,AD:IT)
+  (IF W:FLAG:<>
+    DPC <<HO.CD.CD."IT MICROCODE ERROR".0>>
+    CSV DEBUG
+  IF)
+  W:FLAG:=1                             %יהET "IT"
+  CALL TOSTAC ,,#PSW                    %IF HE HAהO, OHי CAMי BשתOBץT
+  CALL TOSTAC ,,#PC
+  #PC=((CALL READ AD:IT,0))
+  #PSW=((CALL READ AD:IT+2,0))
+  W:FLAG:=0                             %MOצHO IT
+  P=#IT:RET
+  RETURN ,

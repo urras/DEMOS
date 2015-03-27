@@ -1,0 +1,1035 @@
+.MCALL  .MODULE
+.MODULE TS,RELEASE=V05,VERSION=01,COMMENT=<TS11 MAGTAPE HANDLER>,AUDIT=YES
+
+;                        COPYRIGHT (C) 1983 BY
+;             DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+;                         ALL RIGHTS RESERVED.
+;
+; THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+; ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+; INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+; COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+; OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+; TRANSFERRED.
+;
+; THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+; AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+; CORPORATION.
+;
+; DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+; SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+\.SBTTL RT-11 TS11 MAGTAPE HANDLER
+.IIF NDF MS$FSM .FSM = 100000
+.AUDIT  .FSM
+\ELTS   == 5
+.SBTTL  NOTES ON HANDLER
+.NLIST  TTM
+.ENABL  GBL
+.LIST   MEB
+.ENABL  LC
+\\.MCALL        .MTPS,.MFPS,.DRDEF,.SYNCH
+        .DRDEF  MS,35,SPECL$!SPFUN$!HNDLR$,0,772522,224
+.IIF    NDF     MS$UN,  MS$UN==1
+MS$DB==MS$CSR-2
+.IF     NE      MS$UN-1
+.IF     DF      MS$VC1
+.IIF    NDF     MS$CS1, MS$CS1==772526
+MS$DB1==MS$CS1-2
+.ENDC
+.IF     DF      MS$VC2
+.IIF    NDF     MS$CS2, MS$CS2==772532
+MS$DB2==MS$CS2-2
+.ENDC
+.IF     DF      MS$VC3
+.IIF    NDF     MS$CS3, MS$CS3==772536
+MS$DB3==MS$CS3-2
+.ENDC
+.IF     DF      MS$VC4
+.IIF    NDF     MS$CS4, MS$CS4==772542
+MS$DB4==MS$CS4-2
+.ENDC
+.IF     DF      MS$VC5
+.IIF    NDF     MS$CS5, MS$CS5==772546
+MS$DB5==MS$CS5-2
+.ENDC
+.IF     DF      MS$VC6
+.IIF    NDF     MS$CS6, MS$CS6==772552
+MS$DB6==MS$CS6-2
+.ENDC
+.IF     DF      MS$VC7
+.IIF    NDF     MS$CS7, MS$CS7==772556
+MS$DB7==MS$CS7-2
+.ENDC
+.ENDC
+\.SBTTL SOFTWARE DEFINITIONS
+        RENAME  =       5
+        ENTER   =       4
+        LOOKUP  =       3
+        DELETE  =       2
+        CLOSE   =       1
+        REDWRT  =       0
+        WRTEOF  =       -1
+        FWDSPC  =       -2
+        BKSPC   =       -3
+        WRTXTD  =       -4
+        REWIND  =       -5
+        OFFLINE =       -6
+        WRITEPHY=       -7
+        READF   =       -8.
+        STR100  =       -9.
+        FN      =       8.
+        ILLARG  =       5
+        DEVINUSE=       2
+        CSWHERR =       1
+        CSWEOF  =       20000
+        SPUSR   =       272
+        ERRGAPS =       -101.
+        UNIT    =       3400
+        PR5     =       5
+        FL$RE1  =       1
+        FL$RE2  =       2
+        FL$RC0  =       4
+        FL$RC1  =       10
+        FL$CIP  =       100
+        NOQUAL  =       0
+        DRIVEGONE =     1
+        POSERR  =       2
+        MEMERR  =       3
+        WRITELOK=       4
+        RECERR  =       5
+        SMLREC  =       6
+        EOFCODE =       1
+        EOTCODE =       2
+        EOFEOT  =       3
+        BOTCODE =       4
+        TB$JOB  =       0
+        TB$TSR  =       2
+        TB$CBR  =       4
+        TB$FLG  =       6
+        MONLOW  =       54
+        QCOMP   =       270
+        DUMMY   =       0
+        JOBNUM  =       34000
+        MSDSIZE =       0
+        $CNFG2  =       370
+        $LSI11  =       4000
+        LKCS    =       177546
+        SR      =       177570
+        V.TRP4  =       4
+        PR7     =       7
+\.IF    DF      MS$FSM
+        .GLOBL  FSMDIS,FSMABT,FSMDON,FSMERR,RESTOR,CODE,DVTBL,FSMSIZ
+        .GLOBL  MTCQ
+.IF     NE      MMG$T
+        .GLOBL  OLDBA,XBUMP,EXTADR,JOBNM,SYNBLK,TEMP,SINK,ERBSAV
+.ENDC
+.ENDC
+.MACRO  TBLINT  V,C
+        .WORD   -1
+        .WORD   V
+        .WORD   C
+        .WORD   0
+.ENDM   TBLINT
+.MACRO  REIS
+        MOV     R3,-(SP)
+        MOV     R2,-(SP)
+        MOV     $CBUF,R3
+        MOV     PC,R2
+        ADD     #$SCB+2-.,R2
+.ENDM   REIS
+.MACRO  RESET
+        MOV     $CBUF,R3
+        .MFPS
+        .MTPS   #340
+        CMP     (R5)+,(R5)+
+        MOV     R3,@(R5)+
+        BIS     #FL$CIP,@R5
+        .MTPS
+        MOV     (SP)+,R2
+        MOV     (SP)+,R3
+        MOV     SPTMP,SP
+        RTS     PC
+.ENDM   RESET
+\.SBTTL BIT DEFINITIONS
+TSXSR0= 6
+TSXSR1= 10
+TSXSR2= 12
+TSXSR3= 14
+TSSRC=  16
+MG.ACK= 100000
+MG.FMT= 340
+MG.COD= 37
+MC.END= 020
+MC.FAL= 021
+MC.ERR= 022
+MC.ATN= 023
+\X0.TMK=        100000
+X0.RLS= 40000
+X0.LET= 20000
+X0.RLL= 10000
+X0.WLE= 4000
+X0.NEF= 2000
+X0.ILC= 1000
+X0.ILA= 400
+X0.MOT= 200
+X0.ONL= 100
+X0.IE=  40
+X0.VCK= 20
+X0.PED= 10
+X0.WLK= 4
+X0.BOT= 2
+X0.EOT= 1
+X1.DLT= 100000
+X1.COR= 20000
+X1.CRS= 10000
+X1.TIG= 4000
+X1.DBF= 2000
+X1.NZO= 2000
+X1.SCK= 1000
+X1.IPR= 200
+X1.SYN= 100
+X1.DRP= 100
+X1.IPO= 40
+X1.ITM= 40
+X1.IED= 20
+X1.LC0= 20
+X1.POS= 10
+X1.NZN= 10
+X1.POL= 4
+X1.LRC= 4
+X1.UNC= 2
+X1.CRC= 2
+X1.MTE= 1
+X1.VPE= 1
+X2.OPM= 100000
+X2.SIP= 40000
+X2.BPE= 20000
+X2.CAF= 10000
+X2.WCF= 2000
+X2.XSK= 1000
+X2.DTK= 777
+X3.FEC= 177400
+X3.LMX= 200
+X3.OPI= 100
+X3.REV= 40
+X3.CRF= 20
+X3.DCK= 10
+X3.NOI= 4
+X3.SGP= 2
+X3.RIB= 1
+\SR.SC= 100000
+SR.UPE= 40000
+SR.SPE= 20000
+SR.RMR= 10000
+SR.NXM= 4000
+SR.NBA= 2000
+SR.A17= 1000
+SR.A16= 400
+SR.SSR= 200
+SR.OFL= 100
+SR.FC1= 40
+SR.FC0= 20
+SR.TC2= 10
+SR.TC1= 4
+SR.TC0= 2
+SR.TCN= SR.TC2!SR.TC1!SR.TC0
+SR.BAD= SR.UPE!SR.SPE!SR.NXM!SR.NBA
+CM.ACK= 100000
+CM.CVC= 40000
+CM.OPP= 20000
+CM.SWB= 10000
+CM.MOD= 7400
+CM.RTY= 1000
+CM.RVS= 400
+CM.IE=  200
+CM.COD= 37
+CM.LOW= 3
+CM.NML= CM.IE!CM.ACK
+\CC.RDN=        0001!CM.NML
+CC.RDP= 0401!CM.NML
+CC.RRP= 1001!CM.NML
+CC.RRN= 1401!CM.NML
+CC.WRC= 0004!CM.ACK!CM.CVC
+CC.WRD= 0005!CM.NML
+CC.WDR= 1005!CM.NML
+CC.WSM= 0006!CM.NML
+CC.SRF= 0010!CM.NML
+CC.SRR= 0410!CM.NML!CM.CVC
+CC.STF= 1010!CM.NML
+CC.STR= 1410!CM.NML
+CC.RWD= 2010!CM.NML!CM.CVC
+CC.WTM= 0011!CM.NML
+CC.ERS= 0411!CM.NML
+CC.WTR= 1011!CM.NML
+CC.BRL= 0012!CM.ACK
+CC.UNL= 0412!CM.NML!CM.CVC
+CC.DRI= 0013!CM.NML
+CC.GST= 0017!CM.ACK
+CC.MST= CC.GST!CM.CVC
+CH.ESS= 200
+CH.EAI= 40
+CH.ERI= 20
+CH.HSP= 40
+CB$CHR= 0
+\.SBTTL I/O INITIATION
+        .DRBEG  MS
+MS::
+.IF     NE      MMG$T
+        MOV     MSCQE,R5
+        MOV     Q$BUFF(R5),(PC)+
+SPFBUF: .WORD   0
+        MOV     Q$PAR(R5),(PC)+
+SPFPAR: .WORD   0
+        CMP     (R5)+,(R5)+
+        JSR     PC,@$MPPTR
+        MOV     (SP)+,OLDBA
+        BIT     #1700,@SP
+        BEQ     10$
+        TST     TS05
+        BNE     10$
+        CALL    QTEST
+        TST     TS05
+        BNE     10$
+        TST     (SP)+
+        MOV     MSCQE,R5
+        BIS     #CSWHERR,@-(R5)
+        JMP     MSDONE
+10$:    ASR     @SP
+        ASR     @SP
+        ASR     @SP
+        ASR     @SP
+        MOV     (SP)+,EXTADR
+.ENDC
+.IF     NDF     MS$FSM
+        MOV     MSCQE,R3
+.IFF
+        JMP     FSMDIS
+$MT::
+.ENDC
+        MOV     SP,SPTMP
+        TST     (R3)+
+        MOV     @R3,R1
+        MOVB    R1,R4
+        BIC     #^C<UNIT>,R1
+        SWAB    R1
+        ASL     R1
+        ASL     R1
+        ASL     R1
+        MOV     PC,R5
+        ADD     #$ADRTB-.,R5
+        ADD     R1,R5
+        MOV     @R3,R1
+        SWAB    R1
+        ASR     R1
+        ASR     R1
+        ASR     R1
+        BIC     #177761,R1
+        CLR     NFSREAD
+        MOV     PC,R0
+        ADD     #BF1-.,R0
+        BIT     #2,R0
+        BEQ     20$
+        TST     (R0)+
+20$:    MOV     R0,(PC)+
+$CBUF:  .WORD   0
+        MOV     PC,R0
+        ADD     #BF2-.,R0
+        MOV     R0,(PC)+
+$MBUF:  .WORD   0
+        CMP     #CLOSE,R4
+        BEQ     35$
+5$:     CMP     #LOOKUP,R4
+        BNE     40$
+.IF     NE      MMG$T
+.IF     NDF     MS$FSM
+        MOV     MSCQE,R4
+        JSR     PC,@$GTBYT
+        TSTB    (SP)+
+        BNE     25$
+        JSR     PC,@$GTBYT
+        TSTB    (SP)+
+        BNE     25$
+.IFF
+        TST     @2(R3)
+        BNE     55$
+.ENDC
+.ENDC
+        CMP     @R5,#-1
+        BEQ     15$
+        MOV     #DEVINUSE,R0
+10$:    MOV     @#MONLOW,R1
+        MOV     R0,SPUSR(R1)
+.IF     DF      MS$FSM
+        JSR     PC,RESTOR
+        JMP     $DONE
+.IFF
+        BR      60$
+.ENDC
+15$:    CLR     4(R3)
+        MOV     R1,@R5
+        TST     FBDT
+        BNE     127$
+        INC     FBDT
+        BIC     #STRON,TS05
+        JSR     PC,$SCHR
+127$:   .IF     DF      MS$FSM
+        BR      60$
+.IFF
+20$:    MOV     -2(R3),R1
+        BEQ     30$
+        BGT     25$
+        INC     R1
+        BEQ     60$
+25$:    MOV     #-1,@R5
+        MOV     #ILLARG,R0
+        BR      10$
+30$:    MOV     #REWIND,R4
+        BR      40$
+.ENDC
+35$:    CMP     #CLOSE,R4
+        BNE     40$
+        MOV     #-1,@R5
+        BIT     #STRON,TS05
+        BEQ     60$
+        BIC     #STRON,TS05
+        CALL    $SCHR
+        BR      60$
+40$:    MOV     PC,R0
+        ADD     #LASTCOM-.,R0
+        MOVB    #ERRGAPS,TAPELEN
+        CMP     #STR100,R4
+        BNE     43$
+        TST     TS05
+        BNE     41$
+        CALL    QTEST
+        TST     TS05
+        BEQ     60$
+41$:
+.IF     EQ      MMG$T
+        CALL    STREAM
+.ENDC
+        BR      60$
+43$:    CMP     #READF,R4
+        BLOS    65$
+        TST     R4
+        BNE     55$
+        MOV     R3,R1
+        CLR     -2(R1)
+        CMP     (R1)+,(R1)+
+        MOV     #READF,R4
+        TST     @R1
+        BPL     45$
+        NEG     @R1
+        INC     R4
+        BR      50$
+45$:    COM     NFSREAD
+50$:
+.IF     DF      MS$FSM
+        MOV     R4,CODE
+.ENDC
+        BR      65$
+\55$:   TST     -(R3)
+        BIS     #CSWHERR,@-(R3)
+60$:
+.IF     DF      MS$FSM
+        JSR     PC,RESTOR
+.ENDC
+        JMP     MSDONE
+65$:    ADD     #FUNTAB-TABLE,R4
+        MOV     R4,(R0)+
+.IF     NE      MMG$T
+        MOV     4(R3),R1
+        TST     (R0)+
+.IFF
+        TST     (R3)+
+        MOV     (R3)+,(R0)+
+        MOV     @R3,R1
+.ENDC
+        MOV     $CBUF,R2
+        JSR     PC,DISPAT
+TABLE:  .BYTE   REDEF-TABLE
+        .BYTE   WRIT-TABLE
+        .BYTE   OFFLN-TABLE
+        .BYTE   RWND-TABLE
+        .BYTE   WRITX-TABLE
+        .BYTE   BCKSPC-TABLE
+        .BYTE   FRSPC-TABLE
+        .BYTE   WRITM-TABLE
+FUNTAB: .WORD   CC.RDN
+        .WORD   CC.WRD
+        .WORD   CC.UNL
+        .WORD   CC.RWD
+        .WORD   CC.WRD
+        .WORD   CC.SRR
+        .WORD   CC.SRF
+        .WORD   CC.WTM
+WRITX:
+WRIT:
+REDEF:
+.IF     NE      MMG$T
+        MOV     OLDBA,(R2)+
+        MOV     EXTADR,(R2)+
+.IFF
+        MOV     -2(R3),(R2)+
+        CLR     (R2)+
+.ENDC
+        ASL     R1
+BCKSPC:
+FRSPC:
+        MOV     R1,(R2)+
+OFFLN:
+RWND:
+WRITM:
+        MOV     $CBUF,R2
+        JSR     PC,$DUP
+5$:     TSTB    @TB$TSR(R5)
+        BPL     5$
+        .MFPS
+        .MTPS   #340
+        CMP     (R5)+,(R5)+
+        BIS     #FL$CIP,2(R5)
+        MOV     R2,@(R5)
+        .MTPS
+.IF     DF      MS$FSM
+        JSR     PC,RESTOR
+.ENDC
+        RTS     PC
+.IF     GT      MS$UN-1
+        .DRVTB  MS,MS$VEC,MSINT
+        .DRVTB  ,MS$VC1,MSINT
+.IIF    GT      MS$UN-2,        .DRVTB  ,MS$VC2,MSINT
+.IIF    GT      MS$UN-3,        .DRVTB  ,MS$VC3,MSINT
+.IIF    GT      MS$UN-4,        .DRVTB  ,MS$VC4,MSINT
+.IIF    GT      MS$UN-5,        .DRVTB  ,MS$VC5,MSINT
+.IIF    GT      MS$UN-6,        .DRVTB  ,MS$VC6,MSINT
+.IIF    GT      MS$UN-7,        .DRVTB  ,MS$VC7,MSINT
+.ENDC
+\.SBTTL DISPATCHER ROUTINE
+DISPAT:
+        ASL     R4
+        ADD     @SP,R4
+        MOV     FUNTAB-TABLE(R4),(R2)+
+        MOV     -4(R0),R4
+        ADD     @SP,R4
+        MOVB    @R4,R4
+        ADD     (SP)+,R4
+        JMP     @R4
+\.SBTTL ABORT ENTRY POINT
+MSABRT: MOVB    #-1,MSFL
+        MOV     R3,-(SP)
+        MOV     PC,R5
+        ADD     #$ADRTB-.,R5
+        MOV     MSCQE,R3
+        BEQ     5$
+        MOVB    Q$JNUM(R3),-(SP)
+        MOVB    (SP)+,R3
+        ASR     R3
+        ASR     R3
+        ASR     R3
+        BIC     #177761,R3
+        CMP     R3,R4
+        BNE     5$
+        CLRB    MSFL
+5$:     CMP     R4,@R5
+        BNE     10$
+        CLR     @TB$TSR(R5)
+        MOV     #-1,@R5
+        CLR     TB$FLG(R5)
+10$:    CMP     #-2,@R5
+        BEQ     15$
+        CMP     (R5)+,(R5)+
+        CMP     (R5)+,(R5)+
+        BR      5$
+15$:    MOV     (SP)+,R3
+.IF     DF      MS$FSM
+        MOV     DVTBL,R5
+        BEQ     20$
+        MOV     #-1,(R5)+
+        MOV     #-1,@R5
+20$:
+.ENDC
+        BIT     #STRON,TS05
+        BEQ     22$
+        BIC     #STRON,TS05
+        CALL    $SCHR
+22$:    JMP     $DONE
+\.SBTTL INTERRUPT ENTRY POINT
+        .DRAST  MS,PR5,MSABRT
+        MOV     SVTB,R5
+        MOV     SP,SPTMP
+        MOV     @TB$TSR(R5),R4
+        BIC     #^C<SR.TCN>,R4
+        TST     (R4)+
+        ADD     PC,R4
+        ADD     @R4,PC
+ERJTBL: .IRPC   X,<01234567>
+        .WORD   TCL'X'ER-ERJTBL
+        .ENDM
+\.SBTTL TERMINATION CLASS ROUTINES
+TCL0ER: BIC     FL$CIP,TB$FLG(R5)
+        BIT     #FL$RC1,TB$FLG(R5)
+        BEQ     5$
+        JSR     PC,REC1CH
+5$:     MOV     $MBUF,-(SP)
+        ADD     #TSXSR0,@SP
+        BIT     #X0.EOT,@(SP)+
+        BNE     TCL2ER
+10$:    JMP     MSDONE
+TCL1ER: BIT     #FL$CIP,TB$FLG(R5)
+        BNE     5$
+        RTS     PC
+5$:     BIC     #FL$CIP,TB$FLG(R5)
+.IF     DF      MS$FSM
+        MOV     MSCQ,R3
+        JMP     $MT
+.IFF
+        .FORK   TSFBLK
+        JMP     MS
+.ENDC
+\TCL2ER:        BIC     #FL$CIP,TB$FLG(R5)
+        BIT     #FL$RC1,TB$FLG(R5)
+        BEQ     5$
+        JSR     PC,REC1CH
+5$:     CLR     R4
+        MOV     $MBUF,-(SP)
+        ADD     #TSXSR0,@SP
+        BIT     #X0.BOT,@(SP)
+        BEQ     7$
+        MOV     #BOTCODE,R4
+        BR      27$
+7$:     TST     @(SP)
+        BPL     15$
+        CMP     #FN+WRTEOF,LASTCOM
+        BNE     10$
+        BIS     #10000,R4
+        BR      15$
+10$:    INC     R4
+15$:    BIT     #X0.EOT,@(SP)
+        BEQ     25$
+        TST     NFSREAD
+        BEQ     20$
+        BIS     #10000,R4
+        BR      25$
+20$:    CMPB    (R4)+,(R4)+
+25$:    TST     R4
+        BEQ     45$
+        BIC     #10000,R4
+        TST     R4
+        BEQ     75$
+27$:    CMP     #FN+BKSPC,LASTCOM
+        BEQ     30$
+        CMP     #FN+FWDSPC,LASTCOM
+        BNE     35$
+30$:    SUB     #2,@SP
+.IF     NE      MMG$T
+        MOV     @(SP),ERRBL2
+.IFF
+.IF     DF      MS$FSM
+        MOV     @MSCQ,R5
+.IFF
+        MOV     @MSCQE,R5
+.ENDC
+        BEQ     35$
+        MOV     @(SP),2(R5)
+.ENDC
+35$:    MOV     #CSWEOF,@SP
+40$:    JMP     EXCEP
+45$:    BIT     #X0.RLL,@(SP)
+        BEQ     50$
+        MOV     #RECERR,R4
+        BR      65$
+50$:    BIT     #X0.RLS,@(SP)
+        BEQ     70$
+55$:    SUB     #2,@SP
+        MOV     @(SP),R5
+        ASR     R5
+.IF     NE      MMG$T
+        MOV     R5,ERRBL2
+.IFF
+.IF     DF      MS$FSM
+        MOV     @MSCQ,R4
+.IFF
+        MOV     @MSCQE,R4
+.ENDC
+        BEQ     60$
+        MOV     R5,2(R4)
+.ENDC
+60$:    MOV     #SMLREC,R4
+65$:    JMP     ABORT
+70$:    BR      FATAL
+75$:    JMP     MSDONE
+\TCL3ER:        BIC     #FL$CIP,TB$FLG(R5)
+        BIT     #SR.NBA,@TB$TSR(R5)
+        BEQ     5$
+        .FORK   TSFBLK
+        JSR     PC,$SCHR
+.IF     DF      MS$FSM
+        MOV     MSCQ,R3
+        JMP     $MT
+.IFF
+        JMP     MS
+.ENDC
+5$:     BIT     #SR.OFL,@TB$TSR(R5)
+        BEQ     15$
+        MOV     #DRIVEGONE,R4
+10$:    JMP     ABORT
+15$:    MOV     $MBUF,-(SP)
+        ADD     #TSXSR0,@SP
+        MOV     @(SP),R4
+        BIT     #X0.BOT,R4
+        BEQ     100$
+        CMP     $SCB,#CC.SRR
+        BNE     100$
+        MOV     (SP)+,R4
+        MOV     $SCB+2,-(R4)
+        JMP     TCL2ER
+100$:   MOV     R4,@SP
+        CLR     R4
+        BIT     #X0.VCK!X0.ILC!X0.ILA,(SP)+
+        BNE     FATAL
+        BIT     #X0.WLE,-(SP)
+        BEQ     20$
+        MOV     #WRITELOK,R4
+        BR      10$
+20$:    BR      FATAL
+\TCL4ER:        BIC     #FL$CIP,TB$FLG(R5)
+        BIT     #FL$RC0,TB$FLG(R5)
+        BNE     FATAL
+        CMP     #FN+WRITEPHY,LASTCOM
+        BEQ     WREC
+        CMP     #FN+WRTXTD,LASTCOM
+        BEQ     WREC
+        CMP     #FN+WRTEOF,LASTCOM
+        BEQ     WREC
+        BIT     #FL$RC1,TB$FLG(R5)
+        BEQ     5$
+        CMP     #FN+READF,LASTCOM
+        BEQ     RREC
+        BR      FATAL
+5$:     CMP     #FN+READF,LASTCOM
+        BNE     FATAL
+        BIS     #FL$RC1,TB$FLG(R5)
+        MOVB    #5,BACK1
+        MOVB    #8.,BACK5
+        BR      RREC
+TCL5ER: BIC     #FL$CIP,TB$FLG(R5)
+        BIT     #FL$RC1,TB$FLG(R5)
+        BNE     FATAL
+        BIT     #FL$RC0,TB$FLG(R5)
+        BNE     5$
+        BIS     #FL$RC0,TB$FLG(R5)
+        MOV     #8.,RCNT
+5$:     DEC     RCNT
+        BEQ     FATAL
+        .FORK   TSFBLK
+.IF     DF      MS$FSM
+        MOV     MSCQ,R3
+        JMP     $MT
+.IFF
+        JMP     MS
+.ENDC
+\TCL7ER:        CLR     @TB$TSR(R5)
+FATAL:
+TCL6ER: JMP     NQUAL
+\.SBTTL RECOVERY ALGORITHM ROUTINES
+WREC:   BIT     #FL$RC1,TB$FLG(R5)
+        BNE     5$
+        MOVB    #ERRGAPS,TAPELEN
+        BIS     #FL$RC1,TB$FLG(R5)
+5$:     INCB    TAPELEN
+        BEQ     FATAL
+        REIS
+        CMP     #FN+WRTEOF,LASTCOM
+        BNE     6$
+        MOV     #CC.WTR,(R3)+
+        BR      7$
+6$:     MOV     #CC.WDR,(R3)+
+7$:     MOV     (R2)+,(R3)+
+        MOV     (R2)+,(R3)+
+        MOV     (R2)+,(R3)+
+        RESET
+\RREC:  TSTB    BACK1
+        BEQ     10$
+        DECB    BACK1
+5$:     REIS
+        MOV     #CC.RRP,(R3)+
+        MOV     (R2)+,(R3)+
+        MOV     (R2)+,(R3)+
+        MOV     (R2)+,(R3)+
+        BR      25$
+10$:    TSTB    BACK5
+        BEQ     FATAL
+        BIT     #FL$RE2,TB$FLG(R5)
+        BEQ     15$
+        MOVB    #4,BACK1
+        DECB    BACK5
+        BIC     #FL$RE1!FL$RE2,TB$FLG(R5)
+        MOV     #5,BCNT
+        BR      5$
+15$:    BIT     #FL$RE1,TB$FLG(R5)
+        BNE     30$
+        BIS     #FL$RE1,TB$FLG(R5)
+        REIS
+        MOV     #CC.SRR,(R3)+
+20$:    MOV     BCNT,(R3)+
+25$:    RESET
+30$:    REIS
+        MOV     #CC.SRF,(R3)+
+        BIS     #FL$RE2,TB$FLG(R5)
+        BR      20$
+\REC1CH:        TST     LASTCOM
+        BNE     5$
+        BIT     #FL$RE1!FL$RE2,TB$FLG(R5)
+        BEQ     5$
+        BR      RREC
+5$:     CLR     TB$FLG(R5)
+        RTS     PC
+\QTEST: MOV     R4,-(SP)
+        MOV     R5,-(SP)
+        MOV     #MONLOW,R5
+        BIT     #$LSI11,$CNFG2(R5)
+        BNE     10$
+        .MTPS   #340
+        MOV     PC,R4
+        ADD     #T.NXM-.,R4
+        MOV     #V.TRP4,R5
+        .REPT   2
+        MOV     @R5,-(SP)
+        MOV     R4,(R5)+
+        MOV     @R5,-(SP)
+        MOV     #PR7,(R5)+
+        .ENDR
+        MOV     R0,-(SP)
+        CLC
+        MFPT
+        BCS     20$
+        CMP     R0,#3
+        BLT     20$
+        CLC
+        CLR     @#SR
+        BCC     20$
+        MOV     (SP)+,R0
+10$:    BIS     #QBUS,TS05
+        BR      30$
+20$:    CLR     TS05
+        MOV     (SP)+,R0
+30$:    MOV     #12.,R4
+        .REPT   4
+        MOV     (SP)+,-(R4)
+        .ENDR
+        .MTPS   #0
+        MOV     (SP)+,R5
+        MOV     (SP)+,R4
+        RETURN
+T.NXM:  BIS     #1,2(SP)
+        RTI
+\$SCHR: MOV     R1,-(SP)
+        MOV     R5,-(SP)
+        MOV     $MBUF,R5
+        MOV     R5,-(SP)
+        MOV     $CBUF,R1
+        MOV     @SP,(R5)+
+        MOV     (SP)+,2(R1)
+        CLR     (R5)+
+        CLR     4(R1)
+        MOV     #14.,(R5)+
+        MOV     #14.,6(R1)
+        CLR     (R5)+
+        CLR     @R5
+        BIT     #STRON,TS05
+        BEQ     10$
+        MOV     #16.,6(R1)
+        MOV     #16.,-4(R5)
+        BIS     #CH.HSP,(R5)+
+10$:    MOV     (SP)+,R5
+        MOV     #CC.WRC,@R1
+        MOV     R1,@TB$CBR(R5)
+        MOV     (SP)+,R1
+        RTS     PC
+\STREAM:
+        MOV     R1,-(SP)
+.IF     NE      MMG$T
+        MOV     SPFBUF,2(R3)
+        MOV     SPFPAR,10(R3)
+        MOV     R4,-(SP)
+        MOV     MSCQE,R4
+        JSR     PC,@$GTBYT
+        MOVB    (SP)+,R1
+        MOV     (SP)+,R4
+        TSTB    R1
+.IFF
+        MOV     2(R3),R1
+        TSTB    @R1
+.ENDC
+        BEQ     10$
+        BIT     #STRON,TS05
+        BNE     100$
+        BIS     #STRON,TS05
+        CALL    $SCHR
+        BR      100$
+10$:    BIC     #STRON,TS05
+        CALL    $SCHR
+100$:   MOV     (SP)+,R1
+        RETURN
+\$DUP:  MOV     R5,-(SP)
+        MOV     R4,-(SP)
+        MOV     $CBUF,R5
+        MOV     PC,R4
+        ADD     #$SCB-.,R4
+        MOV     (R5)+,(R4)+
+        MOV     (R5)+,(R4)+
+        MOV     (R5)+,(R4)+
+        MOV     @R5,@R4
+        MOV     (SP)+,R4
+        MOV     (SP)+,R5
+        MOV     R5,SVTB
+        RTS     PC
+\.SBTTL COMPLETION ROUTINES
+NQUAL:  CLR     R4
+ABORT:  MOV     #CSWHERR,-(SP)
+        BIT     #STRON,TS05
+        BEQ     10$
+        BIC     #STRON,TS05
+        CALL    $SCHR
+10$:
+EXCEP:
+.IF     DF      MS$FSM
+        MOV     (SP)+,R5
+        MOV     SPTMP,SP
+        JMP     FSMERR
+.IFF
+        MOV     MSCQE,R5
+        BIS     (SP)+,@Q$CSW(R5)
+        TST     @R5
+        BEQ     MSDONE
+.IF     NE      MMG$T
+        COM     SINK
+        MOV     @R5,ERBSAV
+        MOV     R4,TEMP
+        MOVB    Q$JNUM(R5),R5
+        ASR     R5
+        ASR     R5
+        ASR     R5
+        MOV     R5,JOBNM
+.IFF
+        MOV     R4,@(R5)+
+.ENDC
+.IFTF
+\MSDONE:
+        MOV     SPTMP,SP
+.IFT
+        JMP     FSMDON
+.ENDC
+$DONE::
+.IF     NE      MMG$T
+        TSTB    MSFL
+        BNE     $RTS
+        MOV     PC,R4
+        ADD     #MSCQE-.,R4
+        MOV     @#MONLOW,R5
+        TST     SINK
+        BNE     10$
+        JMP     @QCOMP(R5)
+10$:    CLR     SINK
+        JSR     PC,@QCOMP(R5)
+        MOV     PC,R4
+        ADD     #SYNBLK-.,R4
+        .SYNCH
+        BR      BADSYN
+        MOV     ERBSAV,R1
+        BIS     #30000,@#177776
+        MOV     R0,-(SP)
+        MTPI    (R1)+
+        MOV     ERRBL2,-(SP)
+        MTPI    (R1)+
+BADSYN: RTS     PC
+.IFF
+        TSTB    MSFL
+        BNE     $RTS
+        .DRFIN  MS
+.ENDC
+$RTS:   CLRB    MSFL
+        RTS     PC
+\.SBTTL XBUMP SUBROUTINE
+.IF     NE      MMG$T
+XBUMP:: MOV     MSCQE,-(SP)
+        ADD     #Q$PAR,@SP
+        ADD     #10,@(SP)+
+        ADD     #512.,OLDBA
+        ADC     EXTADR
+        RTS     PC
+.ENDC
+.SBTTL  IMPURE DATA
+$ADRTB: TBLINT  MS$CSR,MS$DB
+.IIF    DF      MS$VC1, TBLINT  MS$CS1,MS$DB1
+.IIF    DF      MS$VC2, TBLINT  MS$CS2,MS$DB2
+.IIF    DF      MS$VC3, TBLINT  MS$CS3,MS$DB3
+.IIF    DF      MS$VC4, TBLINT  MS$CS4,MS$DB4
+.IIF    DF      MS$VC5, TBLINT  MS$CS5,MS$DB5
+.IIF    DF      MS$VC6, TBLINT  MS$CS6,MS$DB6
+.IIF    DF      MS$VC7, TBLINT  MS$CS7,MS$DB7
+        .WORD   -2
+\.SBTTL MAGTAPE DATA AREA
+MSFL:           .BYTE   0
+TAPELEN:        .BYTE   ERRGAPS
+BACK5:          .BYTE   0
+BACK1:          .BYTE   0
+LASTCOM:        .WORD   DUMMY
+OLDBA:  .WORD   DUMMY
+.IIF    NE      MMG$T,  EXTADR: .WORD   DUMMY
+NFSREAD:.WORD   DUMMY
+SVTB:           .WORD   0
+SPTMP:          .WORD   0
+RCNT:           .WORD   0
+BCNT:           .WORD   5
+FBDT:           .WORD   0
+TSFBLK:         .WORD   0,0,0,0
+BF1:            .BLKW   6
+BF2:            .BLKW   8.
+$SCB:           .BLKW   4
+TS05::          .WORD   0
+        QBUS    =       1
+        STRON   =       2
+        .IF     NE      MMG$T
+SYNBLK: .WORD   DUMMY
+JOBNM:  .WORD   DUMMY
+        .WORD   DUMMY,DUMMY
+TEMP:   .WORD   DUMMY
+        .WORD   -1,0
+SINK:   .WORD   DUMMY
+ERBSAV: .WORD   DUMMY
+ERRBL2: .WORD   DUMMY
+        .ENDC
+        .IF     NDF     MS$FSM
+        .DREND  MS
+        .IFF
+MTCQ:   .WORD   DUMMY
+DRIVEN==MS$UN
+DVINFO::.REPT   DRIVEN
+        .WORD   -1
+        .WORD   -1
+        .WORD   -1
+        .BYTE   DUMMY
+        .BYTE   0
+        .WORD   DUMMY,DUMMY,DUMMY
+        .ENDR
+MSCQ==MTCQ
+        .GLOBL  $FKPTR,$INPTR
+        .IF     NE      MMG$T
+        .GLOBL  $RLPTR,$MPPTR,$GTBYT,$PTBYT,$PTWRD
+        .ENDC
+        .IF     NE      ERL$G
+        .GLOBL  $ELPTR
+        .ENDC
+        .IF     NE      TIM$IT
+        .GLOBL  $TIMIT
+        .ENDC
+        .ENDC
+SIZE=.
+SIZED=SIZE-MSSTRT/2
+\MTDONE==MSDONE
+MTCQE==MSCQE
+MT==MS
+MTLQE==MSLQE
+MTSTRT==MSSTRT
+.END

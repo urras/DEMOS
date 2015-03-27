@@ -1,0 +1,666 @@
+head     1.8;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.8
+date     89.05.23.19.48.21;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.05.23.19.05.03;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.05.23.15.06.46;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.03.30.18.37.13;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.12.20.20.16.49;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.04.07.08.38;  author alex;  state Stab;
+branches ;
+next     1.2;
+
+1.2
+date     86.10.20.22.41.59;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.10.17.22.52.31;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Выдача свободного места на диске.
+(версия со старым "mtab").
+@
+
+
+1.8
+log
+@Правлена работа с /etc/mtab.
+@
+text
+@/*
+ * df - дай свободное место на диске
+ * $Log:        df.c,v $
+ * Revision 1.7  89/05/23  19:05:03  avg
+ * Правлено на предмет обработки таких вещей как df . ; df /etc ; и т.п.
+ *
+ * Revision 1.6  89/05/23  15:06:46  abs
+ * df -d выдает свободное место в файловой системе, в которой вы находитесь.
+ *
+ * Revision 1.5  87/03/30  18:37:13  avg
+ * Добавлен полсцет общего итога.
+ *
+ * Revision 1.4  86/12/20  20:16:49  alex
+ * Исключена плавающая точка.
+ *
+ * Revision 1.5  86/12/07  13:44:14  avg
+ * see prev revision
+ *
+ * Revision 1.4  86/12/05  16:25:01  avg
+ * Операции с плав. точкой заменены на операции с long-ами.
+ *
+ * Revision 1.3  86/11/04  07:08:38  alex
+ * Введена работа по mtab вместо fstab.
+ *
+ *
+ */
+
+#ifndef lint
+static  char rcsid[] = "$Header: df.c,v 1.7 89/05/23 19:05:03 avg Exp $";
+#endif
+
+#include <sys/param.h>
+#include <stdio.h>
+#include <fstab.h>
+#include <sys/filsys.h>
+#include <sys/ino.h>
+#include <sys/fblk.h>
+#include <sys/stat.h>
+#include <sys/dir.h>
+#include <mtab.h>
+#include <ediag.h>
+
+#define NFS 32    /* Max number of filesystems */
+
+struct mtab mtab[NFS];
+char root[PATHSIZE];
+
+char *mpath();
+
+daddr_t blkno   = 1;
+
+int     lflag;
+int     iflag;
+
+struct  filsys sblock;
+
+int     fi;
+daddr_t alloc();
+
+long TOTblocks, TOTused, TOTfree, TOThardway, TOTinodes, TOTiused, TOTifree;
+
+main(argc, argv)
+register char **argv;
+{
+	register i;
+	int ndev;
+
+	while (argc >= 1 && argv[1][0]=='-') {
+		switch(argv[1][1]) {
+
+		case 'l':
+			lflag++;
+			break;
+
+		case 'i':
+			iflag++;
+			break;
+
+		default:
+			fprintf(stderr, ediag("Usage: df [-il] [filsys...]\n",
+					      "Вызов: df [-il] [файл.сист...]\n"));
+			exit(0);
+		}
+		argc--, argv++;
+	}
+
+	if ((i=open("/etc/mtab", 0)) >= 0) {
+		read(i, (char *) mtab, sizeof mtab);    /* Probably returns short */
+		close(i);
+	}
+	printf(ediag("Filesystem  Mounted on  kbytes\t  used\t  free","Файл.сист. Смонтирована   Кбайт\t  Исп.\t  Своб."));
+	if (lflag)
+		printf(ediag("\thardway","\tсписок"));
+	printf(ediag("\t%% used","\t%% исп."));
+	if (iflag)
+		printf(ediag("\tiused\tifree\t%%iused","\tiисп \tiсвоб\t%%iисп"));
+	putchar('\n');
+	ndev = 0;
+	if(argc <= 1) {
+		struct  mtab *mp; char spec[DEVSIZE+10];
+
+		for( mp = mtab; mp < mtab + NFS; mp++)
+		if ( mp->m_name[0]!=0 ) {
+		   strcpy(spec,"/dev/");
+		   strncpy(spec+5,mp->m_dname,DEVSIZE);
+			if (root[0] == 0 && strcmp(mp->m_name,"/") == 0)
+				strcpy(root, spec);
+			dfree(spec);
+			ndev++;
+		}
+		if( ndev > 1 )
+			totalcount();
+		exit(0);
+	}
+
+	for(i=1; i<argc; i++) {
+		dfree(argv[i]);
+		ndev++;
+	}
+	if( ndev > 1 )
+		totalcount();
+	exit(0);
+}
+
+dfree(file)
+char *file;
+{
+	long    blocks;
+	long    free;
+	long    used;
+	long    hardway;
+	char    *mp;
+	struct  stat stbuf;
+
+	if(stat(file, &stbuf) == 0
+	    && (stbuf.st_mode&S_IFMT) != S_IFCHR
+	    && (stbuf.st_mode&S_IFMT) != S_IFBLK) {
+		int devdir, len;
+		struct direct dent;
+		char *str = "/dev/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+		struct stat mstbuf;
+		struct mtab mountedon;
+		int mt;
+
+		if( (mt = open("/etc/mtab", 0)) < 0 )
+			goto ReadDev;
+		while((len = read(mt, &mountedon, sizeof mountedon)) == sizeof mountedon) {
+			if( mountedon.m_name[0] == 0 )
+				continue;
+			if( mountedon.m_dev != 0 &&
+			    mountedon.m_dev != stbuf.st_dev )
+				continue;
+			strncpy(&str[5], mountedon.m_dname, PATHSIZE);
+			if( stat(str, &mstbuf) == 0 &&
+			   (mstbuf.st_mode&S_IFMT) == S_IFBLK &&
+			   (mstbuf.st_rdev == stbuf.st_dev) ) {
+				file = str;
+				close(mt);
+				goto Found;
+			}
+		}
+		close(mt);
+ReadDev:
+		if( (devdir = open("/dev", 0)) < 0 ) {
+			fprintf(stderr, ediag("can't read /dev\n",
+					      "не могу прочитать /dev\n"));
+			return;
+		}
+		while((len = read(devdir, &dent, sizeof dent)) == sizeof dent) {
+			if(dent.d_ino == 0)
+				continue;
+			strncpy(&str[5], dent.d_name, DIRSIZ);
+			if( stat(str, &mstbuf) == 0 &&
+			   (mstbuf.st_mode&S_IFMT) == S_IFBLK &&
+			   (mstbuf.st_rdev == stbuf.st_dev) ) {
+				file = str;
+				break;
+			}
+		}
+		close(devdir);
+		if(len != sizeof dent) {
+			fprintf(stderr, ediag("%s: mounted on unknown device\n",
+					      "%s: смонтирован к неизвестному у-ву\n"), file);
+			return;
+		}
+Found:          ;
+	}
+	fi = open(file, 0);
+	if(fi < 0) {
+		fprintf(stderr,ediag("cannot open %s\n",
+				     "не могу открыть %s\n"), file);
+		return;
+	}
+	if (lflag)
+		sync();
+	bread(1L, (char *)&sblock, sizeof(sblock));
+	printf("%-12.12s%s", file, mp = mpath(file));
+	if (strlen(mp) < 4)
+		putchar('\t');
+
+	blocks = (long) sblock.s_fsize - (long)sblock.s_isize;
+	free = sblock.s_tfree;
+	used = blocks - free;
+
+	TOTblocks += blocks; TOTused += used; TOTfree += free;
+	printf("\t%6ld", blocks);
+	printf("\t%6ld", used);
+	printf("\t%6ld", free);
+	if (lflag) {
+		hardway = 0;
+		while(alloc())
+			hardway++;
+		TOThardway += hardway;
+		printf("\t%6ld", free=hardway);
+	}
+	printf("\t%5D%%",
+	    blocks == 0l ? 0l : (used*100l) / blocks );
+	if (iflag) {
+		long inodes = ((long) (sblock.s_isize - 2)) * ((long) INOPB);
+		used =  inodes - (long) sblock.s_tinode;
+		TOTiused += used; TOTinodes += inodes; TOTifree += sblock.s_tinode;
+		printf("\t%5ld\t%5d\t%5D%%", used, sblock.s_tinode,
+		    inodes == 0l ? 0l : (used*100l)/inodes );
+	}
+	printf("\n");
+	close(fi);
+}
+
+daddr_t
+alloc()
+{
+	int i;
+	daddr_t b;
+	struct fblk buf;
+
+	i = --sblock.s_nfree;
+	if(i<0 || i>=NICFREE) {
+		printf(ediag("bad free count, b=%D\n","Плохой счетчик свободных, b=%D\n"), blkno);
+		return(0);
+	}
+	b = sblock.s_free[i];
+	if(b == 0)
+		return(0);
+	if(b<sblock.s_isize || b>=sblock.s_fsize) {
+		printf(ediag("bad free block (%D)\n","Плохой список свободных, блок (%D)\n"), b);
+		return(0);
+	}
+	if(sblock.s_nfree <= 0) {
+		bread(b, (char *)&buf, sizeof(buf));
+		blkno = b;
+		sblock.s_nfree = buf.df_nfree;
+		for(i=0; i<NICFREE; i++)
+			sblock.s_free[i] = buf.df_free[i];
+	}
+	return(b);
+}
+
+bread(bno, buf, cnt)
+daddr_t bno;
+char *buf;
+{
+	int n;
+	extern errno;
+
+	lseek(fi, bno<<BSHIFT, 0);
+	if((n=read(fi, (char *) buf, cnt)) != cnt) {
+		printf(ediag("\nread error bno = %ld\n","\nОшибка чтения bno = %ld\n"), bno);
+		printf(ediag("count = %d; errno = %d\n","count = %d; errno = %d\n"), n, errno);
+		exit(0);
+	}
+}
+
+/*
+ * Given a name like /dev/rrp0h, returns the mounted path, like /usr.
+ */
+char *mpath(file)
+char *file;
+{
+	register int i;
+
+	if (eq(file, root))
+		return "/";
+	for (i=0; i<NFS; i++)
+		if (eq(file, mtab[i].m_dname))
+			return mtab[i].m_name;
+	return "";
+}
+
+eq(f1, f2)
+char *f1, *f2;
+{
+	if (strncmp(f1, "/dev/", 5) == 0)
+		f1 += 5;
+	if (strncmp(f2, "/dev/", 5) == 0)
+		f2 += 5;
+	if (strcmp(f1, f2) == 0)
+		return 1;
+	if (*f1 == 'r' && strcmp(f1+1, f2) == 0)
+		return 1;
+	if (*f2 == 'r' && strcmp(f1, f2+1) == 0)
+		return 1;
+	if (*f1 == 'r' && *f2 == 'r' && strcmp(f1+1, f2+1) == 0)
+		return 1;
+	return 0;
+}
+
+totalcount()
+{
+	printf(" -%s-      \t", ediag("total","всего"));
+	printf("\t%6ld", TOTblocks);
+	printf("\t%6ld", TOTused);
+	printf("\t%6ld", TOTfree);
+	if (lflag) {
+		printf("\t%6ld", TOThardway);
+		TOTused = TOThardway;
+	}
+	printf("\t%5D%%",
+	    TOTblocks == 0l ? 0l : (TOTused*100l) / TOTblocks );
+	if (iflag)
+		printf("\t%5ld\t%5D\t%5D%%", TOTiused, TOTifree,
+		    TOTinodes == 0l ? 0l : (TOTiused*100l)/TOTinodes );
+	printf("\n");
+}
+@
+
+
+1.7
+log
+@Правлено на предмет обработки таких вещей как df . ; df /etc ; и т.п.
+@
+text
+@d4 3
+d29 1
+a29 1
+static  char rcsid[] = "$Header: df.c,v 1.6 89/05/23 15:06:46 abs Exp $";
+d103 1
+a103 1
+		if ( mp->m_name[0]!=0) {
+d148 6
+a153 1
+			strncpy(&str[5], mountedon.m_name, PATHSIZE);
+@
+
+
+1.6
+log
+@df -d выдает свободное место в файловой системе, в которой вы находитесь.
+@
+text
+@d4 3
+d26 1
+a26 1
+static  char *sccsid = "$Header: df.c,v 1.5 87/03/30 18:37:13 avg Exp $";
+d28 1
+d36 1
+a36 1
+#include <sys/ustat.h>
+a38 1
+#define NFS MAXMOUNT    /* Max number of filesystems */
+d40 2
+d63 1
+a75 4
+		case 'd':
+			statpoint();
+			exit(0);
+
+d77 2
+a78 2
+			fprintf(stderr, ediag("Usage: df [ -ild ] [ filsys... ]\n",
+					      "Вызов: df [ -ild ] [ файл.сист... ]\n"));
+d95 1
+d98 1
+d106 1
+d108 2
+a109 1
+		totalcount();
+d115 1
+d117 3
+d132 5
+a136 3
+	if(stat(file, &stbuf) == 0 && (stbuf.st_mode&S_IFMT) != S_IFCHR
+	  && (stbuf.st_mode&S_IFMT) != S_IFBLK) {
+		int mt = open("/etc/mtab", 0), len;
+d138 1
+d140 9
+a148 4
+		struct stat mstbuf;
+		while((len = read(mt, mountedon,sizeof mountedon)) == sizeof mountedon) {
+			strncpy(&str[5],mountedon.m_name,PATHSIZE);
+			if(stat(str, &mstbuf) == 0 && mstbuf.st_rdev == stbuf.st_dev) {
+d150 2
+a151 1
+				break;
+d155 4
+a158 2
+		if(len == 0) {
+			fprintf(stderr, "%s: mounted on unknown device\n", file);
+d161 18
+d182 2
+a183 1
+		fprintf(stderr,"cannot open %s\n", file);
+a314 14
+}
+
+statpoint(){
+	struct stat st;
+	struct ustat ust;
+
+	stat( ".", &st );
+	ustat( st.st_dev , &ust );
+	printf( "%s: %s %ld %s\n",
+		ust.f_fname,
+		ediag ( "free", "свободно" ),
+		ust.f_tfree,
+		ediag( "blocks", "блоков" )
+	);
+@
+
+
+1.5
+log
+@Добавлен полсцет общего итога.
+@
+text
+@d4 3
+d23 1
+a23 1
+static  char *sccsid = "$Header: df.c,v 1.4 86/12/20 20:16:49 alex Exp $";
+d32 1
+d70 4
+d75 2
+a76 2
+			fprintf(stderr, ediag("Usage: df [ -il ] [ filsys... ]\n",
+					      "Вызов: df [ -il ] [ файл.сист... ]\n"));
+d275 14
+@
+
+
+1.4
+log
+@Исключена плавающая точка.
+@
+text
+@d3 4
+a6 1
+ * $Log:	df.c,v $
+d9 1
+a9 1
+ * 
+d12 1
+a12 1
+ * 
+d20 1
+a20 1
+static  char *sccsid = "$Header: df.c,v 1.5 86/12/07 13:44:14 avg Exp $";
+d48 2
+d67 2
+a68 1
+			fprintf(stderr, "usage: df [ -il ] [ filsys... ]\n");
+d95 1
+d149 1
+d157 1
+d165 1
+d249 18
+@
+
+
+1.3
+log
+@Введена работа по mtab вместо fstab.
+@
+text
+@d3 9
+a11 1
+ * $Log$
+d13 1
+d16 2
+a17 2
+#ifndef	lint
+static  char *sccsid = "$Header: df.c,v 1.2 86/10/20 22:41:59 alex Exp $";
+d35 1
+a35 1
+daddr_t	blkno	= 1;
+d37 2
+a38 2
+int	lflag;
+int	iflag;
+d40 1
+a40 1
+struct	filsys sblock;
+d42 2
+a43 2
+int	fi;
+daddr_t	alloc();
+d69 1
+a69 1
+		read(i, (char *) mtab, sizeof mtab);	/* Probably returns short */
+d100 6
+a105 6
+	long	blocks;
+	long	free;
+	long	used;
+	long	hardway;
+	char	*mp;
+	struct	stat stbuf;
+d151 2
+a152 2
+	printf("\t%5.0f%%",
+	    blocks == 0L ? 0.0 : (double) used / (double)blocks * 100.0);
+d155 3
+a157 3
+		used = (double) (inodes - (long) sblock.s_tinode);
+		printf("\t%5ld\t%5d\t%5.0f%%", used, sblock.s_tinode,
+		    inodes == 0L ? 0.0 : (double)used/(double)inodes*100.0);
+@
+
+
+1.2
+log
+@Сделаны русские диагностики.
+@
+text
+@d3 1
+a3 1
+ * $Login$
+d8 1
+a8 1
+static  char *sccsid = "$Header: df.c,v 1.1 86/10/17 22:52:31 alex Exp $";
+d71 8
+a78 10
+		struct	fstab	*fsp;
+		if (setfsent() == 0)
+			perror(FSTAB), exit(1);
+		while( (fsp = getfsent()) != 0){
+			if (  (strcmp(fsp->fs_type, FSTAB_RW) != 0)
+			    &&(strcmp(fsp->fs_type, FSTAB_RO) != 0) )
+				continue;
+			if (root[0] == 0)
+				strcpy(root, fsp->fs_spec);
+			dfree(fsp->fs_spec);
+a79 1
+		endfsent();
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 6
+d8 1
+a8 1
+static  char *sccsid = "$Header$";
+d17 3
+d21 2
+a22 4
+/*
+ * df
+ */
+#define NFS	20	/* Max number of filesystems */
+a23 6
+struct {
+	char path[32];
+	char spec[32];
+} mtab[NFS];
+char root[32];
+
+d63 1
+a63 1
+	printf("Filesystem  Mounted on  kbytes\t  used\t  free");
+d65 2
+a66 2
+		printf("\thardway");
+	printf("\t%% used");
+d68 1
+a68 1
+		printf("\tiused\tifree\t%%iused");
+d105 1
+a105 1
+		char mountedon[32];
+d107 2
+a108 2
+		while((len = read(mt, mountedon, 32)) == 32) {
+			read(mt, &str[5], 32);
+d145 1
+a145 1
+	printf("\t%5.0f%%", 
+d150 1
+a150 1
+		printf("\t%5ld\t%5d\t%5.0f%%", used, sblock.s_tinode, 
+d166 1
+a166 1
+		printf("bad free count, b=%D\n", blkno);
+d173 1
+a173 1
+		printf("bad free block (%D)\n", b);
+d195 2
+a196 2
+		printf("\nread error bno = %ld\n", bno);
+		printf("count = %d; errno = %d\n", n, errno);
+d212 2
+a213 2
+		if (eq(file, mtab[i].spec))
+			return mtab[i].path;
+@

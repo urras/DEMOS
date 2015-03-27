@@ -1,0 +1,95 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.28.37;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+#include <whoami.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <stat.h>
+#include <signal.h>
+#include <sgtty.h>
+#include <ediag.h>
+
+/*
+ * Lock a terminal up until the master key returns.
+ */
+char    masterp[] =     "from gholies from ghosties\n";
+struct  sgttyb tty, ntty;
+char    s[BUFSIZ], s1[BUFSIZ];
+
+main(argc, argv)
+	char **argv;
+{
+	register int t;
+
+	for (t = 1; t <= 16; t++)
+		if (t != SIGHUP)
+		signal(t, SIG_IGN);
+#ifdef  SIGTSTP
+	signal(SIGTSTP, SIG_IGN);
+#endif
+	if (argc > 0)
+		argv[0] = 0;
+	if (gtty(0, &tty))
+		exit(1);
+	ntty = tty; ntty.sg_flags &= ~ECHO;
+	stty(0, &ntty);
+	printf(ediag("Key: ","Введите ключ: "));
+	fgets(s, sizeof s, stdin);
+	printf(ediag("\nAgain: ","\nПовторите: "));
+	fgets(s1, sizeof s1, stdin);
+	putchar('\n');
+	if (strcmp(s1, s)) {
+		putchar(07);
+		stty(0, &tty);
+		exit(1);
+	}
+	s[0] = 0;
+	for (;;) {
+		fgets(s, sizeof s, stdin);
+		if (strcmp(s1, s) == 0)
+			break;
+		if (strcmp(s, masterp) == 0)
+			break;
+		putchar(07);
+		if (gtty(0, &ntty))
+			exit(1);
+	}
+	stty(0, &tty);
+}
+@

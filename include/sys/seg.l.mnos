@@ -1,0 +1,75 @@
+#ifndef _sys_seg_l_
+#       define  _sys_seg_l_
+
+/**
+ ** Virtual system under MISS:
+ ** Макросы для отключения управления памятью
+ ** Определения для управления сегментацией
+ **/
+
+% #if !defined( SINGLE_SPACE )
+% #    error "Mapping off in mapped system"
+% #endif
+#if !defined( NOKA5 )
+#    error "SINGLE_SPACE must be coupled with NOKA5"
+#endif
+
+ /* char нужно для проверок на преобразования к указателю */
+typedef char segm;
+typedef char mapinfo;
+
+/*
+ *      remap_area is a dummy var at start of possibly-mapped area,
+ *      for consistency check.  Only proc, text and file tables are after it,
+ *      and it must lie at <= 0120000, or other kernel data will be mapped out.
+ */
+extern  int remap_area;
+
+/*
+ *      Restore normal kernel map for seg5: unneeded,
+ *      since no kernel data are in this range.
+ */
+#define normalseg5()    /* not needed */
+
+/*      save previous mapping information and restore normal mapping. */
+#define savemap()
+
+/*      Restore previous mapping on return from interrupt.  */
+#define restormap(map)
+
+/*      Use segment 5 to access the given address.  */
+#define mapseg5(addr,desc)
+
+/*      Save the previous contents of KDSA5/KDSD5.  */
+#define saveseg5(save)
+
+/*      Restore the previous contents of KDSA5/KDSD5.  */
+#define restorseg5(save)
+
+/*
+ * Набор сегментных регистров для Mitra-X25
+ * Сегмент стека не использован
+ */
+#define  UASIZE 3          /* sizeof(u_uisa)/sizeof(short) */
+#define  UDSIZE 3
+
+#define  GBASE  0
+#define  ZBASE  1
+#define  QBASE  2
+#define  GBLEN  0
+#define  ZBLEN  1
+#define  QBLEN  2
+
+/*
+ * Access abilities
+ */
+#define  SRO    001             /* Software: read only for estabur */
+% #define RO      02              /* Read only */
+% #define RW      06              /* Read and write */
+% #define NOACC   0               /* Abort all accesses */
+% #define ACCESS  07              /* Mask for access field */
+% #define ED      010             /* Extension direction */
+#define TX      020             /* Software: text segment */
+#define ABS     040             /* Software: absolute address */
+
+#endif _sys_seg_l_

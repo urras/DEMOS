@@ -1,0 +1,127 @@
+%----------------%  19.09.88 VERSION 10
+%-   Загрузчик standalone-программ   -%
+%-     с магнитной ленты СМ-5300     -%
+%-------------------------------------%
+GLOBAL (LOCATION=&7C00) (START=&0)
+.BEGIN EQU $
+
+%------ Структура записи на ленте --------%
+% За блоками загузчика идут блоки программы, за ними концевой блок
+. DUM
+%    Заголовок
+  BYTES HDMI="MI",HDUS="SS"
+  DATA LDADDR       %Адрес загрузки блока (в конце -> стартовый адрес)
+  DATA ENDMRK       %Флаг конца загрузки (в концевом блоке <>0)
+  EQUALS BHLN=$
+%    Тело
+  EQUALS BLCKLN=512 %Длина кода программы в ленточной записи
+  BYTES [BLCKLN]
+. FIN
+
+%------ Структура памяти -----------------%
+% 0000:      .....
+%            Программа
+%            .....
+% BUFFER-4:  Стек
+% BUFFER:    Буфер
+% BEGIN:     Загрузчик
+
+  EQUALS BUFFER=BEGIN-BLCKLN-BHLN-2     %Адрес рабочего буффера
+  EQUALS WADDR=BUFFER+LDADDR
+  EQUALS WEND=BUFFER+ENDMRK
+  EQUALS WBUFF=BUFFER+BHLN
+  EQUALS WMIUS0=BUFFER+HDMI ,WMIUS1=BUFFER+HDUS
+
+%---- Стартер (должен быть по адресу 0) --%
+.       RSET                      *Без RESET'а ничего не работает
+.       BR   OVERBU
+.       DAT ABOBUS-BEGIN,&00E0    *EBUS-прерывание
+.       DAT ABOBUS-BEGIN,&00E0    *EINSTR-прерывание
+.       DAT MAIN-BEGIN  ,&00E0    *BPT-прерывание
+.OVERBU MOV  #BUFFER,%6           *Настоящий BUFFER (с большим адресом)
+.       BPT                       *Уходим под 7-й приоритет
+
+LOCALS LABORT
+  BYTES TXFAIL=RN.LF."<<DEVIATION>>".0
+PROGRAM ABOBUS()
+  SP=PC
+  CALL DPC 'TXFAIL'
+  GOTO $
+
+%===================%
+%= Тело загрузчика =%
+%===================%
+LOCALS LMAIN
+  BYTES TCOPY=RN.LF.LF.LF.LF.LF.LF."*MIUS TAPE BOOTSTRAP*"
+  BYTES RN.LF.LF.LF," SELF-COPYING",0
+  BYTES TLOAD=RN.LF," PROGRAM LOADING",0
+  BYTES TSTART=RN.LF," PROGRAM START ",0 %Без ' ' на конце 'Т' пропадет
+
+PROGRAM MAIN()
+%=
+%= Самокопирование в конец памяти
+%=
+  CALL DPC 'TCOPY-BEGIN'
+  R5=&200
+  (WHILE R5(-2)>=             % - нет DCYCLE с шагом 2
+    R5_BEGIN=@R5
+  )WHILE
+  PC=+'BEGIN'
+%=
+%= Загрузка файла
+%=
+  CALL DPC 'TLOAD'
+  (WHILE
+    (WHILE
+      REPEAT CALL RBLOCK 'BUFFER','BLCKLN+BHLN' WHILE R0<>0  %Пока сбой
+    )WHILE WMIUS0<>"IM" OR WMIUS1<>"SS"    %Пока чужой блок
+  WHILE WEND=0                             %Пока не конец программы
+%                                   Копируем блок программы
+    R3=WADDR ; R4='WBUFF'
+    R5='BLCKLN'
+    (WHILE R5(-2)>=
+      ^R3=^R4
+    )WHILE
+  )WHILE
+%=
+%= Запуск программы
+%=
+  CALL DPC 'TSTART'
+  2[SP]=0 ; @SP=WADDR ; DESACTIVATE
+
+%===========================%
+%= Драйвер магнитной ленты =%
+%===========================%
+LOCALS LMT
+  EQUALS MTADDR=&F558         %Базовый адрес устройства
+
+%      Команды устройства (Со стартовым битом)
+  EQUALS MTOFF=&1             %Перейти в `автоном'
+  EQUALS MTREAD=&3,MTWRIT=&5  %Чтение/запись блока
+  EQUALS MTMARK=&7            %Запись маркера
+  EQUALS MTFORW=&9,MTBACK=&B  %Вперед/назад на блок (со счетчиком)
+  EQUALS MTLGAP=&D            %Запись длинного промежутка
+  EQUALS MTREV=&F             %Перемотка
+
+  EQUALS DNSTY=&6000          %Установка стандартной четности (800 bpi)
+
+PROGRAM RBLOCK()
+  R5='MTADDR'
+  _R5=R0                      %Адрес памяти (Только четный ?)
+  _R5=R1(.NEG.)               %Число байт (а не слов)
+  _R5='DNSTY+MTREAD'          %Запуск операции
+  REPEAT WHILE @R5:>=0        %Ждем конца операции
+  R0=0 ; IF @R5<0 OR 2[R5]<>0 THEN R0=+1  %Возвращаем флаг ошибки
+  RETURN
+
+%=============================%
+%= Драйвер вывода на консоль =%
+%=============================%
+LOCALS LDP
+  EQUALS COIST=&FF70,COOST=&FF74
+PROGRAM DPC()
+  (WHILE @R0:<>0
+    REPEAT WHILE @'COOST':>=0
+    @'COOST+2':=^R0
+  )WHILE
+  RETURN

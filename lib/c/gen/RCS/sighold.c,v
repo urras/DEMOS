@@ -1,0 +1,55 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.20.21.12.21;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+#include <signal.h>
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+extern char    _setflg[NSIG];                   /* flags for using sigset */
+extern long    _holdmask;
+
+extern int     (*sigsys())();
+
+/* temporarily hold a signal until further notice - sigpause or sigrelse */
+
+sighold (signum)
+register int signum;
+{
+	if (signum <= 0 || signum > NSIG)
+		abort();
+	/*
+	 *	Bug fix to allow one to call sighold() then sigrelse()
+	 *	to hold the default action rather than being forced
+	 *	to call sigset (x, SIG_HOLD) then sigrelse.
+	 */
+	_setflg[signum] = 1;
+	if (signum != SIGKILL && signum != SIGSTOP && signum != SIGCONT)
+		_holdmask |= mask (signum);
+	sigsys(signum, SIG_HOLD);
+}
+
+@

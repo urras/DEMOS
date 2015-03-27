@@ -1,0 +1,3595 @@
+head     1.8;
+access   avg dvolodin flerov davidov alex fox korotaev;
+symbols  Архыз0:1.4.1;
+locks    ;
+comment  @ * @;
+
+
+1.8
+date     90.12.12.17.03.36;  author korotaev;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     90.11.12.18.50.53;  author root;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.06.28.20.31.35;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.11.16.14.00.36;  author dvolodin;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.03.23.14.10.23;  author korotaev;  state Exp;
+branches 1.4.1.1;
+next     1.3;
+
+1.3
+date     88.01.13.15.40.54;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.23.22.48.01;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.01.51;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.4.1.1
+date     88.11.01.18.17.17;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Таблицы входов драйверов у-в и дисциплин линий.
+@
+
+
+1.8
+log
+@Правки под ДВК.
+@
+text
+@/*
+ *
+ * Конфигурация системы - таблицы указателей на процедуры
+ * драйверов у-в и дисциплин линий.
+ *
+ * $Log:	c.c,v $
+ * Revision 1.7  90/11/12  18:50:53  root
+ * Новые вещи для СМ 1425 и перемещение некоторых include'ов.
+ * 
+ * Revision 1.6  89/06/28  20:31:35  avg
+ * Добавлено обращение к таблице mpytty. (падал select).
+ * 
+ * Revision 1.5  88/11/16  14:00:36  dvolodin
+ * *** empty log message ***
+ *
+ * Revision 1.4  88/03/23  14:10:23  korotaev
+ * Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+ *
+ * Revision 1.3  88/01/13  15:40:54  korotaev
+ * Исправления ошибок при слиянии ядер ИПК и АЗЛК.
+ *
+ * Revision 1.2  86/11/23  22:48:01  alex
+ * Добавлен dj
+ *
+ * Revision 1.1  86/04/19  15:01:51  avg
+ * Initial revision
+ *
+ */
+
+#include        <sys/param.h>
+#include        <sys/systm.h>
+#include        "../include/buf.h"
+#include        <sys/tty.h>
+#include        <sys/conf.h>
+#include        <sys/proc.h>
+#include        <sys/text.h>
+#include        <sys/dir.h>
+#include        <sys/user.h>
+#include        <sys/file.h>
+#include        <sys/inode.h>
+#include        <sys/acct.h>
+#include        "../include/map.h"
+#include        <sys/filsys.h>
+#include        "../include/mount.h"
+
+
+int     nulldev();
+int     nodev();
+int     nullioctl();
+
+#include        "h/bk.h"
+#if     NBK > 0
+int     bkopen(), bkclose(), bkread(), bkioctl(), bkinput();
+#endif  NBK
+
+#include        "h/dh.h"
+#if     NDH > 0
+int     dhopen(), dhclose(), dhread(), dhwrite(), dhioctl(), dhstop();
+extern  struct  tty     dh11[];
+#endif  NDH
+
+#include        "h/dhu.h"
+#if     NDHU > 0
+int     dhuopen(), dhuclose(), dhuread(), dhuwrite(), dhuioctl(), dhustop();
+extern  struct  tty     dhu11[];
+#endif  NDHU
+
+#include        "h/dj.h"
+#if     NDJ > 0
+int     djopen(), djclose(), djread(), djwrite(), djioctl();
+extern  struct  tty     dj11[];
+#endif  NDJ
+
+#include        "h/dn.h"
+#if     NDN > 0
+int     dnopen(), dnclose(), dnwrite();
+#endif  NDN
+
+#include        "h/dz.h"
+#if     NDZ > 0
+int     dzopen(), dzclose(), dzread(), dzwrite(), dzioctl();
+#ifdef  DZ_PDMA
+int     dzstop();
+#else
+#define dzstop          nulldev
+#endif
+extern  struct  tty     dz11[];
+#endif  NDZ
+
+#include        "h/hk.h"
+#if     NHK > 0
+int     hkstrategy(), hkread(), hkwrite(), hkroot();
+extern  struct  buf     hktab;
+#define hkopen          nulldev
+#define hkclose         nulldev
+#define _hktab          &hktab
+#endif  NHK
+
+#include        "h/hp.h"
+#if     NHP > 0
+int     hpstrategy(), hpread(), hpwrite(), hproot();
+extern  struct  buf     hptab;
+#define hpopen          nulldev
+#define hpclose         nulldev
+#define _hptab          &hptab
+#endif  NHP
+
+#include        "h/hs.h"
+#if     NHS > 0
+int     hsstrategy(), hsread(), hswrite(), hsroot();
+extern  struct  buf     hstab;
+#define _hstab          &hstab
+#define hsopen          nulldev
+#define hsclose         nulldev
+#endif  NHS
+
+#include        "h/ht.h"
+#if     NHT > 0
+int     htopen(), htclose(), htread(), htwrite(), htstrategy();
+#ifdef  HT_IOCTL
+int     htioctl();
+#else
+#define htioctl         nodev
+#endif
+extern  struct  buf     httab;
+#define _httab          &httab
+#endif  NHT
+
+#include        "h/lp.h"
+#if     NLP > 0
+int     lpopen(), lpclose(), lpwrite(), lpioctl();
+#endif  NLP
+
+#include        "h/pc.h"
+#if     NPC > 0
+int     pcopen(), pcclose(), pcread(), pcwrite();
+#endif  NPC
+
+#include        "h/pty.h"
+#if     NPTY > 0
+int     ptcopen(), ptcclose(), ptcread(), ptcwrite(), ptcselect();
+int     ptsopen(), ptsclose(), ptsread(), ptswrite(), ptyioctl();
+#endif  NPTY
+
+#include        "h/mpy.h"
+#if     NMPY > 0
+int     mtyopen(), mtyclose(), mtyread(), mtywrite(), mtyioctl();
+int     mpyopen(), mpyclose(), mpyinput(), mpyioctl();
+extern struct tty mpytty[];
+#endif
+
+#include        "h/rk.h"
+#if     NRK > 0
+int     rkstrategy(), rkread(), rkwrite(), rkopen();
+extern  struct  buf     rktab;
+#define rkclose         nulldev
+#define _rktab          &rktab
+#endif  NRK
+
+#include        "h/rw.h"
+#if     NRW > 0
+int     rwstrategy(), rwread(), rwwrite();
+extern  struct  buf     rwtab;
+#define rwopen          nulldev
+#define rwclose         nulldev
+#define _rwtab          &rwtab
+#else
+#endif  NRW
+
+#include        "h/dw.h"
+#if     NDW > 0
+int     dwstrategy(), dwread(), dwwrite();
+extern  struct  buf     dwtab;
+#define dwopen          nulldev
+#define dwclose         nulldev
+#define _dwtab          &dwtab
+#endif  NDW
+
+#include        "h/my.h"
+#if     NMY > 0
+int     myopen(), mystrategy(), myread(), mywrite();
+extern	struct	buf	mytab;
+#define	myclose		nulldev
+#define	_mytab		&mytab
+#endif  NMY
+
+#include        "h/fd.h"
+#if     NFD > 0
+int     fdstrategy(), fdread(), fdwrite();
+extern  struct  buf     fdtab;
+#define fdopen          nulldev
+#define fdclose         nulldev
+#define _fdtab          &fdtab
+#endif  NFD
+
+#include        "h/rl.h"
+#if     NRL > 0
+int     rlstrategy(), rlread(), rlwrite();
+extern  struct  buf     rltab;
+#define rlopen          nulldev
+#define rlclose         nulldev
+#define _rltab          &rltab
+#endif  NRL
+
+#include        "h/rm.h"
+#if     NRM > 0
+int     rmstrategy(), rmread(), rmwrite(), rmroot();
+extern  struct  buf     rmtab;
+#define rmopen          nulldev
+#define rmclose         nulldev
+#define _rmtab          &rmtab
+#endif  NRM
+
+#include        "h/rp.h"
+#if     NRP > 0
+int     rpstrategy(), rpread(), rpwrite();
+extern  struct  buf     rptab;
+#define rpopen          nulldev
+#define rpclose         nulldev
+#define _rptab          &rptab
+#endif  NRP
+
+#include        "h/tm.h"
+#if     NTM > 0
+int     tmopen(), tmclose(), tmread(), tmwrite(), tmstrategy();
+#ifdef  TM_IOCTL
+int     tmioctl();
+#else
+#define tmioctl         nodev
+#endif
+extern  struct  buf     tmtab;
+#define _tmtab          &tmtab
+#endif  NTM
+
+#include        "h/ts.h"
+#if     NTS > 0
+int     tsopen(), tsclose(), tsread(), tswrite(), tsstrategy();
+#ifdef  TS_IOCTL
+int     tsioctl();
+#else
+#define tsioctl         nodev
+#endif
+extern  struct  buf     tstab;
+#define _tstab          &tstab
+#endif  NTS
+/*
+ *#include        "vp.h"
+ *#if     NVP > 0
+ *int     vpopen(), vpclose(), vpwrite(), vpioctl();
+ *#endif  NVP
+ */
+#include        "h/xp.h"
+#if     NXP > 0
+int     xpstrategy(), xpread(), xpwrite(), xproot();
+extern  struct  buf     xptab;
+#define xpopen          nulldev
+#define xpclose         nulldev
+#define _xptab          &xptab
+#endif  NXP
+
+#include        "h/rx.h"
+#if     NRX > 0
+int     rxstrategy(), rxread(), rxwrite();
+extern  struct  buf     rxtab;
+#define rxopen          nulldev
+#define rxclose         nulldev
+#define _rxtab          &rxtab
+#endif  NRX
+
+#include        "h/ra.h"
+#if     NRA > 0
+int     udopen(), udstrategy(), udread(), udwrite();
+extern  struct  buf     udtab;
+#define udclose         nulldev
+#define _udtab          &udtab
+#endif  NRA
+
+#include        "h/vd.h"
+#if     NVD > 0
+int     vdstrategy(), vdread(), vdwrite(), vdroot();
+extern  struct  buf     vdtab;
+#define vdopen          nulldev
+#define vdclose         nulldev
+#define _vdtab          &vdtab
+#endif  NVD
+
+struct  bdevsw  bdevsw[] =
+{
+#if NRK > 0
+	rkopen,         rkclose,        rkstrategy,
+	nulldev,        _rktab,         /* rk = 0 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NRP > 0
+	rpopen,         rpclose,        rpstrategy,
+	nulldev,        _rptab,         /* rp = 1 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NMY > 0
+	myopen,         myclose,        mystrategy,
+	nulldev,        _mytab,         /* my = 2 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,              /* rf = 2 */
+#endif
+
+#if NTM > 0
+	tmopen,         tmclose,        tmstrategy,
+	nulldev,        _tmtab,         /* tm = 3 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NHK > 0
+	hkopen,         hkclose,        hkstrategy,
+	hkroot,         _hktab,         /* hk = 4 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NHS > 0
+	hsopen,         hsclose,        hsstrategy,
+	hsroot,         _hstab,         /* hs = 5 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NXP > 0
+	xpopen,         xpclose,        xpstrategy,
+	xproot,         _xptab,         /* xp = 6 */
+#else
+#if NHP > 0
+	hpopen,         hpclose,        hpstrategy,
+	hproot,         _hptab,         /* hp = 6 */
+#else
+#if NRM > 0
+	rmopen,         rmclose,        rmstrategy,
+	rmroot,         _rmtab,         /* rm = 6 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+#endif
+#endif
+
+#if NHT > 0
+	htopen,         htclose,        htstrategy,
+	nulldev,        _httab,         /* ht = 7 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NRL > 0
+	rlopen,         rlclose,        rlstrategy,
+	nulldev,        _rltab,         /* rl = 8 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NTS > 0
+	tsopen,         tsclose,        tsstrategy,
+	nulldev,        _tstab,         /* ts = 9 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NRW > 0
+	rwopen,         rwclose,        rwstrategy,
+	nulldev,        _rwtab,         /* rw = 10 */
+#else
+#if NDW > 0
+	dwopen,         dwclose,        dwstrategy,
+	nulldev,        _dwtab,         /* dw = 10 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+#endif
+
+#if NRX > 0
+	rxopen,         rxclose,        rxstrategy,
+	nulldev,        _rxtab,         /* rx = 11 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NFD > 0
+	fdopen,         fdclose,        fdstrategy,
+	nulldev,        _fdtab,         /* fd = 12 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NVD > 0
+	vdopen,         vdclose,        vdstrategy,
+	vdroot,         _vdtab,         /* vd = 13 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+
+#if NRA > 0
+	udopen,         udclose,        udstrategy,
+	nulldev,        _udtab,         /* ra = 14 */
+#else
+	nodev,          nodev,          nodev,
+	nulldev,        0,
+#endif
+};
+int     nblkdev = sizeof(bdevsw) / sizeof(bdevsw[0]);
+
+#include "h/ks.h"
+#if NKS > 0
+int     ksopen(), ksclose(), ksread(), kswrite(), ksioctl();
+extern  struct  tty     ks11[];
+#endif NKS
+
+#include "h/kl.h"
+#if NKL > 0
+int     klopen(), klclose(), klread(), klwrite(), klioctl();
+extern  struct  tty     kl11[];
+#endif NKL
+
+#include "h/wl.h"
+#if NWL > 0
+int     wlopen(), wlclose(), wlread(), wlwrite(), wlioctl();
+extern  struct  tty     wl11[];
+#endif NWL
+
+#include "h/kx.h"
+#if NKX > 0
+int     kxopen(), kxclose(), kxread(), kxwrite(), kxioctl();
+extern  struct  tty     kx11[];
+#endif NKX
+
+#include "h/ky.h"
+#if NKY > 0
+int     kyopen(), kyclose(), kyread(), kywrite(), kyioctl();
+extern  struct  tty     ky11[];
+#endif NKY
+
+#include "h/video.h"
+#if NVI > 0
+int     viopen(), viclose(), viread(), viwrite(), viioctl();
+extern  struct  tty     vi11[];
+#endif NVI
+
+#include "h/mk.h"
+#if NMK > 0
+int     mkopen(), mkclose(), mkread(), mkwrite(), mkioctl();
+extern  struct  tty     mk11[];
+#endif NMK
+
+int     mmread(), mmwrite();
+int     syopen(), syread(), sywrite(), sysioctl();
+int     syselect();
+int     seltrue(), ttselect();
+
+struct  cdevsw  cdevsw[] =
+{
+
+#if NKL > 0
+	klopen,         klclose,        klread,         klwrite,
+	klioctl,        nulldev,        kl11,           /* kl = 0 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NPC > 0
+	pcopen,         pcclose,        pcread,         pcwrite,
+	nodev,          nulldev,        0,              /* pc = 1 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NWL > 0
+	wlopen,         wlclose,        wlread,         wlwrite,
+	wlioctl,        nulldev,        wl11,           /* wl = 2 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* vp = 2 */
+	nodev,
+#endif
+
+#if NLP > 0
+	lpopen,         lpclose,        nodev,          lpwrite,
+	lpioctl,        nulldev,        0,              /* lp = 3 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NDH > 0
+	dhopen,         dhclose,        dhread,         dhwrite,
+	dhioctl,        dhstop,         dh11,           /* dh = 4 */
+	ttselect,
+#else
+#if NDHU > 0
+	dhuopen,        dhuclose,       dhuread,        dhuwrite,
+	dhuioctl,       dhustop,        dhu11,          /* dhu = 4 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* ?? = 4 */
+	nodev,
+#endif
+#endif
+
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* dp = 5 */
+	nodev,
+
+#if NDJ > 0
+	djopen,         djclose,        djread,         djwrite,
+	djioctl,        nulldev,        dj11,           /* dj = 6 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NDN > 0
+	dnopen,         dnclose,        nodev,          dnwrite,
+	nodev,          nulldev,        0,              /* dn = 7 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+	nulldev,        nulldev,        mmread,         mmwrite,
+	nodev,          nulldev,        0,              /* mem = 8 */
+	seltrue,
+
+#if NRK > 0
+	rkopen,         rkclose,        rkread,         rkwrite,
+	nodev,          nulldev,        0,              /* rk = 9 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NMY > 0
+	myopen,         myclose,        myread,         mywrite,
+	nodev,          nulldev,        0,              /* my = 10 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* rf = 10 */
+	nodev,
+#endif
+
+#if NRP > 0
+	rpopen,         rpclose,        rpread,         rpwrite,
+	nodev,          nulldev,        0,              /* rp = 11 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NTM > 0
+	tmopen,         tmclose,        tmread,         tmwrite,
+	tmioctl,        nulldev,        0,              /* tm = 12 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NHS > 0
+	hsopen,         hsclose,        hsread,         hswrite,
+	nodev,          nulldev,        0,              /* hs = 13 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NXP > 0
+	xpopen,         xpclose,        xpread,         xpwrite,
+	nodev,          nulldev,        0,              /* xp = 14 */
+	seltrue,
+#else
+#if NHP > 0
+
+	hpopen,         hpclose,        hpread,         hpwrite,
+	nodev,          nulldev,        0,              /* hp = 14 */
+	seltrue,
+#else
+#if NRM > 0
+	rmopen,         rmclose,        rmread,         rmwrite,
+	nodev,          nulldev,        0,              /* rm = 14 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+#endif
+#endif
+
+#if NHT > 0
+	htopen,         htclose,        htread,         htwrite,
+	htioctl,        nulldev,        0,              /* ht = 15 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* du = 16 */
+	nodev,
+
+	syopen,         nulldev,        syread,         sywrite,
+	sysioctl,       nulldev,        0,              /* tty = 17 */
+	syselect,
+
+#if NRL > 0
+	rlopen,         rlclose,        rlread,         rlwrite,
+	nodev,          nulldev,        0,              /* rl = 18 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NHK > 0
+	hkopen,         hkclose,        hkread,         hkwrite,
+	nodev,          nulldev,        0,              /* hk = 19 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NTS > 0
+	tsopen,         tsclose,        tsread,         tswrite,
+	tsioctl,        nulldev,        0,              /* ts = 20 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NDZ > 0
+	dzopen,         dzclose,        dzread,         dzwrite,
+	dzioctl,        dzstop,         dz11,           /* dz = 21 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+
+#if NVI > 0
+	viopen,         viclose,        viread,         viwrite,
+	viioctl,        nulldev,        vi11,           /* vi = 23 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NRW > 0
+	rwopen,         rwclose,        rwread,         rwwrite,
+	nodev,          nulldev,        0,              /* rw = 24 */
+	seltrue,
+#else
+#if NDW > 0
+	dwopen,         dwclose,        dwread,         dwwrite,
+	nodev,          nulldev,        0,              /* dw = 24 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+#endif
+
+#if NKX > 0
+	kxopen,         kxclose,        kxread,         kxwrite,
+	kxioctl,        nulldev,        kx11,           /* kx = 25 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NRX > 0
+	rxopen,         rxclose,        rxread,         rxwrite,
+	nodev,          nulldev,        0,              /* rx = 26 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NFD > 0
+	fdopen,         fdclose,        fdread,         fdwrite,
+	nodev,          nulldev,        0,              /* fd = 27 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NVD > 0
+	vdopen,         vdclose,        vdread,         vdwrite,
+	nodev,          nulldev,        0,              /* vd = 28 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NKY > 0
+	kyopen,         kyclose,        kyread,         kywrite,
+	kyioctl,        nulldev,        ky11,           /* ky = 29 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NRA > 0
+	udopen,         udclose,        udread,         udwrite,
+	nodev,          nulldev,        0,              /* ra = 30 */
+	seltrue,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NPTY > 0
+	ptcopen,        ptcclose,       ptcread,        ptcwrite,
+	ptyioctl,       nulldev,        0,              /* ptc = 31 (pty) */
+	ptcselect,
+	ptsopen,        ptsclose,       ptsread,        ptswrite,
+	ptyioctl,       nulldev,        0,              /* pts = 32 (pty) */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif
+
+#if NMPY > 0
+	mtyopen,        mtyclose,       mtyread,        mtywrite,
+	mtyioctl,       nulldev,        mpytty,         /* mty = 33 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif NMPY
+
+#if NKS > 0
+	ksopen,         ksclose,        ksread,         kswrite,
+	ksioctl,        nulldev,        ks11,           /* ks = 34 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif NKS
+
+#if NMK > 0
+	mkopen,         mkclose,        mkread,         mkwrite,
+	mkioctl,        nulldev,        mk11,           /* mk = 35 */
+	ttselect,
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,
+	nodev,
+#endif NMK
+};
+
+int     nchrdev = sizeof(cdevsw) / sizeof(cdevsw[0]);
+
+#ifdef  OLDTTY
+int     ttread(), ttyinput(), ttyoutput();
+caddr_t ttwrite();
+#define ttopen          nulldev
+#define ttclose         nulldev
+#define ttioctl         nullioctl
+#define ttmodem         nulldev
+#endif
+
+int     ntyopen(), ntyclose(), ntread(), ntyinput(), ntyoutput();
+caddr_t ntwrite();
+#define ntyioctl        nullioctl
+#define ntymodem        nulldev
+
+struct  linesw linesw[] =
+{
+#ifdef OLDTTY
+	ttopen,         ttclose,        ttread,         ttwrite,
+	ttioctl,        ttyinput,       ttyoutput,      ttmodem,        /*0*/
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          nodev,          nodev,          /*0*/
+#endif OLDTTY
+
+	ntyopen,        ntyclose,       ntread,         ntwrite,
+	ntyioctl,       ntyinput,       ntyoutput,      ntymodem,       /*1*/
+
+#if     NBK > 0
+	bkopen,         bkclose,        bkread,         ttwrite,
+	bkioctl,        bkinput,        nodev,          nulldev         /*2*/
+#else   NBK
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          nodev,          nodev,          /*2*/
+#endif  NBK
+
+#if     NMPY > 0
+	mpyopen,        mpyclose,       nodev,          nodev,
+	mpyioctl,       mpyinput,       nulldev,        nulldev         /*3*/
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          nodev,          nodev,          /*3*/
+#endif  NMPY
+};
+
+int     nldisp  = sizeof(linesw) / sizeof(linesw[0]);
+@
+
+
+1.7
+log
+@Новые вещи для СМ 1425 и перемещение некоторых include'ов.
+@
+text
+@d7 3
+d170 17
+a260 9
+#include        "h/rw.h"
+#if     NRW > 0
+int     rwstrategy(), rwread(), rwwrite();
+extern  struct  buf     rwtab;
+#define rwopen          nulldev
+#define rwclose         nulldev
+#define _rwtab          &rwtab
+#endif  NRW
+
+d305 4
+d311 1
+d383 4
+d390 1
+d426 6
+d462 6
+d570 5
+d578 1
+d710 5
+d719 1
+d806 20
+@
+
+
+1.6
+log
+@Добавлено обращение к таблице mpytty. (падал select).
+@
+text
+@d6 4
+a9 1
+ * $Log:        c.c,v $
+d29 1
+a29 1
+#include        <sys/buf.h>
+d39 1
+a39 1
+#include        <sys/map.h>
+d41 1
+a41 1
+#include        <sys/mount.h>
+d411 6
+d463 5
+d471 1
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d7 3
+d24 1
+a24 1
+#include        "param.h"
+d45 1
+a45 1
+#include        "bk.h"
+d50 1
+a50 1
+#include        "dh.h"
+d56 1
+a56 1
+#include        "dhu.h"
+d62 1
+a62 1
+#include        "dj.h"
+d68 1
+a68 1
+#include        "dn.h"
+d73 1
+a73 1
+#include        "dz.h"
+d84 1
+a84 1
+#include        "hk.h"
+d93 1
+a93 1
+#include        "hp.h"
+d102 1
+a102 1
+#include        "hs.h"
+d111 1
+a111 1
+#include        "ht.h"
+d123 1
+a123 1
+#include        "lp.h"
+d128 1
+a128 1
+#include        "pc.h"
+d133 1
+a133 1
+#include        "pty.h"
+d139 8
+a146 1
+#include        "rk.h"
+d154 1
+a154 1
+#include        "rw.h"
+d164 1
+a164 1
+#include        "fd.h"
+d173 1
+a173 1
+#include        "rl.h"
+d182 1
+a182 1
+#include        "rm.h"
+d191 1
+a191 1
+#include        "rp.h"
+d200 1
+a200 1
+#include        "tm.h"
+d212 1
+a212 1
+#include        "ts.h"
+d229 1
+a229 1
+#include        "xp.h"
+d238 1
+a238 1
+#include        "rw.h"
+d247 1
+a247 1
+#include        "rx.h"
+d256 1
+a256 1
+#include        "ra.h"
+d264 1
+a264 1
+#include        "vd.h"
+d402 1
+a402 1
+#include "kl.h"
+d408 1
+a408 9
+#include "rubin.h"
+#define ilopen  nulldev
+#define ilread  nodev
+#define ilioctl nodev
+#if NRUBIN > 0
+int     ilclose(), ilwrite();
+#endif NRUBIN
+
+#include "kx.h"
+d414 1
+a414 1
+#include "ky.h"
+d420 1
+a420 1
+#include "video.h"
+d428 1
+a428 2
+
+#ifdef IPK_SELECT
+a429 1
+#endif
+a436 1
+#ifdef IPK_SELECT
+a437 1
+#endif IPK_SELECT
+a440 1
+#ifdef IPK_SELECT
+a441 1
+#endif IPK_SELECT
+a446 1
+#ifdef IPK_SELECT
+a447 1
+#endif IPK_SELECT
+a450 1
+#ifdef IPK_SELECT
+a451 1
+#endif IPK_SELECT
+a455 1
+#ifdef IPK_SELECT
+a456 1
+#endif IPK_SELECT
+a460 1
+#ifdef IPK_SELECT
+a461 1
+#endif IPK_SELECT
+a464 1
+#ifdef IPK_SELECT
+a465 1
+#endif IPK_SELECT
+a470 1
+#ifdef IPK_SELECT
+a471 1
+#endif IPK_SELECT
+a475 1
+#ifdef IPK_SELECT
+a476 1
+#endif IPK_SELECT
+a479 1
+#ifdef IPK_SELECT
+a480 1
+#endif IPK_SELECT
+a485 1
+#ifdef IPK_SELECT
+a486 1
+#endif IPK_SELECT
+a490 1
+#ifdef IPK_SELECT
+a491 1
+#endif IPK_SELECT
+a494 1
+#ifdef IPK_SELECT
+a495 1
+#endif IPK_SELECT
+a500 1
+#ifdef IPK_SELECT
+a501 1
+#endif IPK_SELECT
+a504 1
+#ifdef IPK_SELECT
+a505 1
+#endif IPK_SELECT
+a509 1
+#ifdef IPK_SELECT
+a510 1
+#endif IPK_SELECT
+a514 1
+#ifdef IPK_SELECT
+a515 1
+#endif IPK_SELECT
+a518 1
+#ifdef IPK_SELECT
+a519 1
+#endif IPK_SELECT
+a523 1
+#ifdef IPK_SELECT
+a524 1
+#endif IPK_SELECT
+a528 1
+#ifdef IPK_SELECT
+a529 1
+#endif IPK_SELECT
+a532 1
+#ifdef IPK_SELECT
+a533 1
+#endif IPK_SELECT
+a538 1
+#ifdef IPK_SELECT
+a539 1
+#endif IPK_SELECT
+a542 1
+#ifdef IPK_SELECT
+a543 1
+#endif IPK_SELECT
+a548 1
+#ifdef IPK_SELECT
+a549 1
+#endif IPK_SELECT
+a552 1
+#ifdef IPK_SELECT
+a553 1
+#endif IPK_SELECT
+a558 1
+#ifdef IPK_SELECT
+a559 1
+#endif IPK_SELECT
+a564 1
+#ifdef IPK_SELECT
+a565 1
+#endif IPK_SELECT
+a569 1
+#ifdef IPK_SELECT
+a570 1
+#endif IPK_SELECT
+a573 1
+#ifdef IPK_SELECT
+a574 1
+#endif IPK_SELECT
+a581 1
+#ifdef IPK_SELECT
+a582 1
+#endif IPK_SELECT
+a585 1
+#ifdef IPK_SELECT
+a586 1
+#endif IPK_SELECT
+a590 1
+#ifdef IPK_SELECT
+a591 1
+#endif IPK_SELECT
+d595 1
+a595 3
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+a599 1
+#ifdef IPK_SELECT
+a600 1
+#endif IPK_SELECT
+a603 1
+#ifdef IPK_SELECT
+a604 1
+#endif IPK_SELECT
+a609 1
+#ifdef IPK_SELECT
+a610 1
+#endif IPK_SELECT
+a613 1
+#ifdef IPK_SELECT
+a614 1
+#endif IPK_SELECT
+a619 1
+#ifdef IPK_SELECT
+a620 1
+#endif IPK_SELECT
+a623 1
+#ifdef IPK_SELECT
+a624 1
+#endif IPK_SELECT
+a629 1
+#ifdef IPK_SELECT
+a630 1
+#endif IPK_SELECT
+a633 1
+#ifdef IPK_SELECT
+a634 1
+#endif IPK_SELECT
+a636 7
+#if NRUBIN > 0
+	ilopen,         ilclose,        ilread,         ilwrite,
+	ilioctl,        nulldev,        0,              /* lock = 22 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+#else
+a638 1
+#ifdef IPK_SELECT
+a639 2
+#endif IPK_SELECT
+#endif
+a643 1
+#ifdef IPK_SELECT
+a644 1
+#endif IPK_SELECT
+a647 1
+#ifdef IPK_SELECT
+a648 1
+#endif IPK_SELECT
+a653 1
+#ifdef IPK_SELECT
+a654 1
+#endif IPK_SELECT
+a657 1
+#ifdef IPK_SELECT
+a658 1
+#endif IPK_SELECT
+a663 1
+#ifdef IPK_SELECT
+a664 1
+#endif IPK_SELECT
+a667 1
+#ifdef IPK_SELECT
+a668 1
+#endif IPK_SELECT
+a673 1
+#ifdef IPK_SELECT
+a674 1
+#endif IPK_SELECT
+a677 1
+#ifdef IPK_SELECT
+a678 1
+#endif IPK_SELECT
+a683 1
+#ifdef IPK_SELECT
+a684 1
+#endif IPK_SELECT
+a687 1
+#ifdef IPK_SELECT
+a688 1
+#endif IPK_SELECT
+a693 1
+#ifdef IPK_SELECT
+a694 1
+#endif IPK_SELECT
+a697 1
+#ifdef IPK_SELECT
+a698 1
+#endif IPK_SELECT
+a703 1
+#ifdef IPK_SELECT
+a704 1
+#endif IPK_SELECT
+a707 1
+#ifdef IPK_SELECT
+a708 1
+#endif IPK_SELECT
+a713 1
+#ifdef IPK_SELECT
+a714 1
+#endif IPK_SELECT
+a717 1
+#ifdef IPK_SELECT
+a718 1
+#endif IPK_SELECT
+a723 1
+#ifdef IPK_SELECT
+a724 1
+#endif IPK_SELECT
+a726 1
+#ifdef IPK_SELECT
+a727 1
+#endif IPK_SELECT
+a730 1
+#ifdef IPK_SELECT
+a731 1
+#endif IPK_SELECT
+a733 1
+#ifdef IPK_SELECT
+a734 1
+#endif IPK_SELECT
+d736 10
+a758 1
+#ifdef  UCB_NTTY
+a762 1
+#endif
+a773 1
+#ifdef  UCB_NTTY
+a775 4
+#else
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          nodev,          nodev,          /*1*/
+#endif UCB_NTTY
+d780 12
+a791 1
+#endif
+a793 1
+#ifndef MPX_FILS
+a794 5
+#else
+int     nldisp  = sizeof(linesw) / sizeof(linesw[0]) - 1;
+int     mpxchan();
+int     (*ldmpx)()      = mpxchan;
+#endif
+@
+
+
+1.4
+log
+@Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+@
+text
+@d6 4
+a9 1
+ * $Log:	c.c,v $
+d12 1
+a12 1
+ * 
+d15 1
+a15 1
+ * 
+d21 15
+a35 15
+#include	"param.h"
+#include	<sys/systm.h>
+#include	<sys/buf.h>
+#include	<sys/tty.h>
+#include	<sys/conf.h>
+#include	<sys/proc.h>
+#include	<sys/text.h>
+#include	<sys/dir.h>
+#include	<sys/user.h>
+#include	<sys/file.h>
+#include	<sys/inode.h>
+#include	<sys/acct.h>
+#include	<sys/map.h>
+#include	<sys/filsys.h>
+#include	<sys/mount.h>
+d38 3
+a40 3
+int	nulldev();
+int	nodev();
+int	nullioctl();
+d42 4
+a45 4
+#include	"bk.h"
+#if	NBK > 0
+int	bkopen(), bkclose(), bkread(), bkioctl(), bkinput();
+#endif	NBK
+d47 5
+a51 5
+#include	"dh.h"
+#if	NDH > 0
+int	dhopen(), dhclose(), dhread(), dhwrite(), dhioctl(), dhstop();
+extern	struct	tty	dh11[];
+#endif	NDH
+d59 5
+a63 5
+#include	"dj.h"
+#if	NDJ > 0
+int	djopen(), djclose(), djread(), djwrite(), djioctl();
+extern	struct	tty	dj11[];
+#endif	NDJ
+d65 4
+a68 4
+#include	"dn.h"
+#if	NDN > 0
+int	dnopen(), dnclose(), dnwrite();
+#endif	NDN
+d70 5
+a74 5
+#include	"dz.h"
+#if	NDZ > 0
+int	dzopen(), dzclose(), dzread(), dzwrite(), dzioctl();
+#ifdef	DZ_PDMA
+int	dzstop();
+d76 1
+a76 1
+#define	dzstop		nulldev
+d78 2
+a79 2
+extern	struct	tty	dz11[];
+#endif	NDZ
+d81 8
+a88 8
+#include	"hk.h"
+#if	NHK > 0
+int	hkstrategy(), hkread(), hkwrite(), hkroot();
+extern	struct	buf	hktab;
+#define	hkopen		nulldev
+#define	hkclose		nulldev
+#define	_hktab		&hktab
+#endif	NHK
+d90 8
+a97 8
+#include	"hp.h"
+#if	NHP > 0
+int	hpstrategy(), hpread(), hpwrite(), hproot();
+extern	struct	buf	hptab;
+#define	hpopen		nulldev
+#define	hpclose		nulldev
+#define	_hptab		&hptab
+#endif	NHP
+d99 8
+a106 8
+#include	"hs.h"
+#if	NHS > 0
+int	hsstrategy(), hsread(), hswrite(), hsroot();
+extern	struct	buf	hstab;
+#define	_hstab		&hstab
+#define	hsopen		nulldev
+#define	hsclose		nulldev
+#endif	NHS
+d108 5
+a112 5
+#include	"ht.h"
+#if	NHT > 0
+int	htopen(), htclose(), htread(), htwrite(), htstrategy();
+#ifdef	HT_IOCTL
+int	htioctl();
+d114 1
+a114 1
+#define	htioctl		nodev
+d116 3
+a118 3
+extern	struct	buf	httab;
+#define	_httab		&httab
+#endif	NHT
+d120 2
+a121 2
+#include	"lp.h"
+#if	NLP > 0
+d123 1
+a123 1
+#endif	NLP
+d132 1
+a132 1
+int     ptcopen(), ptcclose(), ptcread(), ptcwrite();
+d136 2
+a137 2
+#include	"rk.h"
+#if	NRK > 0
+d139 4
+a142 4
+extern	struct	buf	rktab;
+#define	rkclose		nulldev
+#define	_rktab		&rktab
+#endif	NRK
+d163 8
+a170 8
+#include	"rl.h"
+#if	NRL > 0
+int	rlstrategy(), rlread(), rlwrite();
+extern	struct	buf	rltab;
+#define	rlopen		nulldev
+#define	rlclose		nulldev
+#define	_rltab		&rltab
+#endif	NRL
+d172 8
+a179 8
+#include	"rm.h"
+#if	NRM > 0
+int	rmstrategy(), rmread(), rmwrite(), rmroot();
+extern	struct	buf	rmtab;
+#define	rmopen		nulldev
+#define	rmclose		nulldev
+#define	_rmtab		&rmtab
+#endif	NRM
+d181 8
+a188 8
+#include	"rp.h"
+#if	NRP > 0
+int	rpstrategy(), rpread(), rpwrite();
+extern	struct	buf	rptab;
+#define	rpopen		nulldev
+#define	rpclose		nulldev
+#define	_rptab		&rptab
+#endif	NRP
+d190 5
+a194 5
+#include	"tm.h"
+#if	NTM > 0
+int	tmopen(), tmclose(), tmread(), tmwrite(), tmstrategy();
+#ifdef	TM_IOCTL
+int	tmioctl();
+d196 1
+a196 1
+#define	tmioctl		nodev
+d198 3
+a200 3
+extern	struct	buf	tmtab;
+#define	_tmtab		&tmtab
+#endif	NTM
+d202 5
+a206 5
+#include	"ts.h"
+#if	NTS > 0
+int	tsopen(), tsclose(), tsread(), tswrite(), tsstrategy();
+#ifdef	TS_IOCTL
+int	tsioctl();
+d208 1
+a208 1
+#define	tsioctl		nodev
+d210 3
+a212 3
+extern	struct	buf	tstab;
+#define	_tstab		&tstab
+#endif	NTS
+d219 8
+a226 8
+#include	"xp.h"
+#if	NXP > 0
+int	xpstrategy(), xpread(), xpwrite(), xproot();
+extern	struct	buf	xptab;
+#define	xpopen		nulldev
+#define	xpclose		nulldev
+#define	_xptab		&xptab
+#endif	NXP
+d246 7
+a252 7
+#include	"ra.h"
+#if	NRA > 0
+int	udopen(), udstrategy(), udread(), udwrite();
+extern	struct	buf	udtab;
+#define udclose		nulldev
+#define _udtab		&udtab
+#endif	NRA
+d263 1
+a263 1
+struct	bdevsw	bdevsw[] =
+d266 2
+a267 2
+	rkopen,		rkclose,	rkstrategy,
+	nulldev,	_rktab,		/* rk = 0 */
+d274 2
+a275 2
+	rpopen,		rpclose,	rpstrategy,
+	nulldev,	_rptab,		/* rp = 1 */
+d285 2
+a286 2
+	tmopen,		tmclose,	tmstrategy,
+	nulldev,	_tmtab,		/* tm = 3 */
+d293 2
+a294 2
+	hkopen,		hkclose,	hkstrategy,
+	hkroot,		_hktab,		/* hk = 4 */
+d301 2
+a302 2
+	hsopen,		hsclose,	hsstrategy,
+	hsroot,		_hstab,		/* hs = 5 */
+d309 2
+a310 2
+	xpopen,		xpclose,	xpstrategy,
+	xproot,		_xptab,		/* xp = 6 */
+d313 2
+a314 2
+	hpopen,		hpclose,	hpstrategy,
+	hproot,		_hptab,		/* hp = 6 */
+d317 2
+a318 2
+	rmopen,		rmclose,	rmstrategy,
+	rmroot,		_rmtab,		/* rm = 6 */
+d327 2
+a328 2
+	htopen,		htclose,	htstrategy,
+	nulldev,	_httab,		/* ht = 7 */
+d335 2
+a336 2
+	rlopen,		rlclose,	rlstrategy,
+	nulldev,	_rltab,		/* rl = 8 */
+d343 2
+a344 2
+	tsopen,		tsclose,	tsstrategy,
+	nulldev,	_tstab,		/* ts = 9 */
+d390 1
+a390 1
+int	nblkdev = sizeof(bdevsw) / sizeof(bdevsw[0]);
+d399 1
+a400 1
+#define ilopen  nodev
+d424 2
+a425 2
+int	mmread(), mmwrite();
+int	syopen(), syread(), sywrite(), sysioctl();
+d427 5
+a431 1
+struct	cdevsw	cdevsw[] =
+d435 5
+a439 2
+	klopen,		klclose,	klread,		klwrite,
+	klioctl,	nulldev,	kl11,		/* kl = 0 */
+d441 1
+a441 1
+	nodev,		nodev,		nodev,		nodev,
+d443 3
+d451 3
+d455 1
+a455 1
+	nodev,		nodev,		nodev,		nodev,
+d457 3
+d462 1
+a462 1
+	nodev,		nodev,		nodev,		nodev,
+d464 3
+d469 1
+a469 1
+	lpopen,		lpclose,	nodev,		lpwrite,
+d471 3
+d475 1
+a475 1
+	nodev,		nodev,		nodev,		nodev,
+d477 3
+d483 5
+a487 2
+	dhopen,		dhclose,	dhread,		dhwrite,
+	dhioctl,	dhstop,		dh11,		/* dh = 4 */
+a489 1
+
+d492 3
+d496 1
+a496 1
+	nodev,		nodev,		nodev,		nodev,
+d498 3
+d504 5
+a508 2
+	nodev,		nodev,		nodev,		nodev,
+	nodev,		nodev,		0,		/* dp = 5 */
+d513 3
+d517 1
+a517 1
+	nodev,		nodev,		nodev,		nodev,
+d519 3
+d525 5
+a529 2
+	dnopen,		dnclose,	nodev,		dnwrite,
+	nodev,		nulldev,	0,		/* dn = 7 */
+d531 1
+a531 1
+	nodev,		nodev,		nodev,		nodev,
+d533 3
+d538 5
+a542 2
+	nulldev,	nulldev,	mmread,		mmwrite,
+	nodev,		nulldev,	0,		/* mem = 8 */
+d545 5
+a549 2
+	rkopen,		rkclose,	rkread,		rkwrite,
+	nodev,		nulldev,	0,		/* rk = 9 */
+d551 1
+a551 1
+	nodev,		nodev,		nodev,		nodev,
+d553 3
+d560 3
+d565 5
+a569 2
+	rpopen,		rpclose,	rpread,		rpwrite,
+	nodev,		nulldev,	0,		/* rp = 11 */
+d571 1
+a571 1
+	nodev,		nodev,		nodev,		nodev,
+d573 3
+d579 5
+a583 2
+	tmopen,		tmclose,	tmread,		tmwrite,
+	tmioctl,	nulldev,	0,		/* tm = 12 */
+d585 1
+a585 1
+	nodev,		nodev,		nodev,		nodev,
+d587 3
+d593 5
+a597 2
+	hsopen,		hsclose,	hsread,		hswrite,
+	nodev,		nulldev,	0,		/* hs = 13 */
+d599 1
+a599 1
+	nodev,		nodev,		nodev,		nodev,
+d601 3
+d607 5
+a611 2
+	xpopen,		xpclose,	xpread,		xpwrite,
+	nodev,		nulldev,	0,		/* xp = 14 */
+d615 5
+a619 2
+	hpopen,		hpclose,	hpread,		hpwrite,
+	nodev,		nulldev,	0,		/* hp = 14 */
+d622 5
+a626 2
+	rmopen,		rmclose,	rmread,		rmwrite,
+	nodev,		nulldev,	0,		/* rm = 14 */
+d628 1
+a628 1
+	nodev,		nodev,		nodev,		nodev,
+d630 3
+d638 5
+a642 2
+	htopen,		htclose,	htread,		htwrite,
+	htioctl,	nulldev,	0,		/* ht = 15 */
+d644 1
+a644 1
+	nodev,		nodev,		nodev,		nodev,
+d646 3
+d651 5
+a655 2
+	nodev,		nodev,		nodev,		nodev,
+	nodev,		nodev,		0,		/* du = 16 */
+d657 5
+a661 2
+	syopen,		nulldev,	syread,		sywrite,
+	sysioctl,	nulldev,	0,		/* tty = 17 */
+d664 5
+a668 2
+	rlopen,		rlclose,	rlread,		rlwrite,
+	nodev,		nulldev,	0,		/* rl = 18 */
+d670 1
+a670 1
+	nodev,		nodev,		nodev,		nodev,
+d672 3
+d678 5
+a682 2
+	hkopen,		hkclose,	hkread,		hkwrite,
+	nodev,		nulldev,	0,		/* hk = 19 */
+d684 1
+a684 1
+	nodev,		nodev,		nodev,		nodev,
+d686 3
+d692 5
+a696 2
+	tsopen,		tsclose,	tsread,		tswrite,
+	tsioctl,	nulldev,	0,		/* ts = 20 */
+d698 1
+a698 1
+	nodev,		nodev,		nodev,		nodev,
+d700 3
+d706 5
+a710 2
+	dzopen,		dzclose,	dzread,		dzwrite,
+	dzioctl,	dzstop,		dz11,		/* dz = 21 */
+d712 1
+a712 1
+	nodev,		nodev,		nodev,		nodev,
+d714 3
+d722 3
+d726 1
+a726 1
+	nodev,		nodev,		nodev,		nodev,
+d728 3
+d736 3
+d740 1
+a740 1
+	nodev,		nodev,		nodev,		nodev,
+d742 3
+d750 3
+d754 1
+a754 1
+	nodev,		nodev,		nodev,		nodev,
+d756 3
+d764 3
+d768 1
+a768 1
+	nodev,		nodev,		nodev,		nodev,
+d770 3
+d778 3
+d782 1
+a782 1
+	nodev,		nodev,		nodev,		nodev,
+d784 3
+d792 3
+d796 1
+a796 1
+	nodev,		nodev,		nodev,		nodev,
+d798 3
+d806 3
+d810 1
+a810 1
+	nodev,		nodev,		nodev,		nodev,
+d812 3
+d820 3
+d824 1
+a824 1
+	nodev,		nodev,		nodev,		nodev,
+d826 3
+d834 3
+d838 1
+a838 1
+	nodev,		nodev,		nodev,		nodev,
+d840 3
+d848 3
+a850 1
+
+d853 3
+d857 1
+a857 1
+	nodev,		nodev,		nodev,		nodev,
+d859 4
+a862 2
+
+	nodev,		nodev,		nodev,		nodev,
+d864 3
+d870 1
+a870 1
+int	nchrdev = sizeof(cdevsw) / sizeof(cdevsw[0]);
+d872 7
+a878 7
+#ifdef	OLDTTY
+int	ttread(), ttyinput(), ttyoutput();
+caddr_t	ttwrite();
+#define	ttopen		nulldev
+#define	ttclose		nulldev
+#define	ttioctl		nullioctl
+#define	ttmodem		nulldev
+d881 5
+a885 5
+#ifdef	UCB_NTTY
+int	ntyopen(), ntyclose(), ntread(), ntyinput(), ntyoutput();
+caddr_t	ntwrite();
+#define	ntyioctl	nullioctl
+#define	ntymodem	nulldev
+d888 1
+a888 1
+struct	linesw linesw[] =
+d891 2
+a892 2
+	ttopen,		ttclose,	ttread,		ttwrite,
+	ttioctl,	ttyinput,	ttyoutput,	ttmodem,	/*0*/
+d898 3
+a900 3
+#ifdef	UCB_NTTY
+	ntyopen,	ntyclose,	ntread,		ntwrite,
+	ntyioctl,	ntyinput,	ntyoutput,	ntymodem,	/*1*/
+d906 3
+a908 3
+#if	NBK > 0
+	bkopen,		bkclose,	bkread,		ttwrite,
+	bkioctl,	bkinput,	nodev,		nulldev		/*2*/
+d912 2
+a913 2
+#ifndef	MPX_FILS
+int	nldisp	= sizeof(linesw) / sizeof(linesw[0]);
+d915 3
+a917 3
+int	nldisp	= sizeof(linesw) / sizeof(linesw[0]) - 1;
+int	mpxchan();
+int	(*ldmpx)()	= mpxchan;
+@
+
+
+1.4.1.1
+log
+@Правки из САО (про 1630).
+@
+text
+@d6 1
+a6 4
+ * $Log:        c.c,v $
+ * Revision 1.4  88/03/23  14:10:23  korotaev
+ * Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+ *
+d9 1
+a9 1
+ *
+d12 1
+a12 1
+ *
+d18 15
+a32 15
+#include        "param.h"
+#include        <sys/systm.h>
+#include        <sys/buf.h>
+#include        <sys/tty.h>
+#include        <sys/conf.h>
+#include        <sys/proc.h>
+#include        <sys/text.h>
+#include        <sys/dir.h>
+#include        <sys/user.h>
+#include        <sys/file.h>
+#include        <sys/inode.h>
+#include        <sys/acct.h>
+#include        <sys/map.h>
+#include        <sys/filsys.h>
+#include        <sys/mount.h>
+d35 3
+a37 3
+int     nulldev();
+int     nodev();
+int     nullioctl();
+d39 4
+a42 4
+#include        "bk.h"
+#if     NBK > 0
+int     bkopen(), bkclose(), bkread(), bkioctl(), bkinput();
+#endif  NBK
+d44 5
+a48 5
+#include        "dh.h"
+#if     NDH > 0
+int     dhopen(), dhclose(), dhread(), dhwrite(), dhioctl(), dhstop();
+extern  struct  tty     dh11[];
+#endif  NDH
+d56 5
+a60 5
+#include        "dj.h"
+#if     NDJ > 0
+int     djopen(), djclose(), djread(), djwrite(), djioctl();
+extern  struct  tty     dj11[];
+#endif  NDJ
+d62 4
+a65 4
+#include        "dn.h"
+#if     NDN > 0
+int     dnopen(), dnclose(), dnwrite();
+#endif  NDN
+d67 5
+a71 5
+#include        "dz.h"
+#if     NDZ > 0
+int     dzopen(), dzclose(), dzread(), dzwrite(), dzioctl();
+#ifdef  DZ_PDMA
+int     dzstop();
+d73 1
+a73 1
+#define dzstop          nulldev
+d75 2
+a76 2
+extern  struct  tty     dz11[];
+#endif  NDZ
+d78 8
+a85 8
+#include        "hk.h"
+#if     NHK > 0
+int     hkstrategy(), hkread(), hkwrite(), hkroot();
+extern  struct  buf     hktab;
+#define hkopen          nulldev
+#define hkclose         nulldev
+#define _hktab          &hktab
+#endif  NHK
+d87 8
+a94 8
+#include        "hp.h"
+#if     NHP > 0
+int     hpstrategy(), hpread(), hpwrite(), hproot();
+extern  struct  buf     hptab;
+#define hpopen          nulldev
+#define hpclose         nulldev
+#define _hptab          &hptab
+#endif  NHP
+d96 8
+a103 8
+#include        "hs.h"
+#if     NHS > 0
+int     hsstrategy(), hsread(), hswrite(), hsroot();
+extern  struct  buf     hstab;
+#define _hstab          &hstab
+#define hsopen          nulldev
+#define hsclose         nulldev
+#endif  NHS
+d105 5
+a109 5
+#include        "ht.h"
+#if     NHT > 0
+int     htopen(), htclose(), htread(), htwrite(), htstrategy();
+#ifdef  HT_IOCTL
+int     htioctl();
+d111 1
+a111 1
+#define htioctl         nodev
+d113 3
+a115 3
+extern  struct  buf     httab;
+#define _httab          &httab
+#endif  NHT
+d117 2
+a118 2
+#include        "lp.h"
+#if     NLP > 0
+d120 1
+a120 1
+#endif  NLP
+d129 1
+a129 1
+int     ptcopen(), ptcclose(), ptcread(), ptcwrite(), ptcselect();
+d133 2
+a134 2
+#include        "rk.h"
+#if     NRK > 0
+d136 4
+a139 4
+extern  struct  buf     rktab;
+#define rkclose         nulldev
+#define _rktab          &rktab
+#endif  NRK
+d160 8
+a167 8
+#include        "rl.h"
+#if     NRL > 0
+int     rlstrategy(), rlread(), rlwrite();
+extern  struct  buf     rltab;
+#define rlopen          nulldev
+#define rlclose         nulldev
+#define _rltab          &rltab
+#endif  NRL
+d169 8
+a176 8
+#include        "rm.h"
+#if     NRM > 0
+int     rmstrategy(), rmread(), rmwrite(), rmroot();
+extern  struct  buf     rmtab;
+#define rmopen          nulldev
+#define rmclose         nulldev
+#define _rmtab          &rmtab
+#endif  NRM
+d178 8
+a185 8
+#include        "rp.h"
+#if     NRP > 0
+int     rpstrategy(), rpread(), rpwrite();
+extern  struct  buf     rptab;
+#define rpopen          nulldev
+#define rpclose         nulldev
+#define _rptab          &rptab
+#endif  NRP
+d187 5
+a191 5
+#include        "tm.h"
+#if     NTM > 0
+int     tmopen(), tmclose(), tmread(), tmwrite(), tmstrategy();
+#ifdef  TM_IOCTL
+int     tmioctl();
+d193 1
+a193 1
+#define tmioctl         nodev
+d195 3
+a197 3
+extern  struct  buf     tmtab;
+#define _tmtab          &tmtab
+#endif  NTM
+d199 5
+a203 5
+#include        "ts.h"
+#if     NTS > 0
+int     tsopen(), tsclose(), tsread(), tswrite(), tsstrategy();
+#ifdef  TS_IOCTL
+int     tsioctl();
+d205 1
+a205 1
+#define tsioctl         nodev
+d207 3
+a209 3
+extern  struct  buf     tstab;
+#define _tstab          &tstab
+#endif  NTS
+d216 8
+a223 8
+#include        "xp.h"
+#if     NXP > 0
+int     xpstrategy(), xpread(), xpwrite(), xproot();
+extern  struct  buf     xptab;
+#define xpopen          nulldev
+#define xpclose         nulldev
+#define _xptab          &xptab
+#endif  NXP
+d243 7
+a249 7
+#include        "ra.h"
+#if     NRA > 0
+int     udopen(), udstrategy(), udread(), udwrite();
+extern  struct  buf     udtab;
+#define udclose         nulldev
+#define _udtab          &udtab
+#endif  NRA
+d260 1
+a260 1
+struct  bdevsw  bdevsw[] =
+d263 2
+a264 2
+	rkopen,         rkclose,        rkstrategy,
+	nulldev,        _rktab,         /* rk = 0 */
+d271 2
+a272 2
+	rpopen,         rpclose,        rpstrategy,
+	nulldev,        _rptab,         /* rp = 1 */
+d282 2
+a283 2
+	tmopen,         tmclose,        tmstrategy,
+	nulldev,        _tmtab,         /* tm = 3 */
+d290 2
+a291 2
+	hkopen,         hkclose,        hkstrategy,
+	hkroot,         _hktab,         /* hk = 4 */
+d298 2
+a299 2
+	hsopen,         hsclose,        hsstrategy,
+	hsroot,         _hstab,         /* hs = 5 */
+d306 2
+a307 2
+	xpopen,         xpclose,        xpstrategy,
+	xproot,         _xptab,         /* xp = 6 */
+d310 2
+a311 2
+	hpopen,         hpclose,        hpstrategy,
+	hproot,         _hptab,         /* hp = 6 */
+d314 2
+a315 2
+	rmopen,         rmclose,        rmstrategy,
+	rmroot,         _rmtab,         /* rm = 6 */
+d324 2
+a325 2
+	htopen,         htclose,        htstrategy,
+	nulldev,        _httab,         /* ht = 7 */
+d332 2
+a333 2
+	rlopen,         rlclose,        rlstrategy,
+	nulldev,        _rltab,         /* rl = 8 */
+d340 2
+a341 2
+	tsopen,         tsclose,        tsstrategy,
+	nulldev,        _tstab,         /* ts = 9 */
+d387 1
+a387 1
+int     nblkdev = sizeof(bdevsw) / sizeof(bdevsw[0]);
+d421 2
+a422 2
+int     mmread(), mmwrite();
+int     syopen(), syread(), sywrite(), sysioctl();
+d424 1
+a424 5
+#ifdef IPK_SELECT
+int     seltrue(), ttselect();
+#endif
+
+struct  cdevsw  cdevsw[] =
+d428 2
+a429 5
+	klopen,         klclose,        klread,         klwrite,
+	klioctl,        nulldev,        kl11,           /* kl = 0 */
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d431 1
+a431 1
+	nodev,          nodev,          nodev,          nodev,
+a432 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a437 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d439 1
+a439 1
+	nodev,          nodev,          nodev,          nodev,
+a440 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d443 1
+a443 1
+	nodev,          nodev,          nodev,          nodev,
+a444 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d447 1
+a447 1
+	lpopen,         lpclose,        nodev,          lpwrite,
+a448 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d450 1
+a450 1
+	nodev,          nodev,          nodev,          nodev,
+a451 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d455 2
+a456 5
+	dhopen,         dhclose,        dhread,         dhwrite,
+	dhioctl,        dhstop,         dh11,           /* dh = 4 */
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d459 1
+a461 3
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d463 1
+a463 1
+	nodev,          nodev,          nodev,          nodev,
+a464 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d468 2
+a469 5
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* dp = 5 */
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a473 3
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d475 1
+a475 1
+	nodev,          nodev,          nodev,          nodev,
+a476 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d480 2
+a481 5
+	dnopen,         dnclose,        nodev,          dnwrite,
+	nodev,          nulldev,        0,              /* dn = 7 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d483 1
+a483 1
+	nodev,          nodev,          nodev,          nodev,
+a484 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d487 2
+a488 5
+	nulldev,        nulldev,        mmread,         mmwrite,
+	nodev,          nulldev,        0,              /* mem = 8 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d491 2
+a492 5
+	rkopen,         rkclose,        rkread,         rkwrite,
+	nodev,          nulldev,        0,              /* rk = 9 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d494 1
+a494 1
+	nodev,          nodev,          nodev,          nodev,
+a495 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a499 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d502 2
+a503 5
+	rpopen,         rpclose,        rpread,         rpwrite,
+	nodev,          nulldev,        0,              /* rp = 11 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d505 1
+a505 1
+	nodev,          nodev,          nodev,          nodev,
+a506 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d510 2
+a511 5
+	tmopen,         tmclose,        tmread,         tmwrite,
+	tmioctl,        nulldev,        0,              /* tm = 12 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d513 1
+a513 1
+	nodev,          nodev,          nodev,          nodev,
+a514 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d518 2
+a519 5
+	hsopen,         hsclose,        hsread,         hswrite,
+	nodev,          nulldev,        0,              /* hs = 13 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d521 1
+a521 1
+	nodev,          nodev,          nodev,          nodev,
+a522 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d526 2
+a527 5
+	xpopen,         xpclose,        xpread,         xpwrite,
+	nodev,          nulldev,        0,              /* xp = 14 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d531 2
+a532 5
+	hpopen,         hpclose,        hpread,         hpwrite,
+	nodev,          nulldev,        0,              /* hp = 14 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d535 2
+a536 5
+	rmopen,         rmclose,        rmread,         rmwrite,
+	nodev,          nulldev,        0,              /* rm = 14 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d538 1
+a538 1
+	nodev,          nodev,          nodev,          nodev,
+a539 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d545 2
+a546 5
+	htopen,         htclose,        htread,         htwrite,
+	htioctl,        nulldev,        0,              /* ht = 15 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d548 1
+a548 1
+	nodev,          nodev,          nodev,          nodev,
+a549 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d552 2
+a553 5
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* du = 16 */
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d555 2
+a556 5
+	syopen,         nulldev,        syread,         sywrite,
+	sysioctl,       nulldev,        0,              /* tty = 17 */
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d559 2
+a560 5
+	rlopen,         rlclose,        rlread,         rlwrite,
+	nodev,          nulldev,        0,              /* rl = 18 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d562 1
+a562 1
+	nodev,          nodev,          nodev,          nodev,
+a563 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d567 2
+a568 5
+	hkopen,         hkclose,        hkread,         hkwrite,
+	nodev,          nulldev,        0,              /* hk = 19 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d570 1
+a570 1
+	nodev,          nodev,          nodev,          nodev,
+a571 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d575 2
+a576 5
+	tsopen,         tsclose,        tsread,         tswrite,
+	tsioctl,        nulldev,        0,              /* ts = 20 */
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d578 1
+a578 1
+	nodev,          nodev,          nodev,          nodev,
+a579 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d583 2
+a584 5
+	dzopen,         dzclose,        dzread,         dzwrite,
+	dzioctl,        dzstop,         dz11,           /* dz = 21 */
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d586 1
+a586 1
+	nodev,          nodev,          nodev,          nodev,
+a587 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a592 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d594 1
+a594 1
+	nodev,          nodev,          nodev,          nodev,
+a595 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a600 3
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d602 1
+a602 1
+	nodev,          nodev,          nodev,          nodev,
+a603 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a608 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d610 1
+a610 1
+	nodev,          nodev,          nodev,          nodev,
+a611 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a616 3
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d618 1
+a618 1
+	nodev,          nodev,          nodev,          nodev,
+a619 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a624 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d626 1
+a626 1
+	nodev,          nodev,          nodev,          nodev,
+a627 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a632 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d634 1
+a634 1
+	nodev,          nodev,          nodev,          nodev,
+a635 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a640 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d642 1
+a642 1
+	nodev,          nodev,          nodev,          nodev,
+a643 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a648 3
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d650 1
+a650 1
+	nodev,          nodev,          nodev,          nodev,
+a651 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+a656 3
+#ifdef IPK_SELECT
+	seltrue,
+#endif IPK_SELECT
+d658 1
+a658 1
+	nodev,          nodev,          nodev,          nodev,
+a659 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d665 1
+a665 3
+#ifdef IPK_SELECT
+	ptcselect,
+#endif IPK_SELECT
+a667 3
+#ifdef IPK_SELECT
+	ttselect,
+#endif IPK_SELECT
+d669 1
+a669 1
+	nodev,          nodev,          nodev,          nodev,
+d671 2
+a672 4
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+	nodev,          nodev,          nodev,          nodev,
+a673 3
+#ifdef IPK_SELECT
+	nodev,
+#endif IPK_SELECT
+d677 1
+a677 1
+int     nchrdev = sizeof(cdevsw) / sizeof(cdevsw[0]);
+d679 5
+a683 5
+#ifdef  OLDTTY
+int     ttread(), ttyinput(), ttyoutput();
+caddr_t ttwrite();
+#define ttopen          nulldev
+#define ttclose         nulldev
+@
+
+
+1.3
+log
+@Исправления ошибок при слиянии ядер ИПК и АЗЛК.
+@
+text
+@d7 3
+a41 6
+#else
+#define	bkopen		nodev
+#define	bkclose		nodev
+#define	bkread		nodev
+#define	bkioctl		nodev
+#define	bkinput		nodev
+a47 8
+#else
+#define	dhopen		nodev
+#define	dhclose		nodev
+#define	dhread		nodev
+#define	dhwrite		nodev
+#define	dhioctl		nodev
+#define	dhstop		nodev
+#define	dh11		((struct tty *) NULL)
+a53 8
+#else
+#define dhuopen          nodev
+#define dhuclose         nodev
+#define dhuread          nodev
+#define dhuwrite         nodev
+#define dhuioctl         nodev
+#define dhustop          nodev
+#define dhu11            ((struct tty *) NULL)
+a59 7
+#else
+#define	djopen		nodev
+#define	djclose		nodev
+#define	djread		nodev
+#define	djwrite		nodev
+#define	djioctl		nodev
+#define	dj11		((struct tty *) NULL)
+a64 4
+#else
+#define	dnopen		nodev
+#define	dnclose		nodev
+#define	dnwrite		nodev
+a75 8
+#else
+#define	dzopen		nodev
+#define	dzclose		nodev
+#define	dzread		nodev
+#define	dzwrite		nodev
+#define	dzioctl		nodev
+#define dzstop		nodev
+#define	dz11		((struct tty *) NULL)
+a84 8
+#else
+#define	hkopen		nodev
+#define	hkclose		nodev
+#define	hkstrategy	nodev
+#define	hkread		nodev
+#define	hkwrite		nodev
+#define	hkroot		nulldev
+#define	_hktab		((struct buf *) NULL)
+a93 8
+#else
+#define	hpopen		nodev
+#define	hpclose		nodev
+#define	hproot		nulldev
+#define	hpstrategy	nodev
+#define	hpread		nodev
+#define	hpwrite		nodev
+#define	_hptab		((struct buf *) NULL)
+a102 8
+#else
+#define	hsopen		nodev
+#define	hsclose		nodev
+#define	hsstrategy	nodev
+#define	hsread		nodev
+#define	hswrite		nodev
+#define	hsroot		nulldev
+#define	_hstab		((struct buf *) NULL)
+a114 8
+#else
+#define	htopen		nodev
+#define	htclose		nodev
+#define	htread		nodev
+#define	htwrite		nodev
+#define	htioctl		nodev
+#define	htstrategy	nodev
+#define	_httab		((struct buf *) NULL)
+a119 5
+#else
+#define	lpopen		nodev
+#define	lpclose		nodev
+#define	lpwrite		nodev
+#define lpioctl         nodev
+a124 5
+#else
+#define pcopen          nodev
+#define pcclose         nodev
+#define pcwrite         nodev
+#define pcread          nodev
+d127 5
+a138 7
+#else
+#define	rkopen		nodev
+#define	rkclose		nodev
+#define	rkstrategy	nodev
+#define	rkread		nodev
+#define	rkwrite		nodev
+#define	_rktab		((struct buf *) NULL)
+d141 19
+a166 7
+#else
+#define	rlopen		nodev
+#define	rlclose		nodev
+#define	rlstrategy	nodev
+#define	rlread		nodev
+#define	rlwrite		nodev
+#define	_rltab		((struct buf *) NULL)
+a175 8
+#else
+#define	rmopen		nodev
+#define	rmclose		nodev
+#define	rmroot		nulldev
+#define	rmstrategy	nodev
+#define	rmread		nodev
+#define	rmwrite		nodev
+#define	_rmtab		((struct buf *) NULL)
+a184 7
+#else
+#define	rpopen		nodev
+#define	rpclose		nodev
+#define	rpstrategy	nodev
+#define	rpread		nodev
+#define	rpwrite		nodev
+#define	_rptab		((struct buf *) NULL)
+a196 8
+#else
+#define	tmopen		nodev
+#define	tmclose		nodev
+#define	tmread		nodev
+#define	tmwrite		nodev
+#define	tmioctl		nodev
+#define	tmstrategy	nodev
+#define	_tmtab		((struct buf *) NULL)
+a208 8
+#else
+#define	tsopen		nodev
+#define	tsclose		nodev
+#define	tsread		nodev
+#define	tswrite		nodev
+#define	tsioctl		nodev
+#define	tsstrategy	nodev
+#define	_tstab		((struct buf *) NULL)
+d210 6
+a215 11
+
+#include	"vp.h"
+#if	NVP > 0
+int	vpopen(), vpclose(), vpwrite(), vpioctl();
+#else
+#define	vpopen		nodev
+#define	vpclose		nodev
+#define	vpwrite		nodev
+#define vpioctl		nodev
+#endif	NVP
+
+a222 8
+#else
+#define	xpopen		nodev
+#define	xpclose		nodev
+#define	xproot		nulldev
+#define	xpstrategy	nodev
+#define	xpread		nodev
+#define	xpwrite		nodev
+#define	_xptab		((struct buf *) NULL)
+a231 7
+#else
+#define rwopen          nodev
+#define rwclose         nodev
+#define rwstrategy      nodev
+#define rwread          nodev
+#define rwwrite         nodev
+#define _rwtab          ((struct buf *) NULL)
+a240 7
+#else
+#define rxopen          nodev
+#define rxclose         nodev
+#define rxstrategy      nodev
+#define rxread          nodev
+#define rxwrite         nodev
+#define _rxtab          ((struct buf *) NULL)
+a248 8
+#else
+#define udopen		nodev
+#define	udclose		nodev
+#define	udroot		nulldev
+#define	udstrategy	nodev
+#define	udread		nodev
+#define	udwrite		nodev
+#define	_udtab		((struct buf *) NULL)
+d251 9
+d262 1
+d265 4
+d270 1
+d273 4
+d278 2
+a279 2
+	udopen,         udclose,        udstrategy,
+	nulldev,        _udtab,         /* ra = 2 */
+d281 1
+d284 4
+d289 1
+d292 4
+d297 1
+d300 4
+d305 1
+a305 1
+#if	NXP > 0
+d309 1
+a309 2
+
+#if	NHP > 0
+d313 1
+a313 1
+
+d316 3
+d321 1
+d323 1
+d326 4
+d331 1
+d334 4
+d339 1
+d342 4
+d347 1
+d350 4
+d355 1
+d358 28
+a392 7
+#else
+#define klopen  nodev
+#define klclose nodev
+#define klread  nodev
+#define klwrite nodev
+#define klioctl nodev
+#define kl11    0
+a400 3
+#else
+#define ilclose nodev
+#define ilwrite nodev
+a406 7
+#else
+#define kxopen  nodev
+#define kxclose nodev
+#define kxread  nodev
+#define kxwrite nodev
+#define kxioctl nodev
+#define kx11    0
+d409 6
+d419 2
+a420 10
+#else
+#define viopen  nodev
+#define viclose nodev
+#define viread  nodev
+#define viwrite nodev
+#define viioctl nodev
+#define vi11    0
+#endif NKL
+int	klopen(), klclose(), klread(), klwrite(), klioctl();
+extern	struct	tty	kl11[];
+d426 2
+d430 4
+d435 4
+d440 2
+a441 1
+	nodev,		nodev,		0,		/* pc = 1 */
+d443 2
+a444 2
+	vpopen,		vpclose,	nodev,		vpwrite,
+	vpioctl,	nulldev,	0,		/* vp = 2 */
+d446 1
+d449 4
+d460 5
+a464 2
+	dhuopen,         dhuclose,        dhuread,         dhuwrite,
+	dhuioctl,        dhustop,         dhu11,           /* dhu = 4 */
+d471 7
+a477 2
+	djopen,		djclose,		djread,		djwrite,
+	djioctl,		nulldev,		dj11,	/* dj = 6 */
+d479 1
+d482 4
+d490 1
+d493 4
+d498 2
+a499 2
+	udopen,         udclose,        udread,         udwrite,
+	nodev,          nulldev,        0,              /* ra = 10 */
+d501 1
+d504 4
+d509 1
+d512 4
+d517 1
+d520 4
+d525 1
+a525 1
+#if	NXP > 0
+d529 1
+a529 1
+#if	NHP > 0
+d534 1
+a534 1
+
+d537 3
+d542 1
+d544 1
+d547 4
+d558 1
+d561 4
+d566 1
+d569 4
+d574 1
+d577 4
+d582 1
+d585 4
+d590 1
+d593 4
+d598 1
+d601 4
+d606 1
+d609 4
+d614 1
+d617 4
+d622 1
+d625 4
+d630 45
+a674 2
+	pcopen,         pcclose,        pcread,         pcwrite,
+	nodev,          nulldev,        0,              /* pc = 27 */
+a685 9
+#else
+#define	ttopen		nodev
+#define	ttclose		nodev
+#define	ttread		nodev
+#define	ttwrite		nodev
+#define	ttioctl		nodev
+#define	ttyinput	nodev
+#define	ttyoutput	nodev
+#define	ttmodem		nodev
+a687 1
+
+a692 9
+#else
+#define	ntyopen		nodev
+#define	ntyclose	nodev
+#define	ntread		nodev
+#define	ntwrite		nodev
+#define	ntyioctl	nodev
+#define	ntyinput	nodev
+#define	ntyoutput	nodev
+#define	ntymodem	nodev
+d697 1
+d700 4
+d705 1
+d708 4
+@
+
+
+1.2
+log
+@Добавлен dj
+@
+text
+@d2 1
+d6 4
+a9 1
+ * $Log:        c.c,v $
+d61 14
+d197 11
+d210 1
+a210 1
+int	rkstrategy(), rkread(), rkwrite();
+a211 1
+#define	rkopen		nulldev
+d339 48
+d395 2
+a396 2
+	nodev,		nodev,		nodev,
+	nulldev,	0,		/* rf = 2 */
+d430 6
+d439 49
+d507 1
+d510 2
+d513 5
+d533 2
+a534 2
+	nodev,		nodev,		nodev,		nodev,
+	nodev,		nodev,		0,		/* rf = 10 */
+d581 17
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d11 15
+a25 15
+#include        "param.h"
+#include        <sys/systm.h>
+#include        <sys/buf.h>
+#include        <sys/tty.h>
+#include        <sys/conf.h>
+#include        <sys/proc.h>
+#include        <sys/text.h>
+#include        <sys/dir.h>
+#include        <sys/user.h>
+#include        <sys/file.h>
+#include        <sys/inode.h>
+#include        <sys/acct.h>
+#include        <sys/map.h>
+#include        <sys/filsys.h>
+#include        <sys/mount.h>
+d28 3
+a30 3
+int     nulldev();
+int     nodev();
+int     nullioctl();
+d32 3
+a34 3
+#include        "bk.h"
+#if     NBK > 0
+int     bkopen(), bkclose(), bkread(), bkioctl(), bkinput();
+d36 6
+a41 6
+#define bkopen          nodev
+#define bkclose         nodev
+#define bkread          nodev
+#define bkioctl         nodev
+#define bkinput         nodev
+#endif  NBK
+d43 4
+a46 4
+#include        "dh.h"
+#if     NDH > 0
+int     dhopen(), dhclose(), dhread(), dhwrite(), dhioctl(), dhstop();
+extern  struct  tty     dh11[];
+d48 8
+a55 8
+#define dhopen          nodev
+#define dhclose         nodev
+#define dhread          nodev
+#define dhwrite         nodev
+#define dhioctl         nodev
+#define dhstop          nodev
+#define dh11            ((struct tty *) NULL)
+#endif  NDH
+d57 4
+a60 3
+#include        "dn.h"
+#if     NDN > 0
+int     dnopen(), dnclose(), dnwrite();
+d62 7
+a68 4
+#define dnopen          nodev
+#define dnclose         nodev
+#define dnwrite         nodev
+#endif  NDN
+d70 3
+a72 5
+#include        "dz.h"
+#if     NDZ > 0
+int     dzopen(), dzclose(), dzread(), dzwrite(), dzioctl();
+#ifdef  DZ_PDMA
+int     dzstop();
+d74 12
+a85 1
+#define dzstop          nulldev
+d87 1
+a87 1
+extern  struct  tty     dz11[];
+d89 8
+a96 8
+#define dzopen          nodev
+#define dzclose         nodev
+#define dzread          nodev
+#define dzwrite         nodev
+#define dzioctl         nodev
+#define dzstop          nodev
+#define dz11            ((struct tty *) NULL)
+#endif  NDZ
+d98 7
+a104 7
+#include        "hk.h"
+#if     NHK > 0
+int     hkstrategy(), hkread(), hkwrite(), hkroot();
+extern  struct  buf     hktab;
+#define hkopen          nulldev
+#define hkclose         nulldev
+#define _hktab          &hktab
+d106 8
+a113 8
+#define hkopen          nodev
+#define hkclose         nodev
+#define hkstrategy      nodev
+#define hkread          nodev
+#define hkwrite         nodev
+#define hkroot          nulldev
+#define _hktab          ((struct buf *) NULL)
+#endif  NHK
+d115 7
+a121 7
+#include        "hp.h"
+#if     NHP > 0
+int     hpstrategy(), hpread(), hpwrite(), hproot();
+extern  struct  buf     hptab;
+#define hpopen          nulldev
+#define hpclose         nulldev
+#define _hptab          &hptab
+d123 8
+a130 8
+#define hpopen          nodev
+#define hpclose         nodev
+#define hproot          nulldev
+#define hpstrategy      nodev
+#define hpread          nodev
+#define hpwrite         nodev
+#define _hptab          ((struct buf *) NULL)
+#endif  NHP
+d132 7
+a138 7
+#include        "hs.h"
+#if     NHS > 0
+int     hsstrategy(), hsread(), hswrite(), hsroot();
+extern  struct  buf     hstab;
+#define _hstab          &hstab
+#define hsopen          nulldev
+#define hsclose         nulldev
+d140 8
+a147 8
+#define hsopen          nodev
+#define hsclose         nodev
+#define hsstrategy      nodev
+#define hsread          nodev
+#define hswrite         nodev
+#define hsroot          nulldev
+#define _hstab          ((struct buf *) NULL)
+#endif  NHS
+d149 5
+a153 5
+#include        "ht.h"
+#if     NHT > 0
+int     htopen(), htclose(), htread(), htwrite(), htstrategy();
+#ifdef  HT_IOCTL
+int     htioctl();
+d155 1
+a155 1
+#define htioctl         nodev
+d157 2
+a158 2
+extern  struct  buf     httab;
+#define _httab          &httab
+d160 8
+a167 8
+#define htopen          nodev
+#define htclose         nodev
+#define htread          nodev
+#define htwrite         nodev
+#define htioctl         nodev
+#define htstrategy      nodev
+#define _httab          ((struct buf *) NULL)
+#endif  NHT
+d169 3
+a171 3
+#include        "lp.h"
+#if     NLP > 0
+int     lpopen(), lpclose(), lpwrite();
+d173 5
+a177 4
+#define lpopen          nodev
+#define lpclose         nodev
+#define lpwrite         nodev
+#endif  NLP
+d179 7
+a185 7
+#include        "rk.h"
+#if     NRK > 0
+int     rkstrategy(), rkread(), rkwrite();
+extern  struct  buf     rktab;
+#define rkopen          nulldev
+#define rkclose         nulldev
+#define _rktab          &rktab
+d187 7
+a193 7
+#define rkopen          nodev
+#define rkclose         nodev
+#define rkstrategy      nodev
+#define rkread          nodev
+#define rkwrite         nodev
+#define _rktab          ((struct buf *) NULL)
+#endif  NRK
+d195 7
+a201 7
+#include        "rl.h"
+#if     NRL > 0
+int     rlstrategy(), rlread(), rlwrite();
+extern  struct  buf     rltab;
+#define rlopen          nulldev
+#define rlclose         nulldev
+#define _rltab          &rltab
+d203 7
+a209 7
+#define rlopen          nodev
+#define rlclose         nodev
+#define rlstrategy      nodev
+#define rlread          nodev
+#define rlwrite         nodev
+#define _rltab          ((struct buf *) NULL)
+#endif  NRL
+d211 7
+a217 7
+#include        "rm.h"
+#if     NRM > 0
+int     rmstrategy(), rmread(), rmwrite(), rmroot();
+extern  struct  buf     rmtab;
+#define rmopen          nulldev
+#define rmclose         nulldev
+#define _rmtab          &rmtab
+d219 8
+a226 8
+#define rmopen          nodev
+#define rmclose         nodev
+#define rmroot          nulldev
+#define rmstrategy      nodev
+#define rmread          nodev
+#define rmwrite         nodev
+#define _rmtab          ((struct buf *) NULL)
+#endif  NRM
+d228 7
+a234 7
+#include        "rp.h"
+#if     NRP > 0
+int     rpstrategy(), rpread(), rpwrite();
+extern  struct  buf     rptab;
+#define rpopen          nulldev
+#define rpclose         nulldev
+#define _rptab          &rptab
+d236 7
+a242 7
+#define rpopen          nodev
+#define rpclose         nodev
+#define rpstrategy      nodev
+#define rpread          nodev
+#define rpwrite         nodev
+#define _rptab          ((struct buf *) NULL)
+#endif  NRP
+d244 5
+a248 5
+#include        "tm.h"
+#if     NTM > 0
+int     tmopen(), tmclose(), tmread(), tmwrite(), tmstrategy();
+#ifdef  TM_IOCTL
+int     tmioctl();
+d250 1
+a250 1
+#define tmioctl         nodev
+d252 2
+a253 2
+extern  struct  buf     tmtab;
+#define _tmtab          &tmtab
+d255 8
+a262 8
+#define tmopen          nodev
+#define tmclose         nodev
+#define tmread          nodev
+#define tmwrite         nodev
+#define tmioctl         nodev
+#define tmstrategy      nodev
+#define _tmtab          ((struct buf *) NULL)
+#endif  NTM
+d264 5
+a268 5
+#include        "ts.h"
+#if     NTS > 0
+int     tsopen(), tsclose(), tsread(), tswrite(), tsstrategy();
+#ifdef  TS_IOCTL
+int     tsioctl();
+d270 1
+a270 1
+#define tsioctl         nodev
+d272 2
+a273 2
+extern  struct  buf     tstab;
+#define _tstab          &tstab
+d275 8
+a282 8
+#define tsopen          nodev
+#define tsclose         nodev
+#define tsread          nodev
+#define tswrite         nodev
+#define tsioctl         nodev
+#define tsstrategy      nodev
+#define _tstab          ((struct buf *) NULL)
+#endif  NTS
+d284 3
+a286 3
+#include        "vp.h"
+#if     NVP > 0
+int     vpopen(), vpclose(), vpwrite(), vpioctl();
+d288 5
+a292 5
+#define vpopen          nodev
+#define vpclose         nodev
+#define vpwrite         nodev
+#define vpioctl         nodev
+#endif  NVP
+d294 7
+a300 7
+#include        "xp.h"
+#if     NXP > 0
+int     xpstrategy(), xpread(), xpwrite(), xproot();
+extern  struct  buf     xptab;
+#define xpopen          nulldev
+#define xpclose         nulldev
+#define _xptab          &xptab
+d302 8
+a309 8
+#define xpopen          nodev
+#define xpclose         nodev
+#define xproot          nulldev
+#define xpstrategy      nodev
+#define xpread          nodev
+#define xpwrite         nodev
+#define _xptab          ((struct buf *) NULL)
+#endif  NXP
+d311 1
+a311 1
+struct  bdevsw  bdevsw[] =
+d313 2
+a314 2
+	rkopen,         rkclose,        rkstrategy,
+	nulldev,        _rktab,         /* rk = 0 */
+d316 2
+a317 2
+	rpopen,         rpclose,        rpstrategy,
+	nulldev,        _rptab,         /* rp = 1 */
+d319 2
+a320 2
+	nodev,          nodev,          nodev,
+	nulldev,        0,              /* rf = 2 */
+d322 2
+a323 2
+	tmopen,         tmclose,        tmstrategy,
+	nulldev,        _tmtab,         /* tm = 3 */
+d325 2
+a326 2
+	hkopen,         hkclose,        hkstrategy,
+	hkroot,         _hktab,         /* hk = 4 */
+d328 2
+a329 2
+	hsopen,         hsclose,        hsstrategy,
+	hsroot,         _hstab,         /* hs = 5 */
+d331 3
+a333 3
+#if     NXP > 0
+	xpopen,         xpclose,        xpstrategy,
+	xproot,         _xptab,         /* xp = 6 */
+d336 3
+a338 3
+#if     NHP > 0
+	hpopen,         hpclose,        hpstrategy,
+	hproot,         _hptab,         /* hp = 6 */
+d341 2
+a342 2
+	rmopen,         rmclose,        rmstrategy,
+	rmroot,         _rmtab,         /* rm = 6 */
+d346 2
+a347 2
+	htopen,         htclose,        htstrategy,
+	nulldev,        _httab,         /* ht = 7 */
+d349 2
+a350 2
+	rlopen,         rlclose,        rlstrategy,
+	nulldev,        _rltab,         /* rl = 8 */
+d352 2
+a353 2
+	tsopen,         tsclose,        tsstrategy,
+	nulldev,        _tstab,         /* ts = 9 */
+d355 1
+a355 1
+int     nblkdev = sizeof(bdevsw) / sizeof(bdevsw[0]);
+d357 4
+a360 4
+int     klopen(), klclose(), klread(), klwrite(), klioctl();
+extern  struct  tty     kl11[];
+int     mmread(), mmwrite();
+int     syopen(), syread(), sywrite(), sysioctl();
+d362 1
+a362 1
+struct  cdevsw  cdevsw[] =
+d364 2
+a365 2
+	klopen,         klclose,        klread,         klwrite,
+	klioctl,        nulldev,        kl11,           /* kl = 0 */
+d367 2
+a368 2
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* pc = 1 */
+d370 2
+a371 2
+	vpopen,         vpclose,        nodev,          vpwrite,
+	vpioctl,        nulldev,        0,              /* vp = 2 */
+d373 2
+a374 2
+	lpopen,         lpclose,        nodev,          lpwrite,
+	nodev,          nulldev,        0,              /* lp = 3 */
+d376 2
+a377 2
+	dhopen,         dhclose,        dhread,         dhwrite,
+	dhioctl,        dhstop,         dh11,           /* dh = 4 */
+d379 2
+a380 2
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* dp = 5 */
+d382 2
+a383 2
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* dj = 6 */
+d385 2
+a386 2
+	dnopen,         dnclose,        nodev,          dnwrite,
+	nodev,          nulldev,        0,              /* dn = 7 */
+d388 2
+a389 2
+	nulldev,        nulldev,        mmread,         mmwrite,
+	nodev,          nulldev,        0,              /* mem = 8 */
+d391 2
+a392 2
+	rkopen,         rkclose,        rkread,         rkwrite,
+	nodev,          nulldev,        0,              /* rk = 9 */
+d394 2
+a395 2
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* rf = 10 */
+d397 2
+a398 2
+	rpopen,         rpclose,        rpread,         rpwrite,
+	nodev,          nulldev,        0,              /* rp = 11 */
+d400 2
+a401 2
+	tmopen,         tmclose,        tmread,         tmwrite,
+	tmioctl,        nulldev,        0,              /* tm = 12 */
+d403 2
+a404 2
+	hsopen,         hsclose,        hsread,         hswrite,
+	nodev,          nulldev,        0,              /* hs = 13 */
+d406 3
+a408 3
+#if     NXP > 0
+	xpopen,         xpclose,        xpread,         xpwrite,
+	nodev,          nulldev,        0,              /* xp = 14 */
+d410 1
+a410 1
+#if     NHP > 0
+d412 2
+a413 2
+	hpopen,         hpclose,        hpread,         hpwrite,
+	nodev,          nulldev,        0,              /* hp = 14 */
+d416 2
+a417 2
+	rmopen,         rmclose,        rmread,         rmwrite,
+	nodev,          nulldev,        0,              /* rm = 14 */
+d421 2
+a422 2
+	htopen,         htclose,        htread,         htwrite,
+	htioctl,        nulldev,        0,              /* ht = 15 */
+d424 2
+a425 2
+	nodev,          nodev,          nodev,          nodev,
+	nodev,          nodev,          0,              /* du = 16 */
+d427 2
+a428 2
+	syopen,         nulldev,        syread,         sywrite,
+	sysioctl,       nulldev,        0,              /* tty = 17 */
+d430 2
+a431 2
+	rlopen,         rlclose,        rlread,         rlwrite,
+	nodev,          nulldev,        0,              /* rl = 18 */
+d433 2
+a434 2
+	hkopen,         hkclose,        hkread,         hkwrite,
+	nodev,          nulldev,        0,              /* hk = 19 */
+d436 2
+a437 2
+	tsopen,         tsclose,        tsread,         tswrite,
+	tsioctl,        nulldev,        0,              /* ts = 20 */
+d439 2
+a440 2
+	dzopen,         dzclose,        dzread,         dzwrite,
+	dzioctl,        dzstop,         dz11,           /* dz = 21 */
+d444 1
+a444 1
+int     nchrdev = sizeof(cdevsw) / sizeof(cdevsw[0]);
+d446 7
+a452 7
+#ifdef  OLDTTY
+int     ttread(), ttyinput(), ttyoutput();
+caddr_t ttwrite();
+#define ttopen          nulldev
+#define ttclose         nulldev
+#define ttioctl         nullioctl
+#define ttmodem         nulldev
+d454 8
+a461 8
+#define ttopen          nodev
+#define ttclose         nodev
+#define ttread          nodev
+#define ttwrite         nodev
+#define ttioctl         nodev
+#define ttyinput        nodev
+#define ttyoutput       nodev
+#define ttmodem         nodev
+d465 5
+a469 5
+#ifdef  UCB_NTTY
+int     ntyopen(), ntyclose(), ntread(), ntyinput(), ntyoutput();
+caddr_t ntwrite();
+#define ntyioctl        nullioctl
+#define ntymodem        nulldev
+d471 8
+a478 8
+#define ntyopen         nodev
+#define ntyclose        nodev
+#define ntread          nodev
+#define ntwrite         nodev
+#define ntyioctl        nodev
+#define ntyinput        nodev
+#define ntyoutput       nodev
+#define ntymodem        nodev
+d481 1
+a481 1
+struct  linesw linesw[] =
+d483 2
+a484 2
+	ttopen,         ttclose,        ttread,         ttwrite,
+	ttioctl,        ttyinput,       ttyoutput,      ttmodem,        /*0*/
+d486 2
+a487 2
+	ntyopen,        ntyclose,       ntread,         ntwrite,
+	ntyioctl,       ntyinput,       ntyoutput,      ntymodem,       /*1*/
+d489 3
+a491 3
+#if     NBK > 0
+	bkopen,         bkclose,        bkread,         ttwrite,
+	bkioctl,        bkinput,        nodev,          nulldev         /*2*/
+d495 2
+a496 2
+#ifndef MPX_FILS
+int     nldisp  = sizeof(linesw) / sizeof(linesw[0]);
+d498 3
+a500 3
+int     nldisp  = sizeof(linesw) / sizeof(linesw[0]) - 1;
+int     mpxchan();
+int     (*ldmpx)()      = mpxchan;
+@

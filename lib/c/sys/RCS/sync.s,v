@@ -1,0 +1,35 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.44.03;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ (void) sync();
+
+.globl	_sync
+
+_sync:
+	mov	r5,-(sp)
+	mov	sp,r5
+	sys	sync
+	mov	(sp)+,r5
+	rts	pc
+@

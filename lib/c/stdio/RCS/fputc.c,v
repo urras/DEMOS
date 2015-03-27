@@ -1,0 +1,35 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.10.12;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include <stdio.h>
+
+fputc(c, fp)
+FILE *fp;
+{
+	return(putc(c, fp));
+}
+@

@@ -1,0 +1,8 @@
+#!/bin/csh
+foreach i (`cat DosList`)
+	echo $i
+	todos < $i > dos/$i
+end
+cd dos
+zoo af ../mailx.zoo `cat ../DosList`
+rm -f `cat ../DosList`

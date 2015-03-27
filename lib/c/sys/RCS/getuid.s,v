@@ -1,0 +1,48 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.41.40;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ uid	= getuid();
+
+.globl	_getuid
+
+_getuid:
+	mov	r5,-(sp)
+	mov	sp,r5
+	sys	getuid
+	mov	(sp)+,r5
+	rts	pc
+
+
+/ uid	= geteuid();
+
+.globl	_geteuid
+
+_geteuid:
+	mov	r5,-(sp)
+	mov	sp,r5
+	sys	getuid
+	mov	r1,r0
+	mov	(sp)+,r5
+	rts	pc
+@

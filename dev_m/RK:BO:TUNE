@@ -1,0 +1,80 @@
+% === RK:BOOT === %  28.11.88 VERSION 5
+GLOBAL (LOCATION=0) (START=0)
+. JMP @#RKBOOT
+  DATA =ERROR.&00E0
+
+  EQUALS RKDAR=&FF0A
+  EQUALS RKREAD=2,RKGO=1
+
+LOCALS LBOOT
+  BYTES TXVOL=RN.LF." LABEL READ".0
+  BYTES TXSEAR=RN.LF." STARTER SEARCH".0
+  BYTES TXREAD=RN.LF." STARTER READ ".0
+
+  USE UFI:STRUCT
+  BYTES STARTN="STARTER:U "
+
+  EQUALS VOLDA=1                    %Метка тома
+  EQUALS VROOTA=&10+FIADDR          %Смещение адреса корня
+
+  EQUALS ADLOAD=&400  ,ADROOX=ADLOAD+VROOTA
+  DATA DCB=,DSADDR=VOLDA,DSBUFF=ADLOAD,DSLENG=1
+
+PROGRAM RKBOOT()
+  SP='ADLOAD'
+
+  CALL DPC 'TXVOL'
+
+  R1='DSADDR'
+  @R1='VOLDA' ; DSLENG=1
+  GOSUB RKHAND R1                   %Читаем метку тома
+  @R1=ADROOX.COM. ; DSLENG=20       %Надеюсь, что таких корней не бывает
+  GOSUB RKHAND R1
+  R5='ADLOAD-&20'
+
+  CALL DPC 'TXSEAR'
+LABEL NEXT                          % (WHILE
+    R5=+&20
+    IF @R5:=0 GOTO ERROR
+    R2=R5+'FINAME' ; R3='STARTN'
+    (DCYCLE(R4) 'LFNAME'
+      IF ^R2:<>^R3 GOTO NEXT        % )WHILE
+    )DCYCLE
+
+LABEL FOUND
+  CALL DPC 'TXREAD'
+  @R1=R5_FIADDR.COM. ; DSLENG=R5_FILENG
+  GOSUB RKHAND R1
+
+  JUMP ADLOAD
+
+% INP: 0_R0-ДИСКОВЫЙ АДРЕС, 2_R0-АДРЕС ПАМЯТИ, 4_R0-ДЛИНА В БЛОКАХ
+LABEL RKHAND
+  R2=0 ; R3=^R0 ; R2=/12            % # цилиндра -> R2, сектора -> R3
+  R2=.ASL..ASL..ASL..ASL.           %Сдвигаем #цил., захватывая поверх.
+  R2=.BIS.R3                        %Об'единяем номера цил. и сектора
+* R2=.BIS.RKUNIT                    %Выбираем тарелку
+  R5='RKDAR'
+  @R5=R2
+  _R5=^R0                           %Адрес памяти
+  _R5=R2(^R0.SWAB..NEG.)            %Длина в блоках -> длина в словах
+  _R5='RKREAD*2+RKGO'
+  REPEAT WHILE @R5:>=0
+  IF @R5<0 GOTO ERROR
+  RETURN ,
+
+LOCALS LERROR
+  BYTES TXERR=RN.LF."<<FAILED!>>".0
+PROGRAM ERROR()
+  SP=&400
+  CALL DPC 'TXERR'
+  GOTO $
+
+LOCALS LDP
+  EQUALS COIST=&FF70,COOST=&FF74
+PROGRAM DPC()
+  (WHILE @R0:<>0
+    REPEAT WHILE @'COOST':>=0
+    @'COOST+2':=^R0
+  )WHILE
+  RETURN

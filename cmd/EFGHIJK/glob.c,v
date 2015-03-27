@@ -1,0 +1,899 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.04.10.14.08.29;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.22.13.06.25;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+команда печати имен файлов, удовлетворяющих шаблону.
+расширенная версия аналогичной встроенной команды C-shell-а
+@
+
+
+1.2
+log
+@open("") работает как open(".")
+@
+text
+@/*#!/bin/cc -o glob
+*/
+#include <stdio.h>
+#include <ctype.h>
+#include <pwd.h>
+#include <ediag.h>
+#include <sys/param.h>
+#include <dir.h>
+#include <errno.h>
+#include <stat.h>
+#define bool char
+
+char   *globchars = "`{[*?";
+
+extern  errno;
+static char *gpath,
+	   *gpathp,
+	   *lastgpathp;
+static int  globbed;
+bool noglob;
+bool nonomatch;
+static char *entp;
+static char **sortbas;
+int     except = 0;             /*  0 - удовл. шаблону
+				 *  1 - все КРОМЕ удовл. шаблону */
+
+#define digit isdigit
+extern char *malloc ();
+extern int stat(), lstat();
+
+/* #define GAVSIZ (NCARGS/10) */
+#define GAVSIZ  3000            /* максимальное число аргументов */
+#define TRIMED(c) ((c)&0377)
+
+char  **gargv;                  /* argv */
+short   gargc;                  /* number args in gargv */
+static short    gnleft;
+
+unsigned    want_mode;
+unsigned    uid,gid;
+
+/*      ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ         */
+
+#define eq( s1, s2 )  ( !strcmp( s1, s2))
+
+/* проверить, что smy лежит в интервале [smin, smax] */
+syinsy (smin, smy, smax)
+int     smin,
+	smy,
+	smax;
+{
+#ifdef Ucode
+    smin = Ctou (smin);
+    smy = Ctou (smy);
+    smax = Ctou (smax);
+#else
+    smin &= 0377;
+    smy &= 0377;
+    smax &= 0377;
+#endif Ucode
+    return (smy >= smin && smy <= smax);
+}
+
+/* сделать копию строки, получающейся конкатенацией cp и dp */
+char   *strspl (cp, dp) register char  *cp,
+				       *dp;
+{
+    register char  *ep = malloc (strlen (cp) + strlen (dp) + 1);
+    strcpy (ep, cp);
+    strcat (ep, dp);
+    return ep;
+}
+
+/* выдать указатель на конец строки */
+char   *strend (s) register char   *s;
+{
+    while (*s)
+	s++;
+    return s;
+}
+
+/* сохранить копию строки */
+char   *savestr (s) char   *s;
+{
+    char   *p;
+    p = malloc (strlen (s) + 1);
+    strcpy (p, s);
+    return p;
+}
+
+/* входит ли символ c в строку s ? */
+any (c, s) register int c;
+register char  *s;
+{
+    while (*s)
+	if (*s++ == c)
+	    return 1;
+    return 0;
+}
+
+/* выдать сообщение об ошибке */
+/* VARARGS */
+error (s, arg) char *s;
+{
+    if (s)
+	fprintf (stderr, s, arg), fprintf (stderr, ".\n");
+}
+
+/* является ли файл каталогом */
+#define isdir( d ) ((d.st_mode & S_IFMT ) == S_IFDIR )
+
+/* получить имя домашнего каталога пользователя */
+gethdir (user) char *user;
+{
+    register struct passwd *pp;
+    extern struct passwd   *getpwnam ();
+
+    pp = getpwnam (user);
+    if (pp == NULL)
+	return 1;
+    strcpy (user, pp -> pw_dir);
+    return 0;
+}
+
+/* допустим ли символ в имени пользователя */
+letter (c) char c;
+{
+    return (isalpha (c) || c == '_') && c != '\377';
+}
+
+/* очистить массив со структурой argv */
+blkfree (b) char   *b[];
+{
+    while (*b) {
+	free (*b);
+	*b = NULL;
+	b++;
+    }
+}
+
+/* сгенерить проверяемые коды доступа want_mode */
+mkmode( s ) char *s; {
+
+	uid = getuid();
+	gid = getgid();
+	want_mode = 0;
+
+	while( *s ){
+		switch ( *s ){
+		case 'd':
+			want_mode |= S_IFDIR ;break;
+		case 'f':
+			want_mode |= S_IFREG ;break;
+		case 'l':
+			want_mode |= S_IFLNK; break;
+
+		case 'r':
+			want_mode |= S_IREAD ;break;
+		case 'w':
+			want_mode |= S_IWRITE;break;
+		case 'x':
+			want_mode |= S_IEXEC ;break;
+		case 's':
+			want_mode |= S_ISUID ;break;
+		}
+		s++;
+	}
+}
+
+/********************************************************/
+/*              G L O B B E R                           */
+/********************************************************/
+
+char  **
+	glob (v)
+register char **v;
+{
+    char    agpath[BUFSIZ];
+    static char *agargv[GAVSIZ];
+
+    globbed = 0;
+    gpath = agpath;
+    gpathp = gpath;
+    *gpathp = 0;
+    lastgpathp = &gpath[sizeof agpath - 2];
+ /* выполнить начальные установки */
+    ginit (agargv);
+/* и так нулевые
+	noglob = 0;
+	nonomatch = 0;
+*/
+ /* проделать globbing с каждым из аргументов.
+  * Все накапливается в одном и том же массиве */
+    while (*v)
+	collect (*v++);
+    return agargv;
+}
+
+/* инициализация */
+ginit (agargv)
+char  **agargv;
+{
+
+    blkfree (agargv);
+    agargv[0] = 0;
+    gargv = sortbas = agargv;
+    gargc = 0;
+    gnleft = NCARGS - 4;
+}
+
+collect (as)
+register char  *as;
+{
+    if (noglob || eq (as, "{") || eq (as, "{}")) {
+	Gcat (as, "");
+	sort ();
+    }
+    else
+	acollect (as);
+}
+
+acollect (as)
+register char  *as;
+{
+    register int    ogargc = gargc;
+
+    gpathp = gpath;
+    *gpathp = 0;
+    globbed = 0;
+    expand (as);
+    if (gargc == ogargc) {
+	if (nonomatch) {
+	    Gcat (as, "");
+	    sort ();
+	}
+    }
+    else
+	sort ();
+}
+
+/* СОРТИРОВКА */
+
+int     sorttype = 0;
+
+bstrlcmp (s1, s2) char *s1,
+		       *s2;
+{
+    return - strlcmp (s1, s2);
+}
+
+strsfxcmp (s1, s2) char *s1,
+		       *s2;
+{
+    char   *p1,
+	   *p2;
+    char    c1,
+	    c2;
+    int     code;
+    extern char *lastpoint ();
+
+    p1 = lastpoint (s1);
+    p2 = lastpoint (s2);
+
+ /* W A W A . C . B
+  * !           !
+  * s1          p1
+  */
+
+    code = strlcmp (p1, p2);
+    if (code)
+	return code;            /* суффиксы разные */
+
+ /* иначе: суффиксы равны. Сортируем по головам */
+    c1 = *p1;
+    c2 = *p2;
+    *p1 = '\0';
+    *p2 = '\0';                 /* временно */
+
+    code = strlcmp (s1, s2);
+    *p1 = c1;
+    *p2 = c2;
+
+    return code;
+}
+
+/* найти последнюю точку в имени */
+char   *lastpoint (s) char *s;
+{
+    register char  *scan;
+    char   *last;
+
+    scan = last = s;
+    while (*scan) {
+	if (*scan == '.')
+	    last = scan;
+	scan++;
+    }
+    if (last == s && *s != '.')
+	last = scan;
+ /* либо в имени нет точек, либо точка на первом месте */
+ /* если НЕТ - тогда  last смотрит на \0 */
+    return last;
+}
+
+int     (*cmp[]) () = {
+	    strlcmp,
+	    bstrlcmp,
+	    strsfxcmp
+};
+
+/* отсортировать полученные (накопленные) строки по алфавиту */
+sort () {
+    register char **p1,
+		  **p2,
+		   *c;
+    char  **Gvp = &gargv[gargc];
+
+    p1 = sortbas;
+    while (p1 < Gvp - 1) {
+	p2 = p1;
+	while (++p2 < Gvp)
+	    if ((*cmp[sorttype]) (*p1, *p2) > 0)
+		c = *p1, *p1 = *p2, *p2 = c;
+	p1++;
+    }
+    sortbas = Gvp;
+}
+
+/* выполнить globbing одной строки
+
+  ~/filepat     - файлы в домашнем каталоге по шаблону filepat
+  ~user/filepat - файлы в домашнем каталоге пользователя user
+  <rw>*.c       - файлы *.c , доступные на чтение и запись для вас
+		r - чтение
+		w - запись
+		x - выполнение
+		d - каталог
+		f - обычный файл
+		l - символьная ссылка
+*/
+
+expand (as)
+char   *as;
+{
+    register char  *cs;
+    register char  *sgpathp,
+		   *oldcs;
+    struct stat stb;
+    char   *s;
+    extern char *getenv ();
+
+    want_mode = 0;
+
+    /* поискать указание кодов доступа */
+    if( *cs == '<' ){
+	 cs = as+1;
+	 while ( *cs && *cs != '>' )cs++;
+	 if( *cs == '>' ){
+		*cs = '\0';
+		mkmode( as+1 );
+		*cs = '>';
+		as = cs+1;
+	 }
+    }
+
+    sgpathp = gpathp;
+    cs = as;
+ /* разбор имен домашних каталогов */
+    if (*cs == '~' && gpathp == gpath) {
+	addpath ('~');
+	for (cs++; letter (*cs) || digit (*cs) || *cs == '-'; )
+	    addpath (*cs++);
+	if ( !*cs || *cs == '/' || *cs == '~' ){
+		if (gpathp != gpath + 1) {  /* больше одного символа ~ */
+		    *gpathp = 0;
+		    if (gethdir (gpath + 1))
+			error (ediag ("Unknown user: %s",
+				    "Неизвестный пользователь: %s"), gpath + 1);
+		    strcpy (gpath, gpath + 1);
+		}                           /* только символ ~ */
+		else
+		    strcpy (gpath, ((s = getenv ("HOME")) ? s : "."));
+		gpathp = strend (gpath);
+	}
+    }
+
+    while (!any (*cs, globchars)) {
+	if (*cs == 0) {
+	    if (!globbed)
+		Gcat (gpath, "");
+	    else
+		if (stat (gpath, &stb) >= 0) {
+		    Gcat (gpath, "");
+		}
+	    goto endit;
+	}
+	addpath (*cs++);
+    }
+    oldcs = cs;
+    while (cs > as && *cs != '/')
+	cs--, gpathp--;
+    if (*cs == '/')
+	cs++, gpathp++;
+    *gpathp = 0;
+
+ /* обработка {ab,cd}ef -> abef cdef */
+    if (*oldcs == '{') {
+	execbrc (cs, NULL);
+	return;
+    }
+ /* просмотр каталога, выборка имен файлов,
+  * удовлетворяющих шаблону */
+    matchdir (cs);
+endit:
+    gpathp = sgpathp;
+    *gpathp = 0;
+}
+
+/* просмотр каталога */
+matchdir (pattern)
+char   *pattern;
+{
+    struct stat stb;
+#ifndef U42
+    struct direct   dirbuf[BUFSIZ / sizeof (struct direct)];
+    char    d_name[DIRSIZ + 1];
+    register int    dirf,
+		    cnt;
+#else
+    register struct direct *dp;
+    DIR * dirp;
+    register int    cnt;
+#endif U42
+
+#ifndef U42
+    dirf = open ( *gpath ? gpath: ".", 0);
+    if (dirf < 0) {
+	if (globbed)
+	    return;
+	goto patherr;
+    }
+    if (fstat (dirf, &stb) < 0)
+	goto patherr;
+    if (!isdir (stb)) {
+	errno = ENOTDIR;
+	goto patherr;
+    }
+    while ((cnt = read (dirf, (char *) dirbuf, sizeof dirbuf)) >= sizeof dirbuf[0]) {
+	register struct direct *ep = dirbuf;
+
+	for (cnt /= sizeof (struct direct); cnt > 0; cnt--, ep++) {
+	    if (ep -> d_ino == 0)
+		continue;
+	    copdent (d_name, ep -> d_name);
+	    if (match (d_name, pattern) != except) {
+		Gcat (gpath, d_name);
+	    }
+	}
+    }
+    close (dirf);
+    return;
+patherr:
+#else
+    dirp = opendir ( *gpath ? gpath : "." );
+    if (dirp == NULL) {
+	if (globbed)
+	    return;
+	goto patherr2;
+    }
+    if (fstat (dirp -> dd_fd, &stb) < 0)
+	goto patherr1;
+    if (!isdir (stb)) {
+	errno = ENOTDIR;
+	goto patherr1;
+    }
+    while ((dp = readdir (dirp)) != NULL) {
+	if (dp -> d_ino == 0)
+	    continue;
+	if (match (dp -> d_name, pattern) != except) {
+	    Gcat (gpath, dp -> d_name);
+	}
+    }
+    closedir (dirp);
+    return;
+patherr1:
+    closedir (dirp);
+patherr2:
+#endif U42
+
+    perror (gpath);
+}
+
+#ifndef U42
+copdent (to, from)
+register char  *to,
+	       *from;
+{
+    register int    cnt = DIRSIZ;
+
+    do
+	*to++ = *from++;
+    while (--cnt);
+    *to = 0;
+}
+#endif U42
+
+/* обработка {}-скобочных структур */
+execbrc (p, s)
+char   *p,
+       *s;
+{
+    char    restbuf[BUFSIZ + 2];
+    register char  *pe,
+		   *pm,
+		   *pl;
+    int     brclev = 0;
+    char   *lm,
+	    savec,
+	   *sgpathp;
+
+    for (lm = restbuf; *p != '{'; *lm++ = *p++)
+	continue;
+    for (pe = ++p; *pe; pe++)
+	switch (*pe) {
+
+	    case '{':
+		brclev++;
+		continue;
+
+	    case '}':
+		if (brclev == 0)
+		    goto pend;
+		brclev--;
+		continue;
+
+	    case '[':
+		for (pe++; *pe && *pe != ']'; pe++)
+		    continue;
+		if (!*pe)
+		    error (ediag ("Missing ]",
+				"Нет ]"));
+		continue;
+	}
+pend:
+    if (brclev || !*pe)
+	error (ediag ("Missing }",
+		    "Нет }"));
+    for (pl = pm = p; pm <= pe; pm++)
+	switch (*pm & 0377) {
+
+	    case '{':
+		brclev++;
+		continue;
+
+	    case '}':
+		if (brclev) {
+		    brclev--;
+		    continue;
+		}
+		goto doit;
+
+	    case ',':
+		if (brclev)
+		    continue;
+	doit:
+		savec = *pm;
+		*pm = 0;
+		strcpy (lm, pl);
+		strcat (restbuf, pe + 1);
+		*pm = savec;
+		if (s == NULL) {
+		    sgpathp = gpathp;
+		    expand (restbuf);
+		    gpathp = sgpathp;
+		    *gpathp = 0;
+		}
+		else
+		    if (amatch (s, restbuf))
+			return (1);
+		sort ();
+		pl = pm + 1;
+		continue;
+
+	    case '[':
+		for (pm++; *pm && *pm != ']'; pm++)
+		    continue;
+		if (!*pm)
+		    error (ediag ("Missing ]",
+				"Нет ]"));
+		continue;
+	}
+    return (0);
+}
+
+/* сравнение строки s с регулярным выражением (шаблоном) p */
+match (s, p)
+char   *s,
+       *p;
+{
+    register int    c;
+    register char  *sentp;
+    char    sglobbed = globbed;
+
+    if (*s == '.' && *p != '.')
+	return (0);
+    sentp = entp;
+    entp = s;
+    c = amatch (s, p);
+    entp = sentp;
+    globbed = sglobbed;
+    return (c);
+}
+
+/* Проверить соответствие строки s шаблону p
+ * 1 - если соответствует, 0 - если нет.
+ * Синтаксис шаблона :
+ *              *         - 0 и более любых символов
+ *              ?         - 1 любой символ
+ *              [abcd]    - любой из символов a,b,c,d
+ *              [l-r]     - любой из символов от l до r
+ *              [^abcd]   - любой кроме a,b,c,d
+ *              [^l-r]    - любой не из интервала
+ *              [\]\[\-\^\\]  - сами символы ] и [ и ^ и - и \
+ */
+
+amatch (s, p)
+register char  *s,
+	       *p;
+{
+    register int    scc;
+    int     ok,
+	    lc;
+    char   *sgpathp;
+    struct stat stb;
+    register int    c;
+    int     cc;
+    int     okay;
+
+    globbed = 1;
+    for (;;) {
+	scc = TRIMED (*s++);
+	switch (c = (unsigned) * p++) {
+
+	    case '{':
+		return (execbrc (p - 1, s - 1));
+
+	    case '[':
+		ok = 0;
+		okay = 1;
+		lc = 077777;
+		if (*p == '^') {/* NOT */
+		    p++;
+		    okay = 0;
+		}
+		while (cc = (unsigned) * p++) {
+		    if (cc == '\\') {
+			cc = (unsigned) * p++;
+			goto usual;
+		    }
+		    else
+			if (cc == ']') {
+			    if (ok == okay)
+				break;/* success */
+			    return (0);/* failure */
+			}
+		    if (cc == '-') {
+			if (syinsy (lc, scc, (unsigned) * p++))
+			    ok++;
+		    }
+		    else
+		usual:  if (scc == (lc = cc))
+			    ok++;
+		}
+		if (cc == 0)
+		    error (ediag ("Missing ]",
+				"Нет ]"));
+		continue;
+
+	    case '*':
+		if (!*p)
+		    return (1);
+		if (*p == '/') {
+		    p++;
+		    goto slash;
+		}
+		for (s--; *s; s++)
+		    if (amatch (s, p))
+			return (1);
+		return (0);
+
+	    case 0:
+		return (scc == 0);
+
+	    case '\\':
+		c = (unsigned) * p++;
+		if (c == 0)
+		    return scc == 0;
+	    /* and fall into DEFAULT */
+
+	    default:
+		if (c != scc)
+		    return (0);
+		continue;
+
+	    case '?':
+		if (scc == 0)
+		    return (0);
+		continue;
+
+	    case '/':
+		if (scc)
+		    return (0);
+	slash:
+		s = entp;
+		sgpathp = gpathp;
+		while (*s)
+		    addpath (*s++);
+		addpath ('/');
+		if (stat (gpath, &stb) == 0 && isdir (stb))
+		    if (*p == 0) {
+			Gcat (gpath, "");
+		    }
+		    else
+			expand (p);
+		gpathp = sgpathp;
+		*gpathp = 0;
+		return (0);
+	}
+    }
+}
+
+/* добавить полученную строку в массив строк-результатов */
+Gcat (s1, s2)
+register char  *s1,
+	       *s2;
+{
+
+    gnleft -= strlen (s1) + strlen (s2) + 1;
+    if (gnleft <= 0 || ++gargc >= GAVSIZ)
+	error (ediag ("Arguments too long",
+		    "Слишком длинные аргументы"));
+    gargv[gargc] = 0;
+    gargv[gargc - 1] = strspl (s1, s2);
+
+ /* проверить, подходит ли по кодам доступа */
+    if (want_mode) {
+	struct stat st;
+	unsigned mode = want_mode & 0777;
+	int (*statf) ();
+
+	statf = ((want_mode & S_IFMT)==S_IFLNK) ? lstat:stat;
+
+	/* узнаем коды доступа и владельца файла */
+	(*statf)(gargv[gargc - 1], &st);
+
+	/* проверяем тип файла */
+	if ((want_mode & S_IFMT) &&   /* надо проверять тип */
+	     (st.st_mode & S_IFMT) !=
+	     (want_mode  & S_IFMT)
+	 )goto bad;
+
+	/* проверяем доступ к файлу */
+	if( want_mode & S_ISUID )
+		if((st.st_mode & S_ISUID)== 0 )goto bad;
+
+	if( st.st_uid == uid ){
+		if( (st.st_mode & mode) != mode ) goto bad;
+	}else{
+		mode >>= 3;
+		if( st.st_gid == gid ){
+			 if((st.st_mode & mode) != mode ) goto bad;
+		} else {
+			 mode >>= 3;
+			 if((st.st_mode & mode) != mode ) goto bad;
+		}
+	}
+
+	/* все OK */
+	return;
+
+bad:
+    /* иначе выкинуть */
+	if (gargc) {
+	    free (gargv[gargc - 1]);
+	    gargv[gargc - 1] = 0;
+	    gargc--;
+	}
+    }
+}
+
+/* добавить символ к имени каталога */
+addpath (c)
+char    c;
+{
+
+    if (gpathp >= lastgpathp)
+	error (ediag ("Pathname too long",
+		    "Слишком длинное полное имя"));
+    *gpathp++ = c;
+    *gpathp = 0;
+}
+
+/* тестовая головная функция */
+main (argc, argv) char *argv[];
+{
+    char    bf[80];
+    char   *s[2];
+
+    if (argc > 1 && eq (argv[1], "-e")) {
+	argc--;
+	argv++;
+	except++;
+    }
+    if (argc > 1 && eq (argv[1], "-n")) {
+	argc--;
+	argv++;
+	nonomatch++;
+    }
+    if (argc > 1 && eq (argv[1], "-b")) {
+	argc--;
+	argv++;
+	sorttype = 1;
+    }
+    if (argc > 1 && eq (argv[1], "-s")) {
+	argc--;
+	argv++;
+	sorttype = 2;
+    }
+
+    if (argc > 1) {
+	prnglob (glob (argv + 1));
+	exit (0);
+    }
+
+    while (gets (bf) != NULL) {
+	s[0] = bf;
+	s[1] = 0;
+	prnglob (glob (s));
+    }
+    exit (0);
+}
+
+/* распечатка результатов */
+prnglob (p) char  **p;
+{
+    if (p == NULL || *p == NULL)
+	fprintf (stderr, "No match.\n");
+    else
+	while (*p) {
+	    printf ("%s\n", *p);
+	    p++;
+	}
+    fflush (stdout);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d436 1
+a436 1
+    dirf = open (gpath, 0);
+d464 1
+a464 1
+    dirp = opendir (gpath);
+@

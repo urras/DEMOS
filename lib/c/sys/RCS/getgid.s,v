@@ -1,0 +1,47 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.41.28;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ gid	= getgid();
+
+.globl	_getgid
+
+_getgid:
+	mov	r5,-(sp)
+	mov	sp,r5
+	sys	getgid
+	mov	(sp)+,r5
+	rts	pc
+
+/ gid	= getegid();
+
+.globl	_getegid
+
+_getegid:
+	mov	r5,-(sp)
+	mov	sp,r5
+	sys	getgid
+	mov	r1,r0
+	mov	(sp)+,r5
+	rts	pc
+@

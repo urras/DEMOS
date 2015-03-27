@@ -1,0 +1,60 @@
+% === GPINIT === %  24.07.88 VERSION 3
+LOCALS LTEST
+  EQUALS CSR=&FAFE,DBR=&FAFC   %עוחיףפעש הוךףפקיפולרמן נועוףפבקלומש
+  REGISTERS PCONTR=%1
+
+%%--- גיפש עוחיףפעןק כןמפעןללועב INTEL-8251 (כ580קק51) ---%%
+%                    כןםבמהב
+  EQUALS SYNENB=&80   %עבתעוûומיו נןיףכב SYNC-ןק
+  EQUALS INTRST=&40   %קמץפעוממיך ףגעןף
+  EQUALS REQTRX=&20   %תבנעןף נועוהב‏י ק םןהום (דונר 105)
+  EQUALS ERRRST=&10   %ףגעןף ףיחמבלןק ןûיגכי
+  EQUALS SNDBRK=&08   %נןףלבפר "עבתעשק לימיי"
+  EQUALS ENBRCX=&04   %עבתעוûומיו נעיוםב כןמפעןללועןם
+  EQUALS REQRCX=&02   %תבנעןף נןיףכב ק םןהום (דונר 108)
+  EQUALS ENBTRX=&01   %עבתעוûומיו נועוהב‏י כןמפעללועןם
+%                   נעןחעבםםב
+  EQUALS STOP1=&40,STOP2=&80   %1/2 ףפןנןקשט גיפב
+  EQUALS EVEN=&20,ODD=&00      %עוצים כןמפעןלס נן ‏ופמןףפי
+  EQUALS YESPAR=&10            %עבתעוûומ כןמפעןלר נן ‏ופמןףפי
+  EQUALS BITS7=&08,BITS8=&0C   %7/8 גיפ ק ףיםקןלו
+  EQUALS CLCK16=&02,CLCK64=&03 %הולומיו פבכפןקןך ‏בףפןפש מב 16/64
+%                    ףפבפץף
+  EQUALS MDMRDY=&80   %םןהום חןפןק (דונר 107)
+  EQUALS SYNDET=&40   %וףפר SYNC!
+  EQUALS NOSTOP=&20   %מו מבךהומ ףפןנןקשך גיפ
+  EQUALS OVFRCX=&10   %נועונןלמומיו נעיוםמןחן גץזועב
+  EQUALS EPAR=&08     %ןûיגכב ‏ופמןףפי
+  EQUALS TRBUSY=&04   %יהופ נועוהב‏ב
+  EQUALS YESRCX=&02   %נעימספ ףיםקןל
+  EQUALS TRXRDY=&01   %נועוהבפ‏יכ חןפןק
+%%--------------------------------------------------------%%
+
+PROGRAM GPINIT(PCONTR,R5)
+  PCONTR='CSR'
+  @PCONTR=0           %נועוקןה ק עוצים כןםבמש (מב קףסכיך ףלץ‏בך)
+  @PCONTR=0
+  @PCONTR=0
+  @PCONTR='INTRST'    %קמץפע. ףגעןף -> נועוטןהים כ נעןחעבםםיעןקבמיא
+  (DCYCLE(R5) 40      %תבהועצכב הלס ץףפבמןקלומיס ףגעןףב
+  )DCYCLE
+
+  @PCONTR='BITS8+STOP1+CLCK16'          % 9600 BAUD 8N1
+  @PCONTR='REQTRX+ENBTRX+REQRCX+ENBRCX' %עבתעוûבום י נעיום י נועוהב‏ץ
+  RETURN
+
+PROGRAM GET()
+  R0=@'DBR'
+  RETURN
+
+PROGRAM PUT()
+  @'DBR'=R0
+  RETURN
+
+PROGRAM GTEST()
+  R0=@'CSR'.BIC.'&FFFF-YESRCX'
+  RETURN
+
+PROGRAM PTEST()
+  R0=@'CSR'.BIC.'&FFFF-TRXRDY'
+  RETURN

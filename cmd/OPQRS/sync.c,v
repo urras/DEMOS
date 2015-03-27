@@ -1,0 +1,69 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.06.05.21.40.49;  author guba;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.34.22;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Возвращал дурацкий код возврата
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: sync.c,v 1.1 88/05/03 20:34:22 root Exp $
+** $Log:	sync.c,v $
+ * Revision 1.1  88/05/03  20:34:22  root
+ * Initial revision
+ * 
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: sync.c,v 1.1 88/05/03 20:34:22 root Exp $";
+/* YESXSTR */
+# endif         lint
+ 
+main()
+{
+
+	sync();
+        exit(0);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d23 1
+@

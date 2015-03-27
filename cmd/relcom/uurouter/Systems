@@ -1,0 +1,113 @@
+#
+
+%e avg
+
+# SYSTEM/ROUTE #        METRIC  PATH            PASSWORD
+
+kiae.uucp|            100       kiae!/B
+
+msk.su                  0       @
+hq.demos.su             0       @
+bst.home.su             0       @       # bst glitch
+public.su               0       @       # public domain postmaster intercept
+*.chem.msu.su         100       kiae!/B
+msu.su                  0       @       # Moscow U domain postmaster intercept
+mgu.su                  0       @       # Moscow U domain postmaster intercept
+*.hq.demos.su           1       *
+demos.su                0       @
+Soviet-Union.eu.net|    0       @
+USSR.eu.net|            0       @
+suug.su|                0       @
+suug.uucp|              0       @
+
+mass.msk.su             100     m3s!
+twin.srcc.msu.su        100     twin!
+
+#dmy.home.demos.su       0       @      wADIM, NE ZAKRYWAJ. dvv
+#md.hq.demos.su          50      md1!
+md.hq.demos.su          0       @
+deg.hq.demos.su         50      deg!/S
+koch.hq.demos.su        50      koch!/S
+#tasha.hq.demos.su       40      tasha!@apg
+#
+radaus.msk.su           100     kiae!/B
+#
+#iias.spb.su             300     gsp!
+#*.iias.spb.su           300     gsp!
+#hm.spb.su               300     gsp!
+#imi.spb.su              300     gsp!
+#lomi.spb.su             300     gsp!
+#tor.spb.su              300     gsp!
+#lnpi.spb.su             300     gsp!
+#iiii.spb.su             300     gsp!
+#*.lnpi.spb.su           300     gsp!
+
+#*.spb.su                300     kaija!
+#
+#
+fuug.fi|                500     fuug!/FB
+#
+*.ew.su|                700     fuug!/FB
+*.au|                   700     fuug!/FB
+*.ar|                   700     fuug!/FB
+*.at|                   700     fuug!/FB
+*.be|                   700     fuug!/FB
+*.ca|                   700     fuug!/FB
+*.cn|                   700     fuug!/FB
+*.cdn|                  700     fuug!/FB
+*.ch|                   700     fuug!/FB
+*.cl|                   700     fuug!/FB
+*.de|                   700     fuug!/FB
+*.dk|                   700     fuug!/FB
+*.eg|                   700     fuug!/FB
+*.es|                   700     fuug!/FB
+*.fi|                   700     fuug!/FB
+*.fr|                   700     fuug!/FB
+*.gr|                   700     fuug!/FB
+*.hu|                   700     sztaki!/F
+*.ie|                   700     fuug!/FB
+*.il|                   700     fuug!/FB
+*.in|                   700     fuug!/FB
+*.irl|                  700     fuug!/FB
+*.is|                   700     fuug!/FB
+*.it|                   700     fuug!/FB
+*.jp|                   700     fuug!/FB
+*.kr|                   700     fuug!/FB
+*.my|                   700     fuug!/FB
+*.nl|                   700     fuug!/FB
+*.no|                   700     fuug!/FB
+*.nz|                   700     fuug!/FB
+*.pg|                   700     fuug!/FB
+*.pt|                   700     fuug!/FB
+*.se|                   700     fuug!/FB
+*.uk|                   700     fuug!/FB
+*.us|                   700     fuug!/FB
+*.yu|                   700     fuug!/FB
+*.za|                   700     fuug!/FB
+*.com|                  700     fuug!/FB
+*.edu|                  700     fuug!/FB
+*.org|                  700     fuug!/FB
+*.gov|                  700     fuug!/FB
+*.mil|                  700     fuug!/FB
+*.net|                  700     fuug!/FB
+*.arpa|                 700     fuug!/FB
+*.bitnet|               700     fuug!/FB
+*.csnet|                700     fuug!/FB
+*.junet|                700     fuug!/FB
+*.mailnet|              700     fuug!/FB
+*.decnet|               700     fuug!/FB
+
+*.kiae.su               100     kiae!/B
+kiae.su                 100     kiae!/B
+*.ua|                   100     kiae!/B
+*.su|                   100     kiae!/B
+#*                      100     kiae!
+
+*.ussr.com              0       -
+*.ussr.gov              0       -
+*.ussr.edu              0       -
+*.ussr.org              0       -
+*.ussr.mil              0       -
+
+$UUCP-list.uucp|        700     fuug!/FB
+*.uucp|                 0       -

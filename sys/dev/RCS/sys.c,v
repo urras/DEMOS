@@ -1,0 +1,186 @@
+head     22.2;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз0:1.2.1;
+locks    ;
+comment  @ * @;
+
+
+22.2
+date     89.04.28.15.22.24;  author avg;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.35.30;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.33.22;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.06.06.14.32.21;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.55.04;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.2
+log
+@Убран #ifdef IPK_SELECT
+@
+text
+@/*
+ * $Log:	sys.c,v $
+ * Revision 22.1  89/04/12  14:35:30  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:33:22  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.2  88/06/06  14:32:21  korotaev
+ * Вставлен IPK_SELECT (from TCP/IP).
+ * 
+ * Revision 1.1  86/04/19  17:55:04  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ *      indirect driver for controlling tty.
+ */
+#include <sys/param.h>
+#include <sys/conf.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/proc.h>
+
+
+syopen(dev, flag)
+dev_t dev;
+{
+	if(u.u_ttyp == NULL) {
+		u.u_error = ENXIO;
+		return;
+	}
+	(*cdevsw[major(u.u_ttyd)].d_open)(u.u_ttyd, flag);
+}
+
+syread(dev)
+dev_t dev;
+{
+	if (u.u_ttyp == NULL) {
+		u.u_error = ENXIO;
+		return;
+	}
+	(*cdevsw[major(u.u_ttyd)].d_read)(u.u_ttyd);
+}
+
+sywrite(dev)
+dev_t dev;
+{
+	if (u.u_ttyp == NULL) {
+		u.u_error = ENXIO;
+		return;
+	}
+	(*cdevsw[major(u.u_ttyd)].d_write)(u.u_ttyd);
+}
+
+sysioctl(dev, cmd, addr, flag)
+dev_t dev;
+caddr_t addr;
+{
+	if (cmd == TIOCNOTTY) {
+		u.u_ttyp = 0;
+		u.u_ttyd = 0;
+		u.u_procp->p_pgrp = 0;
+		return;
+	}
+	if (u.u_ttyp == NULL) {
+		u.u_error = ENXIO;
+		return;
+	}
+	(*cdevsw[major(u.u_ttyd)].d_ioctl)(u.u_ttyd, cmd, addr, flag);
+}
+
+syselect(dev, flag)
+{
+	if (u.u_ttyp == NULL) {
+		u.u_error = ENXIO;
+		return (0);
+	}
+	return ((*cdevsw[major(u.u_ttyd)].d_select)(u.u_ttyd, flag));
+}
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+a74 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a82 1
+#endif
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d3 3
+d17 1
+a17 1
+#include "param.h"
+@
+
+
+1.2
+log
+@Вставлен IPK_SELECT (from TCP/IP).
+@
+text
+@d3 3
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+a31 1
+#ifdef  UCB_NET
+a35 1
+#endif
+a41 1
+#ifdef  UCB_NET
+a45 1
+#endif
+a52 1
+#ifdef  UCB_NET
+a62 1
+#endif
+d66 1
+a66 1
+#ifdef  UCB_NET
+@

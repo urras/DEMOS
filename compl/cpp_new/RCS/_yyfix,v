@@ -1,0 +1,63 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.2
+date     88.09.29.22.08.45;  author dvolodin;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.01.11.16.03.56;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+SCRIPT 1для обработки выдачи yacc.
+@
+
+
+1.2
+log
+@Исправлена обработка rodata.c
+@
+text
+@cat /dev/null > rodata.c
+foreach  i ( $* )
+ed - y.tab.c <<endedprog
+/^\(.*\)${i}[ 	]*\[]/s//extern \1 ${i}[];\\
+\1 $i []/
+-ka
+/}/kb
+'ar rodata.c
+'a+,'bw rodata.c
+'a+,'bd
+w
+q
+endedprog
+end
+@
+
+
+1.1
+log
+@Версия ид ДЕМОС 1.3 & МНОС РЛ 1.2
+@
+text
+@d4 1
+a4 1
+/^\(.*\)${i}[     ]*\[]/s//extern \1 ${i}[];\\
+d6 1
+a6 1
+.ka
+d8 3
+a10 3
+'a-r rodata.c
+'a,'bw rodata.c
+'a,'bd
+@

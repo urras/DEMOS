@@ -1,0 +1,80 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.2
+date     88.08.30.13.55.14;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.06.24.20.52.10;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Приведено в соответствие с BSD4.2
+@
+text
+@/ $Header: select.s,v 1.1 88/06/24 20:52:10 ache Exp $
+/ $Log:	select.s,v $
+/ Revision 1.1  88/06/24  20:52:10  ache
+/ Initial revision
+/ 
+/
+/ nfd = select( nfds, rdes, wdes, edes, tv );
+/       int     nfds;
+/       fd_set *rdes, *wdes, *edes;
+/       struct  timeval *tv;
+/
+
+.globl  _select
+.globl  cerror
+
+_select:
+	mov     r5,-(sp)
+	mov     sp,r5
+	mov     4.(r5),r0
+	mov     6.(r5),0f
+	mov     8.(r5),0f+2
+	mov     10.(r5),0f+4
+	mov     12.(r5),0f+6
+	sys     local; 9f
+	bec     1f
+	jmp     cerror
+1:
+	mov     (sp)+, r5
+	rts	pc
+.data
+9:
+	sys     select; 0:..; ..; ..; ..
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/ $Header$
+/ $Log$
+d7 1
+a7 1
+/ nfd = select( nfds, rdes, wdes, milli );
+d9 2
+a10 2
+/       fd_set *rdes, *wdes;
+/       long    milli;
+@

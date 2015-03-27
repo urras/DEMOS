@@ -1,0 +1,1795 @@
+head     1.26;
+access   avg dvolodin flerov davidov alex fox korotaev abs ache;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.26
+date     89.06.22.19.22.39;  author abs;  state Exp;
+branches ;
+next     1.25;
+
+1.25
+date     89.06.20.14.43.20;  author ache;  state Exp;
+branches ;
+next     1.24;
+
+1.24
+date     88.12.05.17.53.17;  author abs;  state Exp;
+branches ;
+next     1.23;
+
+1.23
+date     88.12.05.15.14.36;  author abs;  state Exp;
+branches ;
+next     1.22;
+
+1.22
+date     88.11.11.22.25.54;  author root;  state Exp;
+branches ;
+next     1.21;
+
+1.21
+date     88.11.11.21.44.03;  author root;  state Exp;
+branches ;
+next     1.20;
+
+1.20
+date     88.11.11.21.40.11;  author root;  state Exp;
+branches ;
+next     1.19;
+
+1.19
+date     88.11.11.20.27.45;  author root;  state Exp;
+branches ;
+next     1.18;
+
+1.18
+date     88.10.13.00.19.34;  author dvolodin;  state Exp;
+branches ;
+next     1.17;
+
+1.17
+date     88.09.30.17.14.01;  author root;  state Exp;
+branches ;
+next     1.16;
+
+1.16
+date     88.09.22.15.57.51;  author root;  state Exp;
+branches ;
+next     1.15;
+
+1.15
+date     88.09.22.15.31.37;  author root;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     88.09.20.17.41.39;  author korotaev;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     88.09.14.16.07.02;  author root;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.09.13.21.04.55;  author korotaev;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.07.19.20.56.20;  author root;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.07.09.16.57.49;  author root;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.07.09.16.50.14;  author root;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.03.17.20.04.02;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.03.17.19.36.11;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.10.01.13.22.31;  author dmitry;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.12.21.17.48.10;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.10.15.20.05.27;  author alex;  state Stab;
+branches ;
+next     1.3;
+
+1.3
+date     86.04.22.18.06.49;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.04.19.12.19.59;  author avg;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.18.22.35.54;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Общий Makefile для всяких административных программок.
+@
+
+
+1.26
+log
+@++ label
+@
+text
+@#
+# Общий Makefile для всяких административных штучек.
+# Автор: Антонов В.Г.
+#
+# $Log: Makefile,v $
+# Revision 1.25  89/06/20  14:43:20  ache
+# Везде убран ключ -s и вставлен -strip при инсталяции.
+# mv снова заменено на cp.
+#
+# Revision 1.24  88/12/05  17:53:17  abs
+# добавлена fsdb
+#
+# Revision 1.23  88/12/05  15:14:36  abs
+# dump && restor && dumpdir переведены в /etc
+#
+# Revision 1.22  88/11/11  22:25:54  root
+# Убраны выпадения из-за того, что нет таблицы имен для -strip .
+#
+# Revision 1.21  88/11/11  21:44:03  root
+# Правлена опечатка про mknod.
+#
+# Revision 1.20  88/11/11  21:40:11  root
+# изменено инсталлирование: вместо cp
+#       делается mv
+#       и заводится ПУСТОЙ файл ./имя
+#
+# Revision 1.19  88/11/11  20:27:45  root
+# добавлены icheck и fsck.
+#
+# Revision 1.18  88/10/13  00:19:34  dvolodin
+# Добавлен mknod
+#
+#
+# Revision 1.17  88/09/30  17:14:01  root
+# от abs:
+# из-за того, что login-у принудительно ставился
+# хозяин bin получался 39 приоритет.
+# Сделан хозяин root (как и должно быть).
+#
+# Revision 1.16  88/09/22  15:57:51  root
+# Выкинули ddateconv вооще (по avg).
+#
+# Revision 1.14  88/09/20  17:41:39  korotaev
+# Теперь используется взде ключ -O у cc.
+#
+# Revision 1.13  88/09/14  16:07:02  root
+# Устанавливается насильно хозяин файла.
+#
+# Revision 1.12  88/09/13  21:04:55  korotaev
+# От-xstr-ена обработка login.c
+#
+# Revision 1.11  88/07/19  20:56:20  root
+# chksecurity не ставились биты 's'
+#
+# Revision 1.10  88/07/09  16:57:49  root
+# Заменили checksecurity на chksecurity.
+#
+# Revision 1.9  88/07/09  16:50:14  root
+# Добавлена цель checksecurity.
+#
+# Revision 1.8  88/03/17  20:04:02  avg
+# The same.
+#
+# Revision 1.7  88/03/17  19:36:11  avg
+# Наведен некоторый порядок и добавлен ncheck
+#
+# Revision 1.6  87/10/01  13:22:31  dmitry
+# Added by alex: newfs, mkfs.
+#
+# Revision 1.5  86/12/21  17:48:10  alex
+# Добавлены dmesg, savecore.
+#
+# Revision 1.4  86/10/15  20:05:27  alex
+# Добавлены mount, umount, dump, restor, dumpdir.
+#
+# Revision 1.3  86/04/22  18:06:49  avg
+# Добавлена команда su и добавлены зависимости от
+# includ-ов.
+#
+# Revision 1.2  86/04/19  12:19:59  avg
+# Исправлена ошибка в выборке init.c.
+#
+# Revision 1.1  86/04/18  22:35:54  root
+# Initial revision
+#
+#
+
+CFLAGS=-O
+LDFLAGS=-n
+# Если версия исх. текстов без архивов RCS
+# установите R=X
+R=
+COFLAGS=
+RCS=RCS
+
+I=/usr/include
+IS=/usr/include/sys
+
+
+ALL=getty init stty login su dump dumpdir restor mount umount df \
+    reboot dmesg savecore mkfs newfs chksecurity mknod fsck icheck fsdb
+
+all: $(ALL)
+###
+
+install: i_getty i_init i_stty i_login i_su i_dump i_dumpdir i_restor\
+	 i_mount i_umount i_df i_reboot i_dmesg i_savecore\
+	 i_newfs i_mkfs i_ncheck i_chksecurity i_mknod \
+	 i_icheck i_fsck i_fsdb i_label
+#######
+
+source: getty.c getty1.c init.c stty.c login.c su.c dump.c dumpdir.c \
+	restor.c mount.c umount.c df.c reboot.c \
+	dmesg.c savecore.c newfs.csh mkfs.c ncheck.c icheck.c fsck.c fsdb.c \
+	label.c
+######
+
+
+### GETTY ###
+
+i_getty: getty
+	-rm -f /etc/getty
+	cp getty /etc/getty
+	-strip /etc/getty
+	chown root /etc/getty
+	chgrp sys /etc/getty
+	chmod 500 /etc/getty
+
+getty:  getty.o getty1.o
+	cc $(LDFLAGS) ${CFLAGS} getty.o getty1.o -o getty -ltermcap
+
+getty.o:  $(I)/stdio.h $(I)/whoami.h $(I)/sgtty.h $(I)/signal.h
+getty1.o: $(I)/sgtty.h
+
+$(R)getty.c: $(RCS)/getty.c,v
+	co $(COFLAGS) getty.c
+
+$(R)getty1.c: $(RCS)/getty1.c,v
+	co $(COFLAGS) getty1.c
+
+
+### INIT ###
+
+i_init: init
+	-rm -f /etc/init
+	cp init /etc/init
+	-strip /etc/init
+	chown root /etc/init
+	chgrp sys /etc/init
+	chmod 500 /etc/init
+
+init:   init.o
+	cc ${CFLAGS} init.o -o init
+
+init.o: $(I)/whoami.h $(I)/signal.h $(IS)/types.h $(I)/utmp.h
+init.o: $(I)/setjmp.h $(IS)/reboot.h $(I)/errno.h $(IS)/autoconfig.h
+
+$(R)init.c: $(RCS)/init.c,v
+	co $(COFLAGS) init.c
+
+
+### STTY ###
+
+i_stty: stty
+	-rm -f /bin/stty
+	cp stty /bin/stty
+	-strip /bin/stty
+	chown bin /bin/stty
+	chgrp sys /bin/stty
+	chmod 755 /bin/stty
+
+stty:   stty.o
+	cc ${CFLAGS} stty.o -o stty
+
+stty.o: $(I)/whoami.h $(I)/sgtty.h $(I)/stdio.h
+
+$(R)stty.c: $(RCS)/stty.c,v
+	co $(COFLAGS) stty.c
+
+
+### LOGIN ###
+
+i_login: $(R)login
+	-rm -f /bin/login
+	cp login /bin/login
+	-strip /bin/login
+	chown root /bin/login
+	chgrp sys /bin/login
+	chmod 6755 /bin/login
+
+login: login.c
+login: $(I)/whoami.h $(IS)/types.h $(I)/sgtty.h $(I)/utmp.h
+login: $(I)/pwd.h $(I)/stdio.h $(IS)/stat.h $(I)/lastlog.h
+login: $(I)/grp.h $(I)/ediag.h $(I)/signal.h
+	cc -C -P login.c
+	xstr login.i
+	cc $(LDFLAGS) ${CFLAGS} xs.c x.c -o login
+	-rm -f xs.[co] x.[co] login.i
+
+$(R)login.c: $(RCS)/login.c,v
+	co $(COFLAGS) login.c
+
+
+### SU ###
+
+i_su:  su
+	-rm -f /bin/su
+	cp su /bin/su
+	-strip /bin/su
+	chown root /bin/su
+	chgrp sys /bin/su
+	chmod 4755 /bin/su
+
+su:     su.o
+	cc $(LDFLAGS) ${CFLAGS} su.o -o su
+
+su.o:   $(I)/whoami.h  $(I)/stdio.h $(I)/pwd.h $(IS)/types.h
+su.o:   $(IS)/stat.h   $(I)/ediag.h
+
+$(R)su.c: $(RCS)/su.c,v
+	co $(COFLAGS) su.c
+
+### DUMPDIR ###
+
+i_dumpdir: dumpdir
+	-rm -f /etc/dumpdir
+	cp dumpdir /etc/dumpdir
+	-strip /etc/dumpdir
+	chown bin /etc/dumpdir
+	chgrp sys /etc/dumpdir
+	chmod 0755 /etc/dumpdir
+
+dumpdir:  dumpdir.o
+	cc $(LDFLAGS) ${CFLAGS} dumpdir.o -o dumpdir
+
+dumpdir.o: $(I)/whoami.h $(I)/stdio.h $(I)/dumprestor.h
+dumpdir.o: $(IS)/param.h $(IS)/inode.h $(IS)/ino.h $(IS)/fblk.h
+dumpdir.o: $(IS)/filsys.h $(IS)/dir.h
+
+$(R)dumpdir.c: $(RCS)/dumpdir.c,v
+	co $(COFLAGS) dumpdir.c
+
+### UMOUNT ###
+
+i_umount: umount
+	-rm -f /etc/umount
+	cp umount /etc/umount
+	-strip /etc/umount
+	chown root /etc/umount
+	chgrp sys /etc/umount
+	chmod 0755 /etc/umount
+
+umount:  umount.o
+	cc $(LDFLAGS) ${CFLAGS} umount.o -o umount
+
+umount.o: $(I)/fstab.h $(I)/stdio.h $(I)/ediag.h
+
+$(R)umount.c: $(RCS)/umount.c,v
+	co $(COFLAGS) umount.c
+
+### MOUNT ###
+
+i_mount: mount
+	-rm -f /etc/mount
+	cp mount /etc/mount
+	-strip /etc/mount
+	chown root /etc/mount
+	chgrp sys /etc/mount
+	chmod 0755 /etc/mount
+
+mount:  mount.o
+	cc $(LDFLAGS) ${CFLAGS} mount.o -o mount
+
+mount.o: $(I)/fstab.h $(I)/stdio.h $(I)/ediag.h
+
+$(R)mount.c: $(RCS)/mount.c,v
+	co $(COFLAGS) mount.c
+
+### RESTOR ###
+
+i_restor: restor
+	-rm -f /etc/restor
+	cp restor /etc/restor
+	-strip /etc/restor
+	chown bin /etc/restor
+	chgrp sys /etc/restor
+	chmod 0755 /etc/restor
+
+restor: restor.c $(I)/ediag.h $(I)/whoami.h $(I)/stdio.h $(I)/signal.h\
+	$(IS)/param.h $(IS)/inode.h $(IS)/ino.h $(IS)/fblk.h $(IS)/filsys.h\
+	$(IS)/dir.h $(I)/dumprestor.h
+		cc -C -P restor.c
+		xstr restor.i
+		cc -c $(CFLAGS) x.c
+		-rm -f x.c
+		cc -S $(CFLAGS) xs.c
+		-rm -f xs.c
+		sed "s/^\.data/.text/" xs.s > xy.s
+		-rm -f xs.s
+		cc ${CFLAGS} xy.s x.o -o restor
+		c7t10 restor
+		-rm -f x.o xy.s xy.o restor.i
+
+$(R)restor.c: $(RCS)/restor.c,v
+	co $(COFLAGS) restor.c
+
+### DUMP ###
+
+i_dump: dump
+	-rm -f /etc/dump
+	cp dump /etc/dump
+	-strip /etc/dump
+	chown bin /etc/dump
+	chgrp sys /etc/dump
+	chmod 0755 /etc/dump
+
+dump:   dump.c $(I)/ediag.h $(I)/whoami.h $(I)/stdio.h $(IS)/param.h\
+	$(IS)/inode.h $(IS)/ino.h $(IS)/fblk.h $(IS)/filsys.h $(IS)/dir.h\
+	$(IS)/file.h $(I)/dumprestor.h
+		cc -C -P dump.c
+		xstr dump.i
+		cc -c $(CFLAGS) x.c
+		-rm -f x.c
+		cc -S $(CFLAGS) xs.c
+		-rm -f xs.c
+		sed "s/^\.data/.text/" xs.s > xy.s
+		-rm -f xs.s
+		cc ${CFLAGS} xy.s x.o -o dump
+		-c7t10 dump
+		-rm -f x.o xy.s xy.o dump.i
+
+$(R)dump.c: $(RCS)/dump.c,v
+	co $(COFLAGS) dump.c
+
+### DF ###
+
+i_df: df
+	-rm -f /bin/df
+	cp df /bin/df
+	-strip /bin/df
+	chown root /bin/df
+	chgrp sys /bin/df
+	chmod 6755 /bin/df
+
+df:    df.c $(I)/mtab.h $(I)/fstab.h $(I)/ediag.h \
+       $(IS)/param.h   $(IS)/filsys.h   $(IS)/ino.h\
+       $(IS)/fblk.h   $(IS)/stat.h
+	cc $(LDFLAGS) ${CFLAGS} df.c -o df
+
+$(R)df.c: $(RCS)/df.c,v
+	co $(COFLAGS) df.c
+
+### REBOOT ###
+
+i_reboot: reboot
+	-rm -f /etc/reboot
+	cp reboot /etc/reboot
+	-strip /etc/reboot
+	chown root /etc/reboot
+	chgrp sys /etc/reboot
+	chmod 0755 /etc/reboot
+
+reboot:  reboot.c $(I)/whoami.h $(I)/stdio.h $(I)/ediag.h $(I)/errno.h\
+       $(IS)/param.h   $(I)/signal.h $(I)/time.h $(IS)/reboot.h
+	cc ${CFLAGS} reboot.c -o reboot
+
+$(R)reboot.c: $(RCS)/reboot.c,v
+	co $(COFLAGS) reboot.c
+
+### NEWFS ###
+
+newfs: i_newfs.csh
+i_newfs: newfs.csh
+	-rm -f /etc/newfs
+	cp newfs.csh /etc/newfs
+	chown root /etc/newfs
+	chgrp sys /etc/newfs
+	chmod 0755 /etc/newfs
+
+$(R)newfs.csh: $(RCS)/newfs.csh,v
+	co $(COFLAGS) newfs.csh
+
+### MKFS ###
+
+i_mkfs: mkfs
+	-rm -f /etc/mkfs
+	cp mkfs /etc/mkfs
+	-strip /etc/mkfs
+	chown root /etc/mkfs
+	chgrp sys /etc/mkfs
+	chmod 0755 /etc/mkfs
+
+mkfs:  mkfs.c $(I)/a.out.h $(I)/stdio.h\
+       $(IS)/param.h  $(IS)/dir.h $(IS)/fblk.h \
+       $(IS)/filsys.h $(IS)/inode.h $(IS)/localopts.h
+	cc ${CFLAGS} mkfs.c -o mkfs
+
+$(R)mkfs.c: $(RCS)/mkfs.c,v
+	co $(COFLAGS) mkfs.c
+
+### SAVECORE ###
+
+i_savecore: savecore
+	-rm -f /etc/savecore
+	cp savecore /etc/savecore
+	-strip /etc/savecore
+	chown root /etc/savecore
+	chgrp sys /etc/savecore
+	chmod 0755 /etc/savecore
+
+savecore: savecore.c $(I)/a.out.h $(I)/stdio.h\
+       $(IS)/param.h  $(IS)/dir.h $(IS)/stat.h \
+       $(IS)/filsys.h $(I)/time.h $(IS)/localopts.h
+	cc ${CFLAGS} savecore.c -o savecore
+
+$(R)savecore.c: $(RCS)/savecore.c,v
+	co $(COFLAGS) savecore.c
+
+### DMESG ###
+
+i_dmesg: dmesg
+	-rm -f /etc/dmesg
+	cp dmesg /etc/dmesg
+	-strip /etc/dmesg
+	chown root /etc/dmesg
+	chgrp sys /etc/dmesg
+	chmod 04755 /etc/dmesg
+
+dmesg:  dmesg.c $(I)/a.out.h $(I)/stdio.h $(IS)/param.h $(IS)/localopts.h
+	cc ${CFLAGS} dmesg.c -o dmesg
+
+$(R)dmesg.c: $(RCS)/dmesg.c,v
+	co $(COFLAGS) dmesg.c
+
+### NCHECK ###
+
+i_ncheck: ncheck
+	-rm -f /etc/ncheck
+	cp ncheck /etc/ncheck
+	-strip /etc/ncheck
+	chown root /etc/ncheck
+	chgrp sys /etc/ncheck
+	chmod 0755 /etc/ncheck
+
+ncheck: ncheck.c $(I)/whoami.h $(I)/stdio.h $(I)/ediag.h $(IS)/param.h \
+	$(IS)/inode.h $(IS)/ino.h $(IS)/dir.h $(IS)/filsys.h $(IS)/fblk.h
+	cc -o ncheck ${CFLAGS} ncheck.c
+
+$(R)ncheck.c: $(RCS)/ncheck.c,v
+	co $(COFLAGS) ncheck.c
+
+### ICHECK ###
+
+i_icheck: icheck
+	-rm -f /etc/icheck
+	cp icheck /etc/icheck
+	-strip /etc/icheck
+	chown root /etc/icheck
+	chgrp sys /etc/icheck
+	chmod 0755 /etc/icheck
+
+icheck: icheck.c $(I)/whoami.h $(I)/ediag.h $(IS)/param.h \
+	$(IS)/inode.h $(IS)/ino.h $(IS)/filsys.h $(IS)/fblk.h
+	cc -o icheck ${CFLAGS} icheck.c
+
+$(R)icheck.c: $(RCS)/icheck.c,v
+	co $(COFLAGS) icheck.c
+
+### FSCK ###
+
+i_fsck: fsck
+	-rm -f /etc/fsck
+	cp fsck /etc/fsck
+	-strip /etc/fsck
+	chown root /etc/fsck
+	chgrp sys /etc/fsck
+	chmod 0755 /etc/fsck
+
+fsck: fsck.c fsck1.c $(I)/stdio.h $(I)/ctype.h $(I)/ediag.h $(IS)/param.h \
+	$(IS)/inode.h $(IS)/ino.h $(IS)/dir.h $(IS)/filsys.h $(IS)/fblk.h \
+	$(I)/fstab.h $(IS)/stat.h
+		cc -C -P fsck.c
+		xstr fsck.i
+		cc -c $(CFLAGS) x.c
+		-rm -f x.c
+		cc -S $(CFLAGS) xs.c
+		-rm -f xs.c
+		sed "s/^\.data/.text/" xs.s > xy.s
+		-rm -f xs.s
+		cc ${CFLAGS} xy.s x.o -o fsck
+		c7t10 fsck
+		-rm -f x.o xy.s xy.o fsck.i
+
+$(R)fsck.c: $(RCS)/fsck.c,v
+	co $(COFLAGS) fsck.c
+
+$(R)fsck1.c: $(RCS)/fsck1.c,v
+	co $(COFLAGS) fsck1.c
+
+### FSDB ###
+
+i_fsdb: fsdb
+	-rm -f /etc/fsdb
+	cp fsdb /etc/fsdb
+	-strip /etc/fsdb
+	chown root /etc/fsdb
+	chgrp sys /etc/fsdb
+	chmod 0755 /etc/fsdb
+
+fsdb: fsdb.c $(I)/stdio.h $(I)/ctype.h $(I)/ediag.h $(IS)/param.h \
+	$(IS)/inode.h $(IS)/ino.h $(IS)/dir.h $(IS)/filsys.h $(IS)/fblk.h \
+	$(I)/fstab.h
+	cc -o fsdb ${CFLAGS} fsdb.c
+
+$(R)fsdb.c: $(RCS)/fsdb.c,v
+	co $(COFLAGS) fsdb.c
+
+### LABEL ###
+
+i_label: label
+	-rm -f /etc/label
+	cp label /etc/label
+	-strip /etc/label
+	chown root /etc/label
+	chgrp sys /etc/label
+	chmod 0755 /etc/label
+
+label: label.c $(I)/stdio.h $(I)/ediag.h $(IS)/param.h \
+	$(IS)/inode.h $(IS)/ino.h $(IS)/filsys.h
+	cc -o label ${CFLAGS} label.c
+
+$(R)label.c: $(RCS)/label.c,v
+	co $(COFLAGS) label.c
+
+### CHKSECURITY ###
+
+i_chksecurity: chksecurity
+	-rm -f /etc/chksecurity
+	cp chsec.sh /etc/chksecurity
+	chown root /etc/chksecurity
+	chgrp sys /etc/chksecurity
+	chmod 06755 /etc/chksecurity
+
+chksecurity: chsec.sh
+
+$(R)chsec.sh: $(RCS)/chsec.sh,v
+	co $(COFLAGS) chsec.sh
+
+### MKNOD ###
+
+i_mknod: mknod
+	-rm -f /etc/mknod
+	cp mknod /etc/mknod
+	-strip /etc/mknod
+	chown root /etc/mknod
+	chgrp sys /etc/mknod
+	chmod 0755 /etc/mknod
+
+mknod: mknod.c $(I)/stdio.h $(I)/ediag.h
+	$(CC) -o mknod $(CFLAGS) mknod.c
+
+$(R)mknod.c: $(RCS)/mknod.c,v
+	co $(COFLAGS) mknod.c
+
+clear clean:
+	-rm -f $(ALL) chsec.sh
+	-rm -f *.[ob] *.bak
+
+CLRSRC: clear
+	-rm -f *.[ch] *.csh
+@
+
+
+1.25
+log
+@Везде убран ключ -s и вставлен -strip при инсталяции.
+mv снова заменено на cp.
+@
+text
+@d5 5
+a9 1
+# $Log:	Makefile,v $
+d12 1
+a12 1
+# 
+d109 1
+a109 1
+	 i_icheck i_fsck i_fsdb
+d114 2
+a115 1
+	dmesg.c savecore.c newfs.csh mkfs.c ncheck.c icheck.c fsck.c fsdb.c
+d517 17
+@
+
+
+1.24
+log
+@добавлена fsdb
+@
+text
+@d5 4
+a8 1
+# $Log: Makefile,v $
+d13 1
+a13 1
+# Убраны выпадения из-за того, что нет таблицы имен для strip .
+d85 1
+a85 1
+
+d118 1
+a118 2
+	mv getty /etc/getty
+	touch getty
+d125 1
+a125 1
+	cc -n ${CFLAGS} getty.o getty1.o -o getty -ltermcap
+d141 2
+a142 2
+	mv init /etc/init
+	touch init
+d148 1
+a148 1
+	cc -s ${CFLAGS} init.o -o init
+d161 2
+a162 2
+	mv stty /bin/stty
+	touch stty
+d168 1
+a168 1
+	cc -s ${CFLAGS} stty.o -o stty
+d180 2
+a181 2
+	mv login /bin/login
+	touch login
+a183 1
+	-strip /bin/login
+d190 4
+a193 3
+	xstr login.c
+	cc -n ${CFLAGS} xs.c x.c -o login
+	-rm -f xs.[co] x.[co]
+d203 2
+a204 2
+	mv su /bin/su
+	touch su
+d210 1
+a210 1
+	cc -s -n ${CFLAGS} su.o -o su
+d222 2
+a223 2
+	mv dumpdir /etc/dumpdir
+	touch dumpdir
+d229 1
+a229 1
+	cc -s -n ${CFLAGS} dumpdir.o -o dumpdir
+d242 2
+a243 2
+	mv umount /etc/umount
+	touch umount
+d249 1
+a249 1
+	cc -s -n ${CFLAGS} umount.o -o umount
+d259 3
+a261 3
+	-rm -f /bin/mount /etc/mount
+	mv mount /etc/mount
+	touch mount
+d267 1
+a267 1
+	cc -s -n ${CFLAGS} mount.o -o mount
+d278 2
+a279 2
+	mv restor /etc/restor
+	touch restor
+d287 2
+a288 1
+		xstr restor.c
+d295 3
+a297 3
+		cc -s ${CFLAGS} xy.s x.o -o restor
+#               -c7t10 restor
+		-rm -f x.o xy.s xy.o
+d306 2
+a307 2
+	mv dump /etc/dump
+	touch dump
+d315 2
+a316 1
+		xstr dump.c
+d323 3
+a325 3
+		cc -s ${CFLAGS} xy.s x.o -o dump
+#               -c7t10 dump
+		-rm -f x.o xy.s xy.o
+d334 2
+a335 2
+	mv df /bin/df
+	touch df
+d343 1
+a343 1
+	cc -s -n ${CFLAGS} df.c -o df
+d352 2
+a353 2
+	mv reboot /etc/reboot
+	touch reboot
+d360 1
+a360 1
+	cc -s ${CFLAGS} reboot.c -o reboot
+d370 1
+a370 2
+	mv newfs.csh /etc/newfs
+	touch newfs.csh
+d382 2
+a383 2
+	mv mkfs /etc/mkfs
+	touch mkfs
+d391 1
+a391 1
+	cc -s ${CFLAGS} mkfs.c -o mkfs
+d400 2
+a401 2
+	mv savecore /etc/savecore
+	touch savecore
+d409 1
+a409 1
+	cc -s ${CFLAGS} savecore.c -o savecore
+d418 2
+a419 2
+	mv dmesg /etc/dmesg
+	touch dmesg
+d425 1
+a425 1
+	cc -s ${CFLAGS} dmesg.c -o dmesg
+d434 2
+a435 2
+	mv ncheck /etc/ncheck
+	touch ncheck
+d442 1
+a442 1
+	cc -o ncheck ${CFLAGS} -s ncheck.c
+d451 2
+a452 2
+	mv icheck /etc/icheck
+	touch icheck
+d459 1
+a459 1
+	cc -o icheck ${CFLAGS} -s icheck.c
+d468 2
+a469 2
+	mv fsck /etc/fsck
+	touch fsck
+d474 1
+a474 1
+fsck: fsck.c $(I)/stdio.h $(I)/ctype.h $(I)/ediag.h $(IS)/param.h \
+d477 11
+a487 1
+	cc -o fsck ${CFLAGS} -s fsck.c
+d492 3
+d499 2
+a500 2
+	mv fsdb /etc/fsdb
+	touch fsdb
+d508 1
+a508 1
+	cc -o fsdb ${CFLAGS} -s fsdb.c
+d517 1
+a517 2
+	mv chsec.sh /etc/chksecurity
+	touch chsec.sh
+a529 1
+	-strip mknod
+d531 2
+a532 2
+	mv mknod /etc/mknod
+	touch mknod
+@
+
+
+1.23
+log
+@dump && restor && dumpdir переведены в /etc
+@
+text
+@d6 3
+d94 1
+a94 1
+    reboot dmesg savecore mkfs newfs chksecurity mknod fsck icheck
+d102 1
+a102 1
+	 i_icheck i_fsck
+d107 1
+a107 1
+	dmesg.c savecore.c newfs.csh mkfs.c ncheck.c icheck.c fsck.c
+d478 18
+@
+
+
+1.22
+log
+@Убраны выпадения из-за того, что нет таблицы имен для strip .
+@
+text
+@d6 3
+d216 2
+a217 2
+	-rm -f /bin/dumpdir
+	mv dumpdir /bin/dumpdir
+d219 3
+a221 3
+	chown bin /bin/dumpdir
+	chgrp sys /bin/dumpdir
+	chmod 0755 /bin/dumpdir
+d272 2
+a273 2
+	-rm -f /bin/restor
+	mv restor /bin/restor
+d275 3
+a277 3
+	chown bin /bin/restor
+	chgrp sys /bin/restor
+	chmod 0755 /bin/restor
+d299 2
+a300 2
+	-rm -f /bin/dump
+	mv dump /bin/dump
+d302 3
+a304 3
+	chown bin /bin/dump
+	chgrp sys /bin/dump
+	chmod 0755 /bin/dump
+@
+
+
+1.21
+log
+@Правлена опечатка про mknod.
+@
+text
+@d6 3
+d111 1
+a111 1
+	strip /etc/getty
+d176 1
+a176 1
+	strip /bin/login
+d491 1
+a491 1
+	strip mknod
+@
+
+
+1.20
+log
+@изменено инсталлирование: вместо cp
+	делается mv 
+	и заводится ПУСТОЙ файл ./имя
+@
+text
+@d6 5
+d499 1
+a499 1
+$(R)mknod.c: $(RCS)/mknod.c
+@
+
+
+1.19
+log
+@добавлены icheck и fsck.
+@
+text
+@d6 3
+d101 2
+a102 1
+	cp getty /etc/getty
+d125 2
+a126 1
+	cp init /etc/init
+d145 2
+a146 1
+	cp stty /bin/stty
+d164 2
+a165 1
+	cp login /bin/login
+d187 2
+a188 1
+	cp su /bin/su
+d206 2
+a207 1
+	cp dumpdir /bin/dumpdir
+d226 2
+a227 1
+	cp umount /etc/umount
+d244 2
+a245 1
+	cp mount /etc/mount
+d262 2
+a263 1
+	cp restor /bin/restor
+d289 2
+a290 1
+	cp dump /bin/dump
+d316 2
+a317 1
+	cp df /bin/df
+d334 2
+a335 1
+	cp reboot /etc/reboot
+d352 2
+a353 1
+	cp newfs.csh /etc/newfs
+d365 2
+a366 1
+	cp mkfs /etc/mkfs
+d383 2
+a384 1
+	cp savecore /etc/savecore
+d401 2
+a402 1
+	cp dmesg /etc/dmesg
+d417 2
+a418 1
+	cp ncheck /etc/ncheck
+d434 2
+a435 1
+	cp icheck /etc/icheck
+d451 2
+a452 1
+	cp fsck /etc/fsck
+d469 2
+a470 1
+	cp chsec.sh /etc/chksecurity
+d485 2
+a486 1
+	cp mknod /etc/mknod
+@
+
+
+1.18
+log
+@Добавлен mknod
+
+@
+text
+@d5 5
+a9 1
+# $Log:	Makefile,v $
+d15 1
+a15 1
+# 
+d77 1
+a77 1
+    reboot dmesg savecore mkfs newfs chksecurity mknod
+d84 2
+a85 1
+	 i_newfs i_mkfs i_ncheck i_chksecurity i_mknod
+d90 1
+a90 1
+	dmesg.c savecore.c newfs.csh mkfs.c ncheck.c
+d409 33
+@
+
+
+1.17
+log
+@от abs:
+из-за того, что login-у принудительно ставился
+хозяин bin получался 39 приоритет.
+Сделан хозяин root (как и должно быть).
+@
+text
+@d5 7
+a11 1
+# $Log: Makefile,v $
+d73 1
+a73 1
+    reboot dmesg savecore mkfs newfs chksecurity
+d80 1
+a80 1
+	 i_newfs i_mkfs i_ncheck i_chksecurity
+d418 16
+@
+
+
+1.16
+log
+@Выкинули ddateconv вооще (по avg).
+@
+text
+@d5 4
+a8 1
+# $Log:	Makefile,v $
+d11 1
+a11 1
+# 
+d148 1
+a148 1
+	chown bin /bin/login
+@
+
+
+1.15
+log
+@Исправил ddateconv. 
+@
+text
+@d63 1
+a63 1
+ALL=getty init stty login su dump dumpdir restor mount umount df ddateconv \
+d70 1
+a70 1
+	 i_mount i_umount i_df i_ddateconv i_reboot i_dmesg i_savecore\
+d75 1
+a75 1
+	restor.c mount.c umount.c df.c ddateconv.c reboot.c \
+a283 26
+
+### DDATECONV ###
+
+i_ddateconv: ddateconv
+	-rm -f /etc/ddateconv
+	cp ddateconv /etc/ddateconv
+	chown root /etc/ddateconv
+	chgrp sys /etc/ddateconv
+	chmod 0755 /etc/ddateconv
+
+ddateconv: ddateconv.c\
+	$(I)/ediag.h\
+	$(I)/whoami.h\
+	$(I)/stdio.h\
+	$(IS)/param.h\
+	$(IS)/inode.h\
+	$(IS)/ino.h\
+	$(IS)/fblk.h\
+	$(IS)/filsys.h\
+	$(IS)/dir.h\
+	$(IS)/file.h\
+	$(I)/dumprestor.h
+	cc ddateconv.c -s ${CFLAGS} -o ddateconv
+
+$(R)ddateconv.c: $(RCS)/ddateconv.c,v
+	co $(COFLAGS) ddateconv.c
+@
+
+
+1.14
+log
+@Теперь используется взде ключ -O у cc.
+@
+text
+@d5 4
+a8 1
+# $Log: Makefile,v $
+d63 1
+a63 1
+ALL=getty init stty login su dump dumpdir restor mount umount  df ddateconv \
+d70 1
+a70 1
+	 i_mount i_umount i_df  i_ddateconv i_reboot i_dmesg i_savecore\
+d75 1
+a75 1
+	restor.c mount.c umount.c df.c  ddateconv.c reboot.c \
+d294 1
+a294 1
+ddateconv: \
+d308 1
+a308 1
+$(R)ddateconv.c: $(RCS)/ddateconv.c
+@
+
+
+1.13
+log
+@Устанавливается насильно хозяин файла.
+@
+text
+@d5 4
+a8 1
+# $Log:	Makefile,v $
+d11 1
+a11 1
+# 
+d14 1
+a14 1
+# 
+d17 1
+a17 1
+# 
+d88 1
+a88 1
+	cc -n getty.o getty1.o -o getty -ltermcap
+d110 1
+a110 1
+	cc -s init.o -o init
+d129 1
+a129 1
+	cc -s stty.o -o stty
+d152 1
+a152 1
+	cc -n xs.c x.c -o login
+d169 1
+a169 1
+	cc -s -n su.o -o su
+d187 1
+a187 1
+	cc -s -n dumpdir.o -o dumpdir
+d206 1
+a206 1
+	cc -s -n umount.o -o umount
+d223 1
+a223 1
+	cc -s -n mount.o -o mount
+d249 1
+a249 1
+		cc -s xy.s x.o -o restor
+d275 1
+a275 1
+		cc -s xy.s x.o -o dump
+d303 1
+a303 1
+	cc ddateconv.c -s -O -o ddateconv
+d320 1
+a320 1
+	cc -s -n df.c -o df
+d336 1
+a336 1
+	cc -s reboot.c -o reboot
+d366 1
+a366 1
+	cc -s mkfs.c -o mkfs
+d383 1
+a383 1
+	cc -s savecore.c -o savecore
+d398 1
+a398 1
+	cc -s dmesg.c -o dmesg
+d414 1
+a414 1
+	cc -o ncheck -O -s ncheck.c
+@
+
+
+1.12
+log
+@От-xstr-ена обработка login.c
+@
+text
+@d6 3
+d80 2
+d102 2
+d121 2
+d139 2
+d161 2
+d179 2
+d198 2
+d214 4
+a217 3
+	cp mount /bin/mount
+	chmod 0755 /bin/mount
+	ln /bin/mount /etc/mount
+d232 2
+d258 2
+d284 2
+d311 1
+d328 1
+d345 1
+d357 1
+d374 1
+d391 1
+d405 2
+d421 2
+@
+
+
+1.11
+log
+@chksecurity не ставились биты 's'
+@
+text
+@d6 3
+d127 1
+a127 1
+i_login: login
+d133 7
+a139 6
+login:  login.o
+	cc -n login.o -o login
+
+login.o: $(I)/whoami.h $(IS)/types.h $(I)/sgtty.h $(I)/utmp.h
+login.o: $(I)/pwd.h $(I)/stdio.h $(IS)/stat.h $(I)/lastlog.h
+login.o: $(I)/grp.h $(I)/ediag.h $(I)/signal.h
+@
+
+
+1.10
+log
+@Заменили checksecurity на chksecurity.
+@
+text
+@d5 4
+a8 1
+# $Log: Makefile,v $
+d385 1
+a385 1
+	chmod 0755 /etc/chksecurity
+@
+
+
+1.9
+log
+@Добавлена цель checksecurity.
+@
+text
+@d6 3
+d49 1
+a49 1
+    reboot dmesg savecore mkfs newfs checksecurity
+d56 1
+a56 1
+	 i_newfs i_mkfs i_ncheck i_checksecurity
+d377 1
+a377 1
+### CHECKSECURITY ###
+d379 4
+a382 4
+i_checksecurity: checksecurity
+	-rm -f /etc/checksecurity
+	cp chsec.sh /etc/checksecurity
+	chmod 0755 /etc/checksecurity
+d384 1
+a384 1
+checksecurity: chsec.sh
+@
+
+
+1.8
+log
+@The same.
+@
+text
+@d6 3
+d46 1
+a46 1
+    reboot dmesg savecore newfs.csh mkfs newfs
+d53 1
+a53 1
+	 i_newfs i_mkfs i_ncheck
+d67 1
+d71 1
+a71 1
+	cc -s -n getty.o getty1.o -o getty
+d121 1
+d125 1
+a125 1
+	cc -s -n login.o -o login
+d206 13
+a218 14
+restor: restor.c\
+	$(I)/ediag.h\
+	$(I)/whoami.h\
+	$(I)/stdio.h\
+	$(I)/signal.h\
+	$(IS)/param.h\
+	$(IS)/inode.h\
+	$(IS)/ino.h\
+	$(IS)/fblk.h\
+	$(IS)/filsys.h\
+	$(IS)/dir.h\
+	$(I)/dumprestor.h
+	cc -s restor.o -o restor
+	c7t10 restor
+d230 13
+a242 14
+dump:   dump.c\
+	$(I)/ediag.h\
+	$(I)/whoami.h\
+	$(I)/stdio.h\
+	$(IS)/param.h\
+	$(IS)/inode.h\
+	$(IS)/ino.h\
+	$(IS)/fblk.h\
+	$(IS)/filsys.h\
+	$(IS)/dir.h\
+	$(IS)/file.h\
+	$(I)/dumprestor.h
+	cc dump.o -O -s -o dump
+	c7t10 dump
+d304 1
+d374 12
+d387 1
+a387 1
+	-rm -f $(ALL)
+@
+
+
+1.7
+log
+@Наведен некоторый порядок и добавлен ncheck
+@
+text
+@d6 3
+d43 2
+a44 1
+    reboot dmesg savecore newfs.csh mkfs
+d375 1
+a375 1
+	-rm -f *.[ch]
+@
+
+
+1.6
+log
+@Added by alex: newfs, mkfs.
+@
+text
+@d5 4
+a8 1
+# $Log:	Makefile,v $
+d11 1
+a11 1
+# 
+d14 1
+a14 1
+# 
+d18 1
+a18 1
+# 
+d46 1
+a46 1
+	 i_newfs i_mkfs
+d51 1
+a51 1
+	dmesg.c savecore.c newfs.csh mkfs.c
+d71 1
+a71 1
+$(R)getty1.c:
+d88 1
+a88 1
+$(R)init.c:
+d104 1
+a104 1
+$(R)stty.c:
+d122 1
+a122 1
+$(R)login.c:
+d139 1
+a139 1
+$(R)su.c:
+d141 3
+a143 1
+### dumpdir ###
+d148 1
+d151 1
+d155 2
+a156 1
+$(R)dumpdir.c:
+d159 2
+a160 1
+### umount ###
+d165 1
+d168 1
+d170 2
+a171 1
+$(R)umount.c:
+d174 2
+a175 1
+### mount ###
+d181 1
+d184 1
+d186 2
+a187 1
+$(R)mount.c:
+d190 2
+a191 1
+### restor ###
+d196 2
+a197 3
+restor:  restor.o
+	cc -s restor.o -o restor;c7t10 restor
+restor.o: \
+d209 4
+a212 1
+$(R)restor.c:
+d215 2
+a216 1
+### dump ###
+d221 12
+a232 13
+dump:  dump.o
+	cc dump.o -O -s -o dump;c7t10 dump
+dump.o: \
+        $(I)/ediag.h\
+        $(I)/whoami.h\
+        $(I)/stdio.h\
+        $(IS)/param.h\
+        $(IS)/inode.h\
+        $(IS)/ino.h\
+        $(IS)/fblk.h\
+        $(IS)/filsys.h\
+        $(IS)/dir.h\
+        $(IS)/file.h\
+d234 4
+a237 1
+$(R)dump.c:
+d239 3
+a241 1
+### ddateconv ###
+d246 2
+a247 3
+ddateconv:  ddateconv.o
+	cc ddateconv.o -s -O -o ddateconv;c7t10 ddateconv
+ddateconv.o: \
+d259 3
+a261 1
+$(R)ddateconv.c:
+d264 1
+a265 1
+### df ###
+d271 2
+a272 3
+df:  df.o
+	cc -s -f -n df.o -o df
+df.o:  $(I)/mtab.h $(I)/fstab.h $(I)/ediag.h \
+d275 3
+a277 1
+$(R)df.c:
+d280 2
+d287 6
+a292 6
+reboot:  reboot.o
+	cc -s -n reboot.o -o reboot
+reboot.o:  $(I)/whoami.h $(I)/stdio.h $(I)/ediag.h $(I)/errno.h\
+       $(IS)/param.h   $(I)/signal.h $(I)/time.h\
+       $(IS)/reboot.h
+$(R)reboot.c:
+d296 1
+d302 2
+a303 2
+###
+$(R)newfs.csh:
+d307 1
+d313 2
+a314 3
+mkfs:  mkfs.o
+	cc -s -n mkfs.o -o mkfs
+mkfs.o:  $(I)/a.out.h $(I)/stdio.h\
+d317 3
+a319 1
+$(R)mkfs.c:
+d323 1
+d329 2
+a330 3
+savecore:  savecore.o
+	cc -s -n savecore.o -o savecore
+savecore.o:  $(I)/a.out.h $(I)/stdio.h\
+d333 3
+a335 1
+$(R)savecore.c:
+d338 2
+d344 6
+a349 6
+	chmod 0755 /etc/dmesg
+	chmod u+s /etc/dmesg
+dmesg:  dmesg.o
+	cc -s -n dmesg.o -o dmesg
+dmesg.o:  $(I)/a.out.h $(I)/stdio.h $(IS)/param.h $(IS)/localopts.h
+$(R)dmesg.c:
+d352 14
+a366 1
+###########
+d368 1
+a368 1
+	-rm -f *.o *.bak *.b
+d371 1
+a371 2
+######
+	-rm -f *.c
+@
+
+
+1.5
+log
+@Добавлены dmesg, savecore.
+@
+text
+@d6 3
+d37 1
+a37 1
+    reboot dmesg savecore
+d42 2
+a43 1
+	 i_mount i_umount i_df  i_ddateconv i_reboot i_dmesg i_savecore
+d48 1
+a48 1
+	dmesg.c savecore.c
+d267 25
+@
+
+
+1.4
+log
+@Добавлены mount, umount, dump, restor, dumpdir.
+@
+text
+@d6 3
+d33 3
+a35 1
+all: getty init stty login su dump dumpdir restor mount umount
+d38 2
+a39 1
+install: i_getty i_init i_stty i_login i_su i_dump i_dumpdir i_restor i_mount i_umount
+d43 2
+a44 1
+	restor.c mount.c umount.c
+d64 1
+a64 1
+$(R)getty1.c: $(RCS)/getty1.c,v
+d81 1
+a81 1
+$(R)init.c: $(RCS)/init.c,v
+d97 1
+a97 1
+$(R)stty.c: $(RCS)/stty.c,v
+d115 1
+a115 1
+$(R)login.c: $(RCS)/login.c,v
+d132 1
+a132 1
+$(R)su.c: $(RCS)/su.c,v
+d144 1
+a144 1
+$(R)dumpdir.c: $(RCS)/dumpdir.c,v
+d155 1
+a155 1
+$(R)umount.c: $(RCS)/umount.c,v
+d160 1
+a160 1
+	-rm -f /bin/mount
+d163 1
+d167 1
+a167 1
+$(R)mount.c: $(RCS)/mount.c,v
+d176 1
+a176 1
+	cc -s -n restor.o -o restor
+d189 1
+a189 1
+$(R)restor.c: $(RCS)/restor.c,v
+d198 1
+a198 1
+	cc -s -n dump.o -o dump
+d211 1
+a211 1
+$(R)dump.c: $(RCS)/dump.c,v
+d213 21
+d236 13
+d250 38
+d290 1
+a290 1
+	-rm -f getty init login stty su dump restor dumpdir mount umount
+@
+
+
+1.3
+log
+@Добавлена команда su и добавлены зависимости от
+includ-ов.
+@
+text
+@d5 5
+a9 1
+# $Log: Makefile,v $
+d30 1
+a30 1
+all: getty init stty login su
+d33 1
+a33 1
+install: i_getty i_init i_stty i_login i_su
+d36 2
+a37 1
+source: getty.c getty1.c init.c stty.c login.c su.c
+d127 12
+d140 10
+d151 57
+d210 2
+a211 2
+	-rm -f getty init login stty su
+	-rm -f *.[ob]
+@
+
+
+1.2
+log
+@Исправлена ошибка в выборке init.c.
+@
+text
+@d6 3
+d17 1
+a17 1
+# установите R=NO
+d20 1
+d22 5
+a26 1
+all: getty init stty login
+d29 1
+a29 1
+install: i_getty i_init i_stty i_login
+d32 1
+a32 1
+source: getty.c getty1.c init.c stty.c login.c
+d35 1
+d46 4
+a49 1
+$(R)getty.c: RCS/getty.c,v
+d52 1
+a52 1
+$(R)getty1.c: RCS/getty1.c,v
+d66 4
+a69 1
+$(R)init.c: RCS/init.c,v
+d83 3
+a85 1
+$(R)stty.c: RCS/stty.c,v
+d99 5
+a103 1
+$(R)login.c: RCS/login.c,v
+d107 17
+d126 2
+a127 2
+	-rm -f getty init login stty
+	-rm -f *.o *.b
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 3
+a7 1
+# $Log$
+d9 1
+d54 1
+a54 1
+$(R)intt.c: RCS/init.c,v
+@

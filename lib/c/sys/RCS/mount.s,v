@@ -1,0 +1,47 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.42.27;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ error	= mount(special, name, rwflag);
+/	  char *special, *name;
+
+.globl	_mount,
+.globl	cerror
+
+_mount:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(sp),0f
+	mov	6(sp),0f+2
+	mov	8(sp),0f+4
+	sys	0; 9f
+	bec	1f
+	jmp	cerror
+1:
+	clr	r0
+	mov	(sp)+,r5
+	rts	pc
+.data
+9:
+	sys	mount; 0:..; ..; ..
+@

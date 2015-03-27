@@ -1,0 +1,51 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.05.23.13.54.46;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#!/bin/sh
+# $Header$
+# $Log$
+#
+P=${1-`pwd`}
+case x$MSG in
+xr) echo "Файловая система от $P
+
+$P" ;;
+*)  echo "File System from $P
+
+$P" ;;
+esac
+find $P -type d -print | awk '
+BEGIN { FS="/"; first = -1 }
+{
+	if ( first == -1 ) {
+		first = NF
+		if (length ($NF)) first++
+		next
+	}
+	str = " ";
+	for (i = first; i < NF; i++)
+		str = str "|    "
+	print str "|-> " $NF
+}'
+@

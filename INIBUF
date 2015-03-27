@@ -1,0 +1,57 @@
+% === INIBUF === %  10.10.88 VERSION 7
+%---------------------------%
+%-  CIRCLE BUFFER MANAGER  -%
+%---------------------------%
+LOCALS LBUFF
+  DATA GETPTR,PUTPTR
+
+  EQUALS BUFSIZ=300
+  EQUALS HDWBUF=42               %עבתםוע גץזועב ק כבעפו LP55.02 = 20(?)
+  EQUALS REDMRK=BUFSIZ-HDWBUF    %חעבמידב "כעבףמןך תןמש".
+
+  BUFFERS BUFFER(BUFSIZ+1)
+% EQUALS EOBUFF=!BUFFER+BUFSIZ
+****************P
+
+  REGISTERS DIST=%1,DISTX=%2
+
+PROGRAM INIBUF()
+  GETPTR='!BUFFER' ; PUTPTR='!BUFFER'
+  RETURN
+
+PROGRAM GETBUF()
+  (IF GETPTR<>PUTPTR
+    R0:=@GETPTR
+    IF GETPTR(+1)='!BUFFER+BUFSIZ' THEN GETPTR='!BUFFER'
+  ELSE
+    R0:=0
+  )IF
+  RETURN
+
+PROGRAM PUTBUF()
+  @PUTPTR:=R0
+  IF PUTPTR(+1)='!BUFFER+BUFSIZ' THEN PUTPTR='!BUFFER'
+  RETURN
+
+PROGRAM TSTFUL(DIST,DISTX)
+  DISTX=PUTPTR-GETPTR
+  IF DIST(DISTX)<0 THEN DIST='BUFSIZ'-DISTX       %נועוקןעב‏יקבום
+  IF DIST>='REDMRK' THEN R0=1 ELSE R0=0           %ץףפבמבקליקבום זלבח
+  RETURN
+
+PROGRAM TSTEMP()
+  R0=0 ; IF GETPTR=PUTPTR THEN R0=1
+  RETURN
+
+PROGRAM FLUSH()
+  @PUTPTR:=0                %פועםימבפןע
+  (IF PUTPTR<<GETPTR        %2 כץףכב ק גץזועו ?
+    SYSCALL DPC '!BUFFER'   %קשהבום <***TO......
+.   CLRB !BUFFER+BUFSIZ     *פועםימבפןע 2-חן כץףכב
+  )IF
+  SYSCALL DPC GETPTR        %קשהבום FROM****...>
+
+* GETPTR=PUTPTR              כןלרדוקןך גץזוע עוצופ דונן‏כי DPC
+  GETPTR='!BUFFER' ; PUTPTR='!BUFFER'   %לימוךמשך גץזוע
+
+  RETURN

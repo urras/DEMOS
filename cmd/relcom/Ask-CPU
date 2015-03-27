@@ -1,0 +1,26 @@
+:
+: Determine the type of CPU
+:
+if [ "$CPU" = "" ]
+then
+echo "Environment variable CPU is not defined."
+echo -n "Please enter the type (one from
+	X286    - Xenix 286
+	X386    - Xenix 386
+	VAX     - Ultrix 32 or BSD 4.3
+	IX386   - Interactive ix/386
+	EX      - Xenix 386 + ExceLAN
+>>> " ; read CPU
+fi
+
+case $CPU in
+vax|VAX)        CPU=VAX;;
+x386|X386)      CPU=X386;;
+x286|X286)      CPU=X286;;
+ex|EX)          CPU=X386;;
+x386e|EXCELAN)  CPU=X386;;
+ix386|IX386)    CPU=IX386;;
+*) echo "Unknown CPU/system type $CPU
+"; exit 1;;
+esac
+export CPU

@@ -1,0 +1,59 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.38.38;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+/*
+ * Type tty name
+ */
+#include <ediag.h>
+
+char    *ttyname();
+
+main(argc, argv)
+char **argv;
+{
+	register char *p;
+
+	p = ttyname(0);
+	if(argc==2 && !strcmp(argv[1], "-s"))
+		;
+	else
+		printf("%s\n", (p? p: ediag("not a tty","не tty")));
+	exit(p? 0: 1);
+}
+@

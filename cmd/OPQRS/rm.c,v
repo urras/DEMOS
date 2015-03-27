@@ -1,0 +1,783 @@
+head     1.14;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.14
+date     89.06.30.18.28.57;  author ache;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     89.06.16.16.32.43;  author abs;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     89.04.28.16.02.31;  author avg;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     89.04.18.17.29.09;  author abs;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.04.11.12.57.35;  author abs;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.04.10.21.19.12;  author abs;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.03.20.15.03.26;  author abs;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.03.18.16.55.31;  author ache;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.02.03.16.21.43;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.06.03.16.22.48;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.05.23.21.52.31;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.05.23.21.40.36;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.05.23.21.30.16;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.11.43;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.14
+log
+@Теперь не пытается удалить имена, кончающиеся на . и ..
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: rm.c,v 1.13 89/06/16 16:32:43 abs Exp $
+** $Log:	rm.c,v $
+ * Revision 1.13  89/06/16  16:32:43  abs
+ * Для нужд суперпользователя:
+ * 	rm -u file
+ * делает просто unlink ничего не проверяя.
+ * В system-V для этого бывает команда /etc/unlink
+ * 
+ * Revision 1.12  89/04/28  16:02:31  avg
+ * Теперь размер файла сообщается в наиболее кратком виде.
+ *
+ * Revision 1.11  89/04/18  17:29:09  abs
+ * флаг -i теперь еще сообщает размер файла в байтах
+ *
+ * Revision 1.10  89/04/11  12:57:35  abs
+ * теперь -v не включается суперюзеру, если указан один из флагов -i -f
+ *
+ * Revision 1.9  89/04/10  21:19:12  abs
+ * *** empty log message ***
+ *
+ * Revision 1.8  89/03/20  15:03:26  abs
+ * сначала надо думать, а потом изменять.
+ *
+ * Revision 1.7  89/03/18  16:55:31  ache
+ * В режиме -f rm не должен ничего говорить, несмотря ни на что.
+ *
+ * Revision 1.6  89/02/03  16:21:43  abs
+ * вставлен сисвызов rmdir вместо запуска команды rmdir.
+ * вставлена интелектуальная затычка для команды
+ *      rm -i *
+ * когда в каталоге есть файл -f   (был обалденный эффект!)
+ *
+ * Revision 1.5  88/06/03  16:22:48  korotaev
+ * после предыдущей правки rm перестал работать в make
+ * запускаемом как make > MREP.
+ * предыдущая правка повешена на ifdef STREMNO
+ *
+ * Revision 1.4  88/05/23  21:52:31  root
+ * *** empty log message ***
+ *
+ * Revision 1.3  88/05/23  21:40:36  root
+ * Если есть флаги, предыдущее ограничение не действует.
+ *
+ * Revision 1.2  88/05/23  21:30:16  root
+ * теперь rm не может работать с выводом,направленным не на терминал.
+ * Это предохраняет от идиотских ошибок вроде
+ * rm *>b
+ *
+ * Revision 1.1  88/05/03  20:11:43  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: rm.c,v 1.13 89/06/16 16:32:43 abs Exp $";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * root
+ * так как не было #include <sys/localopts.h> , то не включалось
+ * UCB_SYMLINKS, вместо lstat делался stat, и симлинки не удалялись,
+ * если смотрели на непустой каталог.
+ *
+ * avg
+ * Флаг -i подавляет -f и наоборот (в порядке следования).
+ * Это дает возможность нормально использовать
+ *      alias rm rm -i
+ *
+ * Кроме того, поправлен yes() на предмет понимания русских ответов.
+ *
+ * mike
+ * Исправлена выдача: "usage: rm ......"
+ *
+ * mike
+ * Вставлен ключ -v (печатать выполняемые действия).
+ *
+ * mike
+ * Вставлены русские диагностики.
+ * Переинсталирован для обработки symlink'ов.
+ *
+ */
+
+int     errcode;
+
+#include <stdio.h>
+#include <ediag.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/dir.h>
+#include <sys/file.h>
+#include <sys/localopts.h>
+
+char    *ncom, *Psize();
+
+short   vflg,iflg,fflg,rflg,hasflg;
+
+main(argc, argv)
+char *argv[];
+{
+	register char *arg;
+	struct stat st;
+
+	iflg = rflg = vflg = fflg = hasflg = 0;
+	if (isatty(0) == 0)
+		fflg++;
+	ncom = *argv;
+	while(argc>1 && argv[1][0]=='-') {
+		arg = *++argv;
+		argc--;
+
+		/*
+		 *  all files following a null option are considered file names
+		 */
+		if (*(arg+1) == '\0') break;
+
+		while(*++arg != '\0')
+			switch(*arg) {
+			case 'f':
+				fflg++;
+				iflg = 0;
+				hasflg++;
+				break;
+			case 'i':
+				iflg++;
+				fflg = 0;
+				hasflg++;
+				break;
+			case 'r':
+				rflg++;
+				hasflg++;
+				break;
+			case 'v':
+				vflg++;
+				hasflg++;
+				break;
+			case 'u':
+				dounlink( argv[1] );
+			default:
+				printf(ediag("Usage: %s [-firv] file ...\n",
+					     "Вызов: %s [-firv] файл ...\n"), ncom );
+				exit(1);
+			}
+	}
+	fflush( stdout );
+	setbuf( stdout, NULL );
+		/* небуферизованный (немедленный) вывод */
+
+	if( fflg ){
+		if( stat( "-f" , & st ) >= 0 ){
+			fflg = 0;
+			iflg = 1;
+			printf( ediag(
+		"puzzle: there is file \"-f\" \n",
+		"конфуз: в каталоге есть файл \"-f\", используйте rm ./-f\n"));
+		}
+	}
+
+	if( !iflg && !fflg && getuid()==0 )
+		vflg++;
+	/* В Unix программы должны помалкивать! */
+	/* Но не тогда, когда от этого зависит работоспособность системы */
+
+#ifdef STREMNO
+	if ( isatty(1) == 0 && !hasflg ){
+		/* seems rm *>b */
+		fprintf( stderr,ediag("Output not to tty\n",
+				      "Вывод не на терминал\n"));
+		exit( 255);
+	}
+#endif STREMNO
+	while(--argc > 0) {
+		if(!strcmp(*++argv, "..")) {
+			fprintf(stderr,ediag("%s: cannot remove `..'\n",
+					     "%s: нельзя уничтожать `..'\n"),ncom);
+			continue;
+		}
+		rm(*argv, 0);
+	}
+
+	exit(errcode);
+}
+
+dounlink( name ) char *name;
+{
+	int ok;
+
+	if( getuid() != 0 ){
+		printf(ediag("Not Superuser.\n",
+			     "Не суперпользователь.\n"));
+		exit(1);
+	}
+	if( name == NULL ) exit(2);
+	printf( "unlink \"%s\" ", name );
+	ok = unlink( name ) < 0 ? 1: 0 ;
+	printf( "%s\n", ok ? "failed":"ok" );
+	exit(ok);
+}
+
+rm(arg, level)
+char arg[];
+{
+	struct   stat buf;
+	struct   direct direct;
+	char     name[100];
+	register d,k;
+
+#ifdef  UCB_SYMLINKS
+	if(lstat(arg, &buf))
+#else
+	if(stat(arg, &buf))
+#endif
+		{
+		if (fflg==0) {
+			printf(ediag("%s: %s nonexistent\n",
+				     "%s: %s не существует\n"), ncom, arg);
+			++errcode;
+		}
+		return;
+	}
+	if ((buf.st_mode&S_IFMT) == S_IFDIR) {
+		if(rflg) {
+			if (access(arg, FACCESS_WRITE) < 0) {
+				if (fflg==0)
+					printf(ediag("%s not changed\n",
+						     "%s не изменяем\n"), arg);
+				errcode++;
+				return;
+			}
+			if(iflg && level!=0) {
+				printf(ediag("remove directory %s? ",
+					     "уничтожить каталог %s? "), arg);
+				if(!yes())
+					return;
+			}
+			if((d=open(arg, 0)) < 0) {
+				printf(ediag("%s: cannot read %s!\n",
+					     "%s: не могу прочитать %s!\n"), ncom, arg);
+				exit(1);
+			}
+			while(read(d, (char *)&direct, sizeof(direct)) == sizeof(direct)) {
+				if(direct.d_ino != 0 && !dotname(direct.d_name)) {
+					sprintf(name, "%s/%.14s", arg, direct.d_name);
+					rm(name, level+1);
+				}
+			}
+			close(d);
+			if( (k = removedir(arg)) == 0 && vflg && !iflg )
+				printf(ediag("remove directory %s\n",
+					     "уничтожен каталог %s\n"), arg );
+			errcode += k;
+			return;
+		}
+		printf(ediag("%s: %s directory\n",
+			     "%s: %s каталог\n"), ncom, arg);
+		++errcode;
+		return;
+	}
+
+	if(iflg) {
+		printf(ediag("%s: remove %s (%s)? ",
+			     "%s: уничтожать %s (%s)? "), ncom, arg, Psize(buf.st_size));
+		if(!yes())
+			return;
+	}
+	else if(!fflg) {
+		if ((buf.st_mode&S_IFMT) != S_IFLNK && access(arg, FACCESS_WRITE)<0) {
+			printf(ediag("%s: override protection %o for %s? ",
+				     "%s: игнорировать коды доступа %o у %s? "), ncom, buf.st_mode&0777, arg);
+			if(!yes())
+				return;
+		}
+	}
+	if(unlink(arg) && (fflg==0 || iflg)) {
+		printf(ediag("%s: %s not removed\n",
+			     "%s: %s не уничтожен\n"), ncom, arg);
+		++errcode;
+	} else if( vflg && !iflg )
+		printf(ediag("removed %s\n",
+			     "уничтожен %s\n"), arg );
+}
+
+dotname(s)
+register char *s;
+{
+	register char *ss;
+
+	if (*s && (ss = rindex (s, '/')) != NULL)
+		s = ss + 1;
+	if(s[0] == '.')
+		if(s[1] == '.')
+			if(s[2] == '\0')
+				return(1);
+			else
+				return(0);
+		else if(s[1] == '\0')
+			return(1);
+	return(0);
+}
+
+removedir(f)
+char *f;
+{
+	int status, i;
+
+	if(dotname(f))
+		return(0);
+	if(iflg) {
+		printf(ediag("%s: remove %s? ",
+			     "%s: уничтожать %s? "), ncom, f);
+		if(!yes())
+			return(0);
+	}
+#ifdef NO_RMDIR_SYSCALL
+	while((i=fork()) == -1)
+		sleep(3);
+	if(i) {
+		wait(&status);
+		return(status);
+	}
+	execl("/bin/rmdir", "rmdir", f, 0);
+	execl("/usr/bin/rmdir", "rmdir", f, 0);
+	printf(ediag("%s: can't find rmdir\n",
+		     "%s: не могу найти rmdir\n"), ncom);
+	exit(1);
+	/*NOTREACHED*/
+#else
+	status = rmdir( f );
+	if( status < 0 ) {
+		perror( "rmdir" );
+		return 1;
+	}
+	return 0;
+#endif
+}
+
+#define u(x) (x&0377)
+yes()
+{
+	int i, b;
+
+	i = b = getchar();
+	while(b != '\n' && b != EOF)
+		b = getchar();
+	return(i == 'y' || i == 'Y' || i == u('Д') || i == u('д') );
+}
+
+/*
+ * Печатать в коротком виде размер файла
+ */
+char *Psize(l)
+long l;
+{
+	char *unit;
+	int   tens;
+	static char buf[30];
+
+	tens = 0;
+	if( l < 500l ) {
+		/* bytes */
+		unit = "";
+		tens = 0;
+	} else if( l < 500*1024l ) {
+		/* Kilobytes */
+		unit = "K";
+		if( l < 5*1024l )
+			tens = (int)(l/102)%10;
+		else
+			tens = 0;
+		l /= 1024l;
+	} else {
+		/* Megabytes */
+		unit = "M";
+		if( l < 5*1048576l )
+			tens = (int)(l/104858l)%10;
+		else
+			tens = 0;
+		l /= 1048576l;
+	}
+	if( tens )
+		sprintf(buf, "%ld.%d%s", l, tens, unit);
+	else
+		sprintf(buf, "%ld%s", l, unit);
+	return buf;
+}
+
+
+
+
+
+@
+
+
+1.13
+log
+@Для нужд суперпользователя:
+	rm -u file
+делает просто unlink ничего не проверяя.
+В system-V для этого бывает команда /etc/unlink
+@
+text
+@d6 8
+a13 2
+** $Header: rm.c,v 1.12 89/04/28 16:02:31 avg Exp $
+** $Log:        rm.c,v $
+d61 1
+a61 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.12 89/04/28 16:02:31 avg Exp $";
+d290 1
+a290 1
+char *s;
+d292 4
+@
+
+
+1.12
+log
+@Теперь размер файла сообщается в наиболее кратком виде.
+@
+text
+@d6 5
+a10 2
+** $Header: rm.c,v 1.11 89/04/18 17:29:09 abs Exp $
+** $Log:	rm.c,v $
+d13 1
+a13 1
+ * 
+d55 1
+a55 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.11 89/04/18 17:29:09 abs Exp $";
+d137 2
+d159 4
+a162 2
+	/* if( !iflg && !fflg && getuid()==0 )
+		vflg++;  В Unix программы должны помалкивать! */
+d182 16
+@
+
+
+1.11
+log
+@флаг -i теперь еще сообщает размер файла в байтах
+@
+text
+@d6 5
+a10 2
+** $Header: rm.c,v 1.10 89/04/11 12:57:35 abs Exp $
+** $Log:        rm.c,v $
+d52 1
+a52 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.10 89/04/11 12:57:35 abs Exp $";
+d91 1
+a91 1
+char    *sprintf(),*ncom;
+d154 2
+a155 2
+	if( !iflg && !fflg && getuid()==0 )
+		vflg++;
+d238 2
+a239 2
+		printf(ediag("%s: remove (%ld)%s? ",
+			     "%s: уничтожать (%ld)%s? "), ncom, buf.st_size, arg);
+d246 1
+a246 1
+				     "%s: моды доступа %o для %s? "), ncom, buf.st_mode&0777, arg);
+d256 1
+a256 1
+		printf(ediag("remove %s\n",
+d320 44
+@
+
+
+1.10
+log
+@теперь -v не включается суперюзеру, если указан один из флагов -i -f
+@
+text
+@d6 1
+a6 1
+** $Header: rm.c,v 1.9 89/04/10 21:19:12 abs Exp $
+d8 3
+d49 1
+a49 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.9 89/04/10 21:19:12 abs Exp $";
+d235 2
+a236 2
+		printf(ediag("%s: remove %s? ",
+			     "%s: уничтожать %s? "), ncom, arg);
+@
+
+
+1.9
+log
+@*** empty log message ***
+@
+text
+@d6 1
+a6 1
+** $Header: rm.c,v 1.8 89/03/20 15:03:26 abs Exp $
+d8 3
+d46 1
+a46 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.8 89/03/20 15:03:26 abs Exp $";
+d148 1
+a148 1
+	if( /* rflg && */   !fflg && getuid()==0 )
+@
+
+
+1.8
+log
+@сначала надо думать, а потом изменять.
+@
+text
+@d6 1
+a6 1
+** $Header: rm.c,v 1.7 89/03/18 16:55:31 ache Exp $
+d8 3
+d43 1
+a43 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.7 89/03/18 16:55:31 ache Exp $";
+d145 1
+a145 1
+	if( rflg && !fflg && getuid()==0 )
+@
+
+
+1.7
+log
+@В режиме -f rm не должен ничего говорить, несмотря ни на что.
+@
+text
+@d6 5
+a10 2
+** $Header: rm.c,v 1.6 89/02/03 16:21:43 abs Exp $
+** $Log:	rm.c,v $
+d14 1
+a14 1
+ * 	rm -i *
+d16 1
+a16 1
+ * 
+d40 1
+a40 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.6 89/02/03 16:21:43 abs Exp $";
+d142 3
+d156 1
+a156 1
+					     "%s: нельзя уничтожить `..'\n"),ncom);
+@
+
+
+1.6
+log
+@вставлен сисвызов rmdir вместо запуска команды rmdir.
+вставлена интелектуальная затычка для команды
+	rm -i *
+когда в каталоге есть файл -f   (был обалденный эффект!)
+@
+text
+@d6 8
+a13 2
+** $Header: rm.c,v 1.5 88/06/03 16:22:48 korotaev Exp $
+** $Log:        rm.c,v $
+d37 1
+a37 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.5 88/06/03 16:22:48 korotaev Exp $";
+a128 3
+	/* хитро... проверки */
+	if( getuid() == 0   /* suser */  && rflg )
+		vflg++;
+@
+
+
+1.5
+log
+@после предыдущей правки rm перестал работать в make 
+запускаемом как make > MREP.
+предыдущая правка повешена на ifdef STREMNO
+@
+text
+@d6 1
+a6 1
+** $Header: rm.c,v 1.4 88/05/23 21:52:31 root Exp $
+d8 5
+d31 1
+a31 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.4 88/05/23 21:52:31 root Exp $";
+d78 1
+d119 17
+d204 1
+a204 1
+			if( (k = rmdir(arg)) == 0 && vflg && !iflg )
+d253 1
+a253 1
+rmdir(f)
+d266 1
+d279 8
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d6 1
+a6 1
+** $Header: rm.c,v 1.3 88/05/23 21:40:36 root Exp $
+d8 3
+d26 1
+a26 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.3 88/05/23 21:40:36 root Exp $";
+d113 1
+d120 1
+a120 1
+
+@
+
+
+1.3
+log
+@Если есть флаги, предыдущее ограничение не действует.
+@
+text
+@d6 1
+a6 1
+** $Header: rm.c,v 1.2 88/05/23 21:30:16 root Exp $
+d8 3
+d23 1
+a23 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.2 88/05/23 21:30:16 root Exp $";
+d64 1
+a64 1
+short   vflg,iflg,fflg,rflg;
+d71 1
+a71 1
+	iflg = rflg = vflg = fflg = 0;
+d89 1
+d94 1
+d98 1
+d102 1
+d110 1
+a110 3
+	if (        isatty(1) == 0 &&
+		    !iflg && !rflg && !vflg && !fflg
+	){
+@
+
+
+1.2
+log
+@теперь rm не может работать с выводом,направленным не на терминал.
+Это предохраняет от идиотских ошибок вроде
+rm *>b
+@
+text
+@d6 1
+a6 1
+** $Header: rm.c,v 1.1 88/05/03 20:11:43 root Exp $
+d8 5
+d20 1
+a20 1
+static char     Rcs_id[] = "$Header: rm.c,v 1.1 88/05/03 20:11:43 root Exp $";
+a68 6
+	if (isatty(1) == 0){
+		/* seems rm *>b */
+		fprintf( stderr,ediag("Output not to tty\n",
+				      "Вывод не на терминал\n"));
+		exit( 255);
+	}
+d103 9
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d64 6
+@

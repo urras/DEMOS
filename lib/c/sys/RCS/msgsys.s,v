@@ -1,0 +1,73 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/@;
+
+
+1.2
+date     89.03.10.18.58.45;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.09.17.31.21;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+механизм обмена сообщениями
+@
+
+
+1.2
+log
+@сделано 7 аргументов, поскольку один из 6-и может быть long!
+@
+text
+@/ $Log: msgsys.s,v $
+/
+/Revision 1.1  89/03/09  17:31:21  abs
+/Initial revision
+/
+/ id =  msgsys( arg0, arg1, arg2, arg3, arg4, arg5 );
+/
+
+.globl  _msgsys
+.globl  cerror
+
+_msgsys:
+	mov     r5,-(sp)
+	mov     sp,r5
+	mov     4.(r5),0f
+	mov     6.(r5),0f+2
+	mov     8.(r5),0f+4
+	mov     10.(r5),0f+6
+	mov     12.(r5),0f+8.
+	mov     14.(r5),0f+10.
+	mov     16.(r5),0f+12.
+	sys     local; 9f
+	bec     1f
+	jmp     cerror
+1:
+	mov     (sp)+,r5
+	rts     pc
+.data
+9:
+	sys     msgsys; 0:..; ..; ..; ..; ..; ..; ..
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 3
+d21 1
+d30 1
+a30 1
+	sys     msgsys; 0:..; ..; ..; ..; ..; ..
+@

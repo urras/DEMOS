@@ -1,0 +1,78 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.2
+date     88.11.16.15.11.58;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.01.17.41.59;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Вызов killpg замемена на kill с отрицательным сигналом -
+позволяет выполнять killpg не только su.
+@
+text
+@/ $Header: killpg.s,v 1.1 88/04/01 17:41:59 andrew Exp $
+/ $Log:	killpg.s,v $
+/ Revision 1.1  88/04/01  17:41:59  andrew
+/ Initial revision
+/ 
+/ error	= killpg(pgrp, sig);
+/ kill -sig -- to process group
+
+.globl	_killpg
+.globl	cerror
+
+_killpg:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(sp),r0
+	mov	6(sp),8f
+	neg	8f		/ kill with - signo is killpg
+	sys	0; 9f
+	bec	1f
+	jmp	cerror
+1:
+	clr	r0
+	mov	(sp)+,r5
+	rts	pc
+
+.data
+9:
+	sys	kill; 8:..
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/ $Header$
+/ $Log$
+d7 1
+d15 4
+a18 3
+	mov	4(sp),0f
+	mov	6(sp),0f+2
+	sys	local; 9f
+d28 1
+a28 1
+	sys	killpg; 0:..; ..
+@

@@ -1,0 +1,831 @@
+#!/bin/sh
+#       командный файл создания каталога для конфигурации ядра.
+#
+#       Вызов:  config идентификатор_установки
+
+trap "rm -f #$$ #{$$}0 ; exit 1" 2 15
+
+case $# in
+    1) ;;
+
+    *) echo 'Вызов:  config <conf_name>
+  при этом создается каталог ../<conf_name>
+  в соответствии с файлом ./<conf_name>
+  и в него копируются необходимые файлы'
+       exit 1
+       ;;
+esac
+
+#
+# умолчания
+#
+cpu=GENERIC
+ident=UNKNOWN
+maxusers=3
+timezone="(-3)"  dst=1
+rootdev=nulldev
+swapdev=nulldev  swplo=0   nswap=0
+dumpdev=NODEV    dumplo=0  dumproutine=nodev
+pipedev=nulldev
+
+NBK=0 NDH=0 NDM=0 LOWDM=0 NDHU=0 NDJ=0 NDN=0 NDZ=0 NDVHP=0 NFD=0
+NHK=0 NHP=0 NHS=0 NHT=0 NKL=0 NKX=0 NKY=0 NLP=0 NPC=0 NPTY=0 NRA=0
+NRK=0 NRKC=1 NRL=0 NRM=0 NRP=0 NRW=0 NRX=0 NTM=0 NRW=0
+NTMC=1 NTS=0 NVI=0 NVD=0 NXP=0 NXP_CONTROLLER=1
+NMPY=0 NMPYCHANS=8 NDW=0 NMY=0 NMYC=0 NKS=0 NMK=0 NWL=0
+
+machine=$1
+
+NMOUNT=0
+
+#
+# read in specification file
+#
+awk '/^#/{next}$1!=""{printf "%s=\"%s\"\n",$1,$2}' $machine > \#$$ && . \#$$ && rm -f \#$$
+
+DEFS=""
+case $cpu in
+    4)    cpu=40;;
+    100)  cpu=40;;
+    1421) cpu=24;;
+    1420) cpu=34;;
+    1425) cpu=73; DEFS="-DSM1425";;
+    1600) cpu=34;;
+    1630) cpu=40;;
+    79)   cpu=70;;
+    85)   cpu=23;;
+    dvk4|dvk3) cpu=23; DEFS="-DDVK4";;
+*);;
+esac
+
+pdp11=$cpu
+
+case $cpu in
+    GENERIC|40|60) splfix=:splfix.movb ;;
+    34|23|24)      splfix=:splfix.mtps ;;
+    44|45|70|73)   splfix=:splfix.spl ;;
+    *)
+	echo "Не распознан тип ЦП"
+	exit 1
+	;;
+esac
+
+if [ $NKL -lt 1 -a \( $cpu -ne 23 -o x$DEFS = x-DDVK4 \) ]
+then
+	echo "NKL должно быть не менее 1 (для консоли)"
+	exit 1
+fi
+
+echo "" > \#$$
+
+if [ -d ../$machine ]
+then
+	 echo "Каталог конфигурации ../$machine уже существует."
+else
+	 echo "Создаем ../$machine."
+	 mkdir ../$machine
+fi
+
+if [ $NVI -lt 1 ]
+then
+	echo '/-Z/s/-Z//' >> \#$$
+fi
+
+if [ $cpu = "73" -o $cpu = "70" ]
+then
+	echo '/^LD/s/ld/ld -i/
+s/-Q ${VARS1}/${VARS1}/' >> \#$$
+else
+	echo 's/-Q ${VARS}/${VARS}/' >> \#$$
+fi
+
+if [ x$DEFS != x ]
+then
+	echo "/^DEFS/s/-D/$DEFS -D/" >> \#$$
+fi
+
+#
+# стирание ненужных правил и зависимостей в Makefile
+#
+echo "Подготовка и создание ../$machine/Makefile"
+
+if [ $NDH -lt 1 ]
+then
+	echo '/^dh\.o:.*/d
+s/ dh\.o//g
+s?\.\./dev/dh\.c??g' >> \#$$
+fi
+
+if [ $NDHU -lt 1 ]
+then
+	echo '/^dhu\.o:.*/d
+s/ dhu\.o//g
+s?\.\./dev/dhu\.c??g' >> \#$$
+fi
+
+if [ $NDJ -lt 1 ]
+then
+	echo '/^dj\.o:.*/d
+s/ dj\.o//g
+s?\.\./dev/dj\.c??g' >> \#$$
+fi
+
+if [ $NDN -lt 1 ]
+then
+	echo '/^dn\.o:.*/d
+s/ dn\.o//g
+s?\.\./dev/dn\.c??g' >> \#$$
+fi
+
+if [ $NDZ -lt 1 ]
+then
+	echo '/^dz\.o:.*/d
+s/ dz\.o//g
+s?\.\./dev/dz\.c??g' >> \#$$
+fi
+
+if [ $NDVHP -lt 1 ]
+then
+	echo '/^dvhp\.o:.*/d
+s/ dvhp\.o//g
+s?\.\./dev/dvhp\.c??g' >> \#$$
+fi
+
+if [ $NDW -lt 1 ]
+then
+	echo '/^dw\.o:.*/d
+s/ dw\.o//g
+s?\.\./dev/dw\.c??g' >> \#$$
+fi
+
+if [ $NFD -lt 1 ]
+then
+	echo '/^fd\.o:.*/d
+s/ fd\.o//g
+s?\.\./dev/fd\.c??g' >> \#$$
+fi
+
+if [ $NHK -lt 1 ]
+then
+	echo '/^hk\.o:.*/d
+s/ hk\.o//g
+s?\.\./dev/hk\.c??g' >> \#$$
+fi
+
+if [ $NHP -lt 1 ]
+then
+	echo '/^hp\.o:.*/d
+s/ hp\.o//g
+s?\.\./dev/hp\.c??g' >> \#$$
+fi
+
+if [ $NHS -lt 1 ]
+then
+	echo '/^hs\.o:.*/d
+s/ hs\.o//g
+s?\.\./dev/hs\.c??g' >> \#$$
+fi
+
+if [ $NHT -lt 1 ]
+then
+	echo '/^ht\.o:.*/d
+s/ ht\.o//g
+s?\.\./dev/ht\.c??g' >> \#$$
+fi
+
+if [ $NKS -lt 1 ]
+then
+	echo '/^ks\.o:.*/d
+s/ ks\.o//g
+s?\.\./dev/ks\.c??g' >> \#$$
+fi
+
+if [ $NKX -lt 1 ]
+then
+	echo '/^kx\.o:.*/d
+s/ kx\.o//g
+s?\.\./dev/kx\.c??g' >> \#$$
+fi
+
+if [ $NKY -lt 1 ]
+then
+	echo '/^ky\.o:.*/d
+s/ ky\.o//g
+s?\.\./dev/ky\.c??g' >> \#$$
+fi
+
+if [ $NLP -lt 1 ]
+then
+	echo '/^lp\.o:.*/d
+s/ lp\.o//g
+s?\.\./dev/lp\.c??g' >> \#$$
+fi
+
+if [ $NMK -lt 1 ]
+then
+	echo '/^mk\.o:.*/d
+s/ mk\.o//g
+s?\.\./dev/mk\.c??g' >> \#$$
+fi
+
+#
+# Т.к. sed'у не хватает памяти, то разобьем программу на два куска
+#
+mv \#$$ \#${$}0
+cat /dev/null > \#$$
+
+if [ $NMY -lt 1 ]
+then
+	echo '/^my\.o:.*/d
+s/ my\.o//g
+s?\.\./dev/my\.c??g' >> \#$$
+fi
+
+if [ $NPC -lt 1 ]
+then
+	echo '/^pc\.o:.*/d
+s/ pc\.o//g
+s?\.\./dev/pc\.c??g' >> \#$$
+fi
+
+if [ $NPTY -lt 1 ]
+then
+	echo '/^pty\.o:.*/d
+s/ pty\.o//g
+s?\.\./dev/pty\.c??g' >> \#$$
+fi
+
+if [ $NMPY -lt 1 ]
+then
+	echo '/^mpy\.o:.*/d
+s/ mpy\.o//g
+s?\.\./dev/mpy\.c??g' >> \#$$
+fi
+
+if [ $NRA -lt 1 ]
+then
+	echo '/^uda\.o:.*/d
+s/ uda\.o//g
+s?\.\./dev/uda\.c??g' >> \#$$
+fi
+
+if [ $NRK -lt 1 ]
+then
+	echo '/^rk\.o:.*/d
+s/ rk\.o//g
+s?\.\./dev/rk\.c??g' >> \#$$
+fi
+
+if [ $NRL -lt 1 ]
+then
+	echo '/^rl\.o:.*/d
+s/ rl\.o//g
+s?\.\./dev/rl\.c??g' >> \#$$
+fi
+
+if [ $NRM -lt 1 ]
+then
+	echo '/^rm\.o:.*/d
+s/ rm\.o//g
+s?\.\./dev/rm\.c??g' >> \#$$
+fi
+
+if [ $NRP -lt 1 ]
+then
+	echo '/^rp\.o:.*/d
+s/ rp\.o//g
+s?\.\./dev/rp\.c??g' >> \#$$
+fi
+
+if [ $NRW -lt 1 ]
+then
+	echo '/^rw\.o:.*/d
+s/ rw\.o//g
+s?\.\./dev/rw\.c??g' >> \#$$
+fi
+
+if [ $NRX -lt 1 ]
+then
+	echo '/^rx\.o:.*/d
+s/ rx\.o//g
+s?\.\./dev/rx\.c??g' >> \#$$
+fi
+
+if [ $NTM -lt 1 ]
+then
+	echo '/^tm\.o:.*/d
+s/ tm\.o//g
+s?\.\./dev/tm\.c??g' >> \#$$
+fi
+
+if [ $NTS -lt 1 ]
+then
+	echo '/^ts\.o:.*/d
+s/ ts\.o//g
+s?\.\./dev/ts\.c??g' >> \#$$
+fi
+
+if [ $NVD -lt 1 ]
+then
+	echo '/^vd\.o:.*/d
+s/ vd\.o//g
+s?\.\./dev/vd\.c??g' >> \#$$
+fi
+
+if [ $NVI -lt 1 ]
+then
+	echo '/^graph\.o:.*/d
+/^font[12]\.o:.*/d
+/^font[12]\.o RULE[12]:/,/^$/d
+/^video\.o:.*/d
+/^vikey\.o:.*/d
+/^ildl\.o:.*/d
+s/ graph\.o//g
+s/ font[12]\.o//g
+s/ video\.o//g
+s/ vikey\.o//g
+s/ ildl\.o//g
+s?\.\./dev/graph\.c??g
+s?\.\./dev/video\.c??g
+s?\.\./dev/vikey\.c??g
+s?\.\./dev/ildl\.c??g' >> \#$$
+fi
+
+if [ $NXP -lt 1 ]
+then
+	echo '/^xp\.o:.*/d
+s/ xp\.o//g
+s?\.\./dev/xp\.c??g' >> \#$$
+fi
+
+if [ $NWL -lt 1 ]
+then
+	echo '/^wl\.o:.*/d
+s/ wl\.o//g
+s?\.\./dev/wl\.c??g' >> \#$$
+fi
+
+echo "s/%SPLFIX%/$splfix/" >> \#$$
+
+sed -f \#${$}0 < Makefile | sed -f \#$$ | unexpand > ../$machine/Makefile
+rm -f \#$$ \#${$}0
+
+#
+# копируем стандартные файлы и т.д.
+#
+echo "Копируем файлы конфигурации"
+
+#
+# редактирование файлов конфигурации и заголовки драйверов.
+#
+
+if [ ! -d ../$machine/h ]
+then
+	 echo "Создаем ../$machine/h"
+	 mkdir ../$machine/h
+fi
+
+if [ ! -f ../$machine/h/param.h ]
+then
+	 cat /dev/null > ../$machine/h/param.h
+fi
+
+ed - << EOF whoami.h
+/%PDP%/s//$pdp11/
+/%ident%/s//\L$ident/
+w #$$
+q
+EOF
+cmp -s \#$$ ../$machine/h/whoami.h || mv \#$$ ../$machine/h/whoami.h
+
+if [ ! -s ../$machine/h/space.h ]
+then
+if [ $NMOUNT = 0 ]
+then
+NMOUNT=`expr $NRK + $NFD + $NRX + $NVD + \( \( $NHK + $NRP + $NRW + $NRL \) \* 3 \) + \( \( $NXP + $NDVHP + $NRA + $NRM + $NHP \) \* 4 \)`
+fi
+
+ed - << EOF space.h
+/%TIMEZONE%/s//$timezone/
+/%DST%/s//$dst/
+/%MAXUSERS%/s//$maxusers/
+/%NBUF%/s??${NBUF-(14+2*MAXUSERS)}?
+/%NMOUNT%/s//$NMOUNT/
+/%NPROC%/s??${NPROC-(15+5*MAXUSERS)}?
+/%NTEXT%/s??${NTEXT-(20+(3*MAXUSERS)/2)}?
+/%NINODE%/s??${NINODE-(40+NPROC+3*MAXUSERS)}?
+/%NFILE%/s??${NFILE-(NINODE+25)}?
+/%NCALL%/s??${NCALL-(MAXUSERS+5)}?
+/%NFLOCK%/s??${NFLOCK-(NPROC*2)}?
+/%SEMMNS%/s??${SEMMNS-(MAXUSERS*2)}?
+/%SEMMNI%/s??${SEMMNI-(SEMMNS/3)}?
+/%SEMMNU%/s??${SEMMNU-((SEMUME*SEMMNS)/6)}?
+/%SEMUME%/s??${SEMUME-(3+MAXUSERS/5)}?
+/%MSGMNI%/s??${MSGMNI-(MAXUSERS/2)}?
+/%MSGTQL%/s??${MSGTQL-(MAXUSERS*3)}?
+w ../$machine/h/space.h
+q
+EOF
+fi
+
+ed - << EOF ioconf.c
+/%ROOTDEV%/s//$rootdev/
+/%SWAPDEV%/s//$swapdev/
+/%PIPEDEV%/s//$pipedev/
+/%DUMPDEV%/s//$dumpdev/
+/%NSWAP%/s//$nswap/
+/%SWPLO%/s//$swplo/
+/%DUMPLO%/s//$dumplo/
+g/%DUMPROUTINE%/s//$dumproutine/
+w #$$
+q
+EOF
+cmp -s \#$$ ../$machine/ioconf.c || mv \#$$ ../$machine/ioconf.c
+
+ed - << EOF newvers.sh
+/%IDENT%/s//$ident/
+w #$$
+q
+EOF
+cmp -s \#$$ ../$machine/newvers.sh || mv \#$$ ../$machine/newvers.sh
+
+echo "/* Описатель BERKNET */
+#define NBK     $NBK" > \#$$
+cmp -s \#$$ ../$machine/h/bk.h || mv \#$$ ../$machine/h/bk.h
+
+echo "/*
+ * Конфигурация мультиплексоров DH (СМ 8514).
+ * NDH and NDM are in units of boards (16 lines each). LOWDM is the
+ * unit number of the first unit with a DM-11 (e.g. 16 if the first
+ * DH has no DM, the second does have one). All units from LOWDM
+ * through LOWDM + (NDM*16) are assumed to have modem control (bit 0200
+ * must be on in * their minor device numbers if DH_SOFTCAR is defined).
+ */
+#define NDH             $NDH
+#define NDM             $NDM
+#define LOWDM           $LOWDM
+#define DH_SOFTCAR
+#define DH_IOCTL
+/* #define DH_SILO      */" > \#$$
+cmp -s \#$$ ../$machine/h/dh.h || mv \#$$ ../$machine/h/dh.h
+
+echo "/*
+ * Конфигурация мультиплексоров DHU
+ * NDHU and NDM are in units of boards (16 lines each). LOWDM is the
+ * unit number of the first unit with a DM-11 (e.g. 16 if the first
+ * DH has no DM, the second does have one). All units from LOWDM through
+ * LOWDM + (NDM*16) are assumed to have modem control (bit 0200 must be
+ * on in * their minor device numbers if DH_SOFTCAR is defined).
+ */
+#define NDHU            $NDHU
+#define NDM             $NDM
+#define LOWDM           $LOWDM
+#define DH_SOFTCAR
+#define DHU_IOCTL
+/*#define DHV11 /* only 8 lines */" > \#$$
+cmp -s \#$$ ../$machine/h/dhu.h || mv \#$$ ../$machine/h/dhu.h
+
+echo "/* Конфигурация мультиплексоров dj / МПА-1 */
+#define NDJ     $NDJ" > \#$$
+cmp -s \#$$ ../$machine/h/dj.h || mv \#$$ ../$machine/h/dj.h
+
+echo "/* Конфигурация DN */
+#define NDN     $NDN" > \#$$
+cmp -s \#$$ ../$machine/h/dn.h || mv \#$$ ../$machine/h/dn.h
+
+echo "/*
+ * Конфигурация мультиплексоров DZ
+ */
+#define NDZ     $NDZ
+#define DZ_IOCTL
+#define DZ_PDMA         /* pseudo-DMA (more efficient) output */
+/*
+ *  If DZ_SOFTCAR is defined, carrier will be ignored for devices
+ *  with the 0200 bit set in their minor device numbers.
+ */
+#define DZ_SOFTCAR
+/* #define DZ_SILO               /* use silo alarm */
+#define SILOSCANRATE (hz / 10)   /* frequency of emptying the silo */" > \#$$
+cmp -s \#$$ ../$machine/h/dz.h || mv \#$$ ../$machine/h/dz.h
+
+echo "/* Disk driver for Diva Comp V controller. */
+#define HDVNP   $NDVHP" > \#$$
+cmp -s \#$$ ../$machine/h/dvhp.h || mv \#$$ ../$machine/h/dvhp.h
+
+echo "/* Винчестер ДВК-4 */
+#define NDW   $NDW
+#define DW_SPL  /* Устанавливать в dwintr низкий приоритет для kl */
+#define DW_DKN  0" > \#$$
+cmp -s \#$$ ../$machine/h/dw.h || mv \#$$ ../$machine/h/dw.h
+
+echo "/* Флоппи-диски Электроники-85 */
+#define NFD   $NFD
+#define FDTRK 80
+#define FDSEC 10" > \#$$
+cmp -s \#$$ ../$machine/h/fd.h || mv \#$$ ../$machine/h/fd.h
+
+echo "/* Конфигурация дисков HK (СМ 5408). */
+#define NHK     $NHK
+#define HKSEEK          /* Параллельный подвод на неск. hk */
+#define HK_DKN       2  /* drive # for iostat disk monitoring */
+#define HK_DUMP         /* include dump routine */
+#define HK_SPL          /* Понижать приоритет, когда возможно*/
+#define HK_TIMOUT       /* Таймаут на HK --- @VG */" > \#$$
+cmp -s \#$$ ../$machine/h/hk.h || mv \#$$ ../$machine/h/hk.h
+
+echo "/* Конфигурация дисков HP */
+#define NHP     $NHP
+#define HP_DKN  0       /* drive # for iostat disk monitoring */
+#define HP_DUMP         /* include dump routine */" > \#$$
+cmp -s \#$$ ../$machine/h/hp.h || mv \#$$ ../$machine/h/hp.h
+
+echo "/* Конфигурация дисков HS. */
+#define NHS     $NHS
+#define HS_DKN  0       /* drive # for iostat disk monitoring */" > \#$$
+cmp -s \#$$ ../$machine/h/hs.h || mv \#$$ ../$machine/h/hs.h
+
+echo "/* Конфигурация HT */
+#define NHT     $NHT
+#define HT_IOCTL" > \#$$
+cmp -s \#$$ ../$machine/h/ht.h || mv \#$$ ../$machine/h/ht.h
+
+echo "/* DL/kisi driver (СПИ-15 для ДВК-4) */
+#define NKS     $NKS " > \#$$
+cmp -s \#$$ ../$machine/h/ks.h || mv \#$$ ../$machine/h/ks.h
+
+echo "/* Конфигурация терминалов на ОШ (или АДС-М).
+ *  NKL11 includes both KL11's and DL11's. */
+#define NKL     $NKL
+#define KL_ROUND /* Использовать еще одну очередь для быстрой буферизации */" > \#$$
+cmp -s \#$$ ../$machine/h/kl.h || mv \#$$ ../$machine/h/kl.h
+
+echo "/* Word line (only for SM 1425) */
+#define NWL     $NWL" > \#$$
+cmp -s \#$$ ../$machine/h/wl.h || mv \#$$ ../$machine/h/wl.h
+
+echo "/* Интерфейс внешнего устройства Э-85 */
+#define NKX $NKX" > \#$$
+cmp -s \#$$ ../$machine/h/kx.h || mv \#$$ ../$machine/h/kx.h
+
+echo "/* Интерфейс внешнего устройства Э-85 */
+#define NKY $NKY" > \#$$
+cmp -s \#$$ ../$machine/h/ky.h || mv \#$$ ../$machine/h/ky.h
+
+echo "/* Конфигурация мулти-DL/kisi на ОШ (или АДС-М) */
+#define NMK     $NMK" > \#$$
+cmp -s \#$$ ../$machine/h/mk.h || mv \#$$ ../$machine/h/mk.h
+
+echo "/* Конфигурация гибких дисков MY (для Qbus) */
+#define NMY     $NMY /* Число дисководов на контроллере */
+#define NMYC    $NMYC   /* Число контроллеров */
+#define MY_SPL  /* Устанавливать в myintr низкий приоритет для kl */
+#define MY_DKN  1" > \#$$
+cmp -s \#$$ ../$machine/h/my.h || mv \#$$ ../$machine/h/my.h
+
+echo "/* Конфигурация печатающих устройств */
+#define NLP     $NLP" > \#$$
+cmp -s \#$$ ../$machine/h/lp.h || mv \#$$ ../$machine/h/lp.h
+
+echo "/* Перфоленточная станция СМ 6204 */
+#define NPC $NPC" > \#$$
+cmp -s \#$$ ../$machine/h/pc.h || mv \#$$ ../$machine/h/pc.h
+
+echo "/* Pseudo-teletype Driver */
+#define NPTY    $NPTY" > \#$$
+cmp -s \#$$ ../$machine/h/pty.h || mv \#$$ ../$machine/h/pty.h
+
+echo "/* Мультиплексная line-discipline */
+#define NMPY      $NMPY
+#define NMPYCHANS $NMPYCHANS" > \#$$
+cmp -s \#$$ ../$machine/h/mpy.h || mv \#$$ ../$machine/h/mpy.h
+
+echo "/* Диски RA5x */
+#define NRA $NRA" > \#$$
+cmp -s \#$$ ../$machine/h/ra.h || mv \#$$ ../$machine/h/ra.h
+
+echo "/* Конфигурация RK дисков */
+#define NRK     $NRK
+#define NRKC    $NRKC /* Число контроллеров */
+#define RK_DKN  0
+#define RK_WCHECK  /* Контроль записи */
+#define RK_SPL     /* Устанавливать в rkintr низкий приоритет для kl */" > \#$$
+cmp -s \#$$ ../$machine/h/rk.h || mv \#$$ ../$machine/h/rk.h
+
+echo "/* Конфигурация RL дисков */
+#define NRL     $NRL
+#define RL_DKN  0" > \#$$
+cmp -s \#$$ ../$machine/h/rl.h || mv \#$$ ../$machine/h/rl.h
+
+echo "/* Конфигурация RM дисков */
+#define NRM     $NRM
+#define RM_DKN  1       /* drive # for iostat disk monitoring */
+#define RM_DUMP         /* include dump routine */" > \#$$
+cmp -s \#$$ ../$machine/h/rm.h || mv \#$$ ../$machine/h/rm.h
+
+echo "/* Конфигурация RP дисков */
+#define NRP     $NRP
+#define RP_DKN  1
+#define RP_WCHECK   /* Контроль записи */
+#define RP_SPL      /* Устанавливать в rpintr низкий приоритет для kl */
+#define RP_TIMEOUT  /* Таймоут */" > \#$$
+cmp -s \#$$ ../$machine/h/rp.h || mv \#$$ ../$machine/h/rp.h
+
+echo "/* Винчестер Электроники-85 */
+#define NRW $NRW
+#define RWSEC   16
+#define RWTRK   4" > \#$$
+cmp -s \#$$ ../$machine/h/rw.h || mv \#$$ ../$machine/h/rw.h
+
+echo "/* Конфигурация флоппи-дисков RX-11 */
+#define NRX $NRX" > \#$$
+cmp -s \#$$ ../$machine/h/rx.h || mv \#$$ ../$machine/h/rx.h
+
+echo "/* Конфигурация магнитных лент TM (СМ 5300, СМ 5302). */
+#define NTM     $NTM
+#define NTMC    $NTMC   /* Число контроллеров */
+#define DDMT            /* software-selectable 1600 bpi */
+#define TM_IOCTL
+/* #define TM_TIMEOUT   /* Таймоут */" > \#$$
+cmp -s \#$$ ../$machine/h/tm.h || mv \#$$ ../$machine/h/tm.h
+
+echo "/* Конфигурация магнитных лент TS. */
+#define NTS $NTS
+#define TS_IOCTL" > \#$$
+cmp -s \#$$ ../$machine/h/ts.h || mv \#$$ ../$machine/h/ts.h
+
+echo "/* Драйвер виртуального диска для СМ-1420 с большой памятью. */
+#define NVD $NVD
+#define VDSIZE 512" > \#$$
+cmp -s \#$$ ../$machine/h/vd.h || mv \#$$ ../$machine/h/vd.h
+
+echo "/* Видеоконтроллер Электроники-85 */
+#define NVI $NVI" > \#$$
+cmp -s \#$$ ../$machine/h/video.h || mv \#$$ ../$machine/h/video.h
+
+echo "/* Конфигурация XP. */
+#define NXP             $NXP
+#define NXP_CONTROLLER  $NXP_CONTROLLER
+#define XP_DKN  1       /* drive # for iostat disk monitoring */
+#define XP_DUMP         /* include dump routine */
+#define XP_PROBE        /* check drive types at boot */" > \#$$
+cmp -s \#$$ ../$machine/h/xp.h || mv \#$$ ../$machine/h/xp.h
+
+#
+# Создание localopts.h
+#
+
+cp localopts.h \#$$
+
+echo "" >> \#$$
+if [ "$CGL_RTP" = "y" ]
+then
+	echo '#define CGL_RTP                 /*- Возможен 1 суперприоритетный процесс */' >> \#$$
+else
+	echo '/* #define CGL_RTP              /*- Возможен 1 суперприоритетный процесс */' >> \#$$
+fi
+if [ "$DISKMON" = "y" ]
+then
+	echo '#define DISKMON                 /*- собирать статистику по буферам для iostat */' >> \#$$
+else
+	echo '/* #define DISKMON              /*- собирать статистику по буферам для iostat */' >> \#$$
+fi
+if [ "$UCB_GRPMAST" = "y" ]
+then
+	echo '#define UCB_GRPMAST             /*- поддерживается "администратор группы" */' >> \#$$
+else
+	echo '/* #define UCB_GRPMAST          /*- поддерживается "администратор группы" */' >> \#$$
+fi
+if [ "$UCB_UPRINTF" = "y" ]
+then
+	echo '#define UCB_UPRINTF             /*+ сообщения об ошибках посылаются user-у */' >> \#$$
+else
+	echo '/* #define UCB_UPRINTF          /*+ сообщения об ошибках посылаются user-у */' >> \#$$
+fi
+if [ "$UCB_LOAD" = "y" ]
+then
+	echo '#define UCB_LOAD                /*+ статистика по загрузке системы */' >> \#$$
+else
+	echo '/* #define UCB_LOAD             /*+ статистика по загрузке системы */' >> \#$$
+fi
+if [ "$UCB_METER" = "y" ]
+then
+	echo '#define UCB_METER               /*- статистика по подкачке */' >> \#$$
+else
+	echo '/* #define UCB_METER            /*- статистика по подкачке */' >> \#$$
+fi
+if [ "$FXMETER" = "y" ]
+then
+	echo '#define  FXMETER                /*- статистика по вторичному использ. text */' >> \#$$
+else
+	echo '/* #define  FXMETER             /*- статистика по вторичному использ. text */' >> \#$$
+fi
+if [ "$IPK_DIRECTORY" = "y" ]
+then
+	echo '#define IPK_DIRECTORY           /*+  новая структура каталогов */' >> \#$$
+else
+	echo '/* #define IPK_DIRECTORY        /*+  новая структура каталогов */' >> \#$$
+fi
+if [ "$UCB_BHASH" = "y" ]
+then
+	echo '#define UCB_BHASH               /*+  хэш при доступе к буферам */' >> \#$$
+else
+	echo '/* #define UCB_BHASH            /*+  хэш при доступе к буферам */' >> \#$$
+fi
+if [ "$UCB_DEVERR" = "y" ]
+then
+	echo '#define UCB_DEVERR              /*+ развернутуе сообщения об ошибках устройств */' >> \#$$
+else
+	echo '/* #define UCB_DEVERR           /*+ развернутуе сообщения об ошибках устройств */' >> \#$$
+fi
+if [ "$UCB_ECC" = "y" ]
+then
+	echo '#define UCB_ECC                 /*+ Коррекция исправимых ошибок на дисках */' >> \#$$
+else
+	echo '/* #define UCB_ECC              /*+ Коррекция исправимых ошибок на дисках */' >> \#$$
+fi
+if [ "$UCB_FSFIX" = "y" ]
+then
+	echo '#define UCB_FSFIX               /*+ Улучшенный порядок сброса буферов на диск*/' >> \#$$
+else
+	echo '/* #define UCB_FSFIX            /*+ Улучшенный порядок сброса буферов на диск*/' >> \#$$
+fi
+if [ "$UCB_IHASH" = "y" ]
+then
+	echo '#define UCB_IHASH               /*+? hashed inode table */' >> \#$$
+else
+	echo '/* #define UCB_IHASH            /*+? hashed inode table */' >> \#$$
+fi
+if [ "$UCB_ISRCH" = "y" ]
+then
+	echo '#define UCB_ISRCH               /*+? circular inode search */' >> \#$$
+else
+	echo '/* #define UCB_ISRCH            /*+? circular inode search */' >> \#$$
+fi
+if [ "$EXMOUNT" = "y" ]
+then
+	echo '#define EXMOUNT                 /*+ таблица mount вынесена из памяти ядра */' >> \#$$
+else
+	echo '/* #define EXMOUNT              /*+ таблица mount вынесена из памяти ядра */' >> \#$$
+fi
+if [ "$UNFAST" = "y" ]
+then
+	echo '#define UNFAST                  /*-? Использовать функции вместо макро (для экономии места) */' >> \#$$
+else
+	echo '/* #define UNFAST               /*-? Использовать функции вместо макро (для экономии места) */' >> \#$$
+fi
+echo '#ifdef KERNEL' >> \#$$
+if [ "$SMALL" = "y" ]
+then
+	echo '#define SMALL                   /*+ малая система (малые хэш-таблицы) */' >> \#$$
+else
+	echo '/* #define SMALL                /*+ малая система (малые хэш-таблицы) */' >> \#$$
+fi
+echo '#endif KERNEL' >> \#$$
+if [ "$IPK_SDADDR" = "y" ]
+then
+	echo '#define IPK_SDADDR              /*+ 2-byte адрес на диске для малых систем */' >> \#$$
+else
+	echo '/* #define IPK_SDADDR           /*+ 2-byte адрес на диске для малых систем */' >> \#$$
+fi
+if [ "$NOACCI" = "y" ]
+then
+	echo '#define NOACCI                  /*- не записывать время обращения к файлу */' >> \#$$
+else
+	echo '/* #define NOACCI               /*- не записывать время обращения к файлу */' >> \#$$
+fi
+if [ "$ACCT" = "y" ]
+then
+	echo '#define ACCT                    /*- статистика по командам */' >> \#$$
+else
+	echo '/* #define ACCT                 /*- статистика по командам */' >> \#$$
+fi
+if [ "$INSECURE" = "y" ]
+then
+	echo '#define INSECURE                /*- не чистить setuid, setgid биты при записи в файл */' >> \#$$
+else
+	echo '/* #define INSECURE             /*- не чистить setuid, setgid биты при записи в файл */' >> \#$$
+fi
+if [ "$SCHED" = "y" ]
+then
+	echo '#define SCHED                   /*- новый планировщик реального времени (для памяти порядка >= 1Mб) */' >> \#$$
+else
+	echo '/* #define SCHED                /*- новый планировщик реального времени (для памяти порядка >= 1Mб) */' >> \#$$
+fi
+if [ "$IPK_XKOV" = "y" ]
+then
+	echo '#define IPK_XKOV                /*+ включен 31 оверлей в ядре */' >> \#$$
+else
+	echo '/* #define IPK_XKOV             /*+ включен 31 оверлей в ядре */' >> \#$$
+fi
+echo '#ifdef SCHED
+#       undef   CGL_RTP
+#endif SCHED
+
+#endif  _sys_localopts_h_' >> \#$$
+cmp -s \#$$ ../$machine/h/localopts.h || mv \#$$ ../$machine/h/localopts.h
+rm -f \#$$
+
+echo befor make demos, You must make depend
+
+echo "
+Готово"

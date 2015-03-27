@@ -1,0 +1,52 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.19.30.09;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+/* rewinds mag tape drive */
+main(argc,argv) char**argv; {
+	char *f;
+	int fd;
+
+	if (argc > 1) f = argv[1];
+		else  f = "/dev/mt0";
+
+	fd = open(f,0);
+	if (fd < 0) printf("Can't open %s\n",f);
+		else close(fd);
+}
+@

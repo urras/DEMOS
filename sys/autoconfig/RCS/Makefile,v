@@ -1,0 +1,206 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.3
+date     90.12.12.16.55.31;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.10.17.12.13.30;  author dvolodin;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.25.02.26.27;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.3
+log
+@Правки для ДВК
+@
+text
+@#
+# Makefile for the system autoconfiguration program
+#
+
+OBJS=           args.o attach.o do_config.o main.o read_dtab.o read_nlist.o \
+		uprobe1.o uprobe2.o uprobe3.c
+CFLAGS=         -O
+I=              /usr/include
+I1=             ../include
+RCS=            RCS
+
+all:            autoconfig
+
+autoconfig:     $(OBJS)
+		cc $(LDFLAGS) $(OBJS) -o autoconfig
+
+install:        all
+		cp autoconfig ${DESTDIR}/etc
+		-strip ${DESTDIR}/etc/autoconfig
+
+clean:
+		rm -f autoconfig *.o
+
+args.o: ${I}/stdio.h args.h
+
+attach.o: ${I}/a.out.h ${I}/stdio.h ${I}/sys/autoconfig.h \
+	  ${I1}/psw.h dtab.h ivec.h
+
+do_config.o: ${I}/a.out.h ${I}/errno.h ${I}/stdio.h ${I}/sys/autoconfig.h \
+	     ${I1}/psw.h ${I1}/trap.h dtab.h ivec.h
+
+main.o: ${I}/stdio.h ${I}/sys/autoconfig.h args.h
+
+read_dtab.o: ${I}/ctype.h ${I}/stdio.h ${I}/sys/autoconfig.h dtab.h uprobe.h
+
+read_nlist.o: ${I}/a.out.h ${I}/stdio.h ${I}/sys/autoconfig.h ${I}/sys/param.h \
+	      args.h dtab.h
+
+uprobe1.o: ${I}/sys/autoconfig.h ${I1}/hkreg.h ${I1}/hpreg.h \
+	   ${I1}/hsreg.h ${I}/sys/param.h ${I1}/rkreg.h ${I1}/rlreg.h \
+	   ${I1}/rpreg.h uprobe.h
+
+uprobe2.o: ${I}/sgtty.h ${I}/sys/autoconfig.h ${I1}/dhreg.h \
+	   ${I1}/dnreg.h ${I1}/dzreg.h ${I1}/klreg.h ${I1}/lpreg.h \
+	   ${I}/sys/param.h uprobe.h ${I1}/djreg.h
+
+uprobe3.o: uprobe.h ${I1}/htreg.h ${I1}/tmreg.h ${I1}/tsreg.h
+
+args.c:         ${RCS}/args.c,v          ; co args.c
+attach.c:       ${RCS}/attach.c,v        ; co attach.c
+do_config.c:    ${RCS}/do_config.c,v     ; co do_config.c
+main.c:         ${RCS}/main.c,v          ; co main.c
+read_dtab.c:    ${RCS}/read_dtab.c,v     ; co read_dtab.c
+read_nlist.c:   ${RCS}/read_nlist.c,v    ; co read_nlist.c
+uprobe1.c:      ${RCS}/uprobe1.c,v       ; co uprobe1.c
+uprobe2.c:      ${RCS}/uprobe2.c,v       ; co uprobe2.c
+uprobe3.c:      ${RCS}/uprobe3.c,v       ; co uprobe3.c
+args.h:         ${RCS}/args.h,v          ; co args.h
+dtab.h:         ${RCS}/dtab.h,v          ; co dtab.h
+ivec.h:         ${RCS}/ivec.h,v          ; co ivec.h
+uprobe.h:       ${RCS}/uprobe.h,v        ; co uprobe.h
+@
+
+
+1.2
+log
+@Наведена красота и RCS.
+	Автор неизвестен.
+@
+text
+@d9 1
+d27 1
+a27 1
+	  ${I}/sys/psw.h dtab.h ivec.h
+d30 1
+a30 1
+	     ${I}/sys/psw.h ${I}/sys/trap.h dtab.h ivec.h
+d39 3
+a41 3
+uprobe1.o: ${I}/sys/autoconfig.h ${I}/sys/hkreg.h ${I}/sys/hpreg.h \
+	   ${I}/sys/hsreg.h ${I}/sys/param.h ${I}/sys/rkreg.h ${I}/sys/rlreg.h \
+	   ${I}/sys/rpreg.h uprobe.h
+d43 3
+a45 3
+uprobe2.o: ${I}/sgtty.h ${I}/sys/autoconfig.h ${I}/sys/dhreg.h \
+	   ${I}/sys/dnreg.h ${I}/sys/dzreg.h ${I}/sys/klreg.h ${I}/sys/lpreg.h \
+	   ${I}/sys/param.h uprobe.h ${I}/sys/djreg.h
+d47 1
+a47 1
+uprobe3.o: uprobe.h ${I}/sys/htreg.h ${I}/sys/tmreg.h ${I}/sys/tsreg.h
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 1
+a5 3
+CFILES=		args.c attach.c do_config.c main.c read_dtab.c read_nlist.c \
+		uprobe1.c uprobe2.c
+OBJS=		args.o attach.o do_config.o main.o read_dtab.o read_nlist.o \
+d7 3
+a9 3
+CFLAGS=		-O
+LDFLAGS=
+INCLUDES=	/usr/include
+d11 1
+a11 1
+all:		autoconfig
+d13 1
+a13 1
+autoconfig:	$(OBJS)
+a18 1
+		cp dtab $(DESTDIR)/etc/dtab.std
+d23 38
+a60 54
+args.o:		${INCLUDES}/stdio.h
+args.o:		args.h
+attach.o:	${INCLUDES}/a.out.h
+attach.o:	${INCLUDES}/stdio.h
+attach.o:	${INCLUDES}/sys/autoconfig.h
+attach.o:	${INCLUDES}/sys/psw.h
+attach.o:	dtab.h
+attach.o:	ivec.h
+do_config.o:	${INCLUDES}/a.out.h
+do_config.o:	${INCLUDES}/errno.h
+do_config.o:	${INCLUDES}/stdio.h
+do_config.o:	${INCLUDES}/sys/autoconfig.h
+do_config.o:	${INCLUDES}/sys/psw.h
+do_config.o:	${INCLUDES}/sys/trap.h
+do_config.o:	dtab.h
+do_config.o:	ivec.h
+main.o:		${INCLUDES}/stdio.h
+main.o:		${INCLUDES}/sys/autoconfig.h
+main.o:		args.h
+read_dtab.o:	${INCLUDES}/ctype.h
+read_dtab.o:	${INCLUDES}/stdio.h
+read_dtab.o:	${INCLUDES}/sys/autoconfig.h
+read_dtab.o:	dtab.h
+read_dtab.o:	uprobe.h
+read_nlist.o:	${INCLUDES}/a.out.h
+read_nlist.o:	${INCLUDES}/stdio.h
+read_nlist.o:	${INCLUDES}/sys/autoconfig.h
+read_nlist.o:	${INCLUDES}/sys/param.h
+read_nlist.o:	args.h
+read_nlist.o:	dtab.h
+uprobe1.o:	${INCLUDES}/sys/autoconfig.h
+uprobe1.o:	${INCLUDES}/sys/hkreg.h
+uprobe1.o:	${INCLUDES}/sys/hpreg.h
+uprobe1.o:	${INCLUDES}/sys/hsreg.h
+uprobe1.o:	${INCLUDES}/sys/param.h
+uprobe1.o:	${INCLUDES}/sys/rkreg.h
+uprobe1.o:	${INCLUDES}/sys/rlreg.h
+uprobe1.o:	${INCLUDES}/sys/rpreg.h
+uprobe1.o:	uprobe.h
+uprobe2.o:	${INCLUDES}/sgtty.h
+uprobe2.o:	${INCLUDES}/sys/autoconfig.h
+uprobe2.o:	${INCLUDES}/sys/dhreg.h
+uprobe2.o:	${INCLUDES}/sys/dnreg.h
+uprobe2.o:	${INCLUDES}/sys/dzreg.h
+uprobe2.o:	${INCLUDES}/sys/klreg.h
+uprobe2.o:	${INCLUDES}/sys/lpreg.h
+uprobe2.o:	${INCLUDES}/sys/param.h
+uprobe2.o:	${INCLUDES}/sys/vpreg.h
+uprobe2.o:	uprobe.h
+uprobe2.o:      ${INCLUDES}/sys/djreg.h
+uprobe3.o:      uprobe.h
+uprobe3.o:      ${INCLUDES}/sys/htreg.h
+uprobe3.o:      ${INCLUDES}/sys/tmreg.h
+uprobe3.o:      ${INCLUDES}/sys/tsreg.h
+@

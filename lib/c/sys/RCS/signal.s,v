@@ -1,0 +1,222 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.2
+date     88.11.16.16.33.53;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.01.17.43.46;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Новый механизм сигналов.
+@
+text
+@/ $Header: signal.s,v 1.1 88/04/01 17:43:46 andrew Exp $
+/ $Log:	signal.s,v $
+/ Revision 1.1  88/04/01  17:43:46  andrew
+/ Initial revision
+/ 
+/ ofunc = sigsys(sig, func);
+/	  void (*func)();
+
+SIGDORTI = 1000
+rtt	= 6
+iot	= 4
+.signal	= 48.
+.globl	_sigsys, __sigcatch, _mvectors, cerror
+NSIG = 32
+_sigsys:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	6(r5),-(sp)	/ push signal action
+	mov	4(r5),-(sp)	/ push signal number
+	sys	.signal+200
+	bes	1f
+	cmp	(sp)+,(sp)+
+	mov	(sp)+,r5
+	rts	pc
+1:
+	cmp	(sp)+,(sp)+
+	jmp	cerror
+	
+_mvectors:		/ these vectors are treated as an array in C
+	jsr	r0,1f	/ dummy	there is no signal 0
+	jsr	r0,1f	/ for signal 1
+	jsr	r0,1f	/ for signal 2 etc...
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f
+	jsr	r0,1f  / for signal 32
+1:
+	mov	r1,-(sp)	/ r0 is already on stack from jsr r0,...
+	sub	$_mvectors+4,r0	/ if sig is == 1, r0 will be _mvectors + 8
+	asr	r0 		/ divide by 4 to get signal number
+	asr	r0 
+	mov	r0,-(sp)	/ make an extra copy so sigcatch can clobberit
+	mov	r0,-(sp)	/ this one is sigcatch's argument
+	jsr	pc,*$__sigcatch	/ we know sigcatch will save regs 2-5!
+	tst	(sp)+		/ discard argument
+	mov	(sp)+,r1	/ get back signal number
+	tst	r0		/ if zero we do nothiing - just rtt
+	bne	1f
+	mov	(sp)+,r1
+	mov	(sp)+,r0	/ restore last of registers
+	rtt
+/ here we are re-enabling the signal with the value returned by sigcatch
+1:
+	bis	$SIGDORTI,r1	/ tell kernel to simulate rti upon return
+	mov	2(sp),-(sp)	/ mov saved r0 down
+	mov	2(sp),-(sp)	/ mov saved r1 down, leaving two words for arg
+	mov	r1,4(sp)	/ mov sig num to top (after r0 r1 popped)
+	mov	r0,6(sp)	/ mov action on stack too.
+	mov	(sp)+,r1
+	mov	(sp)+,r0	/ restore last of registers
+				/ now all registers are totally restored
+				/ and signal syscall args are on top of stack
+				/ so that when system simulates the rti it
+				/ will first pop off args to the syscall
+	sys	.signal+200	/ set signals and rti (kernel shouldn't
+				/ smash ANY register here
+	iot			/ should never happen - lets find out!
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 6
+a6 3
+/ $Header$
+/ $Log$
+/ ofunc	= signal(sig, func);
+d9 1
+d11 5
+a15 4
+.globl	_signal
+.globl	cerror
+
+_signal:
+d18 5
+a22 23
+	mov	4(r5),r1
+	cmp	r1,$NSIG
+	bhis	2f
+	mov	6(r5),r0
+	mov	r1,0f
+	asl	r1
+	mov	dvect(r1),-(sp)
+	mov	r0,dvect(r1)
+	mov	r0,0f+2
+	beq	1f
+	bit	$1,r0
+	bne	1f
+	asl	r1
+	add	$tvect,r1
+	mov	r1,0f+2
+1:
+	sys	0; 9f
+	bes	3f
+	bit	$1,r0
+	beq	1f
+	mov	r0,(sp)
+1:
+	mov	(sp)+,r0
+d25 2
+a26 3
+2:
+	mov	$22.,r0		/ EINVAL
+3:
+d28 35
+a62 24
+
+NSIG = 0
+tvect:
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+	jsr	r0,1f; NSIG=NSIG+1
+
+d64 11
+a74 13
+	mov	r1,-(sp)
+	mov	r2,-(sp)
+	mov	r3,-(sp)
+	mov	r4,-(sp)
+	sub	$tvect+4,r0
+	asr	r0
+	mov	r0,-(sp)
+	asr	(sp)
+	jsr	pc,*dvect(r0)
+	tst	(sp)+
+	mov	(sp)+,r4
+	mov	(sp)+,r3
+	mov	(sp)+,r2
+d76 1
+a76 1
+	mov	(sp)+,r0
+d78 16
+a93 5
+.data
+9:
+	sys	signal; 0:..; ..
+.bss
+dvect:	.=.+[NSIG*2]
+@

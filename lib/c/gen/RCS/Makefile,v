@@ -1,0 +1,437 @@
+head     1.8;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.8
+date     89.11.13.15.51.46;  author ache1;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.07.21.16.05.20;  author ache;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.05.10.17.17.45;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.03.10.16.05.13;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.11.16.16.50.27;  author ache;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.17.19.35.30;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.08.21.20.02.09;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.06.21.22.09.06;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.8
+log
+@Русские диагностики в getwd.
+@
+text
+@#
+# $Header: Makefile,v 1.7 89/07/21 16:05:20 ache Exp $
+#
+COFLAGS=-q
+I=/usr/include/
+IS=/usr/include/sys/
+
+.DEFAULT:
+	co $(COFLAGS) $@@
+
+.s.o:
+	as -V -o $@@ $(I)sys.s $<
+	ld -r -x $@@ -o a.out.lib
+	mv a.out.lib $@@
+
+.c.o:
+	cc -O -c $<
+	ld -r -x $@@ -o a.out.lib
+	mv a.out.lib $@@
+
+COMM =  abort.o \
+	abs.o \
+	atof.o \
+	atoi.o \
+	atol.o \
+	calloc.o \
+	crypt.o \
+	ctime.o \
+	ctype_.o \
+	cuexit.o \
+	ecvt.o \
+	errlst.o \
+	execvp.o \
+	fakcu.o \
+	frexp11.o \
+	getenv.o \
+	gethostnam.o \
+	getlogin.o \
+	getopt.o \
+	getwd.o \
+	index.o \
+	isapipe.o \
+	isatty.o \
+	l3.o \
+	lcmp.o \
+	ldexp11.o \
+	ldfps.o \
+	loadav.o \
+	malloc.o \
+	mktemp.o \
+	modf11.o \
+	mon.o \
+	msgset.o \
+	nlist.o \
+	perror.o \
+	psignal.o \
+	qsort.o \
+	rand.o \
+	regex.o \
+	rindex.o \
+	semset.o \
+	sigblock.o \
+	sigcatch.o \
+	sighold.o \
+	sigign.o \
+	siglist.o \
+	sigold.o \
+	sigpause.o \
+	sigrelse.o \
+	sigset.o \
+	sigsmask.o \
+	sleep.o \
+	strcat.o \
+	strcmp.o \
+	strcpy.o \
+	strlcmp.o \
+	strlen.o \
+	strncat.o \
+	strncmp.o \
+	strncpy.o \
+	strnlcmp.o \
+	stty.o \
+	swab.o \
+	tell.o \
+	timezone.o \
+	ttyname.o \
+	ttyslot.o
+
+all: $(COMM) setjmp.o
+
+overlay: $(COMM)
+	rm -f setjmp.o
+	cd ../overlay; make setjmp.o
+
+clean:
+	rm -f *.[ob]
+
+CLRSRC: clean
+	rm -f *.[cs]
+
+abs.o:  abs.c
+atof.o: atof.c $(I)math.h $(I)ctype.h
+atoi.o: atoi.c
+atol.o: atol.c
+calloc.o:       calloc.c
+crypt.o:        crypt.c
+ctime.o:        ctime.c $(I)ediag.h $(I)time.h $(IS)types.h $(IS)timeb.h
+ctype_.o:       ctype_.c $(IS)code.h $(I)ctype.h
+ecvt.o: ecvt.c
+errlst.o:       errlst.c
+execvp.o:       execvp.c $(I)errno.h
+getenv.o:       getenv.c
+gethostnam.o:   gethostnam.c $(I)errno.h $(IS)types.h $(IS)file.h
+getlogin.o:     getlogin.c $(I)utmp.h
+getopt:         getopt.c $(I)stdio.h $(I)ediag.h
+getwd.o:        getwd.c $(IS)param.h $(IS)stat.h $(IS)dir.h $(IS)file.h $(I)ediag.h
+index.o:        index.c
+isapipe.o:      isapipe.c $(I)errno.h
+isatty.o:       isatty.c $(I)sgtty.h
+l3.o:   l3.c
+lcmp.o:         lcmp.c $(IS)code.h
+loadav.o:       loadav.c
+malloc.o:       malloc.c
+mktemp.o:       mktemp.c
+mon.o:  mon.c
+msgset.o:       msgset.c $(IS)msg.h
+nlist.o:        nlist.c $(I)a.out.h
+perror.o:       perror.c $(I)ediag.h
+psignal.o:      psignal.c $(I)signal.h
+qsort.o:        qsort.c
+rand.o: rand.c
+regex.o:        regex.c $(IS)code.h
+rindex.o:       rindex.c
+semset.o:       semset.c $(IS)sem.h
+sigblock.o:     sigblock.c $(I)signal.h
+sigcatch.o:     sigcatch.c $(I)signal.h
+sighold.o:      sighold.c $(I)signal.h
+sigign.o:       sigign.c $(I)signal.h
+siglist.o:      siglist.c $(IS)localopts.h $(I)signal.h
+sigold.o:       sigold.c $(I)signal.h $(I)errno.h
+sigpause.o:     sigpause.c $(I)signal.h
+sigrelse.o:     sigrelse.c $(I)signal.h
+sigset.o:       sigset.c $(I)signal.h $(I)errno.h
+sigsmask.o:     sigsmask.c $(I)signal.h
+sleep.o:        sleep.c $(I)signal.h
+strcat.o:       strcat.c
+strcmp.o:       strcmp.c
+strcpy.o:       strcpy.c
+strlcmp.o:      strlcmp.c $(IS)code.h $(I)ctype.h
+strlen.o:       strlen.c
+strncat.o:      strncat.c
+strncmp.o:      strncmp.c
+strncpy.o:      strncpy.c
+strnlcmp.o:     strnlcmp.c $(IS)code.h $(I)ctype.h
+stty.o: stty.c $(I)sgtty.h
+swab.o: swab.c
+tell.o: tell.c
+timezone.o:     timezone.c
+ttyname.o:      ttyname.c $(IS)types.h $(IS)dir.h $(IS)stat.h
+ttyslot.o:      ttyslot.c
+
+abort.o:        abort.s
+cuexit.o:       cuexit.s
+fakcu.o:        fakcu.s
+frexp11.o:      frexp11.s
+ldexp11.o:      ldexp11.s
+ldfps.o:        ldfps.s
+modf11.o:       modf11.s
+setjmp.o:       setjmp.s
+@
+
+
+1.7
+log
+@Работа с сигналами разнесена на несколько фалов.
+@
+text
+@d2 1
+a2 1
+# $Header: Makefile,v 1.7 89/07/20 21:34:51 ache Exp $
+d116 1
+a116 1
+getwd.o:        getwd.c $(IS)param.h $(IS)stat.h $(IS)dir.h $(IS)file.h
+@
+
+
+1.6
+log
+@модули {sem,msg}sys переименованы в {sem,msg}set
+@
+text
+@d2 1
+a2 1
+# $Header$
+d62 4
+d67 3
+d71 1
+d135 4
+d140 5
+a144 1
+sigset.o:       sigset.c $(I)signal.h $(I)whoami.h $(I)errno.h
+@
+
+
+1.5
+log
+@messages && semaphores
+@
+text
+@a0 3
+# $Log: Makefile,v $
+# Revision 1.4  88/11/16  16:50:27  ache
+# Новый механизм сигналов.
+d2 1
+a2 2
+# Revision 1.3  88/09/17  19:35:30  avg
+# Выкинуты Ructype и Rctype и добавлен lcmp.
+a3 6
+# Revision 1.2  88/08/21  20:02:09  avg
+# Dobawlen getopt.
+#
+# Revision 1.1  88/06/21  22:09:06  ache
+# Initial revision
+#
+d12 1
+a12 1
+	as -V -o $@@ /usr/include/sys.s $<
+d53 1
+a53 1
+	msgsys.o \
+d61 1
+a61 1
+	semsys.o \
+d118 1
+a118 1
+msgsys.o:       msgsys.c $(IS)msg.h
+d126 1
+a126 1
+semsys.o:       semsys.c $(IS)sem.h
+@
+
+
+1.4
+log
+@Новый механизм сигналов.
+@
+text
+@d1 4
+a4 1
+# $Log:	Makefile,v $
+d7 1
+a7 1
+# 
+d63 1
+d71 1
+d123 1
+a123 1
+lcmp.o:         $(IS)code.h
+d128 1
+d136 1
+@
+
+
+1.3
+log
+@Выкинуты Ructype и Rctype и добавлен lcmp.
+@
+text
+@d1 4
+a4 1
+# $Log: Makefile,v $
+d68 1
+d118 1
+a118 1
+lcmp.o:         $(IS)/code.h
+d131 1
+@
+
+
+1.2
+log
+@Dobawlen getopt.
+@
+text
+@d2 3
+d25 1
+a25 3
+COMM =  Rctype.o \
+	Ructype.o \
+	abort.o \
+d49 1
+a93 2
+Rctype.o:       Rctype.c $(IS)code.h $(I)Rsort.h
+Ructype.o:      Ructype.c $(IS)code.h $(I)Rusort.h
+d114 1
+d124 1
+a124 1
+regex.o:        regex.c $(IS)code.h $(I)Rusort.h $(I)Rsort.h
+d131 1
+a131 1
+strlcmp.o:      strlcmp.c $(IS)code.h $(I)ctype.h $(I)Rsort.h
+d136 1
+a136 1
+strnlcmp.o:     strnlcmp.c $(IS)code.h $(I)ctype.h $(I)Rsort.h
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 4
+a4 1
+# $Log:	Makefile,v $
+d42 1
+d94 1
+a94 1
+abs.o:	abs.c
+d96 4
+a99 4
+atoi.o:	atoi.c
+atol.o:	atol.c
+calloc.o:	calloc.c
+crypt.o:	crypt.c
+d102 2
+a103 2
+ecvt.o:	ecvt.c
+errlst.o:	errlst.c
+d105 1
+a105 1
+getenv.o:	getenv.c
+d108 1
+d110 1
+a110 1
+index.o:	index.c
+d113 5
+a117 5
+l3.o:	l3.c
+loadav.o:	loadav.c
+malloc.o:	malloc.c
+mktemp.o:	mktemp.c
+mon.o:	mon.c
+d121 2
+a122 2
+qsort.o:	qsort.c
+rand.o:	rand.c
+d124 1
+a124 1
+rindex.o:	rindex.c
+d127 3
+a129 3
+strcat.o:	strcat.c
+strcmp.o:	strcmp.c
+strcpy.o:	strcpy.c
+d131 4
+a134 4
+strlen.o:	strlen.c
+strncat.o:	strncat.c
+strncmp.o:	strncmp.c
+strncpy.o:	strncpy.c
+d137 3
+a139 3
+swab.o:	swab.c
+tell.o:	tell.c
+timezone.o:	timezone.c
+d141 1
+a141 1
+ttyslot.o:	ttyslot.c
+d143 8
+a150 8
+abort.o:	abort.s
+cuexit.o:	cuexit.s
+fakcu.o:	fakcu.s
+frexp11.o:	frexp11.s
+ldexp11.o:	ldexp11.s
+ldfps.o:	ldfps.s
+modf11.o:	modf11.s
+setjmp.o:	setjmp.s
+@

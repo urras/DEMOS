@@ -1,0 +1,6 @@
+#
+foreach lp ( $argv )
+set tlp=$lp:r.tlp
+echo "$lp begin:\c"
+( head -66 $tlp &&  tail +66 $lp ) >new.new.lp && mv new.new.lp $lp && echo $lp ready
+end

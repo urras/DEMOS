@@ -1,0 +1,693 @@
+*- - - - - - - - - - - - - - -* 20.08.87 VERSION 130
+*-    BùâOPKA é éCðOìHEHéE   -*
+*-         KOMAHäù           -*
+*- - - - - - - - - - - - - - -*
+(EXPR BRANCH IF ? TRUE)->IF (#PSW+1):.AND.''^1''<>0 THEN =JUMP$#PC
+(EXPR BRANCH IF ? FALSE)->IF (#PSW+1):.AND.''^1''=0 THEN =JUMP$#PC
+(EXPR DOWN ?)->(#PSW+1):=(#PSW+1):.AND.''&&FF-^1''
+(EXPR UP ?)->(#PSW+1):=(#PSW+1):.IOR.''^1''
+(EXPR &DST)->=#CMD.AND.&&3F
+(EXPR &SRC)->=#CMD>6.AND.&&3F
+(EXPR &JUMP)->=(#CMD+1)[.SAS.8<1
+(EXPR &REGISTR)->=#CMD>6.AND.&&7
+
+
+LOCALS -LSTEP
+  DATA [2],LSEARC[2]                    %LSEARC - EýE OäéH ìOKAìC
+
+  EQUALS RTS:=0,MARK:=2,SOB:=4,ONE:=6,TWO:=8
+  EQUALS BRU:=10,RSS:=12,NO:=14,FLOAT:=16
+
+  EQUALS MASK0=0,FROM=2,TILL=4,MASK1=6,TABADD=8,LENTAB=10,LN0TAB=12
+
+*       - ðAPAMETPù OðéCATEìñ KOMAHäù (TABL0) -
+  EQUALS COD=0,ADRHAN=2,GROUP=4,PARAM=5,TEXT=6
+
+  EQUALS INP=&40 ,OUT=&80
+  EQUALS TYPADD=&38 ,RNUMB=&07
+
+  DATA SRC ,:SRC ,DST ,:DST ,JUMP ,RESULT[2]
+  DATA WORD
+  DATA HANDLE ,RET ,ADITEM
+  DATA TBHAN=:RTS:.:MARK:.:SOB:.ONEADR.TWOADR.BRANCH.RSSCOM.NOADDR.FLOAT
+  DATA &8000 ,DFF00=&FF00 ,D100=&0100
+  BYTES NUMREG[1],SOURC[1],DISTR[1]
+*------------ SEARCH - DATA --------------
+*                  - äAHHùE PAúâOPA çPõðð -
+  DATA TWOTAB=TAB:2                     %äBõXAäECHùE
+  DATA ONETAB=TAB:1
+  DATA BRUTAB=TAB:B                     %BETBìEHéñ
+  DATA RSSTAB=TAB:R                     %MUL,DIV,ASH,ASHC
+  DATA SPCTAB=TAB:S1  ,S0:TAB=TAB:S0
+  DATA EMTTAB=IEMT,TRPTAB=ITRAP,JSRTAB=IJSR
+  DATA &83C0
+%          BRX-ôáâìéãá îáþáìï äïìöîï âùôø ÷ LDS
+  DATA NODES1=ALLNOD
+    DATA (6)*=TWONOD
+    DATA     =RSSNOD
+    DATA     =ALLNOD
+    DATA (6)*=TWONOD
+    DATA     =RSSNOD
+
+\- - - - - - - - - - - -%
+%-    ðOéCK KOMAHäù    -%
+%- - - - - - - - - - - -%
+%- INP:  ^A - 'COMMAND'
+%- OUT:  ^A - áäòåó óôáôøé ÷ ôáâìéãå
+%-       ^E - æìAç âAêTOBOê KOMAHäù
+PROGRAM SEARCH(WORD) LOCALS LSEARC
+
+  .BRX.@NODES1=WORD:.AND.&F0>3.XAX.
+
+ <<RSSNOD>> =
+    IF WORD:.AND.&80<> OR WORD:.AND.&E%RSSTAB(.XAX.)= THEN RETURN ,,2
+    RETURN ,0,0
+
+ <<ALLNOD>> =WORD:.XAE.
+    (IF ^E.AND.&08<>                    %OäHOAäPECHùE é BùúOBù
+      IF ^E.AND.&06=&06 THEN RETURN ,,2
+      (IF =0                            %BùúOBù
+        (IF ^E.AND.&80=
+          =JSRTAB
+        ELSE IF ^E.AND.&01=
+          =EMTTAB
+        ELSE
+          =TRPTAB
+        IF)
+        =,0
+      ELSE                              %OäHOAäPECHùE
+        =WORD.AND.H:83C0,0<3 ; =>6
+        IF =&28 OR =&30 THEN RETURN ,,2
+        =.AIE.
+        =ONETAB(.XAX.)]                 %ðOìHùê KOð * 4
+      IF)
+    ELSE IF ^E.AND.&8F<>                %ðEPEXOäù
+      =WORD[WORD:>6.AND.&1E             %KOð * 2
+      =BRUTAB(.XAX.),0
+    ELSE                                %HõìEBùE CðEãéAìøHùE
+      =WORD>2.AND.&3C
+      (IF <>                            %HõìEBùE C APçõMEHTAMé
+        =SPCTAB(.XAX.)]                 %^A - MACKA
+        IF .AND.WORD<> THEN RETURN ,,2  %âìOKéPOBKA MACKOê
+        =^E,0
+      ELSE                              %HõìEBùE âEú APçõMEHTOB
+        IF WORD>=&7 THEN RETURN ,,2
+        =S0:TAB(.XAX.*),0
+      IF)
+    IF)
+    RETURN ,,0
+
+ <<TWONOD>> =                           %äBõXAäPECHùE
+    RETURN TWOTAB(*)],,0
+\
+PROGRAM STEP()
+  #CMD=((IF CALL READ #PC,0<> THEN CALL IT ,,'CHANER')) ; $#PC=2
+  ADITEM,#TIPCOM=((IF CALL SEARCH #CMD<> THEN CALL IT ,,'RESCOM'))
+  HANDLE=ADITEM('ADRHAN')
+  .BRX.@TBHAN=,,ADITEM('GROUP'):
+
+
+
+*
+*         ONE-ADDRESS  COMMANDS
+*
+  <<ONEADR>> DISTR:=((&DST))
+  IF ADITEM('TEXT'):="W" THEN #TIPCOM=1   % 'WPSW'
+  (IF DISTR:.AND.'TYPADD'=0             %PEçéCTPOBùê
+    NUMREG:=DISTR:.AND.'RNUMB'
+    IF #TIPCOM,,NUMREG:*<>0 THEN =#REG(+1)[#REG() ELSE =#REG()
+    GOSUB @HANDLE(RET) ,,0
+    (IF ADITEM('PARAM')[<               %'WRITE' - TRUE
+      IF #TIPCOM,RESULT,NUMREG:*<>0 THEN #REG(+1)[=^E ELSE #REG()=^E
+    IF)
+  ELSE
+    DST=((IF CALL LDADDR DISTR:<> THEN CALL IT ,,'CHANER'))
+    (IF ADITEM('PARAM'):.AND.'INP'<>
+      :DST=((IF CALL READ DST,#TIPCOM<> THEN CALL IT ,,'CHANER'))
+    IF)
+    GOSUB @HANDLE(RET) ,,1
+    (IF ADITEM('PARAM'):.AND.'OUT'<>
+      IF CALL WRITE DST,#TIPCOM,RESULT<> THEN CALL IT ,,'CHANER'
+    ELSE
+      #ITWORD=#ITWORD.AND.'&FF-SL:BIT'
+    IF)
+  IF)
+  RETURN ,
+
+
+
+
+
+  <<:CLR:>> ,,RESULT=,,0
+  DOWN CARRY-OVER
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:COM:>> =
+  RESULT=.EOR.#MIN1
+  (#PSW+1):=(#PSW+1):.AND.'&FF-OVER'.IOR.'CARRY'
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:INC:>> RESULT=
+  RESULT=((IF ,#TIPCOM<> THEN =.AND.DFF00+D100 ELSE =+1))
+  GOSUB INSTOV
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:DEC:>> =
+  RESULT=((IF ,#TIPCOM<> THEN =.AND.DFF00-D100 ELSE =-1))
+  GOSUB INSTOV
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:NEG:>> =
+  RESULT=((IF _,#TIPCOM<> THEN =.AND.&FF.XAA.))
+  IF ,,(#PSW+1):=H:8000 THEN =^X.IOR.'OVER' ELSE =^X.AND.'&FF-OVER'
+  IF ,RESULT<> THEN =.IOR.'CARRY' ELSE =.AND.'&FF-CARRY'
+  (#PSW+1):=
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:TST:>> RESULT=
+  DOWN OVER-CARRY
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:ASR:>> =
+  GOSUB INSTCA ((RESULT=.SAS.1))
+  GOSUB INOVER RESULT
+  GOTO @RET
+
+  <<:ASL:>> =
+  IF ,#TIPCOM<> THEN =.AND.DFF00
+  GOSUB INSTCA ((RESULT=<1))
+  GOSUB INOVER RESULT
+  GOTO @RET
+
+  <<:ROR:>> =,,(#PSW+1):                          %CTAPOE PSW
+  GOSUB INSTCA ((RESULT=>1))                      %CäBéHõTø, COúäATø ^C
+  IF ^X.AND.'CARRY'<>0 THEN =H:8000$RESULT        %äOâABéTø ^C
+  IF #TIPCOM<> THEN RESULT=RESULT.AND.DFF00
+  GOSUB INOVER RESULT                             %õCTAHOBéTø ^V^Z^N
+  GOTO @RET
+
+  <<:ROL:>> =,,(#PSW+1):
+  IF ,#TIPCOM<> THEN =.AND.DFF00
+  GOSUB INSTCA ((RESULT=<1))
+  IF ^X.AND.'CARRY'<>0 THEN $RESULT=((IF ,#TIPCOM<> THEN =D100 ELSE =1))
+  GOSUB INOVER RESULT
+  GOTO @RET
+
+  <<:ADC:>> RESULT=
+  RESULT,#W4=((IF ,#TIPCOM<> THEN =.AND.&FF.XAA.,D100 ELSE =,1))
+  (IF (#PSW+1):.AND.'CARRY'<>0
+    GOSUB INSTOV #W4+RESULT
+    GOSUB INSTCA #W4$RESULT
+  ELSE
+    DOWN CARRY-OVER
+  IF)
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:SBC:>> =
+  RESULT,#W4=((IF ,#TIPCOM<> THEN =.AND.&FF.XAA.,D100 ELSE =,1))
+  (IF (#PSW+1):.AND.'CARRY'<>0
+    GOSUB INSTOV RESULT-#W4
+    RESULT=RESULT-#W4
+    IF = THEN =(#PSW+1):.AND.'&FF-CARRY' ELSE =(#PSW+1):.IOR.'CARRY'
+    (#PSW+1):=                          %^C OâPATEH K äECñTOþHOMõ
+  ELSE
+    DOWN CARRY-OVER
+  IF)
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:SXT:>> =
+  RESULT=((IF (#PSW+1):.AND.'NEG'<>0 THEN =#MIN1))
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:SWB:>> RESULT=
+  DOWN CARRY-OVER
+  IF RESULT,,(#PSW+1):<0 THEN =^X.IOR.'NEG' ELSE =^X.AND.'&FF-NEG'
+  (#PSW+1):=
+  IF RESULT:,,(#PSW+1):<>0 THEN =^X.AND.'&FF-ZERO' ELSE =^X.IOR.'ZERO'
+  (#PSW+1):=
+  RESULT=RESULT.XAA.
+  GOTO @RET
+
+  <<:RPSW:>> =
+  RESULT,#TIPCOM=((IF = THEN =(#PSW+1)[.SAS.8,0 ELSE =(#PSW+1)[0,1))
+  DOWN OVER
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:WPSW:>> =.AND.'&FF-TRACE'.XAE.
+  #PSW=#PSW.AND.'TRACE'.AIE.
+  GOTO @RET
+
+  <<:JMP:>> IF = THEN CALL IT ,,'CHANER'
+  #PC=DST
+  GOTO @RET
+
+
+
+
+
+
+*
+*      TWO-ADDRESS  COMMANDS
+*
+  <<TWOADR>> SOURC:=((&SRC))
+  DISTR:=((&DST))
+  (IF SOURC:.AND.'TYPADD'<>0
+    SRC=((IF CALL LDADDR SOURC:<> THEN CALL IT ,,'CHANER'))
+    :SRC=((IF CALL READ ^A,#TIPCOM<> THEN CALL IT ,,'CHANER'))
+  ELSE
+    NUMREG:=SOURC:.AND.'RNUMB'
+    :SRC=((IF #TIPCOM,,NUMREG:*<>0 THEN =#REG(+1)[#REG() ELSE =#REG()))
+  IF)
+  (IF ADITEM('PARAM'):.AND.'INP'<>0
+    (IF DISTR:.AND.'TYPADD'<>0
+      DST=((IF CALL LDADDR DISTR:<> THEN CALL IT ,,'CHANER'))
+      :DST=((IF CALL READ DST,#TIPCOM<> THEN CALL IT ,,'CHANER'))
+    ELSE
+      NUMREG:=DISTR:.AND.'RNUMB'
+     :DST=((IF #TIPCOM,,NUMREG:*<>0 THEN =#REG(+1)[#REG() ELSE =#REG()))
+    IF)
+  IF)
+  GOSUB @HANDLE(RET)
+  (IF ADITEM('PARAM')[<                 % 'WRITE' HõöEH
+    (IF .LLS.1<0                        % úAçPõöAìCñ
+      (IF DISTR:.AND.'TYPADD'<>0        % HE PEçéCTPOBùê
+        CALL WRITE DST,#TIPCOM,RESULT
+      ELSE                              % PEçéCTPOBùê
+        IF #TIPCOM,RESULT,NUMREG:*<>0 THEN #REG(+1)[=^E ELSE #REG()=^E
+      IF)
+    ELSE                                % HE úAçPõöAìCñ
+      #ITWORD=#ITWORD.AND.'&FF-SL:BIT'
+      (IF DISTR:.AND.'TYPADD'<>0        % HE PEçéCTPOBùê
+        DST=((IF CALL LDADDR DISTR:<> THEN CALL IT ,,'CHANER'))
+        IF CALL WRITE DST,#TIPCOM,RESULT<> THEN CALL IT ,,'CHANER'
+      ELSE                              % PEçéCTPOBùê
+        NUMREG:=DISTR:.AND.'RNUMB'
+        IF #TIPCOM,RESULT,NUMREG:*<>0 THEN #REG(+1)[=^E ELSE #REG()=^E
+      IF)
+    IF)
+  ELSE
+    #ITWORD=#ITWORD.AND.'&FF-SL:BIT'
+  IF)
+  RETURN ,
+
+
+
+  <<:MOV:>> =
+  (IF DISTR:.AND.'TYPADD'=0 AND #TIPCOM<>
+    ,#TIPCOM=:SRC.SAS.8,0
+  ELSE
+    =:SRC
+  IF)
+  RESULT=
+  DOWN OVER
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:CMP:>> =
+  (IF #TIPCOM<>
+    :SRC=:SRC.AND.DFF00
+    :DST=:DST.AND.DFF00
+  IF)
+  GOSUB INSTOV :SRC-:DST
+  RESULT=:SRC-:DST
+  IF = THEN =(#PSW+1):.AND.'&FF-CARRY' ELSE =(#PSW+1):.IOR.'CARRY'
+  (#PSW+1):=                            %^C OâPATEH K äECñTOþHOMõ
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:ADD:>> =
+  GOSUB INSTOV :SRC+:DST
+  GOSUB INSTCA ((RESULT=:SRC+:DST))
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:SUB:>> =
+  GOSUB INSTOV :DST-:SRC
+  RESULT=:DST-:SRC
+  IF = THEN =(#PSW+1):.AND.'&FF-CARRY' ELSE =(#PSW+1):.IOR.'CARRY'
+  (#PSW+1):=                            %^C OâPATEH K äECñTOþHOMõ
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:BIT:>> DOWN OVER
+  RESULT=:SRC.AND.:DST
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:BIC:>> DOWN OVER
+  RESULT=:SRC.EOR.#MIN1.AND.:DST
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:BIS:>> DOWN OVER
+  RESULT=:SRC.IOR.:DST
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+
+
+
+
+*
+*         R-SS  COMMANDS
+*
+  <<RSSCOM>> DISTR:=((&DST))
+  NUMREG:=((&REGISTR))
+  (IF DISTR:.AND.'TYPADD'<>0            %HE PEçéCTPOBùê
+    DST=((IF CALL LDADDR DISTR:<> THEN CALL IT ,,'CHANER'))
+    :DST=((IF CALL READ DST,#TIPCOM<> THEN CALL IT ,,'CHANER'))
+    GOSUB @HANDLE(RET) ,,1
+    (IF ADITEM('TEXT')="X"
+      CALL WRITE DST,0,RESULT
+    ELSE
+      #ITWORD=#ITWORD.AND.'&FF-SL:BIT'
+    IF)
+  ELSE
+    #W14=DISTR:.AND.'RNUMB'
+    :DST=#REG(#W14*)
+    GOSUB @HANDLE(RET) ,,0
+    IF ADITEM('TEXT')="X" THEN #REG(#W14)=RESULT
+  IF)
+  RETURN ,
+
+
+
+
+  <<:XOR:>> =
+  RESULT=:DST.EOR.#REG(NUMREG:*)
+  GOSUB INSTZN RESULT
+  GOTO @RET
+
+  <<:JSR:>> IF = THEN CALL IT ,,'CHANER'
+  CALL TOSTAC ,,#REG(NUMREG:*)
+  #REG(NUMREG:*)=#PC
+  #PC=DST
+  RETURN ,
+
+  <<:MUL:>> DOWN OVER
+  GOSUB INSTCA ((RESULT]=#REG(NUMREG:*)*:DST))
+  IF ^X.AND.2<> THEN #REG()=(RESULT+2) ELSE #REG()]=RESULT]
+  GOSUB INSTZN RESULT]
+  RETURN ,
+
+  <<:DIV:>> UP CARRY
+  =,,NUMREG:*
+  IF ^X.AND.2<> THEN =#REG() ELSE =#REG()]
+  GOSUB INSTOV ((RESULT]=/:DST))
+  IF ^X.AND.2<> THEN #REG()=(RESULT+2) ELSE #REG()]=RESULT].XAE.
+  GOSUB INSTZN #REG()
+  RETURN ,
+
+  <<:ASH:>> =
+  #W4=(:DST+1)[<2.SAS.10                %OTHOPMéPOBAHéE HA CìOBO
+  IF +32=0 THEN #W4=
+  IF #REG(NUMREG:*),,#W4< THEN =.SAS.0(_) ELSE =<0()
+  RESULT=#REG(NUMREG:*)=
+  GOSUB INSTCA
+  GOSUB INSOVE ((#W4=(#PSW+1):.AND.'NEG',RESULT))
+  RETURN ,
+
+  <<:ASC:>> #W4=(:DST+1)[<2.SAS.10      %äEêCTBõàT 6 Mì. âéT DST
+  IF +32=0 THEN #W4=
+  (IF NUMREG:.AND.1<>                   %ODD REGISTER
+    IF #REG(NUMREG:*),,#W4< THEN =.RCS.0(_) ELSE =.LCS.0()
+    RESULT=#REG(NUMREG:*)=
+    GOSUB INSTCA
+    GOSUB INSOVE ((#W4=(#PSW+1):.AND.'NEG',RESULT))
+  ELSE
+    IF #REG(NUMREG:*)],,#W4< THEN =.SAD.0(_) ELSE =.LLD.0()
+    RESULT]=#REG(NUMREG:*)]=
+    GOSUB INSTCA
+    #W4=(#PSW+1):.AND.'NEG'
+    GOSUB INSOVE RESULT]
+  IF)
+  RETURN ,
+
+
+*
+*         BRANCHES
+*
+  <<BRANCH>> JUMP=((&JUMP))
+  GOTO @HANDLE
+
+
+  <<:BR:>> RETURN JUMP$#PC
+  <<:BNE:>> BRANCH IF ZERO FALSE
+  RETURN ,
+  <<:BEQ:>> BRANCH IF ZERO TRUE
+  RETURN ,
+  <<:BPL:>> BRANCH IF NEG FALSE
+  RETURN ,
+  <<:BMI:>> BRANCH IF NEG TRUE
+  RETURN ,
+  <<:BVC:>> BRANCH IF OVER FALSE
+  RETURN ,
+  <<:BVS:>> BRANCH IF OVER TRUE
+  RETURN ,
+  <<:BCC:>> BRANCH IF CARRY FALSE
+  RETURN ,
+  <<:BCS:>> BRANCH IF CARRY TRUE
+  RETURN ,
+
+  <<:BGE:>> =
+  IF GOSUB COND:1 =0 THEN =JUMP$#PC
+  RETURN ,
+
+  <<:BLT:>> =
+  IF GOSUB COND:1 <>0 THEN =JUMP$#PC
+  RETURN ,
+
+  <<:BGT:>> =
+  IF GOSUB COND:2 =0 THEN =JUMP$#PC
+  RETURN ,
+
+  <<:BLE:>> =
+  IF GOSUB COND:2 <>0 THEN =JUMP$#PC
+  RETURN ,
+
+
+  <<:BHI:>> =
+  IF GOSUB COND:3 =0 THEN =JUMP$#PC
+  RETURN ,
+
+  <<:BLS:>> =
+  IF GOSUB COND:3 <>0 THEN =JUMP$#PC
+  RETURN ,
+
+
+
+
+*
+*         COMMANDS WITHOUT ARGUMENTS
+*
+  <<NOADDR>> GOTO @HANDLE
+
+*         - ðPOçPAMMHùE ðPEPùBAHéñ -
+  <<:IT:>> CALL IT ,,ADITEM('PARAM'):
+
+  <<:RTI:>> #PC=((IF CALL FROMST 0<> THEN CALL IT .XAX.))
+  #PSW=((IF CALL FROMST 0<> THEN CALL IT .XAX.))
+  RETURN ,
+
+  <<:SET:>> #W4=#CMD.AND.&F
+  (#PSW+1):=(#PSW+1):.IOR.#W4
+  RETURN ,
+
+  <<:CLE:>> #W4=#CMD.AND.&F.EOR.&FF
+  (#PSW+1):=(#PSW+1):.AND.#W4
+  RETURN ,
+
+  <<:HALT:>> #DEBFL:=#DEBFL:.IOR.&80
+             #PC=#PC-2
+             RETURN ,
+  <<:WAIT:>> CALL IT ,,'RESCOM'
+  <<:RST:>>  IF #PSW:.AND.&30= THEN CALL DEVINI 0
+             RETURN ,
+
+
+
+
+*
+*         COMMANDS WITH SPECIAL ARGUMENTS
+*
+  <<:RTS:>> NUMREG:=#CMD.AND.&7
+  #PC=#REG(NUMREG:*)
+  #REG(NUMREG:*)=((IF CALL FROMST 0<> THEN CALL IT .XAX.))
+  RETURN ,
+
+  <<:MARK:>> #SP=#CMD.AND.&3F<1+#PC
+  #PC=#REG(10)
+  #REG(10)=((IF CALL FROMST 0<> THEN CALL IT .XAX.))
+  RETURN ,
+
+  <<:SOB:>> NUMREG:=((&REGISTR))
+  IF #MIN1$#REG(NUMREG:*)<>0 THEN =#CMD.AND.&3F<1_$#PC
+  RETURN ,
+
+*
+*         SUBROUTINES USED IN THIS SECTION
+*
+SUBROUTINE INSTZN
+  (IF =
+    =(#PSW+1):.AND.'&FF-NEG'.IOR.'ZERO'
+  ELSE IF <
+    =(#PSW+1):.AND.'&FF-ZERO'.IOR.'NEG'
+  ELSE
+    =(#PSW+1):.AND.'&FF-NEG-ZERO'
+  IF)
+  (#PSW+1):=
+  RETURN:INSTZN
+
+SUBROUTINE INSTOV
+  IF < THEN =(#PSW+1):.IOR.'OVER' ELSE =(#PSW+1):.AND.'&FF-OVER'
+  (#PSW+1):=
+  RETURN:INSTOV
+
+SUBROUTINE INSTCA
+  IF = THEN =(#PSW+1):.IOR.'CARRY' ELSE =(#PSW+1):.AND.'&FF-CARRY'
+  (#PSW+1):=
+  RETURN:INSTCA
+
+SUBROUTINE INOVER
+  GOSUB INSTZN
+  (IF (#PSW+1):>1=                % CARRY - TRUE
+    IF >3= THEN =(#PSW+1):.AND.'&FF-OVER' ELSE =(#PSW+1):.IOR.'OVER'
+  ELSE                            % CARRY - FALSE
+    IF >3= THEN =(#PSW+1):.IOR.'OVER' ELSE =(#PSW+1):.AND.'&FF-OVER'
+  IF)
+  (#PSW+1):=
+  RETURN:INOVER
+
+SUBROUTINE INSOVE
+* NEED:  #W4 = (OLD PSW).AND.'NEG'
+  GOSUB INSTZN
+  (IF (#PSW+1):.AND.'NEG',#W4.AEE.<>0
+    =(#PSW+1):.IOR.'OVER'
+  ELSE
+    =(#PSW+1):.AND.'&FF-OVER'
+  IF)
+  (#PSW+1):=
+  RETURN:INSOVE
+
+SUBROUTINE COND:1   % 'OVER' EOR 'NEG'
+  #W4=(#PSW+1):.AND.'OVER'>1
+  =(#PSW+1):.AND.'NEG'>3,#W4.AEE.
+  RETURN:COND:1
+
+SUBROUTINE COND:2   % 'ZERO' AND ('OVER' EOR 'NEG')
+  #W4=(#PSW+1):.AND.'OVER'>1
+  #W4=(#PSW+1):.AND.'NEG'>3.EOR.#W4
+  =(#PSW+1):.AND.'ZERO'>2.IOR.#W4
+  RETURN:COND:2
+
+SUBROUTINE COND:3   % 'ZERO' IOR 'CARRY'
+  #W4=(#PSW+1):.AND.'ZERO'>2
+  =(#PSW+1):.AND.'CARRY'.IOR.#W4
+  RETURN:COND:3
+
+
+
+*                   - CCùìKé HA CTATøé -
+  DATA TAB:2=0.0                                  %äBõXAäPECHùE KOMAHäù
+  DATA      =0.IMOV  .0.ICMP  .0.IBIT  .0.IBIC  .0.IBIS  .0.IADD  .0.0
+  DATA      =0.0
+  DATA      =1.IMOV  .1.ICMP  .1.IBIT  .1.IBIC  .1.IBIS  .0.ISUB
+
+  DATA TAB:B=0                                    %æéKTéBHAñ
+  DATA      =IBPL.IBR .IBMI.IBNE.IBHI.IBEQ.IBLOS
+  DATA      =IBGE.IBVC.IBLT.IBVS.IBGT.IBCC.IBLE.IBCS
+
+  DATA TAB:1=
+  DATA =0.IROR.1.IROR  .0.IROL.1.IROL  .0.IASR.1.IASR  .0.IASL.1.IASL
+  DATA =0.IMRK.0.IWPS  .0.0.0.0        .0.0.0.0        .0.ISXT.0.IRPS
+  DATA =0.ICLR.1.ICLR  .0.ICOM.1.ICOM  .0.IINC.1.IINC  .0.IDEC.1.IDEC
+  DATA =0.INEG.1.INEG  .0.IADC.1.IADC  .0.ISBC.1.ISBC  .0.ITST.1.ITST
+
+  DATA TAB:R=IMUL.IDIV.IASH.IASC.IXOR.0.0.ISOB
+
+  DATA TAB:S1=0,0
+  DATA =0.&30.0.&30.0.&30                         %HET 1,2,3
+  DATA =IJMP.0.IJMP.0.IJMP.0.IJMP.0
+  DATA =IRTS.&8
+  DATA =0.&10
+  DATA =ICLE.0.ISET.0
+  DATA =ISWB.0.ISWB.0.ISWB.0.ISWB.0
+
+  DATA TAB:S0=IHLT.IWAIT.IRTI.IBPT.IIOT.IRST.IRTT.0
+
+*                ===== TAâìéãù âOâPOBA =====
+  DATA IMOV=&1000.:MOV: ,/TWO: .&80. "MOV "
+  DATA ICMP=&2000.:CMP: ,/TWO: .&40. "CMP "
+  DATA IBIT=&3000.:BIT: ,/TWO: .&40. "BIT "
+  DATA IBIC=&4000.:BIC: ,/TWO: .&C0. "BIC "
+  DATA IBIS=&5000.:BIS: ,/TWO: .&C0. "BIS "
+  DATA IADD=&6000.:ADD: ,/TWO: .&C0. "ADD "
+  DATA ISUB=&E000.:SUB: ,/TWO: .&C0. "SUB "
+
+  BYTES /IBR=&0100 .:BR: ,BRU: .045. "BR  "
+  BYTES /IBNE=&0200.:BNE:,BRU: .046. "BNE "
+  BYTES /IBEQ=&0300.:BEQ:,BRU: .047. "BEQ "
+  BYTES /IBGE=&0400.:BGE:,BRU: .048. "BGE "
+  BYTES /IBLT=&0500.:BLT:,BRU: .049. "BLT "
+  BYTES /IBGT=&0600.:BGT:,BRU: .050. "BGT "
+  BYTES /IBLE=&0700.:BLE:,BRU: .051. "BLE "
+  BYTES /IBPL=&8000.:BPL:,BRU: .052. "BPL "
+  BYTES /IBMI=&8100.:BMI:,BRU: .053. "BMI "
+  BYTES /IBHI=&8200.:BHI:,BRU: .054. "BHI "
+  BYTES /IBLOS=&8300.:BLS:,BRU: .055. "BLOS"
+  BYTES /IBVC=&8400.:BVC:,BRU: .056. "BVC "
+  BYTES /IBVS=&8500.:BVS:,BRU: .057. "BVS "
+  BYTES /IBCC=&8600.:BCC:,BRU: .058. "BCC "
+  BYTES /IBCS=&8700.:BCS:,BRU: .059. "BCS "
+
+  BYTES /IEMT=&8800 .:IT:  ,NO:  .EMT. "EMT "
+  BYTES /ITRAP=&8900.:IT:  ,NO:  .TRAP."TRAP"
+  BYTES /IJSR=&0800 .:JSR: ,RSS: .070. "JSR "
+
+  BYTES /ICLR=&0A00 .:CLR: ,ONE: .&80. "CLR "
+  BYTES /ICOM=&0A40 .:COM: ,ONE: .&C0. "COM "
+  BYTES /IINC=&0A80 .:INC: ,ONE: .&C0. "INC "
+  BYTES /IDEC=&0AC0 .:DEC: ,ONE: .&C0. "DEC "
+  BYTES /INEG=&0B00 .:NEG: ,ONE: .&C0. "NEG "
+  BYTES /IADC=&0B40 .:ADC: ,ONE: .&C0. "ADC "
+  BYTES /ISBC=&0B80 .:SBC: ,ONE: .&C0. "SBC "
+  BYTES /ITST=&0BC0 .:TST: ,ONE: .&40. "TST "
+  BYTES /IROR=&0C00 .:ROR: ,ONE: .&C0. "ROR "
+  BYTES /IROL=&0C40 .:ROL: ,ONE: .&C0. "ROL "
+  BYTES /IASR=&0C80 .:ASR: ,ONE: .&C0. "ASR "
+  BYTES /IASL=&0CC0 .:ASL: ,ONE: .&C0. "ASL "
+  BYTES /IMRK=&0D00 .:MARK:,MARK:.&41. "MARK"
+  BYTES /ISXT=&0DC0 .:SXT: ,ONE: .&C0. "SXT "
+  BYTES /IRPS=&8DC0 .:RPSW:,ONE: .&80. "RPSW"          % ='MFPS'
+  BYTES /IWPS=&8D00 .:WPSW:,ONE: .&40. "WPSW"          % ='MTPS'
+
+  BYTES /ISOB=&7E00 .:SOB: ,SOB: .069. "SOB "
+  BYTES /IXOR=&7800 .:XOR: ,RSS: .068. "XOR "
+  BYTES /IMUL=&7000 .:MUL: ,RSS: .064. "MUL "
+  BYTES /IDIV=&7200 .:DIV: ,RSS: .065. "DIV "
+  BYTES /IASH=&7400 .:ASH: ,RSS: .066. "ASH "
+  BYTES /IASC=&7600 .:ASC: ,RSS: .067. "ASHC"
+
+  BYTES /IHLT=&0000 .:HALT:,NO:  .007. "HALT"
+  BYTES /IWAIT=&0001.:WAIT:,NO:  .008. "WAIT"
+  BYTES /IRTI=&0002 .:RTI: ,NO:  .009. "RTI "
+  BYTES /IBPT=&0003 .:IT:  ,NO:  .BPT. "BPT "
+  BYTES /IIOT=&0004 .:IT:  ,NO:  .IOT. "IOT "
+  BYTES /IRST=&0005 .:RST: ,NO:  .012. "RST "
+  BYTES /IRTT=&0006 .:RTI: ,NO:  .013. "RTT "
+
+  BYTES /IRTS=&0080 .:RTS: ,RTS: .014. "RTS "
+  BYTES /IJMP=&0040 .:JMP: ,ONE: .&00. "JMP "
+  BYTES /ISWB=&00C0 .:SWB: ,ONE: .&C0. "SWAB"
+  BYTES /ICLE=&00A0 .:CLE: ,NO:  .017. "CLEI"
+  BYTES /ISET=&00B0 .:SET: ,NO:  .018. "SETI"

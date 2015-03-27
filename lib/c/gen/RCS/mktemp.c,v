@@ -1,0 +1,54 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.04.21.20.05.58;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+char *
+mktemp(as)
+char *as;
+{
+	register char *s;
+	register unsigned pid;
+	register i;
+
+	pid = getpid();
+	s = as;
+	while (*s++)
+		;
+	s--;
+	while (*--s == 'X') {
+		*s = (pid%10) + '0';
+		pid /= 10;
+	}
+	s++;
+	i = 'a';
+	while (access(as, 0) != -1) {
+		if (i=='z')
+			return("/");
+		*s = i++;
+	}
+	return(as);
+}
+@

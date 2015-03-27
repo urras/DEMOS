@@ -1,0 +1,11 @@
+for i in *.lp
+do
+to=`basename $i .lp`
+head -66 $i > $to.tlp
+done
+
+
+
+
+
+

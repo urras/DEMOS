@@ -1,0 +1,116 @@
+head     1.4;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз0:1.2.1;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     90.11.12.18.53.06;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.01.14.47.53;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.04.02.17.31.33;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.03.03;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+whoami.h -локальная конфигурация системы.
+@
+
+
+1.4
+log
+@Новые вещи для СМ 1425 и перемещение некоторых include'ов.
+@
+text
+@/*
+ * Whoami - локальная конфигурация системы
+ */
+#ifndef _sys_whoami_h_
+# define _sys_whoami_h_          /* so param.h won't include us again */
+
+#define MYNAME  "%ident%"       /* for uucp */
+#define PDP11   %PDP%
+#ifdef  KERNEL
+#include "h/localopts.h"
+#else
+#    include <sys/localopts.h>
+#endif
+
+#endif _sys_whoami_h_
+@
+
+
+1.3
+log
+@Вынесен в localopts.h параметр NONFP.
+@
+text
+@a2 8
+ *
+ * $Log:	whoami.h,v $
+ * Revision 1.2  88/04/02  17:31:33  korotaev
+ * Включен новый планировщик и изменены некоторые умолчания.
+ * 
+ * Revision 1.1  86/04/19  15:03:03  avg
+ * Initial revision
+ *
+a3 1
+
+d5 1
+a5 1
+#define _sys_whoami_h_          /* so param.h won't include us again */
+a6 1
+#define %IDENT%
+a8 1
+
+d10 1
+a10 1
+#    include "localopts.h"
+d14 1
+@
+
+
+1.2
+log
+@Включен новый планировщик и изменены некоторые умолчания.
+@
+text
+@d4 4
+a7 1
+ * $Log:        whoami.h,v $
+a18 1
+/* #define NONFP                /* if no floating point unit */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d10 2
+a11 2
+#ifndef _WHOAMI
+#define _WHOAMI                 /* so param.h won't include us again */
+d23 1
+a23 1
+#endif _WHOAMI
+@

@@ -1,0 +1,124 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.30.35;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+/*  Magtape analaizer. Serg A.Usikow   11-nov-83 */
+
+
+#include <stdio.h>
+
+#define __m 16386 /* max recordsize 16 K-bytes + 2 bytes*/
+
+main(argc,argv)
+
+int argc;
+char *argv[];
+
+{
+
+	int b[__m/2];  /* input buffer */
+	char *m; /* magtape name */
+
+	int d; /* file d... */
+	int n;  /* new size */
+	int o;  /* old size */
+	int c; /* line feed counter */
+	int r; /* record number */
+
+	setbuf(stdout,NULL);
+	if( argc < 2 ) {
+		m = getenv( "TAPE" );
+		if( m == NULL ) m = "/dev/nrmt0";
+	} else
+		m = argv[1];
+
+	d=open(m,0);
+	if(d<0) error("open %s",m);
+
+	printf("%s recordsize",m);
+
+	c=o=0; /* c-new line, o-cause n!=0 */
+	r=1; /* first record */
+
+	for(;;)
+	{
+		n=read(d,b,__m);
+
+		if(n<0)
+		{
+			printf("\nEnd of tape or Hard error\n");
+			exit(0);
+		}
+
+		if(n==0)
+		{
+			printf("\nEnd of file\n");
+			exit(0);
+		}
+
+		if(n>0&&n<__m)
+		{
+			if(o!=n)
+			{
+				printf("  \n%6d bytes record NO.",n);
+				c=0;
+				o=n;
+			}
+
+			if(o==n&&c==10)
+			{
+				printf("\n             record NO.");
+				c=0;
+			}
+			printf("%4d,",r);
+			c=c+1;
+			r=r+1;
+		}
+		if(n>=__m) error("Too big size",0);
+	}
+}
+error(mess,string)    /* print error message & die  */
+
+char *mess,*string;
+{
+	printf("---");
+	printf(mess,string);
+	printf("\n");
+	exit(1);
+}
+@

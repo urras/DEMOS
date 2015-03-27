@@ -1,0 +1,99 @@
+%- - - - - - - - - - - - - - - -% 25.01.88 VERSION 88
+%-   KOHזיחץPATOP ץCTPOךCTB    -%
+%-   י OגPAגOT‏יK נPEPשBAHיך   -%
+%- - - - - - - - - - - - - - - -%
+LOCALS LDEVS
+  DATA SCRINI=0               %זלבח קשהב‏י כןמזיחץעבדיי
+  DATA XS
+  DATA CLSNUM
+  DATA TITLE=:TITLE
+
+  EQUALS QDEVS=5
+  DATA TICKS=:TICKS ,TEXTS=:TEXTS ,ITREQ=:ITREQ
+  DATA INITS=('REGINI,'STLINI,'COOINI,'COIINI,'FLOPPY)
+  DATA READS=('REG:RD,'STL:RD,'COO:RD,'COI:RD,'DX::RD)
+  DATA WRITES=('REG:WR,'STL:WR,'COO:WR,'COI:WR,'DX::WR)
+  DATA ITINFS=('REG:IT,'STL:IT,'COO:IT,'COI:IT,'DX:INF)
+  DATA INFOS=('REGINF,'STLINF,'COOINF,'COIINF,'DX:TIC)
+  DATA :TICKS =0      .0      .0      .0      .0
+  DATA :ITREQ =0      .0      .0      .0      .0
+  DATA :TEXTS =REGTXT .STLTXT .COOTXT .COITXT .DX:TXT
+  BYTES REGTXT="&FF78          PULT SWITCHES".LF.0
+  BYTES STLTXT="&FFF6...&FFFE  CPU REGISTERS".LF.0
+  BYTES COOTXT="&FF74, &FF76   CONSOLE PRINTER".LF.0
+  BYTES COITXT="&FF70, &FF72   CONSOLE KEYBOARD".LF.0
+  BYTES DX:TXT="&FE78, &FE7A   DX FLOPPY DISK".LF.0
+  BYTES :TITLE=ER."  ***** EMULATOR CONFIGURATION *****".LF.0
+
+%-- מב‏בלרמבס ימידיבליתבדיס --
+% קשתשקבופףס נעי תבנץףכו י יףנןלמומיי כןםבמהש RESET
+PROGRAM DEVINI(SCRINI)
+  #TICKFL=0 ; #ITWORD='D:BIT'.CCA..AND.#ITWORD
+  IF SCRINI<> THEN DPC TITLE
+  (XCYCLE(XS) 'QDEVS*2' STEP 2
+    =^X+TICKS.XAE.            %נועוהבום ץףפעןךףפקץ בהעוף וחן פיכב
+    =^X+ITREQ                 % י זלבחב תבנעןףב נעועשקבמיס
+    =.CLS.0(INITS(/):)        %קשהב‏ב ףגעןףב מב ץףפעןךףפקב
+    IF SCRINI<> THEN DPC TEXTS(XS)
+  XCYCLE)
+  IF SCRINI<> THEN DPI ; DPO 'ER'
+  RETURN ,
+
+%-- תבנעןף ‏פומיס --
+% INP: ^A-בהעוף מב ûימו
+%      ^E-זלבח "גבךפ"
+% OUT: ^CARRY- =1, וףלי OK, נעי ןûיגכו =0
+%      ^A-נען‏פוממןו ףלןקן
+PROGRAM DEVRD(AREG)
+  (XCYCLE(XS) 'QDEVS'
+    IF AREG.CLS.0(READS():)= THEN RETURN ^A,,0
+  XCYCLE)
+  RETURN ,,2                            %מו מבךהומן ץףפעןךףפקן
+
+%-- תבנעןף תבניףי --
+% INP: ^A-בהעוף מב ûימו
+%      ^E-זלבח "גבךפ"
+%      ^X-תבניףשקבוםןו ףלןקן
+% OUT: ^CARRY- =1, וףלי OK, נעי ןûיגכו =0
+PROGRAM DEVWR(EREG],,XREG)
+  (XCYCLE(XS) 'QDEVS'
+    CLSNUM=WRITES():
+    IF EREG],,XREG.CLS.CLSNUM= THEN RETURN ,,0   %OK
+  XCYCLE)
+  RETURN ,,2                            %מו מבךהומן ץףפעןךףפקן
+
+%-- דיכלי‏וףכיך ןנעןף --
+PROGRAM DEVTST()
+%                   - ןנעבûיקבום פיכי -
+  (IF #TICKFL<>                         %וףפר תבנעןףש ?
+    #TICKFL=0
+    (XCYCLE(XS) 'QDEVS*2' STEP 2
+      (IF TICKS()<>                     %תAKAתAH TיK ?
+        TICKS()=-1
+        (IF =0                          %פיכ כןמ‏ילףס ?
+          =.CLS.0(INFOS(/):)            %ימזןעםיעץום ץףפעןךףפקן
+        ELSE
+          #TICKFL=1                     %ןנספר מבהן ןנעןףיפר
+        IF)
+      IF)
+    XCYCLE)
+  IF)
+%                    - ןנעבûיקום נעועשקבמיס -
+  IF #INPSYM>= THEN CALL COIREQ         %BBOה נעןקועסום KAצהשך PAת
+  (IF #ITWORD.AND.'D:BIT'<> AND #PSW.AND.&80=
+    (XCYCLE 'QDEVS*2' STEP 2
+      (IF ITREQ()<>
+        ITREQ()=0
+        CALL IT ((=.CLS.0(ITINFS(/):))).XAX.
+          IF)
+    XCYCLE)
+    #ITWORD='D:BIT'.CCA..AND.#ITWORD
+  IF)
+
+  (IF #ITWORD.AND.'T:BIT'<>             %T-נPEPשBAHיE
+    #ITWORD='T:BIT'.CCA..AND.#ITWORD
+    CALL IT ,,'BPT'
+      IF)
+  IF #PSW.AND.'TRACE'<> THEN #ITWORD=#ITWORD.IOR.'T:BIT'
+
+  RETURN ,

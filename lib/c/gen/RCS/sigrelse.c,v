@@ -1,0 +1,51 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.20.21.12.40;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+#include <signal.h>
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+#define BYTESPERVEC	4			/* size of machine language vector */
+extern	char	mvectors[NSIG][BYTESPERVEC];	/* machine language vector */
+
+extern char    _setflg[NSIG];                   /* flags for using sigset */
+extern long    _holdmask;
+
+extern int     (*sigsys())();
+
+/* re-enable signals after sighold or possibly after sigpause */
+
+sigrelse(signum)
+register signum;
+{
+	if (signum <= 0 || signum > NSIG || _setflg[signum] == 0)
+		abort();
+	_holdmask &= ~mask (signum);
+	sigsys(signum, DEFERSIG(mvectors[signum]));
+}
+
+@

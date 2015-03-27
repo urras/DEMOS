@@ -1,0 +1,26 @@
+ BEGIN  {l=0;
+        print ".TH λοναξδω 1 δενοσ";
+        print ".UC 4";
+        }
+ /LIN/  {if(l != 0) print ".RE"; l=0; print ".PP"; next}
+ /MID/  {
+        print ".PP";
+        for(i=2; i < NF; i++) printf $i " ";
+        print $i;
+        print ".br";
+        next
+        }
+ /TBL/  {
+        printf ".IP \"";
+        for(i=2; i < NF; i++) printf  $i " ";
+        print $i "\"";
+        next
+        }
+ /BLN/  {print ".br " $2; next}
+ /COM/  {next}
+ /PAG/  {next}
+ /SWT/  {print ".RS "; l++; next}
+ /AND/  {s=1}
+ /CPT/  {s=1}
+ /HLV/  {s=1}
+        {print}

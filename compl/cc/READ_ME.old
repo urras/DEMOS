@@ -1,0 +1,46 @@
+If you have separate I/D space, change `SEPID=-n'
+to `SEPID=-i' in `makefile', otherwise things will
+run out of space.
+
+The following is a fix from Bell for the C optimiser.
+It has been done.
+
+This change fixes a bug in C optimizer.
+The file is ./c2/c21.c.
+This is in routine rmove, after case CBR, the first two
+lines in the 'if r==0' clause:
+
+190,191c
+<                               p->back->back->forw = p->forw;
+<                               p->forw->back = p->back->back;
+---
+>                               if (p->forw->op==CBR
+>                                 || p->forw->op==SXT
+>                                 || p->forw->op==CFCC) {
+>                                       p->back->forw = p->forw;
+>                                       p->forw->back = p->back;
+>                               } else {
+>                                       p->back->back->forw = p->forw;
+>                                       p->forw->back = p->back->back;
+>                               }
+
+The old code deleted a test or compare with constant operands
+and a following conditional branch that would always fail.
+The new code only deletes the branch (leaves the test)
+if the combination is followed by another instruction that
+needs the condition codes.  The test and second branch are liable
+to be deleted later.
+
+ Компилятор и makefile модифицированы Антоновым В.Г. (ВМК МГУ,ИПК Минавтопрома)
+        - ускорение работы 1-го прохода
+        - обработка русских букв в идентификаторах
+        - новый ключ -Q у cc - выдача статистики оптимизации
+        - диагностики перведены на русский язык
+  последнее изменение: 02.04.84
+ Декабрь 1985 ( ИАЭ ОС ДЕМОС):
+ - Перенос и совмещение версий Си в МНОС и ДЕМОС;
+ - Правки для отладчика "cdeb" в C1, cc и C0 (переменная lineexpr);
+ - Имена произвольной длины в C0 (Паремский М.В.);
+ - В связи с изменением метода загрузки появились команды "make C0SEPID"
+   и "make C0NOSEP" для перемещения "C0/Makefile" (при SEPID не нужно
+   команды "c7t10" и замены ".data" на ".text".

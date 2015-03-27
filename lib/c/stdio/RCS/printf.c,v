@@ -1,0 +1,36 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.13.10;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include        <stdio.h>
+
+printf(fmt, args)
+char *fmt;
+{
+	_doprnt(fmt, &args, stdout);
+	return(ferror(stdout)? EOF: 0);
+}
+@

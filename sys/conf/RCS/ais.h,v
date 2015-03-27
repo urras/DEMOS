@@ -1,0 +1,34 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.11.01.18.36.27;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Интерфейсы AIS фирмы Robotron.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Последовательные интерфейсы AIS K8060 на машинах K1630(robotron)
+ *         по 4 канала ( 1a,1b,2a,2b ) в одном интерфейсе.
+ */
+
+#define NAIS    %NAIS%	/* число AIS-интерфейсов */
+#if NAIS > 0
+#define AISCONS         /* консоль подключена к AIS/1a (/dev/ais0) */
+#endif
+@

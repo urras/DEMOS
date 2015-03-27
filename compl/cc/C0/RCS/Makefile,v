@@ -1,0 +1,179 @@
+head     2.0;
+access   ;
+symbols  v7:1.1 DEMOS2:2 bsd29:1.2 MNOS:1.1.2 DEMOS1:1.1.1;
+locks    ;
+comment  @#	@;
+
+
+2.0
+date     86.11.25.20.38.14;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.24.18.49.34;  author dmitry;  state Rel;
+branches 1.1.1.1 1.1.2.1;
+next     ;
+
+1.1.1.1
+date     86.11.24.18.50.20;  author dmitry;  state Exp;
+branches ;
+next     1.1.1.2;
+
+1.1.1.2
+date     86.11.24.18.52.16;  author dmitry;  state Rel;
+branches ;
+next     ;
+
+1.1.2.1
+date     86.11.24.19.32.05;  author dmitry;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile для первого прохода Си-компилятора Ритчи
+@
+
+
+2.0
+log
+@Исправлены диагностики
+@
+text
+@CFLAGS= $(C1) -O -DFORTY # $(SEPID)    (ЙЪ ЪБ c7t10)
+C1= # -B./ -t0
+
+OBJ= c00.o c01.o c02.o c03.o c04.o c05.o alloc.o
+
+c0:     $(OBJ) xs.o
+	$(CC) $(CFLAGS) $(OBJ) xs.o -o c0
+	c7t10 c0
+	ln c0 ../c0
+
+$(OBJ): c0.h
+
+strings: $(OBJ)
+
+xs.o:   strings
+	xstr
+	$(CC) -S xs.c
+	sed 's/.data/.text/' <xs.s >xy.s
+	-rm -f xs.s
+	as -o xs.o xy.s
+	-rm -f xy.s
+
+.c.o:
+	cc -C -P $(CFLAGS) $*.c
+	xstr  -c $*.i
+	$(CC) -c $(CFLAGS) x.c
+	mv x.o $*.o
+	-rm -f x.c $*.i
+
+clear:
+	-rm -f c0 *.bak  x.c strings xs.c
+	-rm -f *.[os]
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 32
+@
+
+
+1.1.2.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@a0 29
+CFLAGS=-O $(SEPID) -s
+
+OBJ= c00.o c01.o c02.o c03.o c04.o c05.o
+
+c0:     $(OBJ) xs.o
+	$(CC) $(CFLAGS) $(OBJ) xs.o -o c0
+	ln c0 ../c0
+
+$(OBJ): c0.h
+
+strings: $(OBJ)
+
+xs.o:   strings
+	xstr
+	$(CC) -S xs.c
+	sed 's/.data/.text/' <xs.s >xy.s
+	-rm -f xs.s
+	as -o xs.o xy.s
+	-rm -f xy.s
+
+.c.o:
+	xstr  -c $*.c
+	$(CC) -c $(CFLAGS) x.c
+	mv x.o $*.o
+	-rm -f x.c
+
+clear:
+	-rm -f c0 .b ../c0 x.c strings xs.c
+	-rm -f *.[obs]
+@
+
+
+1.1.1.1
+log
+@Версия из Демос 1.3
+@
+text
+@a0 30
+CFLAGS=-O # $(SEPID)    (ЙЪ ЪБ c7t10)
+
+OBJ= c00.o c01.o c02.o c03.o c04.o c05.o alloc.o
+
+c0:     $(OBJ) xs.o
+	$(CC) $(CFLAGS) $(OBJ) xs.o -o c0
+	c7t10 c0
+	ln c0 ../c0
+
+$(OBJ): c0.h
+
+strings: $(OBJ)
+
+xs.o:   strings
+	xstr
+	$(CC) -S xs.c
+	sed 's/.data/.text/' <xs.s >xy.s
+	-rm -f xs.s
+	as -o xs.o xy.s
+	-rm -f xy.s
+
+.c.o:
+	cc -C -E $(CFLAGS) $*.c | xstr  -c -
+	$(CC) -c -a $(CFLAGS) x.c
+	mv x.o $*.o
+	-rm -f x.c
+
+clear:
+	-rm -f c0 *.bak  x.c strings xs.c
+	-rm -f *.[os]
+@
+
+
+1.1.1.2
+log
+@Версия для SEP I/D из Демос 1.3.
+@
+text
+@d1 1
+a1 1
+CFLAGS=-O $(SEPID)
+d7 1
+d17 1
+a17 1
+	as -o xs.o xs.s
+d19 2
+@

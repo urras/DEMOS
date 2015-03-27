@@ -1,0 +1,43 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.04.21.20.06.54;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+/*
+ * Returns the number of
+ * non-NULL bytes in string argument.
+ */
+
+strlen(s)
+register char *s;
+{
+	register n;
+
+	n = 0;
+	while (*s++)
+		n++;
+	return(n);
+}
+@

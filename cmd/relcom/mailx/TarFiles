@@ -1,0 +1,7 @@
+Makefile
+misc
+dos
+@/mailx-sm
+@/mailx-nosm
+@/fmt
+@/localmail

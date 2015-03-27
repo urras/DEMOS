@@ -1,0 +1,1946 @@
+head     1.8;
+access   avg alex asa fox abs;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.8
+date     88.04.04.21.07.04;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.03.16.18.49.52;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.12.04.18.25.20;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.03.13.10.45.08;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.12.21.22.43.36;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.04.29.22.51.59;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.03.11.12.11.08;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.03.11.12.08.10;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+
+См. документацию (kermit.1).
+@
+
+
+1.8
+log
+@kermit забывал снимать tandem с текущих параметров линии.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: kermit.c,v 1.7 88/03/16 18:49:52 abs Exp $";
+#endif
+
+/*
+ *  Объединенная версия ДЕМОС и МНОС 2
+ *  Программа передачи данных   K e r m i t
+ *
+ *  $Log:       kermit.c,v $
+ * Revision 1.7  88/03/16  18:49:52  abs
+ * Подкрутил флаг d, прикрутил флаг v.
+ * Теперь по отладке первого уровня ( один флаг d или флаг v )
+ * на local-машине выдается количество обменяных Килобайт.
+ *
+ * Revision 1.6  87/12/04  18:25:20  avg
+ * Добавлен режим трансляции для ДЕМОС-86.
+ *
+ * Revision 1.5  87/03/13  10:45:08  avg
+ * Правлена работа с TANDEM в ДЕМОС 2:
+ * теперь в connect устанавливается TANDEM, а
+ * в SEND и RECIEVE - нет.
+ *
+ * Revision 1.4  86/12/21  22:43:36  root
+ * Правки под ДЕМОС-2 (пока без TANDEM).
+ *
+ * Revision 1.3  86/04/29  22:51:59  avg
+ * Сделаны правки под объединенную версию ДЕМОС и МНОС.
+ *
+ * Revision 1.2  86/03/11  12:11:08  avg
+ * Заделаны ediagи и добавлен режим TANDEM для
+ * локального терминала в режиме СВЯЗЬ.
+ * Кроме того, прием в режиме СВЯЗЬ ведется теперь
+ * большими пачками, а не по одному символу, т.к., fortunately,
+ * драйвер МНОС РЛ 1.2 в режиме none возвращает все символы из
+ * текущей очереди ввода, а не ждет приема всех символов до
+ * заказанной длины.
+ *
+ *
+ *  Вызов:  kermit c [lbe линия скорость escapechar]    связь
+ *          kermit s [d..iflb линия скорость] файл ...  передача файлов
+ *          kermit r [d..iflb линия скорость]           прием файлов
+ *
+ *  где     c=связь, s=передача, r=прием,
+ *          d=отладка, i=режим передачи образа,
+ *          v=показывать размер переданного файла.
+ *          f=нет преобразования имен файлов, l=линия связи,
+ *          b=скорость в бод, e=символ escape, t=нет режима tandem.
+ *
+ *  Формат вызова для удаленной kermit:
+ *          kermit r                                    прием файлов
+ *  или     kermit s файл ...                           передача файлов
+ *
+ */
+
+#include <stdio.h>          /* Стандартная библиотека ввода/вывода */
+
+
+/* Conditional compilation for different machines/operating systems */
+/* One and only one of the following lines should be 1 */
+
+#define DEMOS86       0       /* DEMOS for IBM PC XT */
+#define DEMOS2        1       /* KIAE & IPK DEMOS 2.0 */
+#define UCB4X         0       /* Berkeley 4.x UNIX */
+#define TOPS_20       0       /* TOPS-20 */
+#define IBM_UTS       0       /* Amdahl UTS on IBM systems */
+#define VAX_VMS       0       /* VAX/VMS (not yet implemented) */
+
+/* Conditional compilation for the different Unix variants */
+/* 0 means don't compile it, nonzero means do */
+
+#if DEMOS2 || DEMOS86
+#undef UCB4X
+#define UCB4X 1
+#endif
+
+#if UCB4X && !DEMOS86
+#define V6_LIBS       0       /* Dont't use retrofit libraries */
+#define NO_FIONREAD   0       /* We have ioctl(FIONREAD,...) for flushinput() */
+#define NO_TANDEM     0       /* We have TANDEM line discipline (xon/xoff) */
+#endif
+
+#if DEMOS86
+#define V6_LIBS     0
+#define NO_FIONREAD 1
+#define NO_TANDEM   1
+#endif
+
+#if IBM_UTS
+#define V6_LIBS     0       /* Don't use retrofit libraries */
+#define NO_FIONREAD 1       /* No ioctl(FIONREAD,...) for flushinput() */
+#define NO_TANDEM   1       /* No TANDEM line discipline (xon/xoff) */
+#endif
+
+#if V6_LIBS
+#include <retrofit/sgtty.h>
+#include <retrofit/signal.h>
+#include <retrofit/setjmp.h>
+#else
+#include <sgtty.h>
+#include <signal.h>
+#include <setjmp.h>
+#endif
+
+#if NO_TANDEM
+#undef TANDEM
+#define TANDEM      0       /* define it to be nothing if it's unsupported */
+#endif
+
+
+/* Symbol Definitions */
+
+#define MAXPACKSIZ  94      /* Maximum packet size */
+#define SOH         1       /* Start of header */
+#define CR          13      /* ASCII Carriage Return */
+#define SP          32      /* ASCII space */
+#define DEL         127     /* Delete (rubout) */
+#define ESCCHR      '^'     /* Default escape character for CONNECT */
+
+#define MAXTRY      15      /* Times to retry a packet */
+#define MYQUOTE     '#'     /* Quote character I will use */
+#define MYPAD       0       /* Number of padding characters I will need */
+#define MYPCHAR     0       /* Padding character I need (NULL) */
+
+#if IBM_UTS
+#define MYEOL       '\r'    /* End-Of-Line character for UTS systems */
+#else
+#define MYEOL       '\n'    /* End-Of-Line character I need */
+#endif
+
+#define MYTIME      10      /* Seconds after which I should be timed out */
+#define MAXTIM      60      /* Maximum timeout interval */
+#define MINTIM      2       /* Minumum timeout interval */
+
+#define TRUE        -1      /* Boolean constants */
+#define FALSE       0
+
+
+/* Macro Definitions */
+
+/*
+ * tochar: converts a control character to a printable one by adding a space.
+ *
+ * unchar: undoes tochar.
+ *
+ * ctl:    converts between control characters and printable characters by
+ *         toggling the control bit (ie. ^A becomes A and A becomes ^A).
+ */
+#define tochar(ch)  ((ch) + ' ')
+#define unchar(ch)  ((ch) - ' ')
+#define ctl(ch)     ((ch) ^ 64 )
+
+
+/* Global Variables */
+
+int     size,               /* Size of present data */
+	rpsiz,              /* Maximum receive packet size */
+	spsiz,              /* Maximum send packet size */
+	pad,                /* How much padding to send */
+	timint,             /* Timeout for foreign host on sends */
+	n,                  /* Packet number */
+	numtry,             /* Times this packet retried */
+	oldtry,             /* Times previous packet retried */
+	ttyfd,              /* File descriptor of tty for I/O, 0 if remote */
+	remote,             /* -1 means we're a remote kermit */
+	image,              /* -1 means 8-bit mode */
+	debug,              /* indicates level of debugging output (0=none) */
+	filnamcnv,          /* -1 means do file name case conversions */
+	notandemkey,        /* Suppress tandem (xon/xoff) protocol */
+	filecount,          /* Number of files left to send */
+	Kbytes;             /* How many Kbytes exchanged */
+
+long    accepted;           /* How many bytes exchanged */
+
+char    state,              /* Present state of the automaton */
+	padchar,            /* Padding character to send */
+	eol,                /* End-Of-Line character to send */
+	escchr,             /* Connect command escape character */
+	quote,              /* Quote character in incoming data */
+	**filelist,         /* List of files to be sent */
+	*filnam,            /* Current file name */
+	recpkt[MAXPACKSIZ], /* Receive packet buffer */
+	packet[MAXPACKSIZ]; /* Packet buffer */
+
+FILE    *fp,                /* File pointer for current disk file */
+	*log;               /* File pointer for Logfile */
+
+jmp_buf env;                /* Environment ptr for timeout longjump */
+
+#include <ediag.h>
+
+/*
+ *  m a i n
+ *
+ *  Main routine - parse command and options, set up the
+ *  tty lines, and dispatch to the appropriate routine.
+ */
+
+main(argc,argv)
+int argc;                           /* Character pointers to and count of */
+char **argv;                            /* command line arguments */
+{
+    char *ttyname,                      /* tty name for LINE argument */
+	*cp;                            /* char pointer */
+    int speed,                          /* speed of assigned tty, */
+	cflg, rflg, sflg;               /* flags for CONNECT, RECEIVE, SEND */
+
+    struct sgttyb
+	rawmode,                        /* Controlling tty raw mode */
+	cookedmode,                     /* Controlling tty cooked mode */
+	ttymode;                        /* mode of tty line in LINE option */
+
+    if (argc < 2) usage();              /* Make sure there's a command line */
+
+    cp = *++argv; argv++; argc -= 2;    /* Set up pointers to args */
+
+/*  Initialize these values and hope the first packet will get across OK */
+
+    eol = CR;                           /* EOL for outgoing packets */
+    quote = '#';                        /* Standard control-quote char "#" */
+    pad = 0;                            /* No padding */
+    padchar = NULL;                     /* Use null if any padding wanted */
+
+    speed = cflg = sflg = rflg = 0;     /* Turn off all parse flags */
+    ttyname = 0;                        /* Default is remote mode */
+
+    image = TRUE;                       /* Default to no processing for */
+    filnamcnv = FALSE;                  /* non-UNIX systems */
+
+    escchr = ESCCHR;                    /* Default escape character */
+#if DEMOS2
+    notandemkey = 1;
+#endif
+
+    while ((*cp) != NULL)               /* Parse characters in first arg. */
+	switch (*cp++)
+	{
+	    case 'c': cflg++;           /* C = Connect command */
+		notandemkey = !notandemkey; break;
+	    case 's': sflg++; break;    /* S = Send command */
+	    case 'r': rflg++; break;    /* R = Receive command */
+
+	    case 'd':                   /* D = Increment debug mode count */
+		debug++; break;
+	    case 'v':
+		debug =1; break;
+	    case 't':
+		notandemkey = !notandemkey; break;   /* T = No tandem mode */
+
+	    case 'f':
+		filnamcnv = !filnamcnv; /* F = don't do case conversion */
+		break;                  /*     on filenames */
+
+	    case 'i':                   /* I = Image (8-bit) mode */
+		image = !image; break;    /* (this is default for non-UNIX) */
+
+	    case 'l':                   /* L = specify tty line to use */
+		if (argc--) ttyname = *argv++;
+		else usage();
+		if (debug>1) fprintf(stderr, ediag("Line to remote host is %s\n",
+					"Линия к удаленной машине : %s\n"), ttyname);
+		break;
+
+	    case 'e':                   /* E = specify escape char */
+		if (argc--) escchr = **argv++;
+		else usage();
+		if (debug>1) fprintf(stderr, ediag("Escape char is \"%c\"\n",
+					"Символ escape: \"%c\"\n"),escchr);
+		break;
+
+	    case 'b':                   /* B = specify baud rate */
+#if UCB4X
+		if (argc--) speed = atoi(*argv++);
+		else usage();
+		if (debug>1) fprintf(stderr, ediag("Line speed to remote host is %d\n",
+					"Скорость передачи по линии %d\n"),speed);
+		break;
+#else
+		printmsg(ediag("Speed setting implemented for DEMOS & MHOC only.",
+			       "Установка скорости предусмотрена только для МНОС и ДЕМОС."));
+		exit(1);
+#endif
+	}
+
+/* Done parsing */
+
+    if ((cflg+sflg+rflg) != 1)          /* Only one command allowed */
+	usage();
+
+
+    if (ttyname)                        /* If LINE was specified, we */
+    {                                   /* operate in local mode */
+	ttyfd = open(ttyname,2);        /* Open the tty line */
+	if (ttyfd < 0)
+	{
+	    printmsg(ediag("Cannot open %s",
+			   "Не могу открыть %s"),ttyname);
+	    exit(1);
+	}
+	remote = FALSE;                 /* Indicate we're in local mode */
+    }
+    else                                /* No LINE specified so we operate */
+    {                                   /* in remote mode (ie. controlling */
+	ttyfd = sflg;                   /* tty is the communications line) */
+	remote = TRUE;
+    }
+
+
+/* Put the proper tty into the correct mode */
+
+    if (remote)                         /* If remote, use controlling tty */
+    {
+	gtty(ttyfd,&cookedmode);            /* Save current mode so we can */
+	gtty(ttyfd,&rawmode);               /* restore it later */
+	rawmode.sg_flags &= ~(ECHO|CRMOD|TANDEM);
+	rawmode.sg_flags |= (notandemkey?0:TANDEM) | RAW|ODDP|EVENP;
+	stty(ttyfd,&rawmode);               /* Put tty in raw mode */
+    }
+    else                                /* Local, use assigned line */
+    {
+	gtty(ttyfd,&ttymode);
+	ttymode.sg_flags &= ~(ECHO|CRMOD|TANDEM);
+	ttymode.sg_flags |= (notandemkey?0:TANDEM) |EVENP|ODDP|RAW;
+
+#if UCB4X                               /* Speed changing for UNIX only */
+	if (speed)                      /* User specified a speed? */
+	{
+	    switch(speed)               /* Get internal system code */
+	    {
+		case 50:  speed = B50;  break;
+		case 75:  speed = B75;  break;
+		case 110: speed = B110; break;
+		case 134: speed = B134; break;
+		case 150: speed = B150; break;
+		case 200: speed = B200; break;
+		case 300: speed = B300; break;
+		case 600: speed = B600; break;
+		case 1200: speed = B1200; break;
+		case 1800: speed = B1800; break;
+		case 2400: speed = B2400; break;
+		case 4800: speed = B4800; break;
+		case 9600: speed = B9600; break;
+#ifdef B19200
+		case 19200: speed = B19200; break;
+#endif
+		default:
+		    printmsg(ediag("Bad line speed.",
+				   "Плохая скорость передачи."));
+		    exit(1);
+	    }
+	    ttymode.sg_ispeed = speed;
+	    ttymode.sg_ospeed = speed;
+	}
+#endif /* UCB4X */
+
+	stty(ttyfd,&ttymode);           /* Put asg'd tty in raw mode */
+    }
+
+
+/* All set up, now execute the command that was given. */
+
+    if (debug>1)
+    {
+	fprintf(stderr, ediag("Debugging level = %d\n\n",
+		     "Уровень отладки = %d\n\n"),debug);
+
+	if (cflg) fprintf(stderr, ediag("Connect command\n\n",
+			       "Команда СВЯЗЬ\n\n"));
+	if (sflg) fprintf(stderr, ediag("Send command\n\n",
+			       "Команда ПЕРЕДАЧА\n\n"));
+	if (rflg) fprintf(stderr, ediag("Receive command\n\n",
+			       "Команда ПРИЕМ\n\n"));
+    }
+
+    if (cflg) connect();                /* Connect command */
+
+    if (sflg)                           /* Send command */
+    {
+	if (argc--) filnam = *argv++;   /* Get file to send */
+	else
+	{   if (remote)
+		stty(0,&cookedmode);    /* Restore controlling tty's modes */
+	    usage();                    /* and give error */
+	}
+	fp = NULL;                      /* Indicate no file open yet */
+	filelist = argv;                /* Set up the rest of the file list */
+	filecount = argc;               /* Number of files left to send */
+	if (sendsw() == FALSE)          /* Send the file(s) */
+	    printmsg(ediag("Send failed.",
+			   "Передача не удалась."));   /* Report failure */
+	else                            /*  or */
+	    printmsg(ediag("done.",
+			   "готово."));          /* success */
+    }
+
+    if (rflg)                           /* Receive command */
+    {
+	if (recsw() == FALSE)           /* Receive the file(s) */
+	    printmsg(ediag("Receive failed.",
+			   "Прием не удался."));
+	else                            /* Report failure */
+	    printmsg(ediag("done.",
+			   "готово."));    /* or success */
+    }
+
+    if (remote) stty(0,&cookedmode);    /* Restore controlling tty's modes */
+}
+
+
+/*
+ *  s e n d s w
+ *
+ *  Sendsw is the state table switcher for sending files.  It loops until
+ *  either it finishes, or an error is encountered.  The routines called
+ *  by sendsw are responsible for changing the state.
+ *
+ */
+
+sendsw()
+{
+    char sinit(), sfile(), sdata(), seof(), sbreak();
+
+    state = 'S';                        /* Send initiate is the start state */
+    n = 0;                              /* Initialize message number */
+    numtry = 0;                         /* Say no tries yet */
+    while(TRUE)                         /* Do this as long as necessary */
+    {
+	if (debug>1) fprintf(stderr, ediag("sendsw state: %c\n",
+				"статус sendsw: %c\n"),state);
+	switch(state)
+	{
+	    case 'S':   state = sinit();  break; /* Send-Init */
+	    case 'F':   state = sfile();  break; /* Send-File */
+	    case 'D':   state = sdata();  break; /* Send-Data */
+	    case 'Z':   state = seof();   break; /* Send-End-of-File */
+	    case 'B':   state = sbreak(); break; /* Send-Break */
+	    case 'C':   return (TRUE);           /* Complete */
+	    case 'A':   return (FALSE);          /* "Abort" */
+	    default:    return (FALSE);          /* Unknown, fail */
+	}
+    }
+}
+
+
+/*
+ *  s i n i t
+ *
+ *  Send Initiate: send this host's parameters and get other side's back.
+ */
+
+char sinit()
+{
+    int num, len;                       /* Packet number, length */
+
+    if (numtry++ > MAXTRY) return('A'); /* If too many tries, give up */
+    spar(packet);                       /* Fill up init info packet */
+
+    flushinput();                       /* Flush pending input */
+
+    spack('S',n,6,packet);              /* Send an S packet */
+    switch(rpack(&len,&num,recpkt))     /* What was the reply? */
+    {
+	case 'N':  return(state);       /* NAK, try it again */
+
+	case 'Y':                       /* ACK */
+	    if (n != num)               /* If wrong ACK, stay in S state */
+		return(state);          /* and try again */
+	    rpar(recpkt);               /* Get other side's init info */
+
+	    if (eol == 0) eol = '\n';   /* Check and set defaults */
+	    if (quote == 0) quote = '#';
+
+	    numtry = 0;                 /* Reset try counter */
+	    n = (n+1)%64;               /* Bump packet count */
+	    return('F');                /* OK, switch state to F */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE: return(state);      /* Receive failure, try again */
+
+	default: return('A');           /* Anything else, just "abort" */
+   }
+ }
+
+
+/*
+ *  s f i l e
+ *
+ *  Send File Header.
+ */
+
+char sfile()
+{
+    int num, len;                       /* Packet number, length */
+    char filnam1[50],                   /* Converted file name */
+	*newfilnam,                     /* Pointer to file name to send */
+	*cp;                            /* char pointer */
+
+    if( debug == 1 && !remote ){
+	accepted =0l;
+	Kbytes = 0;
+    }
+
+    if (numtry++ > MAXTRY) return('A'); /* If too many tries, give up */
+
+    if (fp == NULL)                     /* If not already open, */
+    {   if (debug>1) fprintf(stderr, ediag("   Opening %s for sending.\n",
+				"   Открывается %s для передачи.\n"),filnam);
+	if( strcmp( filnam, "-" ) != 0 )
+	    fp = fopen(filnam,"r");     /* open the file to be sent */
+	else if( !remote || !isatty(fileno(stdin)))
+	    fp = stdin;
+	else
+	    fp = NULL;
+	if (fp == NULL)                 /* If bad file pointer, give up */
+	{
+	    error(ediag("Cannot open file %s",
+			"Не могу открыть файл %s"),filnam);
+	    return('A');
+	}
+    }
+
+    strcpy(filnam1, filnam);            /* Copy file name */
+    newfilnam = cp = filnam1;
+    while (*cp != '\0')                 /* Strip off all leading directory */
+	if (*cp++ == '/')               /* names (ie. up to the last /). */
+	    newfilnam = cp;
+
+    if (filnamcnv)                      /* Convert lower case to upper  */
+	for (cp = newfilnam; *cp != '\0'; cp++)
+	    if ((*cp >= 'a' && *cp <= 'z')|| ((*cp&0377) > 0337) )
+		*cp ^= 040;
+
+    len = cp - newfilnam;               /* Compute length of new filename */
+
+    printmsg(ediag("Sending %s as %s",
+		   "%s передается как %s"),filnam,newfilnam);
+
+    spack('F',n,len,newfilnam);         /* Send an F packet */
+    switch(rpack(&len,&num,recpkt))     /* What was the reply? */
+    {
+	case 'N':                       /* NAK, just stay in this state, */
+	    num = (--num<0 ? 63:num);   /* unless it's NAK for next packet */
+	    if (n != num)               /* which is just like an ACK for */
+		return(state);          /* this packet so fall thru to... */
+
+	case 'Y':                       /* ACK */
+	    if (n != num) return(state); /* If wrong ACK, stay in F state */
+	    numtry = 0;                 /* Reset try counter */
+	    n = (n+1)%64;               /* Bump packet count */
+	    size = bufill(packet);      /* Get first data from file */
+	    return('D');                /* Switch state to D */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE: return(state);      /* Receive failure, stay in F state */
+
+	default:    return('A');        /* Something else, just "abort" */
+    }
+}
+
+
+/*
+ *  s d a t a
+ *
+ *  Send File Data
+ */
+
+char sdata()
+{
+    int num, len;                       /* Packet number, length */
+
+    if (numtry++ > MAXTRY) return('A'); /* If too many tries, give up */
+
+    spack('D',n,size,packet);           /* Send a D packet */
+    switch(rpack(&len,&num,recpkt))     /* What was the reply? */
+    {
+	case 'N':                       /* NAK, just stay in this state, */
+	    num = (--num<0 ? 63:num);   /* unless it's NAK for next packet */
+	    if (n != num)               /* which is just like an ACK for */
+		return(state);          /* this packet so fall thru to... */
+
+	case 'Y':                       /* ACK */
+	    if (n != num) return(state); /* If wrong ACK, fail */
+	    numtry = 0;                 /* Reset try counter */
+	    n = (n+1)%64;               /* Bump packet count */
+	    if ((size = bufill(packet)) == EOF) /* Get data from file */
+		return('Z');            /* If EOF set state to that */
+	    return('D');                /* Got data, stay in state D */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE: return(state);      /* Receive failure, stay in D */
+
+	default:    return('A');        /* Anything else, "abort" */
+    }
+}
+
+
+/*
+ *  s e o f
+ *
+ *  Send End-Of-File.
+ */
+
+char seof()
+{
+    int num, len;                       /* Packet number, length */
+    if (numtry++ > MAXTRY) return('A'); /* If too many tries, "abort" */
+
+    spack('Z',n,0,packet);              /* Send a 'Z' packet */
+    switch(rpack(&len,&num,recpkt))     /* What was the reply? */
+    {
+	case 'N':                       /* NAK, just stay in this state, */
+	    num = (--num<0 ? 63:num);   /* unless it's NAK for next packet, */
+	    if (n != num)               /* which is just like an ACK for */
+		return(state);          /* this packet so fall thru to... */
+
+	case 'Y':                       /* ACK */
+	    if (n != num) return(state); /* If wrong ACK, hold out */
+	    numtry = 0;                 /* Reset try counter */
+	    n = (n+1)%64;               /* and bump packet count */
+	    if (debug>1) fprintf(stderr, ediag("   Closing input file %s, ",
+				    "   Входной файл %s закрывается, "),filnam);
+	    if( debug == 1 && !remote && Kbytes )putc( '\n', stderr );
+	    fclose(fp);                 /* Close the input file */
+	    fp = NULL;                  /* Set flag indicating no file open */
+
+	    if (debug>1) fprintf(stderr, ediag("looking for next file...\n",
+				    "ищем следующий файл...\n"));
+	    if (gnxtfl() == FALSE)      /* No more files go? */
+		return('B');            /* if not, break, EOT, all done */
+	    if (debug>1) fprintf(stderr, ediag("   New file is %s\n",
+				    "   Новый файл - %s\n"),filnam);
+	    return('F');                /* More files, switch state to F */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE: return(state);      /* Receive failure, stay in Z */
+
+	default:    return('A');        /* Something else, "abort" */
+    }
+}
+
+
+/*
+ *  s b r e a k
+ *
+ *  Send Break (EOT)
+ */
+
+char sbreak()
+{
+    int num, len;                       /* Packet number, length */
+    if (numtry++ > MAXTRY) return('A'); /* If too many tries "abort" */
+
+    spack('B',n,0,packet);              /* Send a B packet */
+    switch (rpack(&len,&num,recpkt))    /* What was the reply? */
+    {
+	case 'N':                       /* NAK, just stay in this state, */
+	    num = (--num<0 ? 63:num);   /* unless NAK for previous packet, */
+	    if (n != num)               /* which is just like an ACK for */
+		return(state);          /* this packet so fall thru to... */
+
+	case 'Y':                       /* ACK */
+	    if (n != num) return(state); /* If wrong ACK, fail */
+	    numtry = 0;                 /* Reset try counter */
+	    n = (n+1)%64;               /* and bump packet count */
+	    return('C');                /* Switch state to Complete */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE: return(state);      /* Receive failure, stay in B */
+
+	default:    return ('A');       /* Other, "abort" */
+   }
+}
+
+
+/*
+ *  r e c s w
+ *
+ *  This is the state table switcher for receiving files.
+ */
+
+recsw()
+{
+    char rinit(), rfile(), rdata();     /* Use these procedures */
+
+    state = 'R';                        /* Receive-Init is the start state */
+    n = 0;                              /* Initialize message number */
+    numtry = 0;                         /* Say no tries yet */
+
+    while(TRUE)
+    {
+	if (debug>1) fprintf(stderr, ediag(" recsw state: %c\n",
+				" статус recsw: %c\n"),state);
+	switch(state)                   /* Do until done */
+	{
+	    case 'R':   state = rinit(); break; /* Receive-Init */
+	    case 'F':   state = rfile(); break; /* Receive-File */
+	    case 'D':   state = rdata(); break; /* Receive-Data */
+	    case 'C':   return(TRUE);           /* Complete state */
+	    case 'A':   return(FALSE);          /* "Abort" state */
+	}
+    }
+}
+
+
+/*
+ *  r i n i t
+ *
+ *  Receive Initialization
+ */
+
+char rinit()
+{
+    int len, num;                       /* Packet length, number */
+
+    if (numtry++ > MAXTRY) return('A'); /* If too many tries, "abort" */
+
+    switch(rpack(&len,&num,packet))     /* Get a packet */
+    {
+	case 'S':                       /* Send-Init */
+	    rpar(packet);               /* Get the other side's init data */
+	    spar(packet);               /* Fill up packet with my init info */
+	    spack('Y',n,6,packet);      /* ACK with my parameters */
+	    oldtry = numtry;            /* Save old try count */
+	    numtry = 0;                 /* Start a new counter */
+	    n = (n+1)%64;               /* Bump packet number, mod 64 */
+	    return('F');                /* Enter File-Receive state */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE:                     /* Didn't get packet */
+	    spack('N',n,0,0);           /* Return a NAK */
+	    return(state);              /* Keep trying */
+
+	default:     return('A');       /* Some other packet type, "abort" */
+    }
+}
+
+
+/*
+ *  r f i l e
+ *
+ *  Receive File Header
+ */
+
+char rfile()
+{
+    int num, len;                       /* Packet number, length */
+    char filnam1[50];                   /* Holds the converted file name */
+
+    accepted = 0l;
+    Kbytes =0;
+
+    if (numtry++ > MAXTRY) return('A'); /* "abort" if too many tries */
+
+    switch(rpack(&len,&num,packet))     /* Get a packet */
+    {
+	case 'S':                       /* Send-Init, maybe our ACK lost */
+	    if (oldtry++ > MAXTRY) return('A'); /* If too many tries "abort" */
+	    if (num == ((n==0) ? 63:n-1)) /* Previous packet, mod 64? */
+	    {                           /* Yes, ACK it again with  */
+		spar(packet);           /* our Send-Init parameters */
+		spack('Y',num,6,packet);
+		numtry = 0;             /* Reset try counter */
+		return(state);          /* Stay in this state */
+	    }
+	    else return('A');           /* Not previous packet, "abort" */
+
+	case 'Z':                       /* End-Of-File */
+	    if (oldtry++ > MAXTRY) return('A');
+	    if (num == ((n==0) ? 63:n-1)) /* Previous packet, mod 64? */
+	    {                           /* Yes, ACK it again. */
+		spack('Y',num,0,0);
+		numtry = 0;
+		return(state);          /* Stay in this state */
+	    }
+	    else return('A');           /* Not previous packet, "abort" */
+
+	case 'F':                       /* File Header (just what we want) */
+	    if (num != n) return('A');  /* The packet number must be right */
+	    strcpy(filnam1, packet);    /* Copy the file name */
+
+	    if (filnamcnv)              /* Convert upper case to lower */
+		for (filnam=filnam1; *filnam != '\0'; filnam++)
+		    if (*filnam >= 'A' && *filnam <= 'Z')
+			*filnam |= 040;
+
+	    if( strcmp( filnam1, "-" ) != 0 )
+		fp = fopen(filnam1,"w");     /* open the file to be sent */
+	    else if( !remote || !isatty(fileno(stdout)))
+		fp = stdout;
+	    else
+		fp = NULL;
+	    if (fp==NULL) /* Try to open a new file */
+	    {
+		error(ediag("Cannot create %s",
+			    "Не могу создать %s"),filnam1); /* Give up if can't */
+		return('A');
+	    }
+	    else                        /* OK, give message */
+		printmsg(ediag("Receiving %s as %s",
+			       "Принимаем %s как %s"),packet,filnam1);
+
+	    spack('Y',n,0,0);           /* Acknowledge the file header */
+	    oldtry = numtry;            /* Reset try counters */
+	    numtry = 0;                 /* ... */
+	    n = (n+1)%64;               /* Bump packet number, mod 64 */
+	    return('D');                /* Switch to Data state */
+
+	case 'B':                       /* Break transmission (EOT) */
+	    if (num != n) return ('A'); /* Need right packet number here */
+	    spack('Y',n,0,0);           /* Say OK */
+	    return('C');                /* Go to complete state */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE:                     /* Didn't get packet */
+	    spack('N',n,0,0);           /* Return a NAK */
+	    return(state);              /* Keep trying */
+
+	default:    return ('A');       /* Some other packet, "abort" */
+    }
+}
+
+
+/*
+ *  r d a t a
+ *
+ *  Receive Data
+ */
+
+char rdata()
+{
+    int num, len;                       /* Packet number, length */
+    if (numtry++ > MAXTRY) return('A'); /* "abort" if too many tries */
+
+    switch(rpack(&len,&num,packet))     /* Get packet */
+    {
+	case 'D':                       /* Got Data packet */
+	    if (num != n)               /* Right packet? */
+	    {                           /* No */
+		if (oldtry++ > MAXTRY)
+		    return('A');        /* If too many tries, abort */
+		if (num == ((n==0) ? 63:n-1)) /* Else check packet number */
+		{                       /* Previous packet again? */
+		    spack('Y',num,6,packet); /* Yes, re-ACK it */
+		    numtry = 0;         /* Reset try counter */
+		    return(state);      /* Don't write out data! */
+		}
+		else return('A');       /* sorry, wrong number */
+	    }
+	    /* Got data with right packet number */
+	    bufemp(packet,len);         /* Write the data to the file */
+	    spack('Y',n,0,0);           /* Acknowledge the packet */
+	    oldtry = numtry;            /* Reset the try counters */
+	    numtry = 0;                 /* ... */
+	    n = (n+1)%64;               /* Bump packet number, mod 64 */
+	    return('D');                /* Remain in data state */
+
+	case 'F':                       /* Got a File Header */
+	    if (oldtry++ > MAXTRY)
+		return('A');            /* If too many tries, "abort" */
+	    if (num == ((n==0) ? 63:n-1)) /* Else check packet number */
+	    {                           /* It was the previous one */
+		spack('Y',num,0,0);     /* ACK it again */
+		numtry = 0;             /* Reset try counter */
+		return(state);          /* Stay in Data state */
+	    }
+	    else return('A');           /* Not previous packet, "abort" */
+
+	case 'Z':                       /* End-Of-File */
+	    if (num != n) return('A');  /* Must have right packet number */
+	    spack('Y',n,0,0);           /* OK, ACK it. */
+	    fclose(fp);                 /* Close the file */
+	    if( debug == 1 && !remote && Kbytes ) putc( '\n' , stderr );
+	    n = (n+1)%64;               /* Bump packet number */
+	    return('F');                /* Go back to Receive File state */
+
+	case 'E':                       /* Error packet received */
+	    prerrpkt(recpkt);           /* Print it out and */
+	    return('A');                /* abort */
+
+	case FALSE:                     /* Didn't get packet */
+	    spack('N',n,0,0);           /* Return a NAK */
+	    return(state);              /* Keep trying */
+
+	default:     return('A');       /* Some other packet, "abort" */
+    }
+}
+
+/*
+ *  c o n n e c t
+ *
+ *  Establish a virtual terminal connection with the remote host, over an
+ *  assigned tty line.
+ */
+
+connect()
+{
+    int pid,                            /* Holds process id of child */
+	connected;                      /* Boolean connect flag */
+    char bel = '\07',
+	c;
+
+    struct sgttyb
+	rawmode,                        /* Controlling tty raw mode */
+	cookedmode;                     /* Controlling tty cooked mode */
+
+    if (remote)                         /* Nothing to connect to in remote */
+    {                                   /* mode, so just return */
+	printmsg(ediag("No line specified for connection.",
+		       "Не задана линия для связи."));
+	return;
+    }
+
+    gtty(0,&cookedmode);                /* Save current mode so we can */
+    gtty(0,&rawmode);                   /* restore it later */
+
+			/* Local tty has default TANDEM mode (now) */
+    rawmode.sg_flags &= ~(ECHO|CRMOD|TANDEM);
+    rawmode.sg_flags |= (notandemkey? 0 : TANDEM) | ODDP|EVENP|RAW;
+
+    stty(0,&rawmode);                   /* Put tty in raw mode */
+
+    pid = fork();           /* Start fork to get typeout from remote host */
+
+    if (pid)                        /* Parent: send type-in to remote host */
+    {
+	printmsg("CONNECTED...\r");
+	connected = TRUE;               /* Put us in "connect mode" */
+	while (connected)
+	{
+	    read(0,&c,1);               /* Get a character */
+	    if ((c&0177) == escchr)     /* Check for escape character */
+	    {
+		read(0,&c,1);
+		if ((c&0177) == escchr)
+		    write(ttyfd,&c,1);
+		else
+		switch (c&0177)
+		{
+		    case 'c':
+		    case 'C':
+			connected = FALSE;
+			write(0,"\r\n",2);
+			break;
+
+		    case 'h':
+		    case 'H':
+			write(0,"\r\nYES, I'M STILL HERE...\r\n",26);
+			break;
+
+		    default:
+			write(0,&bel,1);
+			break;
+		}
+	    }
+	    else
+	    {                           /* If not escape charater, */
+		write(ttyfd,&c,1);      /* write it out */
+		c = NULL;               /* Nullify it (why?) */
+	    }
+	}
+	kill(pid,9);                    /* Done, kill the child */
+	wait(0);                        /* and bury him */
+	stty(0,&cookedmode);            /* Restore tty mode */
+	printmsg("DISCONNECTED.");
+	return;                         /* Done */
+    }
+    else                  /* Child does the reading from the remote host */
+    {
+	for(;;)                         /* Do this forever */
+	{
+#if DEMOS2 == 0
+	    read(ttyfd,&c,1);
+	    c &= 0177;
+	    write(1,&c,1);
+#else
+	    int L;
+	    L = read(ttyfd,recpkt,MAXPACKSIZ);
+	    write(1,recpkt,L);
+#endif
+	}
+    }
+}
+
+/*
+ *      KERMIT utilities.
+ */
+
+clkint()                                /* Timer interrupt handler */
+{
+    longjmp(env,TRUE);                  /* Tell rpack to give up */
+}
+
+
+/*
+ *  s p a c k
+ *
+ *  Send a Packet
+ */
+
+spack(type,num,len,data)
+char type, *data;
+int num, len;
+{
+    int i;                              /* Character loop counter */
+    char chksum, buffer[100];           /* Checksum, packet buffer */
+    register char *bufp;                /* Buffer pointer */
+
+    if (debug>2)                        /* Display outgoing packet */
+    {
+	if (data != NULL)
+	    data[len] = '\0';           /* Null-terminate data to print it */
+	fprintf(stderr, ediag("  spack type: %c\n",
+		     "  тип  spack: %c\n"),type);
+	fprintf(stderr,       "         num: %d\n", num);
+	fprintf(stderr,       "         len: %d\n",len);
+	if (data != NULL)
+	    fprintf(stderr, ediag("        data: \"%s\"\n",
+			 "      данные: \"%s\"\n"),data);
+    }
+
+    bufp = buffer;                      /* Set up buffer pointer */
+    for (i=1; i<=pad; i++) write(ttyfd,&padchar,1); /* Issue any padding */
+
+    *bufp++ = SOH;                      /* Packet marker, ASCII 1 (SOH) */
+    *bufp++ = tochar(len+3);            /* Send the character count */
+    chksum  = tochar(len+3);            /* Initialize the checksum */
+    *bufp++ = tochar(num);              /* Packet number */
+    chksum += tochar(num);              /* Update checksum */
+    *bufp++ = type;                     /* Packet type */
+    chksum += type;                     /* Update checksum */
+
+    for (i=0; i<len; i++)               /* Loop for all data characters */
+    {
+	*bufp++ = data[i];              /* Get a character */
+	chksum += data[i];              /* Update checksum */
+    }
+    chksum = (((chksum&0300) >> 6)+chksum)&077; /* Compute final checksum */
+    *bufp++ = tochar(chksum);           /* Put it in the packet */
+    *bufp = eol;                        /* Extra-packet line terminator */
+    write(ttyfd, buffer,bufp-buffer+1); /* Send the packet */
+}
+
+/*
+ *  r p a c k
+ *
+ *  Read a Packet
+ */
+
+rpack(len,num,data)
+int *len, *num;                         /* Packet length, number */
+char *data;                             /* Packet data */
+{
+    int i, done;                        /* Data character number, loop exit */
+    char t,                             /* Current input character */
+	type,                           /* Packet type */
+	cchksum,                        /* Our (computed) checksum */
+	rchksum;                        /* Checksum received from other host */
+
+#if UCB4X                               /* TOPS-20 can't handle timeouts... */
+    if (setjmp(env)) return FALSE;      /* Timed out, fail */
+    signal(SIGALRM,clkint);             /* Setup the timeout */
+    if ((timint > MAXTIM) || (timint < MINTIM)) timint = MYTIME;
+    alarm(timint);
+#endif /* UCB4X */
+    t = 0 ;
+    while (t != SOH)                    /* Wait for packet header */
+    {
+	read(ttyfd,&t,1);
+	t &= 0177;                      /* Handle parity */
+    }
+
+    done = FALSE;                       /* Got SOH, init loop */
+    while (!done)                       /* Loop to get a packet */
+    {
+	read(ttyfd,&t,1);               /* Get character */
+	if (!image) t &= 0177;          /* Handle parity */
+	if (t == SOH) continue;         /* Resynchronize if SOH */
+	cchksum = t;                    /* Start the checksum */
+	*len = unchar(t)-3;             /* Character count */
+
+	read(ttyfd,&t,1);               /* Get character */
+	if (!image) t &= 0177;          /* Handle parity */
+	if (t == SOH) continue;         /* Resynchronize if SOH */
+	cchksum = cchksum + t;          /* Update checksum */
+	*num = unchar(t);               /* Packet number */
+
+	read(ttyfd,&t,1);               /* Get character */
+	if (!image) t &= 0177;          /* Handle parity */
+	if (t == SOH) continue;         /* Resynchronize if SOH */
+	cchksum = cchksum + t;          /* Update checksum */
+	type = t;                       /* Packet type */
+
+	for (i=0; i<*len; i++)          /* The data itself, if any */
+	{                               /* Loop for character count */
+	    read(ttyfd,&t,1);           /* Get character */
+	    if (!image) t &= 0177;      /* Handle parity */
+	    if (t == SOH) continue;     /* Resynch if SOH */
+	    cchksum = cchksum + t;      /* Update checksum */
+	    data[i] = t;                /* Put it in the data buffer */
+	}
+	data[*len] = 0;                 /* Mark the end of the data */
+
+	read(ttyfd,&t,1);               /* Get last character (checksum) */
+	rchksum = unchar(t);            /* Convert to numeric */
+	read(ttyfd,&t,1);               /* get EOL character and toss it */
+	if (!image) t &= 0177;          /* Handle parity */
+	if (t == SOH) continue;         /* Resynchronize if SOH */
+	done = TRUE;                    /* Got checksum, done */
+    }
+
+#if UCB4X
+    alarm(0);                           /* Disable the timer interrupt */
+#endif
+
+    if (debug>2)                        /* Display incoming packet */
+    {
+	if (data != NULL)
+	    data[*len] = '\0';          /* Null-terminate data to print it */
+	fprintf(stderr, ediag("  rpack type: %c\n",
+		     "  тип  rpack: %c\n"),type);
+	fprintf(stderr,       "         num:  %d\n",*num);
+	fprintf(stderr,       "         len:  %d\n",*len);
+	if (data != NULL)
+	    fprintf(stderr, ediag("        data: \"%s\"\n",
+			 "      данные: \"%s\"\n"),data);
+    }
+					/* Fold in bits 7,8 to compute */
+    cchksum = (((cchksum&0300) >> 6)+cchksum)&077; /* final checksum */
+
+    if (cchksum != rchksum) return(FALSE);
+
+    return(type);                       /* All OK, return packet type */
+}
+
+
+/*
+ *  b u f i l l
+ *
+ *  Get a bufferful of data from the file that's being sent.
+ *  Only control-quoting is done; 8-bit & repeat count prefixes are
+ *  not handled.
+ */
+
+bufill(buffer)
+char buffer[];                          /* Buffer */
+{
+    int i,                              /* Loop index */
+	t;                              /* Char read from file */
+    char t7;                            /* 7-bit version of above */
+
+    i = 0;                              /* Init data buffer pointer */
+    while((t = getc(fp)) != EOF)        /* Get the next character */
+    {
+	accepted++;
+	if( debug == 1 && !remote ){
+		if( accepted % 1024 == 0 ){
+		       Kbytes++;
+		       fprintf( stderr,"\r%4d", Kbytes);
+		}
+	}
+
+	t7 = t & 0177;                  /* Get low order 7 bits */
+
+	if (t7 < SP || t7==DEL || t7==quote) /* Does this char require */
+	{                                   /* special handling? */
+	    if (t=='\n' && !image)
+	    {                           /* Do LF->CRLF mapping if !image */
+		buffer[i++] = quote;
+		buffer[i++] = ctl('\r');
+	    }
+	    buffer[i++] = quote;        /* Quote the character */
+	    if (t7 != quote)
+	    {
+		t = ctl(t);             /* and uncontrolify */
+		t7 = ctl(t7);
+	    }
+	}
+	if (image)
+	    buffer[i++] = t;            /* Deposit the character itself */
+	else
+	    buffer[i++] = t7;
+
+	if (i >= spsiz-8) return(i);    /* Check length */
+    }
+    if (i==0) return(EOF);              /* Wind up here only on EOF */
+    return(i);                          /* Handle partial buffer */
+}
+
+
+/*
+ *      b u f e m p
+ *
+ *  Put data from an incoming packet into a file.
+ */
+
+bufemp(buffer,len)
+char  buffer[];                         /* Buffer */
+int   len;                              /* Length */
+{
+    int i;                              /* Counter */
+    char t;                             /* Character holder */
+
+    for (i=0; i<len; i++)               /* Loop thru the data field */
+    {
+	t = buffer[i];                  /* Get character */
+	if (t == MYQUOTE)               /* Control quote? */
+	{                               /* Yes */
+	    t = buffer[++i];            /* Get the quoted character */
+	    if ((t & 0177) != MYQUOTE)  /* Low order bits match quote char? */
+		t = ctl(t);             /* No, uncontrollify it */
+	}
+	if (t==CR && !image)            /* Don't pass CR if in image mode */
+	    continue;
+
+	putc(t,fp);
+
+	accepted++;                     /* One more symbol ... */
+	if( debug == 1 && !remote ){
+		if( accepted % 1024 == 0 ){
+			Kbytes++;
+			fprintf( stderr,"\r%4d", Kbytes );
+		}
+	}
+    }
+}
+
+
+/*
+ *  g n x t f l
+ *
+ *  Get next file in a file group
+ */
+
+gnxtfl()
+{
+    if (debug>1 ) fprintf(stderr, "   gnxtfl: filelist = \"%s\"\n",*filelist);
+    filnam = *(filelist++);
+    if (filecount-- == 0) return FALSE; /* If no more, fail */
+    else return TRUE;                   /* else succeed */
+}
+
+
+/*
+ *  s p a r
+ *
+ *  Fill the data array with my send-init parameters
+ *
+ */
+
+spar(data)
+char data[];
+{
+    data[0] = tochar(MAXPACKSIZ);          /* Biggest packet I can receive */
+    data[1] = tochar(MYTIME);           /* When I want to be timed out */
+    data[2] = tochar(MYPAD);            /* How much padding I need */
+    data[3] = ctl(MYPCHAR);             /* Padding character I want */
+    data[4] = tochar(MYEOL);            /* End-Of-Line character I want */
+    data[5] = MYQUOTE;                  /* Control-Quote character I send */
+}
+
+
+/*  r p a r
+ *
+ *  Get the other host's send-init parameters
+ *
+ */
+
+rpar(data)
+char data[];
+{
+    spsiz = unchar(data[0]);            /* Maximum send packet size */
+    timint = unchar(data[1]);           /* When I should time out */
+    pad = unchar(data[2]);              /* Number of pads to send */
+    padchar = ctl(data[3]);             /* Padding character to send */
+    eol = unchar(data[4]);              /* EOL character I must send */
+    quote = data[5];                    /* Incoming data quote character */
+}
+
+
+/*
+ *  f l u s h i n p u t
+ *
+ *  Dump all pending input to clear stacked up NACK's.
+ *  (Implemented only for Berkeley Unix at this time).
+ */
+
+#if UCB4X & (~NO_FIONREAD)
+flushinput()
+{
+    long int count;                     /* Number of bytes ready to read  */
+    long int i;                         /* Number of bytes to read in loop */
+
+    ioctl(ttyfd, FIONREAD, &count);     /* See how many bytes pending read */
+    if (!count) return;                 /* If zero, then no input to flush */
+
+    while (count)                       /* Loop till all are flushed */
+    {
+	i = (count<sizeof(recpkt)) ?    /* Read min of count and size of */
+	    count : sizeof(recpkt);     /*  the read buffer */
+	read(ttyfd, recpkt, i);         /* Read a bunch */
+	count -= i;                     /* Subtract from amount to read */
+    }
+}
+#else
+
+flushinput()            /* Null version for non-Berkeley Unix */
+{}
+#endif
+
+/*
+ *  Kermit printing routines:
+ *
+ *  usage - print command line options showing proper syntax
+ *  printmsg -  like fprintf with "Kermit: " prepended
+ *  error - like printmsg if local kermit; sends a error packet if remote
+ *  prerrpkt - print contents of error packet received from remote host
+ */
+
+/*
+ *  u s a g e
+ *
+ *  Print summary of usage info and quit
+ */
+
+usage()
+{
+#if UCB4X
+    fprintf(stderr, ediag("Usage: kermit c[lbe line baud esc.char]      (connect mode)\n",
+		 "Вызов: kermit c[lbe линия скорость спец.символ]  (режим СВЯЗЬ)\n"));
+    fprintf(stderr, ediag("or:    kermit s[diflb line baud] file ...    (send mode)\n",
+		 "или:   kermit s[diflb линия скорость] файл ...   (режим ПЕРЕДАЧА)\n"));
+    fprintf(stderr, ediag("or:    kermit r[diflb line baud]             (receive mode)\n",
+		 "или:   kermit r[diflb линия скорость]            (режим ПРИЕМ)\n"));
+#else
+    fprintf(stderr, "Usage: kermit c[le line esc.char]            (connect mode)\n");
+    fprintf(stderr, "or:    kermit s[difl line] file ...          (send mode)\n");
+    fprintf(stderr, "or:    kermit r[difl line]                   (receive mode)\n");
+#endif
+    exit(1);
+}
+
+/*
+ *  p r i n t m s g
+ *
+ *  Print message on standard output if not remote.
+ */
+
+/*VARARGS1*/
+printmsg(fmt, a1, a2, a3, a4, a5)
+char *fmt;
+{
+    if (!remote)
+    {
+	fprintf(stderr, "KERMIT: ");
+	fprintf(stderr, fmt,a1,a2,a3,a4,a5);
+	fprintf(stderr, "\n");
+	fflush(stderr);                 /* force output (UTS needs it) */
+    }
+}
+
+/*
+ *  e r r o r
+ *
+ *  Print error message.
+ *
+ *  If local, print error message with printmsg.
+ *  If remote, send an error packet with the message.
+ */
+
+/*VARARGS1*/
+error(fmt, a1, a2, a3, a4, a5)
+char *fmt;
+{
+    char msg[80];
+    int len;
+
+    if (remote)
+    {
+	sprintf(msg,fmt,a1,a2,a3,a4,a5); /* Make it a string */
+	len = strlen(msg);
+	spack('E',n,len,msg);           /* Send the error packet */
+    }
+    else
+	printmsg(fmt, a1, a2, a3, a4, a5);
+
+    return;
+}
+
+/*
+ *  p r e r r p k t
+ *
+ *  Print contents of error packet received from remote host.
+ */
+prerrpkt(msg)
+char *msg;
+{
+    fprintf(stderr, ediag("Kermit aborting with following error from remote host:\n%s\n",
+		 "Kermit кончил со следующей ошибкой от удаленной машины:\n%s\n"),msg);
+    return;
+}
+@
+
+
+1.7
+log
+@Подкрутил флаг d, прикрутил флаг v.
+Теперь по отладке первого уровня ( один флаг d или флаг v )
+на local-машине выдается количество обменяных Килобайт.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: kermit.c,v 1.6 87/12/04 18:25:20 avg Exp $";
+d10 5
+d314 1
+a315 1
+	rawmode.sg_flags &= ~(ECHO|CRMOD);
+d321 1
+a322 1
+	ttymode.sg_flags &= ~(ECHO|CRMOD);
+d937 1
+a938 1
+    rawmode.sg_flags &= ~(ECHO|CRMOD);
+d1178 1
+a1178 1
+		       fprintf( stderr,"\r%-4dK", Kbytes);
+d1241 1
+a1241 1
+			fprintf( stderr,"\r%-4dK", Kbytes );
+@
+
+
+1.6
+log
+@Добавлен режим трансляции для ДЕМОС-86.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: kermit.c,v 1.5 87/03/13 10:45:08 avg Exp $";
+d10 3
+d40 1
+d164 2
+a165 1
+	filecount;          /* Number of files left to send */
+d167 2
+d239 2
+a240 1
+
+d254 1
+a254 1
+		if (debug) fprintf(stderr, ediag("Line to remote host is %s\n",
+d261 1
+a261 1
+		if (debug) fprintf(stderr, ediag("Escape char is \"%c\"\n",
+d269 1
+a269 1
+		if (debug) fprintf(stderr, ediag("Line speed to remote host is %d\n",
+d356 1
+a356 1
+    if (debug)
+d422 1
+a422 1
+	if (debug) fprintf(stderr, ediag("sendsw state: %c\n",
+d495 5
+d503 1
+a503 1
+    {   if (debug) fprintf(stderr, ediag("   Opening %s for sending.\n",
+d623 1
+a623 1
+	    if (debug) fprintf(stderr, ediag("   Closing input file %s, ",
+d625 1
+d629 1
+a629 1
+	    if (debug) fprintf(stderr, ediag("looking for next file...\n",
+d633 1
+a633 1
+	    if (debug) fprintf(stderr, ediag("   New file is %s\n",
+d700 1
+a700 1
+	if (debug) fprintf(stderr, ediag(" recsw state: %c\n",
+d761 3
+d887 1
+d1023 1
+a1023 1
+    if (debug>1)                        /* Display outgoing packet */
+d1080 1
+a1080 1
+
+d1130 1
+a1130 1
+    if (debug>1)                        /* Display incoming packet */
+d1169 8
+d1231 8
+d1251 1
+a1251 1
+    if (debug) fprintf(stderr, "   gnxtfl: filelist = \"%s\"\n",*filelist);
+@
+
+
+1.5
+log
+@Правлена работа с TANDEM в ДЕМОС 2:
+теперь в connect устанавливается TANDEM, а
+в SEND и RECIEVE - нет.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: kermit.c,v 1.4 86/12/21 22:43:36 root Exp $";
+d10 5
+d52 1
+d62 1
+a62 1
+#if DEMOS2
+d67 1
+a67 1
+#if UCB4X
+d73 6
+d329 1
+d331 1
+a331 1
+
+d968 5
+a973 1
+
+d976 1
+@
+
+
+1.4
+log
+@Правки под ДЕМОС-2 (пока без TANDEM).
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: kermit.c,v 1.3 86/04/29 22:51:59 avg Exp $";
+d10 3
+d47 2
+a48 1
+#define UCB4X         1       /* Berkeley 4.x UNIX */
+d56 5
+d64 1
+a64 1
+#define NO_TANDEM     1       /* was 0 We have TANDEM line discipline (xon/xoff) */
+d98 1
+a98 1
+#define MAXTRY      50      /* Times to retry a packet */
+d110 1
+a110 1
+#define MAXTIM     120      /* Maximum timeout interval */
+d206 3
+d213 2
+a214 1
+	    case 'c': cflg++; break;    /* C = Connect command */
+d222 1
+a222 1
+		notandemkey++; break;   /* T = No tandem mode */
+d304 2
+d307 1
+d309 1
+d311 1
+d313 1
+d317 1
+@
+
+
+1.3
+log
+@Сделаны правки под объединенную версию ДЕМОС и МНОС.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: kermit.c,v 1.2 86/03/11 12:11:08 avg Exp $";
+d10 3
+d55 1
+a55 1
+#define NO_TANDEM     0       /* We have TANDEM line discipline (xon/xoff) */
+d89 1
+a89 1
+#define MAXTRY      10      /* Times to retry a packet */
+d101 1
+a101 1
+#define MAXTIM      60      /* Maximum timeout interval */
+d221 1
+a221 1
+		if (debug) printf(ediag("Line to remote host is %s\n",
+d228 1
+a228 1
+		if (debug) printf(ediag("Escape char is \"%c\"\n",
+d236 1
+a236 1
+		if (debug) printf(ediag("Line speed to remote host is %d\n",
+d240 1
+a240 1
+		printmsg(ediag("Speed setting implemented for DEMMOS & MHOC only.",
+d265 1
+a265 1
+	ttyfd = 0;                      /* tty is the communications line) */
+d274 2
+a275 2
+	gtty(0,&cookedmode);            /* Save current mode so we can */
+	gtty(0,&rawmode);               /* restore it later */
+d278 1
+a278 1
+	stty(0,&rawmode);               /* Put tty in raw mode */
+d317 1
+a317 1
+	printf(ediag("Debugging level = %d\n\n",
+d320 1
+a320 1
+	if (cflg) printf(ediag("Connect command\n\n",
+d322 1
+a322 1
+	if (sflg) printf(ediag("Send command\n\n",
+d324 1
+a324 1
+	if (rflg) printf(ediag("Receive command\n\n",
+d381 1
+a381 1
+	if (debug) printf(ediag("sendsw state: %c\n",
+d457 1
+a457 1
+    {   if (debug) printf(ediag("   Opening %s for sending.\n",
+d459 6
+a464 1
+	fp = fopen(filnam,"r");         /* open the file to be sent */
+d577 1
+a577 1
+	    if (debug) printf(ediag("   Closing input file %s, ",
+d582 1
+a582 1
+	    if (debug) printf(ediag("looking for next file...\n",
+d586 1
+a586 1
+	    if (debug) printf(ediag("   New file is %s\n",
+d653 1
+a653 1
+	if (debug) printf(ediag(" recsw state: %c\n",
+d748 7
+a754 1
+	    if ((fp=fopen(filnam1,"w"))==NULL) /* Try to open a new file */
+d971 1
+a971 1
+	printf(ediag("  spack type: %c\n",
+d973 2
+a974 2
+	printf(      "         num: %d\n", num);
+	printf(      "         len: %d\n",len);
+d976 1
+a976 1
+	    printf(ediag("        data: \"%s\"\n",
+d1078 1
+a1078 1
+	printf(ediag("  rpack type: %c\n",
+d1080 2
+a1081 2
+	printf(      "         num:  %d\n",*num);
+	printf(      "         len:  %d\n",*len);
+d1083 1
+a1083 1
+	    printf(ediag("        data: \"%s\"\n",
+d1179 1
+a1179 1
+    if (debug) printf("   gnxtfl: filelist = \"%s\"\n",*filelist);
+d1257 1
+a1257 1
+ *  printmsg -  like printf with "Kermit: " prepended
+d1271 1
+a1271 1
+    printf(ediag("Usage: kermit c[lbe line baud esc.char]      (connect mode)\n",
+d1273 1
+a1273 1
+    printf(ediag("or:    kermit s[diflb line baud] file ...    (send mode)\n",
+d1275 1
+a1275 1
+    printf(ediag("or:    kermit r[diflb line baud]             (receive mode)\n",
+d1278 3
+a1280 3
+    printf("Usage: kermit c[le line esc.char]            (connect mode)\n");
+    printf("or:    kermit s[difl line] file ...          (send mode)\n");
+    printf("or:    kermit r[difl line]                   (receive mode)\n");
+d1297 4
+a1300 4
+	printf("KERMIT: ");
+	printf(fmt,a1,a2,a3,a4,a5);
+	printf("\n");
+	fflush(stdout);                 /* force output (UTS needs it) */
+d1340 1
+a1340 1
+    printf(ediag("Kermit aborting with following error from remote host:\n%s\n",
+@
+
+
+1.2
+log
+@Заделаны ediagи и добавлен режим TANDEM для
+локального терминала в режиме СВЯЗЬ.
+Кроме того, прием в режиме СВЯЗЬ ведется теперь
+большими пачками, а не по одному символу, т.к., fortunately,
+драйвер МНОС РЛ 1.2 в режиме none возвращает все символы из
+текущей очереди ввода, а не ждет приема всех символов до
+заказанной длины.
+@
+text
+@d1 3
+a3 1
+static char rcsid[] = "$Header$";
+d6 1
+a6 1
+ *  МНОС РЛ 1.2
+d9 9
+a17 1
+ *  $Log$
+d19 1
+a70 7
+#ifdef МНОС
+#define RAW     (RAWO|RAWI)     /*   Сопля!!    */
+#define TANDEM  XOFF
+#undef NO_FIONREAD
+#define NO_FIONREAD 1
+#endif
+
+a152 1
+#ifdef МНОС
+a153 3
+#else
+#define ediag(e,r) (e)
+#endif
+a189 9
+#if UCB4X                               /* Default to 7-bit masking, CRLF */
+#ifndef МНОС
+    image = FALSE;                      /* translation and filename case */
+    filnamcnv = TRUE;                   /* conversion for UNIX systems */
+#else
+    image = TRUE;
+    filnamcnv = FALSE;
+#endif
+#else
+a191 1
+#endif
+d237 2
+a238 2
+		printmsg(ediag("Speed setting implemented for MHOC only.",
+			       "Установка скорости предусмотрена только для МНОС."));
+d273 2
+a274 2
+	rawmode.sg_flags |= (notandemkey?0:TANDEM);
+	rawmode.sg_flags &= ~(ECHO|CRMOD|SO|EVENP|ODDP|RAW);
+d280 2
+a281 2
+	ttymode.sg_flags |= notandemkey?0:TANDEM;
+	ttymode.sg_flags &= ~(ECHO|CRMOD|SO|EVENP|ODDP|RAW);
+d867 2
+a868 2
+    rawmode.sg_flags |= notandemkey? 0 : TANDEM;
+    rawmode.sg_flags &= ~(ECHO|CRMOD|SO|ODDP|EVENP|RAW);
+a920 4
+#ifndef МНОС
+	    read(ttyfd,&c,1);
+	    write(1,&c,1);
+#else
+a924 1
+#endif
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 1
+a5 1
+ *  Последняя модификация: 09.03.86 @@VG
+d221 1
+a221 1
+		image = TRUE; break;    /* (this is default for non-UNIX) */
+d347 2
+a348 2
+			/*??????????*/
+	    printmsg("Send failed.");   /* Report failure */
+d350 2
+a351 1
+	    printmsg("done.");          /* success */
+d357 2
+a358 1
+	    printmsg("Receive failed.");
+d360 2
+a361 1
+	    printmsg("done.");          /* or success */
+d386 2
+a387 1
+	if (debug) printf("sendsw state: %c\n",state);
+d462 2
+a463 1
+    {   if (debug) printf("   Opening %s for sending.\n",filnam);
+d467 2
+a468 1
+	    error("Cannot open file %s",filnam);
+d486 2
+a487 1
+    printmsg("Sending %s as %s",filnam,newfilnam);
+d577 2
+a578 1
+	    if (debug) printf("   Closing input file %s, ",filnam);
+d582 2
+a583 1
+	    if (debug) printf("looking for next file...\n");
+d586 2
+a587 1
+	    if (debug) printf("   New file is %s\n",filnam);
+d653 2
+a654 1
+	if (debug) printf(" recsw state: %c\n",state);
+d750 2
+a751 1
+		error("Cannot create %s",filnam1); /* Give up if can't */
+d755 2
+a756 1
+		printmsg("Receiving %s as %s",packet,filnam1);
+d866 2
+a867 1
+	printmsg("No line specified for connection.");
+d873 3
+a875 1
+			/* Local tty has not default TANDEM mode */
+d877 1
+d922 1
+a922 1
+	printmsg("disconnected.");
+d927 1
+a927 1
+	while(1)                        /* Do this forever */
+d929 1
+d932 6
+d970 4
+a973 3
+	printf("  spack type: %c\n",type);
+	printf("         num:  %d\n",num);
+	printf("         len:  %d\n",len);
+d975 2
+a976 1
+	    printf("        data: \"%s\"\n",data);
+d1077 4
+a1080 3
+	printf("  rpack type: %c\n",type);
+	printf("         num:  %d\n",*num);
+	printf("         len:  %d\n",*len);
+d1082 2
+a1083 1
+	    printf("        data: \"%s\"\n",data);
+d1270 6
+a1275 3
+    printf("Usage: kermit c[lbe line baud esc.char]      (connect mode)\n");
+    printf("or:    kermit s[diflb line baud] file ...    (send mode)\n");
+    printf("or:    kermit r[diflb line baud]             (receive mode)\n");
+d1296 1
+a1296 1
+	printf("Kermit: ");
+d1339 2
+a1340 1
+    printf("Kermit aborting with following error from remote host:\n%s\n",msg);
+@

@@ -1,0 +1,37 @@
+#! /bin/sh
+#
+# Командный файл для упрятывания и восстановления драйверов
+# Э-85 при записи дистрибутива на ленту
+#
+
+FILES="fd.c font1.cm font1.mm font1fix.c font2.cm font2.mm graph.c ildl.c kx.c ky.c rw.c video.c vikey.c"
+
+case x$1 in
+xput)   echo "Упрятывание файлов"
+	if [ -r X85 ]
+	then
+		echo Файлы уже спрятаны
+		exit 1
+	fi
+	mkdir X85
+	mv $FILES X85
+	for i in $FILES
+	do echo "" > $i
+	done;;
+
+xget)   echo "Восстановление файлов"
+	if [ ! -r X85 ]
+	then
+		echo "Файлы не спрятаны"
+		exit 1
+	fi
+	rm -f $FILES
+	mv X85/* .
+	rmdir X85;;
+
+x*)     echo "Usage: Null85 {put|get}"
+	exit 1;;
+esac
+
+echo Done
+exit 0

@@ -1,0 +1,116 @@
+6c6
+<  *
+---
+>  * 
+9c9
+<  *
+---
+>  * 
+13c13
+<  *
+---
+>  * 
+16c16
+<  * но для асинхронного и синхронного случаев -
+---
+>  * но для асинхронного и синхронного случаев - 
+18c18
+<  *
+---
+>  * 
+24c24
+<  *
+---
+>  * 
+28c28
+<  *
+---
+>  * 
+30a31
+>  * 
+32d32
+<  *
+39,40c39,40
+< int dpj( elements, cur, li, width, x0, y0 )
+<     int  elements,*cur, li, width, x0, y0;
+---
+> int dpj( elements, cur, lines, width, x0, y0 )
+>     int  elements,*cur, lines, width, x0, y0;
+45,46c45,46
+<     if( current<0   ||  current>=elements  ||  li>elements ) {
+< 	vdpend();  exit( 100 );
+---
+>     if( current<0   ||  current>=elements  ||  lines>elements ) {
+>         vdpend();  exit( 100 );
+51,59c51,59
+< 	if( (c=dpa())<0 ) {
+< 	    if( Paint ) {
+< 		ind_cat();
+< 	    }
+< 	    dpp( (width*(current/li))+x0, (current%li)+y0 );
+< 	    c=dpi();
+< 	} else {
+< 	    dpp( (width*(current/li))+x0, (current%li)+y0 );
+< 	}
+---
+>         if( (c=dpa())<0 ) {
+>             if( Paint ) {
+>                 ind_cat();
+>             }
+>             dpp( (width*(current/lines))+x0, (current%lines)+y0 );
+>             c=dpi();
+>         } else {
+>             dpp( (width*(current/lines))+x0, (current%lines)+y0 );
+>         }
+61,85c61,85
+< 	switch( c ) {
+< 	    case cu:
+< 		if( li<=1 )  goto retdpt;
+< 		if(--current < 0)  current += elements;
+< 		break;
+< 	    case cd:
+< 		if( li<=1 )  goto retdpt;
+< 		if(++current >= elements) current -= elements;
+< 		break;
+< 	    case cr:
+< 		if( li==elements )  goto retdpt;
+< 		if((current += li)>= elements) {
+< 		    current = (current+1) % li;
+< 		}
+< 		break;
+< 	    case cl:
+< 		if( li==elements )  goto retdpt;
+< 		if((current -= li) < 0) {
+< 		    current += ((elements+li-1)/li)*li-1;
+< 		    if(current>=elements)  current -= li;
+< 		}
+< 		break;
+< 	    default:
+< 		goto retdpt;
+< 	}
+---
+>         switch( c ) {
+>             case cu:
+>                 if( lines<=1 )  goto retdpt;
+>                 if(--current < 0)  current += elements;
+>                 break;
+>             case cd:
+>                 if( lines<=1 )  goto retdpt;
+>                 if(++current >= elements) current -= elements;
+>                 break;
+>             case cr:
+>                 if( lines==elements )  goto retdpt;
+>                 if((current += lines)>= elements) {
+>                     current = (current+1) % lines;
+>                 }
+>                 break;
+>             case cl:
+>                 if( lines==elements )  goto retdpt;
+>                 if((current -= lines) < 0) {
+>                     current += ((elements+lines-1)/lines)*lines-1;
+>                     if(current>=elements)  current -= lines;
+>                 }
+>                 break;
+>             default:
+>                 goto retdpt;
+>         }

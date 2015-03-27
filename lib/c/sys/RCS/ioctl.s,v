@@ -1,0 +1,80 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.2
+date     88.11.16.14.52.50;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.01.17.41.49;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Аргументы в стеке.
+@
+text
+@/ $Header: ioctl.s,v 1.1 88/04/01 17:41:49 andrew Exp $
+/ $Log:	ioctl.s,v $
+/ Revision 1.1  88/04/01  17:41:49  andrew
+/ Initial revision
+/ 
+/ error	= ioctl(fildes, request, argp);
+/ result == -1 if error
+
+.globl	_ioctl, cerror
+
+_ioctl:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	8(r5), -(sp)
+	mov	6(r5), -(sp)
+	mov	4(r5), -(sp)
+	sys	ioctl+200
+	bec	1f
+	add	$6, sp
+	jmp	cerror
+1:
+	add	$6, sp
+	mov	(sp)+,r5
+	clr	r0
+	rts	pc
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/ $Header$
+/ $Log$
+d7 1
+a7 1
+/	  struct sgttyb *argp;
+d14 4
+a17 4
+	mov	4(r5),0f
+	mov	6(r5),0f+2
+	mov	8(r5),0f+4
+	sys	0; 9f
+d19 1
+d22 1
+a25 3
+.data
+9:
+	sys	ioctl; 0:..; ..; ..
+@

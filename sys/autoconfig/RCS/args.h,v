@@ -1,0 +1,36 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.01.02.18.51.39;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Header file for argument parser
+ */
+
+extern char _bf[],*_sf[],**_argspace,**_ap, *newstr();
+extern int nargs;
+
+#define bools(x) _bf[x >= 'a' ? x - 'a' : x - 'A']
+#define strings(x) _sf[x >= 'a' ? x - 'a' : x - 'A']
+#define next_arg() (*_ap++)
+#define rew_arg() _ap = _argspace
+@

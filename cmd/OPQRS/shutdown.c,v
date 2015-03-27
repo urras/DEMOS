@@ -1,0 +1,470 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.17.09;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+#include <stdio.h>
+#include <ctype.h>
+#include <signal.h>
+#include <utmp.h>
+#include <time.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <sgtty.h>
+#include <ediag.h>
+/*
+ * /etc/shutdown когда [сообщение]
+ *
+ * 88/03/28  18:07:40  andrew
+ * +fflush(stdout)
+ *
+ * 88/03/26  15:39:48  andrew
+ * *SYNTAX* & "reboot" message only for reboot.
+ *
+ * 88/03/16  15:30:50  andrew
+ * Теперь при выдаче сообщений различаются случаи 'остановлена' и
+ * 'перезагружена' and some little optimization.
+ *
+ * 88/03/10  18:57:54  andrew
+ * Формат выдачи поправлен обратно,
+ * если указано +M, то теперь выдается 'через M' и т.д.,
+ * раньше начиналось с интервала, меньшего М.
+ *
+ * 88/03/10  18:39:12  andrew
+ * Несколько изменен формат выдачи, имя определяется
+ * по getlogin, число секунд округляется до большего.
+ *
+ * 88/03/09  22:55:23  andrew
+ * Теперь время останова отсчитывается вне зависимости от текущего времени,
+ * перед остановом всем процессам посылается сигнал TERM и shutdown
+ * ждет 1 минуту, потом sync, дальше все по старому.
+ * Теперь reboot'у передаются еще и ключи -f и -d.
+ * Сделаны рускоязычные диагностики.
+ *
+ * 87/03/11  19:04:00  dmitry
+ * К lf везде добавлены cr (по просьбам трудящихся).
+ *
+ */
+
+#ifdef DEBUG
+#define LOGFILE "shutdown.log"
+#else
+#define LOGFILE "/usr/adm/shutdownlog"
+#endif
+#define REBOOT  "/etc/reboot"
+#define MAXINTS 20
+#define HOURS   *3600
+#define MINUTES *60
+#define SECONDS
+#define NLOG            20              /* no of lines possible for message */
+#define NOLOGTIME       5 MINUTES
+#define IGNOREUSER      "sleeper"
+
+int     finish ();
+int     do_nothing();
+time_t  getsdt();
+
+extern  char *ctime();
+extern  time_t time();
+extern  struct tm *localtime();
+
+struct  utmp utmp;
+int     stogo;
+char    tpath[] =       "/dev/";
+int     nlflag = 1;             /* nolog yet to be done */
+int     killflg = 1;
+int     reboot = 0;
+int     halt = 1;
+char    term[sizeof tpath + sizeof utmp.ut_line];
+char    nolog1[] = "\nNO LOGINS: System going down at %s\n";
+char    *nolog2[NLOG+1];
+#ifdef  DEBUG
+char    nologin[] = "nologin";
+#else
+char    nologin[] = "/etc/nologin";
+#endif
+#define TTSIZE 12
+struct interval {
+	int stogo;
+	char *mess[2];
+} interval[TTSIZE] = {
+	{0 SECONDS,     {"IMMEDIATELY",         "ПРЯМО СЕЙЧАС"}},
+	{30 SECONDS,    {"in 30 seconds",       "через 30 секунд"}},
+	{1 MINUTES,     {"in 1 minute",         "через 1 минуту"}},
+	{2 MINUTES,     {"in 2 minutes",        "через 2 минуты"}},
+	{3 MINUTES,     {"in 3 minutes",        "через 3 минуты"}},
+	{5 MINUTES,     {"in 5 minutes",        "через 5 минут"}},
+	{10 MINUTES,    {"in 10 minutes",       "через 10 минут"}},
+	{15 MINUTES,    {"in 15 minutes",       "через 15 минут"}},
+	{30 MINUTES,    {"in 30 minutes",       "через 30 минут"}},
+	{1 HOURS,       {"in 1 hour",           "через 1 час"}},
+	{2 HOURS,       {"in 2 hours",          "через 2 часа"}},
+	{4 HOURS,       {"in 4 hours",          "через 4 часа"}}
+};
+#define NOLOGINT        5
+
+int nfr = -1;
+char *HALT_OPT[3] = {
+	"-f",
+	"-h",
+	"-d"
+};
+
+char *shutter;
+struct  passwd  *pwent, *getpwuid();
+extern char *getlogin();
+
+main(argc,argv)
+	int argc;
+	char **argv;
+{
+	register i, ufd;
+	register char **mess, *f;
+	char *ts;
+	time_t sdt;
+	int h, m;
+	time_t nowtime;
+	FILE *termf;
+
+	if ((shutter = getlogin()) == NULL) {
+	    pwent = getpwuid(getuid());
+	    if (pwent != (struct passwd *) NULL)
+		    shutter = pwent->pw_name;
+	}
+
+	argc--, argv++;
+	while (argc > 0 && (f = argv[0], *f++ == '-')) {
+		while (i = *f++) switch (i) {
+		case 'k':
+			killflg = 0;
+			continue;
+		case 'r':
+			halt = 0;
+			reboot = 1;
+			continue;
+		case 'h':
+			nfr = 1;
+			reboot = 1;
+			continue;
+		case 'f':
+			halt = 0;
+			nfr = 0;
+			reboot = 1;
+			continue;
+		case 'd':
+			halt = 0;
+			nfr = 2;
+			reboot = 1;
+			continue;
+		default:
+			fprintf(stderr, ediag (
+			  "shutdown: '%c' - unknown flag\n",
+			  "shutdown: '%c' - неизвестный флаг\n"), i);
+			exit(1);
+		}
+		argc--, argv++;
+	}
+	if (argc < 1) {
+		fprintf(stderr, ediag (
+"Usage: shutdown [ -krfhd ] shutdowntime [ message ]\n",
+"Вызов: shutdown [ -krfhd ] время [ сообщение ]\n"));
+		finish();
+	}
+	sdt = getsdt(argv[0]);
+	if (geteuid()) {
+		fprintf(stderr, ediag (
+"NOT super-user\n",
+"Вы не суперпользователь.\n"));
+		finish();
+	}
+	argc--, argv++;
+	i = 0;
+	while (argc-- > 0)
+		if (i < NLOG)
+			nolog2[i++] = *argv++;
+	nolog2[i] = NULL;
+	nowtime = time((time_t *)0);
+	if ((stogo = sdt - nowtime) < 0) stogo = 0;
+	m = (stogo + 59) / 60;
+	stogo = m * 60;
+	h = m/60;
+	m %= 60;
+	ts = ctime(&sdt);
+	printf(ediag ("System %s at %5.5s (in ",
+		      "%s системы в %5.5s (через "),
+		      halt ? ediag("halt", "Останов") :
+			     ediag("reboot", "Перезагрузка"),
+					ts+11);
+	if (h > 0 || ediag(0, 1))
+		printf(ediag ("%d hour%s ", "%02d:"), h, h != 1 ? "s" : "");
+	printf(ediag ("%d minute%s) ", "%02d) "), m, m != 1 ? "s" : "");
+#ifndef DEBUG
+	signal(SIGHUP, SIG_IGN);
+	signal(SIGQUIT, SIG_IGN);
+	signal(SIGINT, SIG_IGN);
+#endif
+	signal(SIGTERM, finish);
+	signal(SIGALRM, do_nothing);
+	nice(-20);
+	fflush(stdout);
+#ifndef DEBUG
+	if (i = fork()) {
+		printf(ediag ("[pid %d]\n","[процесс %d]\n"), i);
+		exit(0);
+	}
+#endif
+	for (i = TTSIZE - 1; i >= 0 && stogo < interval[i].stogo; i--) ;
+	if (stogo <= NOLOGTIME) {
+		nlflag = 0;
+		nolog(sdt);
+	}
+	sleep (stogo - interval[i].stogo);
+	for (;;) {
+		if (i <= NOLOGINT && nlflag) {
+			nlflag = 0;
+			nolog(sdt);
+		}
+		ufd = open("/etc/utmp",0);
+		nowtime = time((time_t *) 0);
+		while (read(ufd,&utmp,sizeof utmp)==sizeof utmp)
+		if (utmp.ut_name[0] && strncmp(utmp.ut_name, IGNOREUSER, sizeof(utmp.ut_name)) ){
+			strcpy(term, tpath);
+			strncat(term, utmp.ut_line, sizeof utmp.ut_line);
+			alarm(3);
+#ifdef DEBUG
+			if ((termf = stdout) != NULL)
+#else
+			if ((termf = fopen(term, "w")) != NULL)
+#endif
+			{
+				char    tbuf[BUFSIZ];
+
+				alarm(0);
+				setbuf(termf, tbuf);
+				warn(termf, i);
+				for (mess = nolog2; *mess; mess++)
+					fprintf(termf, "%s ", *mess);
+				fprintf(termf, "\r\n");
+				alarm(5);
+#ifdef DEBUG
+				fflush(termf);
+#else
+				fclose(termf);
+#endif
+				alarm(0);
+			}
+		}
+		if (i == 0) {
+	printf(ediag (
+	"\n\7\7System %s time has arrived\7\7\n",
+	"\n\7\7Настало время %s системы\7\7\n"),
+	halt ? ediag("halt", "останова") :
+	       ediag("reboot", "перезагрузки"));
+			fflush(stdout);
+			if (!killflg) {
+				printf(ediag (
+		"but you'll have to do it yourself\n",
+		"(сделайте это сами...)\n"));
+				finish();
+			}
+#ifndef DEBUG
+			signal (SIGTERM, SIG_IGN);
+			kill (-1, SIGTERM);
+			sleep (60);
+			log_entry();
+			unlink(nologin);
+			sync ();
+			if (reboot && nfr < 0)
+				execle(REBOOT, "reboot", 0, 0);
+			if (reboot && nfr >= 0)
+				execle(REBOOT, "reboot", HALT_OPT[nfr], 0, 0);
+			kill(1, SIGTERM);	/* sync */
+			sleep(20);
+#else
+			printf("EXTERMINATE EXTERMINATE\n");
+#endif
+			finish();
+		}
+		sleep (interval[i].stogo - interval[i - 1].stogo);
+		i--;
+	}
+}
+
+time_t
+getsdt(s)
+register char *s;
+{
+	time_t t, t1, tim;
+	register char c;
+	struct tm *lt;
+
+	if (*s == '+') {
+		++s; 
+		t = 0;
+		for (;;) {
+			c = *s++;
+			if (!isdigit(c))
+				break;
+			t = t * 10 + c - '0';
+		}
+		if (t < 0)
+			t = 5;
+		t *= 60;
+		tim = time((time_t *) 0) + t;
+		return(tim);
+	}
+	t = 0;
+	while (strlen(s) > 2 && isdigit(*s))
+		t = t * 10 + *s++ - '0';
+	if (*s == ':')
+		s++;
+	if (t > 23)
+		goto badform;
+	tim = t*60;
+	t = 0;
+	while (isdigit(*s))
+		t = t * 10 + *s++ - '0';
+	if (t > 59)
+		goto badform;
+	tim += t; 
+	tim *= 60;
+	t1 = time((time_t *) 0);
+	lt = localtime(&t1);
+	t = lt->tm_sec + lt->tm_min*60L + lt->tm_hour*3600L;
+	if (tim < t || tim >= (24*3600L)) {
+		/* before now or after midnight */
+		printf(ediag (
+"That must be tomorrow\nCan't you wait till then?\n",
+"Слишком долго придется ждать!\n"));
+		finish();
+	}
+	return (t1 + tim -t);
+badform:
+	printf(ediag ("Bad time format\n", "Неверно задано время\n"));
+	finish();
+}
+
+warn(term, i)
+	FILE *term;
+	int i;
+{
+	struct sgttyb tty;
+	int rflag;
+
+	gtty (fileno (term), &tty);
+	rflag = !!(tty.sg_flags & CYRILL);
+	fprintf(term, "\r\n\7\7*** ");
+	fprintf(term, !rflag ?
+		      "System shutdown message " :
+		      "Сообщение о завершении работы системы ");
+	if (shutter)
+		fprintf(term, !rflag ? "from %s ": "от %s ", shutter);
+	fprintf(term, "***\r\n");
+	fprintf(term, !rflag ?
+		      "System %s %s\r\n" :
+		      "Система будет %s %s\r\n",
+			halt ? (!rflag ? "halt": "остановлена") :
+			       (!rflag ? "reboot": "перезагружена"),
+		       interval[i].mess[rflag]);
+}
+
+nolog(sdt)
+	time_t sdt;
+{
+	FILE *nologf;
+	register char **mess;
+	int savediag = _ediag;
+
+	_ediag = EDIAG_E;
+	if ((nologf = fopen(nologin, "w")) != NULL) {
+		fprintf(nologf, nolog1, ctime(&sdt));
+		for (mess = nolog2; *mess; mess++)
+			fprintf(nologf, "%s ", *mess);
+		if (shutter)
+			fprintf(nologf, " (by %s)", shutter);
+		fputc('\n', nologf);
+		fclose(nologf);
+	}
+	_ediag = savediag;
+}
+
+finish()
+{
+	signal(SIGTERM, SIG_IGN);
+	unlink(nologin);
+	exit(0);
+}
+
+do_nothing()
+{
+	signal(SIGALRM, do_nothing);
+}
+
+/*
+ * make an entry in the shutdown log
+ */
+
+char *days[] = {
+	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+};
+
+char *months[] = {
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+	"Oct", "Nov", "Dec"
+};
+
+log_entry()
+{
+	register FILE *fp;
+	register char **mess;
+	struct tm *tm;
+	time_t now = time ((time_t *)0);
+
+	tm = localtime(&now);
+	if ((fp = fopen(LOGFILE, "a")) == NULL)
+		return;
+	fprintf(fp, "%02d:%02d  %s %s %2d, %4d.  Shutdown:", tm->tm_hour,
+		tm->tm_min, days[tm->tm_wday], months[tm->tm_mon],
+		tm->tm_mday, tm->tm_year + 1900);
+	for (mess = nolog2; *mess; mess++)
+		fprintf(fp, " %s", *mess);
+	if (shutter)
+		fprintf(fp, " (by %s)", shutter);
+	fputc('\n', fp);
+	fclose(fp);
+}
+@

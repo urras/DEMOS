@@ -1,0 +1,81 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.06.02.17.07.13;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.02.17.04.44;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Функция печати сообщения об ошибке по errno.
+@
+
+
+1.2
+log
+@Добавлена выдача русских диагностик.
+@
+text
+@/*
+ * $Log$
+ */
+
+/*
+ * Print the error indicated
+ * in the cerror cell.
+ */
+
+#include <ediag.h>
+
+int     errno;
+int     sys_nerr;
+char    *sys_errlist[];
+char    *sys_rerrlist[];
+perror(s)
+char *s;
+{
+	register char *c;
+	register n;
+
+	c = ediag("Unknown error","неизвестная ошибка");
+	if(errno < sys_nerr)
+		c = ediag(sys_errlist[errno],sys_rerrlist[errno]);
+	n = strlen(s);
+	if(n) {
+		write(2, s, n);
+		write(2, ": ", 2);
+	}
+	write(2, c, strlen(c));
+	write(2, "\n", 1);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@a0 1
+/*      @@(#)perror.c    2.1     SCCS id keyword */
+d2 4
+d10 2
+d15 1
+d22 1
+a22 1
+	c = "Unknown error";
+d24 1
+a24 1
+		c = sys_errlist[errno];
+@

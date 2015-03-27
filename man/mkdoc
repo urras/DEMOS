@@ -1,0 +1,27 @@
+pr="print -2 -t -f -w140"
+case "$*" in
+"") echo "mkdoc имя
+ имя - одно из:
+        intro
+        refers
+        man1ai
+        man1jz
+        man2
+        man3
+        man4567
+        man8";exit;;
+esac
+for i
+do
+case $i in
+intro) $pr man0/quickreff/intro.lp;;
+refers) $pr man0/quickreff/title.lp man0/quickreff/quick.lp;;
+man1ai) $pr man0/title.1.lp cat1/[A-i]*;;
+man1jz) $pr man0/title.2.lp cat1/[j-z]*;;
+man2) $pr man0/title.3.lp cat2/*;;
+man3) $pr man0/title.4.lp cat3/*;;
+man4567) $pr man0/title.5.lp cat4/* cat5/* cat6/* cat7/*;;
+man8) $pr man0/title.6.lp cat8/*;;
+*) echo "$i - недопустимое название документа";;
+esac
+done

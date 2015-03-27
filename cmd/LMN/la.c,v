@@ -1,0 +1,139 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.09.20.15.55.25;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.19.19.28.18;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.19.19.24.23;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.28.21;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@опять сделана маленькая буква в load...
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: la.c,v 1.3 88/09/19 19:28:18 root Exp $
+** $Log:        la.c,v $
+ * Revision 1.3  88/09/19  19:28:18  root
+ * была опечатка.
+ *
+ * Revision 1.2  88/09/19  19:24:23  root
+ * русишванификация.
+ *
+ * Revision 1.1  88/05/03  20:28:21  root
+ * Initial revision
+ *
+*/
+
+#include <ediag.h>
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: la.c,v 1.3 88/09/19 19:28:18 root Exp $";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * la: print the load average.
+ */
+main()
+{
+	double vec[3];
+
+	if (loadav(vec) < 0) {
+		perror("loadav: gldav");
+		exit(1);
+	}
+	printf("%s %.02f %.02f %.02f\n",
+		ediag( "load" , "загрузка" ),
+		vec[0], vec[1], vec[2]);
+	exit(0);
+}
+@
+
+
+1.3
+log
+@была опечатка.
+@
+text
+@d6 1
+a6 1
+** $Header: la.c,v 1.2 88/09/19 19:24:23 root Exp $
+d8 3
+d23 1
+a23 1
+static char     Rcs_id[] = "$Header: la.c,v 1.2 88/09/19 19:24:23 root Exp $";
+d39 1
+a39 1
+		ediag( "Load" , "Загрузка" ),
+@
+
+
+1.2
+log
+@русишванификация.
+@
+text
+@d6 1
+a6 1
+** $Header: la.c,v 1.1 88/05/03 20:28:21 root Exp $
+d8 3
+d20 1
+a20 1
+static char     Rcs_id[] = "$Header: la.c,v 1.1 88/05/03 20:28:21 root Exp $";
+d36 1
+a36 1
+		ediag( "Загрузка", "Load" ),
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d13 2
+d17 1
+a17 1
+static char     Rcs_id[] = "$Header$";
+d20 1
+a20 1
+ 
+d32 3
+a34 1
+	printf("load %.02f %.02f %.02f\n", vec[0], vec[1], vec[2]);
+@

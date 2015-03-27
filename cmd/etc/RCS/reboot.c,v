@@ -1,0 +1,225 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.23.23.37.13;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@static  char *rcsid = "$Header$";
+/*
+ * Reboot
+ *   Required signal handling:
+ *	/etc/init must go to idle mode when sent a SIGQUIT.
+ *	A subsequent SIGHUP sends init back to normal mode.
+ *	The kernel must exempt the current process from kill(-1,SIGKILL).
+ *   The reboot system call must be implemented!
+ */
+#include <whoami.h>
+#include <sys/param.h>
+#include <stdio.h>
+#include <sys/reboot.h>
+#include <errno.h>
+#include <signal.h>
+#include <time.h>
+
+#define SHUTDOWNLOG "/usr/adm/shutdownlog"
+#define DEVDIR "/dev/"
+#define	KMEM	"/dev/kmem"
+
+int halt;
+
+main(argc, argv)
+	int argc;
+	char **argv;
+{
+	register howto;
+	register char *argp;
+	register i;
+	int qflag = 0;
+	dev_t	bootdev=NODEV, getdev(), rootdev();
+
+	argc--, argv++;
+	howto = 0;
+	while (argc > 0) {
+		if (!strcmp(*argv, "-q"))
+			qflag++;
+		else if (!strcmp(*argv, "-n"))
+			howto |= RB_NOSYNC;
+		else if (!strcmp(*argv, "-a"))
+			howto |= (RB_ASKNAME | RB_SINGLE);
+		else if (!strcmp(*argv,"-f"))
+			howto |= RB_NOFSCK;
+		else if (!strcmp(*argv,"-d"))
+			howto |= RB_DUMP;
+		else if (!strcmp(*argv,"-h")) {
+			howto |= RB_HALT;
+			halt++;
+		} else if ((bootdev=getdev(*argv)) == NODEV) {
+			fprintf(stderr,
+	      "usage: reboot [ -n ][ -q ][ -f ][ -a ][ -d ][ -h ][ dev ]\n");
+			exit(1);
+		}
+		argc--, argv++;
+	}
+
+	if (bootdev==NODEV)
+		bootdev = rootdev();
+	for (i = 1; i < NSIG; i++)
+		signal(i, SIG_IGN);
+
+	if (kill(1, SIGQUIT) == -1) {
+		fprintf(stderr, "reboot: can't idle init\n");
+		exit(1);
+	}
+
+	if (!qflag) for (i = 1; ; i++) {
+		if (kill(-1, SIGKILL) == -1) {
+			extern int errno;
+
+			if (errno == ESRCH)
+				break;
+
+			perror("reboot: kill");
+			kill(1, SIGHUP);
+			exit(1);
+		}
+		if (i > 5) {
+	fprintf(stderr, "CAUTION: some process(es) wouldn't die\n");
+			break;
+		}
+		setalarm(2 * i);
+		pause();
+	}
+
+	if ((howto & RB_NOSYNC) == 0)
+		log_entry();
+	if (!qflag) {
+		if (!(howto & RB_NOSYNC)) {
+			markdown();
+			sync();
+			sync();
+		}
+		setalarm(5);
+		pause();
+	}
+	reboot(bootdev, howto);
+	perror("reboot");
+	/*
+	 *  Reboot failed.  Tell init to go back to work.
+	 */
+	kill(1, SIGHUP);
+	exit(1);
+}
+
+dingdong()
+{
+	/* RRRIIINNNGGG RRRIIINNNGGG */
+}
+
+setalarm(n)
+{
+	signal(SIGALRM, dingdong);
+	alarm(n);
+}
+
+#include <utmp.h>
+#define SCPYN(a, b)	strncpy(a, b, sizeof(a))
+char	wtmpf[]	= "/usr/adm/wtmp";
+struct utmp wtmp;
+
+markdown()
+{
+	register f = open(wtmpf, 1);
+	if (f >= 0) {
+		lseek(f, 0L, 2);
+		SCPYN(wtmp.ut_line, "~");
+		SCPYN(wtmp.ut_name, "shutdown");
+		time(&wtmp.ut_time);
+		write(f, (char *)&wtmp, sizeof(wtmp));
+		close(f);
+	}
+}
+
+char *days[] = {
+	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+};
+
+char *months[] = {
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+	"Oct", "Nov", "Dec"
+};
+
+log_entry()
+{
+	FILE *fp;
+	struct tm *tm, *localtime();
+	time_t now;
+
+	time(&now);
+	tm = localtime(&now);
+	fp = fopen(SHUTDOWNLOG, "a");
+	if (fp == NULL)
+		return;
+	fseek(fp, 0L, 2);
+	fprintf(fp, "%02d:%02d  %s %s %2d, %4d.  %s.\n", tm->tm_hour,
+		tm->tm_min, days[tm->tm_wday], months[tm->tm_mon],
+		tm->tm_mday, tm->tm_year + 1900,
+		halt? "Halted": "Shutdown for reboot");
+	fclose(fp);
+}
+
+#include <sys/stat.h>
+char dev[2*DIRSIZ] = DEVDIR;
+/*
+ * Figure out the dev for a given string, e.g. "hp0a".
+ * Returns NODEV if device doesn't exist, or isn't a block device.
+ */
+dev_t
+getdev(s)
+char *s;
+{
+	struct stat statbuf;
+	char *index();
+
+	if (index(s,'/')==NULL) {
+		strcat(dev,s);
+		s = dev;
+	}
+	if (stat(s,&statbuf) == -1)
+		return(NODEV);
+	if ((statbuf.st_mode&S_IFMT) != S_IFBLK)
+		return(NODEV);
+	return(statbuf.st_rdev);
+}
+
+/*
+ * get the dev for the root filesystem.
+ */
+dev_t
+rootdev() {
+	struct stat statbuf;
+
+	if (stat("/",&statbuf) == -1) {
+		fprintf(stderr,"Can't stat root\n");
+		exit(1);
+	}
+	return(statbuf.st_dev);
+}
+@

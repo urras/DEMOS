@@ -1,0 +1,155 @@
+*\       ---- SAVE:LOAD ----               08.09.86 VERSION 92
+**=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=**
+**   WORKING WTIH VIRTUAL ARRAY  **
+**=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=**
+**
+LOCALS *LLOAD
+
+  DATA TYPOPR
+  DATA MEMADR,BYTE            % AהPEC גAךTA י COהEPציMOE
+  DATA MEMIND=:M:TAB          % TAגלי‏KA C יHהEKCAMי גץזEPOB
+  DATA BUFTAB=:B:TAB          %        - C AהPECOM גץזEPA
+  DATA CONTAB=:C:TAB          %        - C C‏ET‏יKOM
+  DATA CONTB2=:C:TAB+2
+  DATA PAGTAB=:P:TAB          %        - C HOMEPOM CTPAHידש
+  DATA MODTAB=:F:TAB          %        - זלAצKי יתMEHEHיס
+
+  DATA XWORK,WORK             % PAגO‏יE ס‏EךKי (הBA CלOBA)
+  DATA ASWAP=SWAPIN,RSWAP     % הלס נOהנPOחPAMMש
+
+  DATA 'NBUF'=16              % ‏יCלO גץזEPOB
+  DATA INICON=16*4            % HA‏AלרHOE תHA‏EHיE C‏ET‏יKA
+
+  DATA :B:TAB=0,(NBUF)*=%*&100+!MBUF
+  DATA :C:TAB[NBUF+1]
+  DATA :P:TAB=0,(NBUF)*=&FFFF
+  DATA :F:TAB[NBUF+1]
+
+  BYTES :M:TAB[256]           % TAגלי‏KA יHהEKCOB (CHA‏AלA C HץלסMי)
+  BUFFERS MBUF(256*NBUF)
+
+*\
+**     תAניCר גAךTA B BיPTץAלרHשך MACCיB
+**           --> ^A    -- AהPEC
+**               ^E    -- Tינ OנEPAדיי   =0 - CלOBO   <>0 - גAךT
+**               ^X    -- CלOBO (Tינ=0)   ילי   גAךT ! חPסתר (Tינ<>0)
+**           <-- CARRY -- TRUE  - HOPMAלרHOE OKOH‏AHיE
+**                     -- FALSE - OûיגKA OגPA‎EHיס K KAHAלץ
+**            ^A,^E,^X -- יCנOP‏EHש
+**
+PROGRAM WRITE(MEMADR,,BYTE)
+  IF >1= AND ^E= THEN RETURN ,,2
+  (IF ,,MEMIND(MEMADR:):=
+*        יCנOP‏EHO זלEPOBשM
+    IF MEMADR:>=&E0 THEN CALL DEVWR MEMADR,,BYTE ; RETURN ,
+    ,TYPOPR=
+    GOSUB @ASWAP(RSWAP)
+    =,TYPOPR
+  IF)
+  WORK=BUFTAB()
+  $CONTAB()=MODTAB()=1
+  =,,(MEMADR+1):
+  IF ^E= THEN WORK()=BYTE.XAA. ELSE WORK():=BYTE:
+  RETURN ,,0
+
+
+*\
+**  תAחPץתKA גAךTA ית BיPTץAלרHOחO MACCיBA
+**           --> ^A    -- AהPEC גAךTA
+**               ^E    -- Tינ OנEPAדיי   =0 - CלOBO   <>0 - גAךT
+**           <-- CARRY -- TRUE  - HOPMAלרHOE OKOH‏AHיE
+**                     -- FALSE - OûיגKA OגPA‎EHיס K KAHAלץ
+**               ^A    -- CלOBO (Tינ=0)   ילי   גAךT ! גAךT (Tינ<>0)
+**               ^E,^X -- יCנOP‏EHש
+**
+PROGRAM READ(MEMADR)
+  IF >1= AND ^E= THEN RETURN ,,2
+  (IF ,,MEMIND(MEMADR:):=
+*    יCנOP‏EHO זלEPOBשM
+    IF MEMADR:>=&E0 THEN CALL DEVRD MEMADR ; RETURN ,
+    ,TYPOPR=
+    GOSUB @ASWAP(RSWAP)
+    =,TYPOPR
+  IF)
+  WORK=BUFTAB()
+  $CONTAB()=1
+  =,,(MEMADR+1):
+  IF ^E= THEN =WORK().XAA. ELSE =WORK()[WORK():
+  RETURN ,,0
+
+
+*\
+**   OגMEH C היCKOM, ECלי HEOגXOהיMOחO גץזEPA HET B נAMסTי.
+**
+*SUBROUTINE SWAPIN
+    <<SWAPIN>> =
+*   ......י‎EM גץזEP C MיHיMAלרHשM ‏יCלOM OגPA‎EHיך
+  WORK=#MIN1
+  (XCYCLE 'NBUF*2' STEP 2) IF CONTB2()-WORK<> THEN WORK,,XWORK=CONTB2()
+* ......MEHסEM CTPAHידץ B גץזEPE
+  ,,XWORK=BUFTAB(XWORK+2)
+  IF ,MODTAB()<> THEN CALL M:SAVE ,,PAGTAB()
+  CALL M:LOAD ,,MEMADR:
+* ......MEHסEM C‏ET‏יKי
+  (IF PAGTAB(XWORK)>=
+    (XCYCLE 'NBUF*2' STEP 2) $CONTB2()=CONTB2().RLS.2.CNA.
+* ......MOהיזידיPץEM KAPTץ גץזEPOB
+    MEMIND(PAGTAB(XWORK)):=0
+  IF)
+  MEMIND(MEMADR:):=XWORK
+* ......תAנOלHסEM üלEMEHTש TAגליד הלס HOBOך CTPAHידש
+  PAGTAB(XWORK)=MEMADR:
+  MODTAB(),CONTAB()=0,INICON
+* ......OCTABלסEM B <X> HOMEP (ץהBOEHHשך) PAגO‏EחO גץזEPA
+ GOTO @RSWAP
+
+*\
+**   OגMEH C היCKOM
+**
+LOCALS -LMSAVE
+  DATA [2]
+  USE ACR:STRUCT,FIL:STRUCT,LIB:PARAMS
+  DATA XLIBR=LBLIBR+&100
+  DATA 'READ'=0,'WRITE'=1
+  DATA 'MAPSZ'=256,MAP(MAPSZ)
+  DATA 'LBUF'=256
+  DATA MAXEC=-1,PAGE,'FREE'=0
+  DATA IOB=WRITE,ABUF,LENG=LBUF,NSEC=0
+  DATA 'COMAND'=IOB+1
+
+*\  תAניCר CEKTOPA HA היCK
+**         ^A -- AהPEC גץזEPA
+**         ^X -- HOMEP CEKTOPA
+**
+PROGRAM M:SAVE(ABUF,,PAGE)
+  (IF MAXEC=#MIN1
+    MAXEC=0
+    MAP('MAPSZ-1'):='FREE'
+    !MAP(0)=MAP+1.XEX.
+    DATA CREAT=(1.0,0."-"."!64K:BYTES")
+    !#AZC(0)=CREAT,20
+    IF CSV START 'LIBCRE',,XLIBR<0 THEN STOP ,
+    IOB:=#AZC(1):
+    CALL :IO IOB\
+  IF)
+  NSEC=((IF PAGE<> AND MAP(PAGE):='FREE' THEN MAP():=$MAXEC=1))
+  COMAND:='WRITE'
+  CALL :IO IOB\
+  RETURN ABUF,,PAGE
+
+*\  ‏TEHיE CEKTOPA C היCKA
+**         ^A -- AהPEC גץזEPA
+**         ^X -- HOMEP CEKTOPA
+**
+**
+PROGRAM M:LOAD(ABUF,,PAGE)
+  (IF MAXEC=#MIN1 OR (,,PAGE<> AND MAP():='FREE')
+    ABUF(LENG-1):=&00
+    !ABUF(0)=ABUF+1.XEX.
+  ELSE
+    NSEC=MAP(PAGE):
+    COMAND:='READ'
+    CALL :IO IOB\
+  IF)
+  RETURN ABUF,,PAGE
+

@@ -1,0 +1,28 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @@;
+
+
+1.1
+date     90.01.05.21.24.07;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#&
+# Псевдоархив стандартной C-библиотеки.
+-lsplitc -lbasec
+@

@@ -1,0 +1,57 @@
+%- - - - - - - - - - - - - - - - %  30.11.88 VERSION 45
+%-                                                   -%
+%-   MULTIPURPOUSE INTERACTIVE USER-FRIENDLY SYSTEM  -%
+%-                                                   -%
+%-             RK-11 CARTRIGE DISK DRIVER            -%
+%-                     (ЗАТЫЧКА)                     -%
+%- - - - - - - - - - - - - - - - - - - - - - - - - - -%
+LOCALS LDISK
+  USE ERR:CODES
+
+  EQUALS SR=&FF00,EBR=&FF02,CSR=&FF04,WCR=&FF06
+  EQUALS BAR=&FF08,DAR=&FF0A,DBR=&FF0C
+
+  EQUALS OPRSTC=0,OPWRIT=1,OPREAD=2,OPCHKW=3
+  EQUALS OPSEEK=4,OPCHKR=5,OPRSTD=6,OPPROT=7
+
+  EQUALS ERROR=&8000,BADERR=&4000,READY=&80
+
+  DATA VOLNU,FUN
+
+  DATA PTRY
+
+  REGISTERS DASAV=%1,DLSAV=%4
+  REGISTERS PDEV=%5
+
+  DATA R1SAVE,R2SAVE,R3SAVE,R4SAVE,R5SAVE
+
+% INP: R0-АДРЕС УПР.БЛОКА:
+%      < ТОМ ! ФУНК >
+%      < ДИСК.АДР.1 >< Д.А.0 > < ДИСК.ДЛ. 1 >< Д.Д. 0 >
+%      < АДР.ПАМ. 1 >< А.П.0 >;
+% OUT: R0-КОД ВОЗВРАТА
+PROGRAM DISK()
+  R1SAVE=DASAV ; R2SAVE=R2 ; R3SAVE=R3 ; R4SAVE=DLSAV ; R5SAVE=PDEV
+  R3=R0
+  FUN:=^R3 ; VOLNU:=^R3
+  ^R3=.TST. ; DASAV=^R3
+  ^R3=.TST. ; R2=^R3
+  ^R3=.TST. ; R0=^R3
+
+  PTRY=5
+  DLSAV=R2                          %Спасаем длину
+  (WHILE
+    PDEV='DAR' ; R3=DASAV           %Восстанавливаем среду
+    R2=0/12                         % # цилиндра -> R0, сектора -> R1
+    R2=.ASL..ASL..ASL..ASL.         %Сдвигаем #цил., захватывая поверх.
+    R2=.BIS.R3                      %Об'единяем номера цил. и сектора
+    @PDEV=R2
+    _PDEV=R0                        %Адрес памяти
+    _PDEV=R3(DLSAV.SWAB..NEG.)      %Длина в блоках -> длина в словах
+    IF FUN:=0 THEN _PDEV='OPREAD*2+1' ELSE _PDEV='OPWRIT*2+1'
+    REPEAT WHILE @PDEV:>=0
+  )WHILE @PDEV<0 AND PTRY(-1)>=0
+  R0=0 ; IF PTRY<0 THEN R0='-1-EDISK'
+
+  PDEV=R5SAVE ; DLSAV=R4SAVE ; R3=R3SAVE ; R2=R2SAVE ; DASAV=R1SAVE
+  RETURN

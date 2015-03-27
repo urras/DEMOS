@@ -1,0 +1,86 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     88.11.16.17.01.41;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.11.13.43.41;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@fpsim -- /usr/lib -> /lib
+@
+text
+@# $Log: Makefile,v $
+# Revision 1.1  88/05/11  13:43:41  andrew
+# Initial revision
+#
+COFLAGS=-q
+
+.DEFAULT:
+	co $(COFLAGS) $@@
+
+.s.o:
+	as -V -o $@@ /usr/include/sys.s $<
+	ld -r -x $@@ -o a.out.lib
+	mv a.out.lib $@@
+
+
+CONST = cdebug.o cerror.o mcount.o fpsim.o zzzz.o
+
+all: $(CONST) csv.o
+
+csv.o: csv.s
+	as -V -o $@@ /usr/include/sys.s $<
+
+overlay: $(CONST)
+	rm -f csv.o
+	cd ../overlay; make csv.o
+
+clean:
+	rm -f *.[ob]
+
+CLRSRC: clean
+	rm -f *.[cs]
+
+cerror.o: cerror.s
+mcount.o: mcount.s
+cdebug.o: cdebug.s
+csv.o: csv.s
+zzzz.o: zzzz.s
+
+fpsim.o: /lib/libfpsim.a
+	cp /lib/libfpsim.a a.out.lib
+	ld -r -x a.out.lib -o fpsim.o
+	rm -f a.out.lib
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 4
+a4 1
+# $Log:	Makefile,v $
+d20 3
+d39 2
+a40 2
+fpsim.o: /usr/lib/libfpsim.a
+	cp /usr/lib/libfpsim.a a.out.lib
+@

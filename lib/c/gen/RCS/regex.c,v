@@ -1,0 +1,772 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.09.18.18.40.25;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.17.18.55.26;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.17.18.51.23;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.30.19.28.54;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Поиск регулярных выражений.
+@
+
+
+1.4
+log
+@Исправлена работа с русскими буквами.
+Добавлена функция re_lim.
+@
+text
+@/* $Header: regex.c,v 1.3 88/09/17 18:55:26 avg Exp $
+ *
+ * $Log:        regex.c,v $
+ * Revision 1.3  88/09/17  18:55:26  avg
+ * Правлена небольшая плюха.
+ *
+ * Revision 1.2  88/09/17  18:51:23  avg
+ * Заменены Rlsort и т.п. на Ctou и Ctok.
+ *
+ * Revision 1.1  86/12/30  19:28:54  root
+ * Initial revision
+ *
+ *
+ * Подпрограммы для поиска регулярных выражений
+ *
+ * Внешние имена:
+ *
+ *      re_comp(s)
+ *              char *s;
+ *       ... returns 0 if the string s was compiled successfully,
+ *                   a pointer to an error message otherwise.
+ *           If passed 0 or a null string returns without changing
+ *           the currently compiled re (see note 11 below).
+ *
+ *      re_exec(s)
+ *              char *s;
+ *       ... returns 1 if the string s matches the last compiled regular
+ *                     expression,
+ *                   0 if the string s failed to match the last compiled
+ *                     regular expression, and
+ *                  -1 if the compiled regular expression was invalid
+ *                     (indicating an internal error).
+ *
+ *      re_lim(&first, &last)
+ *              char *first, *last;
+ *           It writes in variables first and last pointers to
+ *           begin and end of part of string which was matches with
+ *           the last compiled regular expression. This function can
+ *           be used only if previous re_exec returns 1.
+ *
+ * The strings passed to both re_comp and re_exec may have trailing or
+ * embedded newline characters; they are terminated by nulls.
+ *
+ * The identity of the author of these routines is lost in antiquity;
+ * this is essentially the same as the re code in the original V6 ed.
+ *
+ * The regular expressions recognized are described below. This description
+ * is essentially the same as that for ed.
+ *
+ *      A regular expression specifies a set of strings of characters.
+ *      A member of this set of strings is said to be matched by
+ *      the regular expression.  In the following specification for
+ *      regular expressions the word `character' means any character but NUL.
+ *
+ *      1.  Any character except a special character matches itself.
+ *          Special characters are the regular expression delimiter plus
+ *          \ [ . and sometimes ^ * $.
+ *      2.  A . matches any character.
+ *      3.  A \ followed by any character except a digit or ( )
+ *          matches that character.
+ *      4.  A nonempty string s bracketed [s] (or [^s]) matches any
+ *          character in (or not in) s. In s, \ has no special meaning,
+ *          and ] may only appear as the first letter. A substring
+ *          a-b, with a and b in ascending ASCII order, stands for
+ *          the inclusive range of ASCII characters.
+ *      5.  A regular expression of form 1-4 followed by * matches a
+ *          sequence of 0 or more matches of the regular expression.
+ *      6.  A regular expression, x, of form 1-8, bracketed \(x\)
+ *          matches what x matches.
+ *      7.  A \ followed by a digit n matches a copy of the string that the
+ *          bracketed regular expression beginning with the nth \( matched.
+ *      8.  A regular expression of form 1-8, x, followed by a regular
+ *          expression of form 1-7, y matches a match for x followed by
+ *          a match for y, with the x match being as long as possible
+ *          while still permitting a y match.
+ *      9.  A regular expression of form 1-8 preceded by ^ (or followed
+ *          by $), is constrained to matches that begin at the left
+ *          (or end at the right) end of a line.
+ *      10. A regular expression of form 1-9 picks out the longest among
+ *          the leftmost matches in a line.
+ *      11. An empty regular expression stands for a copy of the last
+ *          regular expression encountered.
+ */
+
+/*
+ * constants for re's
+ */
+#define CBRA    1
+#define CCHR    2
+#define CDOT    4
+#define CCL     6
+#define NCCL    8
+#define CDOL    10
+#define CEOF    11
+#define CKET    12
+#define CBACK   18
+
+#define CSTAR   01
+
+#define ESIZE   512
+#define NBRA    9
+
+static  char    expbuf[ESIZE], *braslist[NBRA], *braelist[NBRA];
+static  char    circf;
+
+static  char    *ptr1, *ptr2;    /* ptrs to first & last chars of match */
+
+#include <ediag.h>
+#include <sys/code.h>
+
+#define U(x)    ((x) & 0377)
+
+/*
+ * compile the regular expression argument into a dfa
+ */
+char *
+re_comp(sp)
+	register char   *sp;
+{
+	register int    c;
+	register char   *ep = expbuf;
+#ifndef Ucode
+	int     kj, kjj;
+#endif
+	int     cclcnt, numbra = 0;
+	char    *lastep = 0;
+	char    bracket[NBRA];
+	char    *bracketp = &bracket[0];
+	char    *retoolong;
+
+#define comerr(msg) {expbuf[0] = 0; numbra = 0; return(msg); }
+
+	if (sp == 0 || *sp == '\0') {
+		if (*ep == 0)
+			return(ediag("No previous regular expression",
+				     "Нет предыдущего регулярного выражения"));
+		return(0);
+	}
+	if (*sp == '^') {
+		circf = 1;
+		sp++;
+	}
+	else
+		circf = 0;
+	retoolong = ediag("Regular expression too long",
+			  "Слишком длинное регулярное выражение");
+	for (;;) {
+		if (ep >= &expbuf[ESIZE])
+			comerr(retoolong);
+		if ((c = *sp++) == '\0') {
+			if (bracketp != bracket)
+				comerr(ediag("unmatched \\(", "отсутствует \\("));
+			*ep++ = CEOF;
+			*ep++ = 0;
+			return(0);
+		}
+		if (c != '*')
+			lastep = ep;
+		switch (c) {
+
+		case '.':
+			*ep++ = CDOT;
+			continue;
+
+		case '*':
+			if (lastep == 0 || *lastep == CBRA || *lastep == CKET)
+				goto defchar;
+			*lastep |= CSTAR;
+			continue;
+
+		case '$':
+			if (*sp != '\0')
+				goto defchar;
+			*ep++ = CDOL;
+			continue;
+
+		case '[':
+			*ep++ = CCL;
+			*ep++ = 0;
+			cclcnt = 1;
+			if ((c = *sp++) == '^') {
+				c = *sp++;
+				ep[-2] = NCCL;
+			}
+			do {
+				if (c == '\0')
+					comerr(ediag("missing ]",
+						     "отсутствует ]"));
+				if (c == '-' && ep [-1] != 0) {
+					if ((c = *sp++) == ']') {
+						*ep++ = '-';
+						cclcnt++;
+						break;
+					}
+#ifdef Ucode
+					while (U(ep[-1]) < U(c)) {
+						*ep = ep[-1] + 1;
+						ep++;
+#else
+					kj  = Ctou(ep[-1]);
+					kjj = Ctou(c);
+					kjj -= kj;
+					while (kjj-- > 0) {
+						*ep++ = Ctok(++kj);
+#endif
+						cclcnt++;
+						if (ep >= &expbuf[ESIZE])
+							comerr(retoolong);
+					}
+				}
+				*ep++ = c;
+				cclcnt++;
+				if (ep >= &expbuf[ESIZE])
+					comerr(retoolong);
+			} while ((c = *sp++) != ']');
+			lastep[1] = cclcnt;
+			continue;
+
+		case '\\':
+			if ((c = *sp++) == '(') {
+				if (numbra >= NBRA)
+					comerr(ediag("too many \\(\\) pairs",
+						     "слишком много пар \\(\\)"));
+				*bracketp++ = numbra;
+				*ep++ = CBRA;
+				*ep++ = numbra++;
+				continue;
+			}
+			if (c == ')') {
+				if (bracketp <= bracket)
+					comerr(ediag("unmatched \\)", "отсутствует \\)"));
+				*ep++ = CKET;
+				*ep++ = *--bracketp;
+				continue;
+			}
+			if (c >= '1' && c < ('1' + NBRA)) {
+				*ep++ = CBACK;
+				*ep++ = c - '1';
+				continue;
+			}
+			*ep++ = CCHR;
+			*ep++ = c;
+			continue;
+
+		defchar:
+		default:
+			*ep++ = CCHR;
+			*ep++ = c;
+		}
+	}
+}
+
+/*
+ * match the argument string against the compiled re
+ */
+int
+re_exec(p1)
+	register char   *p1;
+{
+	register char   *p2 = expbuf;
+	register int    c;
+	int     rv;
+
+	for (c = 0; c < NBRA; c++) {
+		braslist[c] = 0;
+		braelist[c] = 0;
+	}
+	if (circf)
+		return((advance(p1, p2)));
+	/*
+	 * fast check for first character
+	 */
+	if (*p2 == CCHR) {
+		c = p2[1];      /* sign-extend... */
+		do {
+			ptr1 = p1;
+			if (*p1 != c)           /* *p1 also sign extended... */
+				continue;
+			if (rv = advance(p1, p2))
+				return(rv);
+		} while (*p1++);
+		return(0);
+	}
+
+	/*
+	 * regular algorithm
+	 */
+	do {
+		ptr1 = p1;
+		if (rv = advance(p1, p2))
+			return(rv);
+	} while (*p1++);
+	return(0);
+}
+
+/*
+ * try to match the next thing in the dfa
+ */
+static  int
+advance(lp, ep)
+	register char   *lp, *ep;
+{
+	register char   *curlp;
+	int     ct, i;
+	int     rv;
+
+	for (;;) {
+		ptr2 = lp-1;
+		switch (*ep++) {
+
+		case CCHR:
+			if (*ep++ == *lp++)
+				continue;
+			return(0);
+
+		case CDOT:
+			if (*lp++)
+				continue;
+			return(0);
+
+		case CDOL:
+			if (*lp == '\0')
+				continue;
+			return(0);
+
+		case CEOF:
+			return(1);
+
+		case CCL:
+			if (cclass(ep, *lp++, 1)) {
+				ep += *ep;
+				continue;
+			}
+			return(0);
+
+		case NCCL:
+			if (cclass(ep, *lp++, 0)) {
+				ep += *ep;
+				continue;
+			}
+			return(0);
+
+		case CBRA:
+			braslist[*ep++] = lp;
+			continue;
+
+		case CKET:
+			braelist[*ep++] = lp;
+			continue;
+
+		case CBACK:
+			if (braelist[i = *ep++] == 0)
+				return(-1);
+			if (backref(i, lp)) {
+				lp += braelist[i] - braslist[i];
+				continue;
+			}
+			return(0);
+
+		case CBACK|CSTAR:
+			if (braelist[i = *ep++] == 0)
+				return(-1);
+			curlp = lp;
+			ct = braelist[i] - braslist[i];
+			while (backref(i, lp))
+				lp += ct;
+			while (lp >= curlp) {
+				if (rv = advance(lp, ep))
+					return(rv);
+				lp -= ct;
+			}
+			continue;
+
+		case CDOT|CSTAR:
+			curlp = lp;
+			while (*lp++)
+				;
+			goto star;
+
+		case CCHR|CSTAR:
+			curlp = lp;
+			while (*lp++ == *ep)
+				;
+			ep++;
+			goto star;
+
+		case CCL|CSTAR:
+		case NCCL|CSTAR:
+			curlp = lp;
+			while (cclass(ep, *lp++, ep[-1] == (CCL|CSTAR)))
+				;
+			ep += *ep;
+			goto star;
+
+		star:
+			do {
+				lp--;
+				if (rv = advance(lp, ep))
+					return(rv);
+			} while (lp > curlp);
+			return(0);
+
+		default:
+			return(-1);
+		}
+	}
+}
+
+static
+backref(i, lp)
+	register int    i;
+	register char   *lp;
+{
+	register char   *bp;
+
+	bp = braslist[i];
+	while (*bp++ == *lp++)
+		if (bp >= braelist[i])
+			return(1);
+	return(0);
+}
+
+static int
+cclass(set, c, af)
+	register char   *set, c;
+	int     af;
+{
+	register int    n;
+
+	if (c == 0)
+		return(0);
+	n = U(*set++);          /* ctr can not be negative... */
+	while (--n)
+		if (U(*set++) == U(c))  /* U-ed because of some dump compilers
+					 * can sign-extend char and *cptr
+					 * by different ways. I am not sure
+					 * that our own one do not this. @@VG
+					 */
+			return(af);
+	return(! af);
+}
+
+re_lim(first, last)
+char **first,**last;
+{
+    *first = ptr1;
+    *last  = ptr2;
+}
+@
+
+
+1.3
+log
+@Правлена небольшая плюха.
+@
+text
+@d1 1
+a1 1
+/* $Header: regex.c,v 1.2 88/09/17 18:51:23 avg Exp $
+d4 3
+d34 7
+d106 2
+d122 3
+a124 1
+	register        kj, kjj;
+d129 1
+a129 2
+	char    *retoolong = ediag("Regular expression too long",
+				   "Слишком длинное рег.выр.");
+d136 1
+a136 1
+				     "Нет пред. регулярного выражения"));
+d145 2
+d150 1
+a150 1
+		if ((c = U(*sp++)) == '\0') {
+d152 1
+a152 2
+				comerr(ediag("unmatched \\(",
+					     "нет \\("));
+d181 2
+a182 2
+			if ((c = U(*sp++)) == '^') {
+				c = U(*sp++);
+d190 1
+a190 1
+					if ((c = U(*sp++)) == ']') {
+d195 2
+a196 2
+#ifndef KOI8
+					while (ep[-1] < c) {
+d202 1
+a202 1
+					kjj = U(kjj) - U(kj);
+d215 1
+a215 1
+			} while ((c = U(*sp++)) != ']');
+d220 1
+a220 1
+			if ((c = U(*sp++)) == '(') {
+d231 1
+a231 2
+					comerr(ediag("unmatched \\)",
+						     "нет \\)"));
+d274 1
+a274 1
+		c = U(p2[1]);
+d276 2
+a277 1
+			if (*p1 != c)
+d284 1
+d288 2
+a289 1
+	do
+d292 1
+a292 1
+	while (*p1++);
+d307 2
+a308 1
+	for (;;)
+d406 1
+d409 1
+d423 1
+a423 1
+int
+d432 1
+a432 1
+	n = *set++;
+d434 5
+a438 1
+		if (*set++ == c)
+d441 7
+@
+
+
+1.2
+log
+@Заменены Rlsort и т.п. на Ctou и Ctok.
+@
+text
+@d1 1
+a1 1
+/* $Header: regex.c,v 1.1 86/12/30 19:28:54 root Exp $
+d4 3
+d115 2
+a116 2
+	static  char    *retoolong = ediag("Regular expression too long",
+					   "Слишком длинное рег.выр.");
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+/* $Header$
+d3 3
+a5 1
+ * $Log$
+d7 1
+d12 5
+a16 5
+ *	re_comp(s)
+ *		char *s;
+ *	 ... returns 0 if the string s was compiled successfully,
+ *		     a pointer to an error message otherwise.
+ *	     If passed 0 or a null string returns without changing
+d19 8
+a26 8
+ *	re_exec(s)
+ *		char *s;
+ *	 ... returns 1 if the string s matches the last compiled regular
+ *		       expression,
+ *		     0 if the string s failed to match the last compiled
+ *		       regular expression, and
+ *		    -1 if the compiled regular expression was invalid
+ *		       (indicating an internal error).
+d37 4
+a40 4
+ *	A regular expression specifies a set of strings of characters.
+ *	A member of this set of strings is said to be matched by
+ *	the regular expression.  In the following specification for
+ *	regular expressions the word `character' means any character but NUL.
+d42 28
+a69 28
+ *	1.  Any character except a special character matches itself.
+ *	    Special characters are the regular expression delimiter plus
+ *	    \ [ . and sometimes ^ * $.
+ *	2.  A . matches any character.
+ *	3.  A \ followed by any character except a digit or ( )
+ *	    matches that character.
+ *	4.  A nonempty string s bracketed [s] (or [^s]) matches any
+ *	    character in (or not in) s. In s, \ has no special meaning,
+ *	    and ] may only appear as the first letter. A substring
+ *	    a-b, with a and b in ascending ASCII order, stands for
+ *	    the inclusive range of ASCII characters.
+ *	5.  A regular expression of form 1-4 followed by * matches a
+ *	    sequence of 0 or more matches of the regular expression.
+ *	6.  A regular expression, x, of form 1-8, bracketed \(x\)
+ *	    matches what x matches.
+ *	7.  A \ followed by a digit n matches a copy of the string that the
+ *	    bracketed regular expression beginning with the nth \( matched.
+ *	8.  A regular expression of form 1-8, x, followed by a regular
+ *	    expression of form 1-7, y matches a match for x followed by
+ *	    a match for y, with the x match being as long as possible
+ *	    while still permitting a y match.
+ *	9.  A regular expression of form 1-8 preceded by ^ (or followed
+ *	    by $), is constrained to matches that begin at the left
+ *	    (or end at the right) end of a line.
+ *	10. A regular expression of form 1-9 picks out the longest among
+ *	    the leftmost matches in a line.
+ *	11. An empty regular expression stands for a copy of the last
+ *	    regular expression encountered.
+d75 2
+a76 2
+#define	CBRA	1
+#define	CCHR	2
+d78 6
+a83 6
+#define	CCL	6
+#define	NCCL	8
+#define	CDOL	10
+#define	CEOF	11
+#define	CKET	12
+#define	CBACK	18
+d87 2
+a88 2
+#define	ESIZE	512
+#define	NBRA	9
+d90 2
+a91 2
+static	char	expbuf[ESIZE], *braslist[NBRA], *braelist[NBRA];
+static	char	circf;
+d93 5
+d103 1
+a103 1
+	register char	*sp;
+d105 2
+a106 6
+#include <sys/code.h>
+#include <Rusort.h>
+#include <Rsort.h>
+
+	register int	c;
+	register char	*ep = expbuf;
+d109 5
+a113 4
+	char	*lastep = 0;
+	char	bracket[NBRA];
+	char	*bracketp = &bracket[0];
+	static	char	*retoolong = "Regular expression too long";
+d115 1
+a115 1
+#define	comerr(msg) {expbuf[0] = 0; numbra = 0; return(msg); }
+d119 2
+a120 1
+			return("No previous regular expression");
+d132 1
+a132 1
+		if ((c = InT(*sp++)) == '\0') {
+d134 2
+a135 1
+				comerr("unmatched \\(");
+d164 2
+a165 2
+			if ((c = InT(*sp++)) == '^') {
+				c = InT(*sp++);
+d170 2
+a171 1
+					comerr("missing ]");
+d173 1
+a173 1
+					if ((c = InT(*sp++)) == ']') {
+d183 5
+a187 5
+						kj  = Rlsort(ep[-1]);
+						kjj = Rlsort(c);
+						kjj = InT(kjj)-InT(kj);
+						while (kjj-- > 0){
+						*ep++ = Rusort(++kj);
+d198 1
+a198 1
+			} while ((c = InT(*sp++)) != ']');
+d203 1
+a203 1
+			if ((c = InT(*sp++)) == '(') {
+d205 2
+a206 1
+					comerr("too many \\(\\) pairs");
+d214 2
+a215 1
+					comerr("unmatched \\)");
+d242 1
+a242 1
+	register char	*p1;
+d244 3
+a246 3
+	register char	*p2 = expbuf;
+	register int	c;
+	int	rv;
+d258 1
+a258 1
+		c = InT(p2[1]);
+d280 1
+a280 1
+static	int
+d282 1
+a282 1
+	register char	*lp, *ep;
+d284 3
+a286 3
+	register char	*curlp;
+	int	ct, i;
+	int	rv;
+d389 2
+a390 2
+	register int	i;
+	register char	*lp;
+d392 1
+a392 1
+	register char	*bp;
+d403 2
+a404 2
+	register char	*set, c;
+	int	af;
+d406 1
+a406 1
+	register int	n;
+@

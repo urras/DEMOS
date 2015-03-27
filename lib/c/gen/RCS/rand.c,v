@@ -1,0 +1,40 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.04.21.20.06.22;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+static  long    randx = 1;
+
+srand(x)
+unsigned x;
+{
+	randx = x;
+}
+
+rand()
+{
+	return(((randx = randx*1103515245 + 12345)>>16) & 077777);
+}
+@

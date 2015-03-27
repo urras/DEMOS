@@ -1,0 +1,90 @@
+head     1.3;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз0:1.1.1;
+locks    ;
+comment  @: @;
+
+
+1.3
+date     89.06.17.16.34.17;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.25.16.20.34;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.02.32;  author avg;  state Exp;
+branches 1.1.1.1;
+next     ;
+
+1.1.1.1
+date     88.11.01.18.32.06;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Счет версии системы.
+@
+
+
+1.3
+log
+@В связи с переходом на новый sh изменилась обработка:
+echo '\n'       ===> echo '\\n'
+@
+text
+@MSG=l
+export MSG
+if [ ! -r version ]; then echo 0 > version; fi
+touch version
+awk '   {       version = $1 + 1; }\
+END     {       printf "char version[] = \"DEMOS 2.2 (%IDENT%.%d) co-operative demos/* ", version > "vers.c";\
+		printf "%d\n", version > "tmpvers"; }' < version
+mv tmpvers version
+echo `date`'\\n";' >> vers.c
+@
+
+
+1.2
+log
+@Это исторический миг установки новой версии: 2.1 - 16.23.25.09.88.
+@
+text
+@d6 1
+a6 1
+END     {       printf "char version[] = \"DEMOS 2.1 (%IDENT%.%d) ", version > "vers.c";\
+d9 1
+a9 1
+echo `date`'\n";' >> vers.c
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 2
+d6 1
+a6 1
+END     {       printf "char version[] = \"United Version DEMOS & MHOC 2 (%d) ", version > "vers.c";\
+@
+
+
+1.1.1.1
+log
+@Правки из САО (про 1630).
+@
+text
+@a0 2
+MSG=l
+export MSG
+d4 1
+a4 1
+END     {       printf "char version[] = \"DEMOS 2.0 (%IDENT%.%d) ", version > "vers.c";\
+@

@@ -1,0 +1,47 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.44.21;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ error	= umount(special);
+/	  char *special;
+
+.globl	_umount
+.globl	cerror
+.comm	_errno, 2
+
+_umount:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(sp),0f
+	sys	indir; 9f
+	bec	1f
+	jmp	cerror
+1:
+	clr	r0
+	mov	(sp)+,r5
+	rts	pc
+
+.data
+9:
+	sys	umount; 0:..
+@

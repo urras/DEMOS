@@ -1,0 +1,152 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.19.15.10;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * clri filsys inumber ...
+ *
+ * Вставлены русские диагностики.
+ * mike
+ *
+ */
+
+#include        <whoami.h>
+
+#ifdef UCB_NKB
+#include <sys/param.h>
+#else
+#include <sys/types.h>
+#endif
+
+#include <sys/ino.h>
+#include <ediag.h>
+
+#define ISIZE   (sizeof(struct dinode))
+
+#ifndef UCB_NKB
+#define BSIZE   512
+#endif
+
+#define NI      (BSIZE/ISIZE)
+
+struct  ino
+{
+	char    junk[ISIZE];
+} buf[NI];
+
+int     status;
+
+char    *ncom;
+
+main(argc, argv)
+char *argv[];
+{
+	register i, f;
+	unsigned n;
+	int j, k;
+	long off;
+
+	ncom = *argv;
+	if(argc < 3) {
+		printf(ediag("usage: %s filsys inumber ...\n","вызов: %s файловая_система номер_i-узла ...\n"), ncom);
+		exit(4);
+	}
+	f = open(argv[1], 2);
+	if(f < 0) {
+		printf(ediag("%s: cannot open %s\n","%s: не могу открыть %s\n"), ncom, argv[1]);
+		exit(4);
+	}
+	for(i=2; i<argc; i++) {
+		if(!isnumber(argv[i])) {
+			printf(ediag("%s: %s is not a number\n","%s: %s - не число\n"), ncom, argv[i]);
+			status = 1;
+			continue;
+		}
+		n = atoi(argv[i]);
+		if(n == 0) {
+			printf(ediag("%s: %s is zero\n","%s: %s - нуль\n"), ncom, argv[i]);
+			status = 1;
+			continue;
+		}
+#ifdef UCB_NKB
+		off = itod(n) * BSIZE;
+#else
+		off = ((n-1)/NI + 2) * (long)512;
+#endif
+		lseek(f, off, 0);
+		if(read(f, (char *)buf, BSIZE) != BSIZE) {
+			printf(ediag("%s: read error by %s\n","%s: ошибка чтения %s\n"), ncom, argv[i]);
+			status = 1;
+		}
+	}
+	if(status)
+		exit(status);
+	for(i=2; i<argc; i++) {
+		n = atoi(argv[i]);
+		printf(ediag("%s: clearing %u\n","%s: очистка i-узла номер %u\n"), ncom, n);
+#ifdef UCB_NKB
+		off = itod(n) * BSIZE;
+#else
+		off = ((n-1)/NI + 2) * (long)512;
+#endif
+		lseek(f, off, 0);
+		read(f, (char *)buf, BSIZE);
+#ifdef UCB_NKB
+		j = itoo(n);
+#else
+		j = (n-1)%NI;
+#endif
+		for(k=0; k<ISIZE; k++)
+			buf[j].junk[k] = 0;
+		lseek(f, off, 0);
+		write(f, (char *)buf, BSIZE);
+	}
+	exit(status);
+}
+
+isnumber(s)
+char *s;
+{
+	register c;
+
+	while(c = *s++)
+		if(c < '0' || c > '9')
+			return(0);
+	return(1);
+}
+@

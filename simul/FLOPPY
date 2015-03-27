@@ -1,0 +1,238 @@
+%- - - - - - - - - - - - - - - - -% 27.09.88 VERSION 56
+%-   üםץלספןע חיגכןחן היףכב DX   -%
+%- - - - - - - - - - - - - - - - -%
+LOCALS :DX
+  DATA ATICK,AITREQ
+%%DATA INITFL=0
+  DATA BUFFER(&80)                      %"זיתי‏וףכיך" גץזוע
+  DATA CIO=0,IOBUFF(&100),IOLENG=&100,IOSECT=0
+  DATA A:PHIS                           %ץכבתבפולר ק קיעפ. גץזועו
+
+  EQUALS ERROR=&8000,INIBIT=&4000
+  EQUALS READY=&80,ITEN=&40,DONE=&20,UNIT=&10,FUNC=&0E,GO=&01
+  DATA DXERR=ERROR,INIT=INIBIT          %םבףכי גיפיכןק CSR
+
+  EQUALS DRVRDY=&80
+  EQUALS ESECTO=&20,ETRACK=&28          %כןהש ןûיגןכ
+
+  EQUALS QTRACK=&4D,QSECT=&1A
+
+  EQUALS ITADDR=&B4,ITPRI=4             %בהעוף קוכפןעב, נעיןעיפופ
+  DATA A:CSR=&FE78 ,A:DBR=&FE7A         %בהעוףב מב ûימו
+  DATA CSR  ,DBR                        %קמוûמיו עוחיףפעש ץףפעןךףפקב
+  DATA ASECT ,ATRACK ,STATUS ,ECODES    %מוקיהיםשו עוחיףפעש
+  DATA DATIND                           %נבעבםופע נועוהב‏י גץזועב
+
+  DATA WAIDAT,WAIGET                    %זלבחי ןציהבמיס ןגםומב
+
+  DATA MARK ,BUSDAT
+%                                       %תבהב‏י ןפהולרמשט זץמכדיך
+  DATA TASKS=WRBUFF.RDBUFF.WRSECT.RDSECT.NILTSK.RDSTAT.WRBAD.RDERR
+  DATA WMASK=INIBIT+ITEN+UNIT+FUNC+GO   %םבףכA תבניףי CSR
+  DATA RMASK=ERROR+READY+DONE           %םבףכA ‏פומיס CSR
+
+  DATA ASTART=START                     %פן‏כב מב‏בלב בףימטע. עבגןפש
+  DATA ASTOP=STOP
+  DATA NFUNC
+  BYTES BYT[1]
+
+%-- ימידיבליתבדיס נעי תבנץףכו י יףנןלמומיי RESET'A --
+PROGRAM FLOPPY(AITREQ,ATICK)
+  CIO:=#DISLAB
+  GOSUB RESET
+  RETURN ,
+
+%-- ‏פומיו ית עוחיףפעןק --
+PROGRAM DX::RD(,MARK)
+  (IF =A:CSR
+    =CSR.AND.RMASK
+  ELSE IF =A:DBR
+    (IF WAIGET<>
+      CSR='READY'.CCA..AND.CSR ; WAIGET=0
+    IF)
+    =(DBR+1):
+  ELSE
+    RETURN ,,2
+  IF)
+  (IF ,MARK<>
+    BYT:= ; =BYT[
+  IF)
+  RETURN ,,0
+
+%-- תבניףר ק עוחיףפעש --
+PROGRAM DX::WR(,MARK,BUSDAT)
+  (IF =A:CSR                            %עוחיףפע כןםבמה ?
+    IF WMASK,,MARK<> THEN =.AND.&FF
+    CSR=.CCA..AND.CSR                   %ףמיםבום W-גיפש
+    IF BUSDAT.AND.WMASK,,MARK<> THEN =.AND.&FF
+    CSR=.IOR.CSR                        %תבניףשקבום W-גיפש
+    (IF CSR.AND.'GO'<>                  %תבנץףכבום ןנועבדיא ?
+      GOSUB FORK CSR.AND.'FUNC'         %ףןתהבום תבהב‏ץ
+    ELSE IF CSR:.AND.'INIBIT/&100'<>    %ימידיבליתבדיס ?
+      GOSUB RESET
+    ELSE IF CSR.AND.'ITEN'<>
+      IF CSR.AND.'DONE'<> THEN GOSUB PUTIT     %נעןגץום קשתקבפר IT
+    IF)
+  ELSE IF =A:DBR                        %עוחיףפע הבממשט ?
+    DBR=BUSDAT.AND.&FF
+    (IF WAIDAT<>                        %צהום הבממשט ?
+      CSR='READY'.CCA..AND.CSR ; WAIDAT=0
+    IF)
+  ELSE
+    RETURN ,,2                          %מבקועמןE העץחןו ץףפעןךףפקן...
+  IF)
+  RETURN ,,0
+
+%-- עבתהקןומיו נןפןכב ץנעבקלומיס --
+SUBROUTINE FORK(NFUNC)
+  (IF CSR.AND.'DONE'=                   %מו חןפןק ?
+    CSR=CSR.IOR.DXERR
+    STATUS=0
+    RETURN:FORK
+  IF)
+  (TICWAI+2)=ASTART                     %ףפבקים פן‏כץ ןציהבמיס TICK
+  @ATICK=1 ; #TICKFL=1                  %תבכבתשקבום מוםוהלוממןו נעןגץצה.
+  @AITREQ=0                             %ףמיםבום ITREQ הן כןמדב ןנוע.
+  RETURN:FORK                           %נןתקןלסום CPU נעןהןלצבפר
+START =
+  CSR=DXERR+'DONE+READY'.CCA..AND.CSR
+  .BRX.@TASKS=,,NFUNC                   %קשתשקבום ףןןפקופףפקץא‎ץא תבהב‏ץ
+
+%%  IF BUSDAT.AND.8<> THEN RETURN:CMDACC ,,2   %ף 1-ם היףכןם מו עבגןפבום
+
+%-- תבניףר גץזועב ית םבûימש --
+WRBUFF =
+  (XCYCLE(DATIND)+ &80
+    CSR=CSR.IOR.'READY' ; WAIDAT=1
+    GOSUB TICWAI 12                     %צהום תבניףי
+    BUFFER(DATIND):=DBR                 %נןלץ‏בום וו עותץלרפבפ
+    GOSUB TICWAI 8                      %הולבום קיה, ‏פן ‏פן-פן הולבום
+  XCYCLE)
+  CSR='READY'.CCA..AND.CSR.IOR.'DONE'
+  GOTO SVRET                            %כןמוד תבהב‏י
+
+%-- ‏פומיו גץזועב ק נבםספר --
+RDBUFF =
+  (XCYCLE(DATIND)+ &80
+    GOSUB TICWAI 8                      %הולבום קיה, ‏פן גועום ית גץזועב
+    DBR=BUFFER(DATIND):
+    CSR=CSR.IOR.'READY' ; WAIGET=1      % CPU, נןלץ‏בך גבךפ !
+    GOSUB TICWAI 10                     % ס פוגס צהץ...
+  XCYCLE)
+  CSR='READY'.CCA..AND.CSR.IOR.'DONE'
+  GOTO SVRET                            %כןמוד תבהב‏י
+
+%-- תבניףר ףוכפןעב מב היףכ --
+WRSECT =
+  GOSUB CHKST                           %נןלץ‏בום ףוכפןע י הןעןצכץ
+  GOSUB CHKON                           %ON LINE ?
+  CSR='READY'.CCA..AND.CSR
+%                             - קשנןלמסום תבניףר -
+  (CIO+1):=1
+  =ATRACK*'QSECT'+ASECT                 %זיתי‏וףכיך מןםוע
+  IOSECT=>1                             % -> לןחי‏וףכיך
+  A:PHIS=((IF = THEN =&80 ELSE =0))+IOBUFF    %CARRY - üפן םלבהûיך גיפ
+  !@A:PHIS=BUFFER,&80
+  CALL :IO CIO\
+  GOSUB TICWAI 50                       %הלס ליûמוך בףימטעןממןףפי
+
+  CSR='READY+DONE'.IOR.CSR
+  IF ^A.AND.'ITEN'<> THEN GOSUB PUTIT   %קשתשקבום נעועשקבמיו
+  GOTO SVRET                            %כןמוד
+
+%-- ‏פומיו ףוכפןעב ף היףכב --
+RDSECT =
+  GOSUB CHKST
+  GOSUB CHKON
+  CSR='READY'.CCA..AND.CSR
+%                             - קשנןלמסום ‏פומיו -
+  (CIO+1):=0
+  =ATRACK*'QSECT'+ASECT                 %זיתי‏וףכיך מןםוע
+  IOSECT=>1                             % -> לןחי‏וףכיך
+  A:PHIS=((IF = THEN =&80 ELSE =0))+IOBUFF    %CARRY - üפן םלבהûיך גיפ
+  CALL :IO CIO\
+  !@BUFFER=A:PHIS,&80
+  GOSUB TICWAI 60                       %הלס ליûמוך בףימטעןממןףפי
+
+  CSR='READY+DONE'.IOR.CSR
+  IF ^A.AND.'ITEN'<> THEN GOSUB PUTIT   %קשתשקבום נעועשקבמיו
+  GOTO SVRET                            %כןמוד
+
+SUBROUTINE CHKST                        %נעימיםבום ףוכפןע י הןעןצכץ
+  GOSUB TICWAI 8
+  CSR='READY'.IOR.CSR ; WAIDAT=1
+  GOSUB TICWAI 10                       %צהום ףוכפןעב
+  (IF DBR<1 OR >'QSECT'
+    STATUS='ESECTO' ; CSR=DXERR.IOR.CSR ; GOTO SVRET
+      IF)
+  ASECT=-1
+  CSR='READY'.IOR.CSR ; WAIDAT=1        %READY ףמסלןףר נעי תבניףי ק DBR
+  GOSUB TICWAI 10                       %צהום הןעןצכי
+  (IF DBR<0 OR >'QTRACK-1'
+    STATUS='ETRACK' ; CSR=DXERR.IOR.CSR ; GOTO SVRET
+      IF)
+  ATRACK=
+  RETURN:CHKST
+
+SUBROUTINE CHKON
+  (IF CIO:=                             %היףכ קשכלא‏ומ ?
+    STATUS=0 ; ECODES=1 ; CSR=DXERR+'READY'.IOR.CSR   %DONE ןפףץפ-ופ
+    GOTO SVRET
+      IF)
+  RETURN:CHKON
+
+SUBROUTINE PUTIT
+  #ITWORD=#ITWORD.IOR.'D:BIT' ; @AITREQ='ITPRI'
+  RETURN:PUTIT
+
+%-- ‏פומיו ףפבפץףב --
+RDSTAT =
+  STATUS=((IF CIO:<> THEN ='DRVRDY' ELSE =0))
+  DBR=
+  CSR='READY+DONE'.IOR.CSR
+  GOTO SVRET
+
+%-- ‏פומיו כןהב ןûיגכי --
+RDERR =
+  DBR=ECODES
+  CSR='READY+DONE'.IOR.CSR
+  GOTO SVRET
+
+NILTSK =                                %(מב "םועו-60" üפןך זץמכ. מופ)
+WRBAD =                                 %נןםופכב "נלןטןך" תבניףי
+  CSR=CSR.IOR.DXERR ; ECODES=1          %עץחבוםףס מב üפי נןנשפכי
+  GOTO SVRET
+
+%-- ןציהבמיו תבהועצכי --
+SUBROUTINE TICWAI(@ATICK)
+  #TICKFL=1
+  RETURN ,          % VIRTUAL 'FALL THROUGH'
+PROGRAM DX:TIC()                        %נעיûלן WAKEUP
+% @ATICK=0                              %ץצו הןלצמן גשפר, עבת נעיûלן
+  RETURN:TICWAI                         %נעןהןלצבום תבהב‏ץ
+
+%-- כןמוד תבהב‏י --
+ <<SVRET>> =
+  (TICWAI+2)=ASTOP                      %הבלוו קףו WAKEUP גץהץפ נץףפשו
+STOP RETURN ,
+
+PROGRAM DX:INF()
+%%CSV DEBUG
+  @AITREQ=0
+  RETURN 'ITADDR'
+
+%-- ףגעןף נן ימףפע. RESET י גיפץ &4000 ---
+SUBROUTINE RESET
+  (IF CIO:=
+    CSR='READY'                         %ףמיםבום 'DONE'
+  ELSE
+    (CIO+1):=0                          %‏יפבום
+    IOSECT=&0D                          %0-ך גלןכ 1-ך הןעןצכי
+    CALL :IO CIO\
+    !@BUFFER=IOBUFF,&80
+%%  GOSUB CHKIT                         %נןנשפכב קשתקבפר נעועשקבמיו
+    CSR='READY+DONE'
+  IF)
+  (TICWAI+2)=ASTOP                      %ןגעץגבום פוכץ‎ץא תבהב‏ץ
+  @AITREQ=0
+  RETURN:RESET

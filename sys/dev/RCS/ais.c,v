@@ -1,0 +1,442 @@
+head     22.3;
+access   avg;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.04.09;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.31.13;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.15.13;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.20.35;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.03.24.21.40.43;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.11.01.21.32.49;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Интерфейс AIS фирмы Robotron.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * AIS driver
+ * Последовательные интерфейсы AIS K8060 на машинах K1630(robotron)
+ *         по 4 канала ( 1a,1b,2a,2b ) в одном интерфейсе.
+ * $Log:	ais.c,v $
+ * Revision 22.2  89/04/27  13:31:13  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  14:15:13  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:20:35  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.2  89/03/24  21:40:43  korotaev
+ * После unifdef'a.
+ * 
+ * Revision 1.1  88/11/01  21:32:49  dvolodin
+ * Initial revision
+ * 
+ */
+#include "h/ais.h"
+
+#if NAIS > 0
+#include <sys/param.h>
+#include <sys/conf.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/systm.h>
+#include "../include/aisreg.h"
+
+#ifdef  AISCONS
+#define AIS1ADR  ((struct device *)0177500)
+#endif  /* AISCONS */
+
+/*
+ * structure of the AIS device registers
+ */
+
+#define AISNR   (d/4)
+#define AISCHAN (d%4)
+#define AISB    (d%2)
+#define NAISLIN (NAIS*4)
+
+struct  tty ais[NAISLIN];
+
+int	ttrstrt();
+int	aisstart();
+int     nais = NAISLIN;
+
+extern char partab[];
+
+aisattach( addr, unit )
+register struct aisdevice *addr ;
+{
+    register unsigned a, d ;
+
+    d = unit ;
+    if( (unsigned)unit < NAISLIN ) {
+	unit &= ~03 ;
+	ais[d].t_addr = (a=ais[unit].t_addr) ? a+(AISCHAN*4) : addr ;
+	return 1 ;
+    }
+    return 0 ;
+}
+
+aisopen(dev, flag)
+dev_t	dev;
+{
+	register struct aisdevice *addr;
+	register struct tty *tp;
+	register int	d;
+	int	s;
+
+	d = minor(dev);
+	tp = &ais[d];
+#ifdef  AISCONS
+	if( d == 0 && tp->t_addr == 0 ) {
+		tp->t_addr = AIS1ADR ;
+	} else
+#endif  /* AISCONS */
+	if( d >= NAISLIN || (addr=tp->t_addr) == 0 ) {
+		u.u_error = ENXIO;
+		return;
+	}
+	tp->t_oproc = aisstart;
+	if ((tp->t_state&ISOPEN) == 0) {
+		ttychars(tp);
+		if( tp->t_ispeed == 0 ) {
+			tp->t_state = ISOPEN | CARR_ON;
+			tp->t_ispeed = tp->t_ospeed = B9600;
+			tp->t_flags = ODDP | EVENP | RAW ;
+		}
+		tp->t_line = DFLT_LDISC ;
+		aisparam(dev,tp);
+		tp->t_state |= ISOPEN|CARR_ON;
+	} else if (tp->t_state&XCLUDE && u.u_uid != 0){
+		u.u_error = EBUSY;
+		return;
+	}
+	s = spl4();
+	if (addr->aiscsr);                      /* reset pointer */
+	addr->aiscsr = AIS_SR1 | AIS_CLRERR ;   /* reset error state in SR1 */
+	addr->aiscsr = AISSR1_RIE | AISSR1_SMV | AISSR1_TIE ;   /* enable    */
+	addr[-AISCHAN+7].aiscsr = AIS_IENABLE ;                 /* intrrupts */
+	splx(s);
+	ttyopen(dev,tp);
+}
+
+aisclose(dev,flag)
+dev_t	dev;
+int	flag;
+{
+	register struct tty *tp;
+
+	tp = &ais[minor(dev)];
+	ttyclose(tp);
+}
+
+aisread(dev)
+dev_t	dev;
+{
+	register struct tty *tp ;
+
+	tp = &ais[minor(dev)];
+	(*linesw[tp->t_line].l_read)(tp);
+}
+
+aiswrite(dev)
+dev_t	dev;
+{
+	register struct tty *tp ;
+
+	tp = &ais[minor(dev)];
+	(*linesw[tp->t_line].l_write)(tp);
+}
+
+aisint(dev)
+dev_t	dev;
+{
+	register struct tty *tp;
+	register        struct  aisdevice  *addr;
+	register	int	c,d;
+	int	temp;
+
+	d = minor(dev);
+	tp = &ais[d];
+	if ((addr = (struct     aisdevice  *)tp->t_addr) == 0) {
+		printf( "AIS%d/%d%s intr\n",
+			 AISNR, 1+AISCHAN/2, AISB?"b":"a" );
+		return ;
+	}
+
+	temp = addr->aiscsr; 	/* reset pointer */
+
+	if ((temp = addr->aiscsr)&AIS_RDONE) {
+		addr->aiscsr = AIS_LR1 ;
+		if ((addr->aiscsr)&(AISLR1_FRE|AISLR1_OVR|AISLR1_RDPE)) {
+			c = addr->aisdat;
+			addr->aiscsr = AIS_CLRERR;
+		}
+		else
+			c = addr->aisdat;
+		(*linesw[tp->t_line].l_input)(c, tp);
+	}
+	else if (temp & AIS_TRDY ) {
+		addr->aiscsr = AIS_REOI ;
+		ttstart(tp);
+		if (tp->t_state & ASLEEP && tp->t_outq.c_cc <= TTLOWAT(tp))
+			wakeup((caddr_t)&tp->t_outq);
+	}
+reti:
+	addr[-AISCHAN+7].aiscsr = AIS_IENABLE;
+}
+
+
+aisioctl(dev,cmd,addr,flag)
+caddr_t	addr;
+dev_t	dev;
+{
+	register struct tty *tp;
+
+	tp = &ais[minor(dev)];
+	switch (ttioctl(tp, cmd, addr, flag)) {
+	    case TIOCSETP:
+	    case TIOCSETN:
+	    case TIOCSETA:
+	    case TIOCSETB:
+#ifdef  AISCONS
+		if( minor(dev) == 0 ) {
+			tp->t_ispeed = tp->t_ospeed = B9600 ;
+		} else
+#endif  /* AISCONS */
+			aisparam(dev, tp);
+		break;
+	    case 0:
+		break;
+	    default:
+		u.u_error = ENOTTY;
+	}
+}
+
+aisstart(tp)
+register struct tty *tp;
+{
+	register        struct  aisdevice  *addr;
+	register c,d;
+
+	d = minor(tp->t_dev);
+	addr = (struct aisdevice *)tp->t_addr;
+	if (addr->aiscsr);		/* reset pointer */
+	if(((addr->aiscsr&AIS_TRDY) == 0)
+	|| (tp->t_state&TTSTOP))
+		goto	ret;
+	if((c = getc(&tp->t_outq)) >= 0){
+		if ((tp->t_lstate&L8BITS))
+			addr->aisdat = c;
+		else if(c <= 0177)
+			addr->aisdat = c | (partab[c]&0200);
+		else {
+			timeout(ttrstrt, (caddr_t)tp, (c&0177) + AISDELAY);
+			tp->t_state |= TIMEOUT;
+		}
+	}
+	else if(tp->t_state&ASLEEP){
+		tp->t_state &= ~ASLEEP;
+		wakeup((caddr_t)&tp->t_outq);
+	}
+ret:
+	addr[-AISCHAN+7].aiscsr = AIS_IENABLE;
+}
+
+aisparam(dev,tp)
+dev_t	dev;
+register struct tty *tp;
+{
+	register        struct  aisdevice  *addr;
+	register        d, s;
+
+	s = spl4();
+	d = minor(dev);
+
+	addr = (struct  aisdevice  *)tp->t_addr;   /* address of channel */
+	if (addr->aiscsr);	/* reset pointer */
+	addr->aiscsr = AIS_CLRCHAN ;
+	switch(tp->t_ispeed) {
+		case B9600:
+			addr->aiscsr = AIS_SR4 ;
+			addr->aiscsr = AISSR4_B9600 | AISSR4_STOP1 | AISSR4_PENBL ;
+			break;
+		case B4800:
+			addr->aiscsr = AIS_SR4 ;
+			addr->aiscsr = AISSR4_B4800 | AISSR4_STOP1 | AISSR4_PENBL ;
+			break;
+		case B2400:
+			addr->aiscsr = AIS_SR4 ;
+			addr->aiscsr = AISSR4_B2400 | AISSR4_STOP1 | AISSR4_PENBL ;
+			break;
+	}
+	addr->aiscsr = AIS_SR5;
+
+#ifdef  AISCONS
+	if (d == 0)
+		addr->aiscsr = AISSR5_T7BITS | AISSR5_TENBL | AISSR5_BRKHLT ;
+	else
+#endif  /* AISCONS */
+		addr->aiscsr = AISSR5_T7BITS | AISSR5_TENBL ;
+
+	addr->aiscsr = AIS_SR3 ;
+	addr->aiscsr = AISSR3_R7BITS ;
+	addr->aiscsr = AIS_SR3 ;
+	addr->aiscsr = AISSR3_R7BITS | AISSR3_RENBL ;
+
+	if (addr->aiscsr);
+	addr->aiscsr = AIS_SR1 ;
+	addr->aiscsr = AISSR1_RIE | AISSR1_SMV | AISSR1_TIE ;
+
+	splx(s);
+}
+
+#ifdef  AISCONS
+/*
+ * Print a character on console.
+ *
+ * the last MSGBUFS characters
+ * are saved in msgbuf for inspection later.
+ */
+aisputchar(c)
+register c;
+{
+	register s, timo;
+
+	/* Map lower case to upper on console */
+	if ('a'<=c && c<='z')
+		c -= 040;
+oc:
+	s = AIS1ADR->aiscsr;
+	timo = 0;
+	while( (AIS1ADR->aiscsr & AIS_TRDY) == 0 && --timo ) ;
+	AIS1ADR->aiscsr = AIS_SR1 | AIS_REOI;
+	s = 0;
+	AIS1ADR->aiscsr = s;
+	while( AIS1ADR->aiscsr & AIS_RDONE ) {
+		s = AIS1ADR->aisdat;
+		s &= 0177;
+		if( s == 023 ) { /* ctrl/s */
+			ais[0].t_state |= TTSTOP;
+			break;
+		}
+	}
+	while( ais[0].t_state & TTSTOP ) {
+		while( (AIS1ADR->aiscsr & AIS_RDONE) == 0 ) ;
+		s = AIS1ADR->aisdat;
+		s &= 0177;
+		if( s == 021 ) /* ctrl/q */
+			ais[0].t_state &= ~TTSTOP;
+	}
+	AIS1ADR->aisdat = c;
+	timo = 0;
+	while( (AIS1ADR->aiscsr & AIS_TRDY) == 0 && --timo ) ;
+	if(c == '\n') {
+		c = '\r';
+		goto oc;
+	}
+	AIS1ADR->aiscsr = AIS_SR1;
+	AIS1ADR->aiscsr = AISSR1_RIE | AISSR1_SMV | AISSR1_TIE ;
+}
+#endif  /* AISCONS */
+#endif /* NAIS */
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d6 3
+d31 1
+a31 1
+#include <sys/aisreg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d6 3
+d19 1
+a19 1
+#include "ais.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d6 3
+d19 1
+a19 1
+#include "param.h"
+@
+
+
+1.2
+log
+@После unifdef'a.
+@
+text
+@d6 3
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+a204 1
+#ifdef  UCB_NTTY
+a205 3
+#else
+		if (tp->t_flags & RAW)
+#endif
+@

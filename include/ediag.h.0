@@ -1,0 +1,7 @@
+#ifndef __ediag_h__
+#define __ediag_h__
+
+#define ediag(e,r) (e)
+#define _setediag()
+
+#endif

@@ -1,0 +1,1127 @@
+head     22.4;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз0:1.7.1;
+locks    ;
+comment  @ * @;
+
+
+22.4
+date     90.11.12.19.15.44;  author root;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.04.28.15.22.49;  author avg;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.55.22;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.02.31;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.27.19.06.18;  author korotaev;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.03.24.16.12.07;  author korotaev;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.07.15.16.32.28;  author alex;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.06.06.14.32.32;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.04.25.13.37.24;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.07.29.22.48.22;  author avg;  state Stab;
+branches ;
+next     1.3;
+
+1.3
+date     86.05.30.15.06.38;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.04.19.18.40.17;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.55.15;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.4
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+
+ * $Log:	tty.c,v $
+ * Revision 22.3  89/04/28  15:22:49  avg
+ * Убран #ifdef IPK_SELECT
+ * 
+ * Revision 22.2  89/04/27  13:55:22  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  15:02:31  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/27  19:06:18  korotaev
+ * С этой версии начинается ДЕМОС 2.2.
+ * 
+ * Revision 1.8  89/03/24  16:12:07  korotaev
+ * ???
+ * 
+ * Revision 1.7  88/07/15  16:32:28  alex
+ * Внесены правки для работы с КОИ-8/QWERTY терминалы
+ *
+ * Revision 1.6  88/06/06  14:32:32  korotaev
+ * Вставлен IPK_SELECT (from TCP/IP).
+ *
+ * Revision 1.5  88/04/25  13:37:24  avg
+ * По wflushtty теперь вызывается ttstart, а не  oproc !!!
+ *
+ * Revision 1.4  86/07/29  22:48:22  avg
+ * По TIOCSETA и TIOCSETP сбрасывается сч. колонок - width будет
+ * работать правильно.
+ *
+ * Revision 1.3  86/05/30  15:06:38  avg
+ * Исправлена ошибка - см. diff.
+ *
+ * Revision 1.2  86/04/19  18:40:17  avg
+ * Добавлена обработка поля t_width.
+ *
+ * Revision 1.1  86/04/19  17:55:15  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * TTY subroutines common to more than one line discipline
+ */
+
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/proc.h>
+#include <sys/inode.h>
+#include <sys/file.h>
+#include "../include/reg.h"
+#include <sys/conf.h>
+#include "../include/buf.h"
+#include "h/bk.h"
+
+/* partab bits 0-7 now if more than 040 is input mapping table chunks @@VG */
+extern  char    partab[];
+
+short   tthiwat[16] =
+   { 100,100,100,100,100,100,100,200,200,400,400,400,650,650,650,650 };
+
+short   ttlowat[16] =
+   {  30, 30, 30, 30, 30, 30, 30, 50, 50,120,120,120,125,125,125,125 };
+
+#define OBUFSIZ 100
+
+/*
+ * routine called on teletype open.
+ * establishes a process group for distribution
+ * of quits and interrupts from the tty.
+ * Then calls open routine for default line discipline.
+ */
+ttyopen(dev, tp)
+dev_t dev;
+register struct tty *tp;
+{
+	register struct proc *pp;
+
+	pp = u.u_procp;
+	tp->t_dev = dev;
+	if(pp->p_pgrp == 0) {
+		u.u_ttyp = tp;
+		u.u_ttyd = dev;
+		if (tp->t_pgrp == 0)
+			tp->t_pgrp = pp->p_pid;
+		pp->p_pgrp = tp->t_pgrp;
+	}
+	tp->t_state &= ~WOPEN;
+	tp->t_state |= ISOPEN;
+	tp->t_optr  = &(tp->t_outq);
+	tp->t_tproc = NULL;
+	(*linesw[tp->t_line].l_open)(tp);
+}
+
+/*
+ * clean tp on last close
+ */
+ttyclose(tp)
+register struct tty *tp;
+{
+	(*linesw[tp->t_line].l_close)(tp);
+	tp->t_pgrp = 0;
+	wflushtty(tp);
+	tp->t_state = 0;
+}
+
+/*
+ * set default control characters.
+ */
+ttychars(tp)
+register struct tty *tp;
+{
+
+	tun.t_intrc = CINTR;
+	tun.t_quitc = CQUIT;
+	tun.t_startc = CSTART;
+	tun.t_stopc = CSTOP;
+	tun.t_eofc = CEOT;
+	tun.t_brkc = CBRK;
+	tp->t_erase = CERASE;
+	tp->t_kill = CKILL;
+	tlun.t_suspc = CTRL(z);
+	tlun.t_dsuspc = CTRL(y);
+	tlun.t_rprntc = CTRL(r);
+	tlun.t_flushc = CTRL(t); /* @@VG, was CTRL(o) */
+	tlun.t_werasc = CTRL(w);
+	tlun.t_lnextc = CTRL(v);
+	tp->t_local = 0;
+	tp->t_lstate = 0;
+	tp->t_crdly = 0;        /* No delay */
+	tp->t_nldly = 0;
+	tp->t_htdly = 0;
+	tp->t_vtdly = 0;
+	tp->t_width = 0;
+}
+
+/*
+ * Wait for flushing output queue only
+ */
+wflushout(tp)
+register struct tty *tp;
+{
+	(void) _spl5();
+	while (tp->t_optr->c_cc && tp->t_state&CARR_ON) {
+		ttstart(tp);
+		tp->t_state |= ASLEEP;
+		if( sleep((caddr_t)(tp->t_optr), PCATCH | TTOPRI) )
+			break;
+	}
+	(void) _spl0();
+}
+
+/*
+ * Wait for output to drain, then flush input waiting.
+ */
+wflushtty(tp)
+register struct tty *tp;
+{
+
+	(void) _spl5();
+	while (tp->t_optr->c_cc && tp->t_state&CARR_ON) {
+		ttstart(tp);
+		tp->t_state |= ASLEEP;
+		sleep((caddr_t)(tp->t_optr), TTOPRI);
+	}
+	flushtty(tp, FREAD|FWRITE);
+	(void) _spl0();
+}
+
+/*
+ * flush all TTY queues
+ */
+flushtty(tp, rw)
+register struct tty *tp;
+register rw;
+{
+	register s;
+
+#if     NBK > 0
+	if (tp->t_line == NETLDISC)
+		return;
+#endif
+	s = spl6();
+	if (rw & FREAD) {
+		while (getc(&tp->t_canq) >= 0)
+			;
+		wakeup((caddr_t)&tp->t_rawq);
+	}
+	if ((rw & FWRITE) && tp->t_optr == &(tp->t_outq)) {
+		tp->t_state &= ~TTSTOP;
+		(*cdevsw[major(tp->t_dev)].d_stop)(tp);
+		while (getc(tp->t_optr) >= 0)
+			;
+		wakeup((caddr_t)(tp->t_optr));
+	}
+	if (rw & FREAD) {
+		while (getc(&tp->t_rawq) >= 0)
+			;
+		tp->t_delct = 0;
+		tp->t_rocount = 0;
+		tp->t_rocol = 0;
+		tp->t_lstate &= LIREG|LOREG|L8BITS;
+	}
+	splx(s);
+}
+
+/*
+ * Send stop character on input overflow.
+ */
+ttyblock(tp)
+register struct tty *tp;
+{
+	register x;
+	x = tp->t_rawq.c_cc + tp->t_canq.c_cc;
+	if (tp->t_rawq.c_cc > TTYHOG) {
+		flushtty(tp, FREAD|FWRITE);
+		tp->t_state &= ~TBLOCK;
+	}
+	/*
+	 * Block further input iff:
+	 * Current input > threshold AND input is available to user program
+	 */
+	if (x >= TTYHOG/2 && (tp->t_delct>0 || (tp->t_flags&(RAW|CBREAK)))) {
+		if (PutcOutq(tun.t_stopc, tp)==0) {
+			tp->t_state |= TBLOCK;
+			ttstart(tp);
+		}
+	}
+}
+
+/*
+ * Restart typewriter output following a delay
+ * timeout.
+ * The name of the routine is passed to the timeout
+ * subroutine and it is called during a clock interrupt.
+ */
+ttrstrt(tp)
+register struct tty *tp;
+{
+
+#ifdef  DIAGNOSTIC
+	if (tp == 0) {
+		printf("ttrstrt: arg was 0!\n");
+		return;
+	}
+#endif
+	tp->t_state &= ~TIMEOUT;
+	ttstart(tp);
+}
+
+/*
+ * Start output on the typewriter. It is used from the top half
+ * after some characters have been put on the output queue,
+ * from the interrupt routine to transmit the next
+ * character, and after a timeout has finished.
+ */
+ttstart(tp)
+register struct tty *tp;
+{
+	register s;
+
+	s = spl5();
+	if((tp->t_state&(TIMEOUT|TTSTOP|BUSY)) == 0)
+		(*tp->t_oproc)(tp);
+	splx(s);
+}
+
+/*
+ * Common code for tty ioctls.
+ * Return values:
+ *      cmd                     cmd is not done (driver must do some/all)
+ *      0                       cmd is done
+ *      0 (u.u_error set)       cmd was rejected by line disc. code
+ */
+/*ARGSUSED*/
+ttioctl(tp, com, addr, flag)
+register struct tty *tp;
+caddr_t addr;
+{
+	register dev_t dev;
+	unsigned t;
+	struct sgttyb1 iocb; /* @@VG, sgttyb1 fully includes sgttyb */
+	struct clist tq;
+	extern int nldisp;
+	register c;
+	int temp;
+	extern nodev();
+
+	/*
+	 *  First, give the line discipline a chance.
+	 *  If it returns 0, either the work is done
+	 *  or the request was refused.
+	 *  Return 0 to keep the device driver from continuing.
+	 */
+	if ((com = (*linesw[tp->t_line].l_ioctl)(tp,com,addr,flag)) == 0)
+		return(0);
+	/*
+	 * This is especially so that isatty() will
+	 * fail when carrier is gone.
+	 */
+	if ((tp->t_state&CARR_ON) == 0) {
+		u.u_error = EBADF;
+		return (0);
+	}
+
+	dev = tp->t_dev;
+	/*
+	 * If the ioctl involves modification,
+	 * hang if in the background.
+	 */
+	switch(com) {
+
+	case TIOCSETA:
+	case TIOCSETB:
+	case TIOCSETD:
+	case TIOCSETP:
+	case TIOCSETN:
+	case TIOCFLUSH:
+	case TIOCSETC:
+	case TIOCSLTC:
+	case TIOCSPGRP:
+	case TIOCLBIS:
+	case TIOCLBIC:
+	case TIOCLSET:
+	case TIOCSTI:
+		while (tp->t_line == NTTYDISC &&
+		   u.u_procp->p_pgrp != tp->t_pgrp && tp == u.u_ttyp &&
+#ifdef  VIRUS_VFORK
+		   (u.u_procp->p_flag&SVFORK) == 0 &&
+#endif
+		   u.u_signal[SIGTTOU] != SIG_IGN &&
+		   u.u_signal[SIGTTOU] != SIG_HOLD &&
+		   (u.u_procp->p_flag&SDETACH)==0) {
+			gsignal(u.u_procp->p_pgrp, SIGTTOU);
+			sleep((caddr_t)&lbolt, TTOPRI);
+		}
+		break;
+	}
+
+	/*
+	 * Process the ioctl.
+	 */
+	switch(com) {
+
+	/*
+	 * Stop output on typewriter
+	 */
+	case TIOCSTOP:
+		if ((tp->t_state&TTSTOP)==0) {
+			tp->t_state |= TTSTOP;
+			(*cdevsw[major(tp->t_dev)].d_stop)(tp,0);
+		}
+		break;
+
+	/*
+	 * Retart suspended output
+	 */
+	case TIOCSTART:
+		tp->t_state &= ~TTSTOP;
+		tp->t_local &= ~LFLUSHO;
+		ttstart(tp);
+		break;
+
+	/*
+	 * Get discipline number
+	 */
+	case TIOCGETD:
+		t = tp->t_line;
+		if (copyout((caddr_t)&t, addr, sizeof(t)))
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Set line discipline
+	 */
+	case TIOCSETD:
+		if (copyin(addr, (caddr_t)&t, sizeof(t))) {
+			u.u_error = EFAULT;
+			break;
+		}
+		if ((t >= nldisp) || (linesw[t].l_open == nodev)) {
+			u.u_error = ENXIO;
+			break;
+		}
+		if (t != tp->t_line) {
+			(void) _spl5();
+			(*linesw[tp->t_line].l_close)(tp);
+			(*linesw[t].l_open)(tp);
+			if (u.u_error==0)
+				tp->t_line = t;
+			(void) _spl0();
+		}
+		break;
+
+	/*
+	 * Prevent more opens on channel
+	 */
+	case TIOCEXCL:
+		tp->t_state |= XCLUDE;
+		break;
+
+	case TIOCNXCL:
+		tp->t_state &= ~XCLUDE;
+		break;
+
+	case TIOCGEXCL:
+		temp = ((tp->t_state & XCLUDE ) != 0);
+		if( copyout((caddr_t)&temp, addr, sizeof(int)) )
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Set new parameters
+	 */
+	case TIOCSETA:
+	case TIOCSETB:
+		if (copyin(addr, (caddr_t)&iocb, sizeof(struct sgttyb1))) {
+			u.u_error = EFAULT;
+			return(0);
+		}
+		goto SNP;
+	case TIOCSETP:
+	case TIOCSETN:
+		if (copyin(addr, (caddr_t)&iocb, sizeof(struct sgttyb))) {
+			u.u_error = EFAULT;
+			return(0);
+		}
+	    SNP:
+		wflushout(tp);          /* wait for flushing output */
+		(void) _spl5();
+#ifdef  OLDTTY
+		if (tp->t_line == OTTYDISC) {
+			if (com == TIOCSETP || com == TIOCSETA) {
+				tp->t_col = 0;  /* Сбросить сч. позиций */
+				wflushtty(tp);
+			}
+			while (canon(tp)>=0)
+				;
+		}
+#endif  OLDTTY
+		if (tp->t_line == NTTYDISC) {
+			if (tp->t_flags&RAW || iocb.sg_flags&RAW ||
+			    com == TIOCSETP || com == TIOCSETA) {
+				tp->t_col = 0;  /* Сбросить сч. позиций */
+				wflushtty(tp);
+			} else if ((tp->t_flags&CBREAK) != (iocb.sg_flags&CBREAK)) {
+				if (iocb.sg_flags & CBREAK) {
+					catq(&tp->t_rawq, &tp->t_canq);
+					tq = tp->t_rawq;
+					tp->t_rawq = tp->t_canq;
+					tp->t_canq = tq;
+				} else {
+					tp->t_local |= LPENDIN;
+#ifdef  DIAGNOSTIC
+					if (tp->t_canq.c_cc)
+						panic("ttioctl canq");
+#endif
+						wakeup((caddr_t)&tp->t_rawq);
+				}
+			}
+		}
+		if ((tp->t_state&SPEEDS)==0) {
+			tp->t_ispeed = iocb.sg_ispeed;
+			tp->t_ospeed = iocb.sg_ospeed;
+		}
+		tp->t_erase = iocb.sg_erase;
+		tp->t_kill = iocb.sg_kill;
+		tp->t_flags = iocb.sg_flags;
+		if(com == TIOCSETA || com == TIOCSETB) {
+			tp->t_crdly = iocb.sg_crdly;
+			tp->t_nldly = iocb.sg_nldly;
+			tp->t_htdly = iocb.sg_htdly;
+			tp->t_vtdly = iocb.sg_vtdly;
+			tp->t_width = iocb.sg_width;
+			tp->t_local = iocb.sg_local;
+			copby( &(tp->t_un.t_chr), &(iocb.sg_intrc), sizeof(struct tchars) );
+			copby( &(tp->t_lchr),     &(iocb.sg_suspc), sizeof(struct ltchars));
+		}
+		/* А теперь если нужно, установим признак 8 бит для др-ров */
+		if( ((c=tp->t_flags)&RAW) ||
+		  (c&(CYRILL|CSTYLE|LCASE))==(CYRILL|CBITS8) ||
+		  (c&(CYRILL|CSTYLE|LCASE))==(CYRILL|CBITS8Q) ||
+		  (tp->t_local&LLITOUT)  )
+		   tp->t_lstate |= L8BITS;
+		else
+		   tp->t_lstate &= ~L8BITS;
+		(void) _spl0();
+		return(com);
+
+	/*
+	 * Send current parameters to user
+	 */
+	case TIOCGETA:
+		iocb.sg_crdly = tp->t_crdly;
+		iocb.sg_nldly = tp->t_nldly;
+		iocb.sg_htdly = tp->t_htdly;
+		iocb.sg_vtdly = tp->t_vtdly;
+		iocb.sg_width = tp->t_width;
+		iocb.sg_local = tp->t_local;
+		copby( &(iocb.sg_intrc), &(tp->t_un.t_chr), sizeof(struct tchars) );
+		copby( &(iocb.sg_suspc), &(tp->t_lchr),     sizeof(struct ltchars));
+		/* FALL TROUGH : @@VG */
+	case TIOCGETP:
+		iocb.sg_ispeed = tp->t_ispeed;
+		iocb.sg_ospeed = tp->t_ospeed;
+		iocb.sg_erase = tp->t_erase;
+		iocb.sg_kill = tp->t_kill;
+		iocb.sg_flags = tp->t_flags;
+		if (copyout((caddr_t)&iocb, addr,
+				(com == TIOCGETP) ? sizeof(struct sgttyb)
+						  : sizeof(struct sgttyb1)))
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Hang up line on last close
+	 */
+	case TIOCHPCL:
+		tp->t_state |= HUPCLS;
+		break;
+
+	case TIOCFLUSH: {
+		int flags;
+		if (copyin(addr, (caddr_t) &flags, sizeof (flags))) {
+			u.u_error = EFAULT;
+			return (1);
+		}
+		if (flags == 0)
+			flags = FREAD | FWRITE;
+		else
+			flags &= FREAD | FWRITE;
+		flushtty(tp, flags);
+		break;
+	}
+
+	case FIONBIO: {
+		int nbio;
+		if (copyin(addr, (caddr_t)&nbio, sizeof (nbio))) {
+			u.u_error = EFAULT;
+			return(1);
+		}
+		if (nbio)
+			tp->t_state |= TS_NBIO;
+		else
+			tp->t_state &= ~TS_NBIO;
+		break;
+	}
+
+	case FIOASYNC: {
+		int async;
+		if (copyin(addr, (caddr_t)&async, sizeof (async))) {
+			u.u_error = EFAULT;
+			return(1);
+		}
+		if (async)
+			tp->t_state |= TS_ASYNC;
+		else
+			tp->t_state &= ~TS_ASYNC;
+		break;
+	}
+
+	/*
+	 * Set and fetch special characters
+	 */
+	case TIOCSETC:
+		if (copyin(addr, (caddr_t)&tun, sizeof(struct tchars)))
+			u.u_error = EFAULT;
+		break;
+
+	case TIOCGETC:
+		if (copyout((caddr_t)&tun, addr, sizeof(struct tchars)))
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Set/get local special characters.
+	 */
+	case TIOCSLTC:
+		if (copyin(addr, (caddr_t)&tlun, sizeof (struct ltchars)))
+			u.u_error = EFAULT;
+		break;
+
+	case TIOCGLTC:
+		if (copyout((caddr_t)&tlun, addr, sizeof (struct ltchars)))
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Return number of characters immediately available.
+	 */
+	case FIONREAD: {
+		off_t nread;
+
+		switch (tp->t_line) {
+
+#if     NBK > 0
+		case NETLDISC:
+			nread = tp->t_rec ? tp->t_inbuf : 0;
+			break;
+#endif
+
+#ifdef  OLDTTY
+		case OTTYDISC:
+			(void) _spl5();
+			while (canon(tp)>=0)
+				;
+			(void) _spl0();
+			/* fall into ... */
+#endif
+
+		case NTTYDISC:
+			nread = ttnread(tp);
+			break;
+
+		}
+		if (copyout((caddr_t)&nread, addr, sizeof (off_t)))
+			u.u_error = EFAULT;
+		break;
+		}
+
+	/*
+	 * Should allow SPGRP and GPGRP only if tty open for reading.
+	 */
+	case TIOCSPGRP:
+		if (copyin(addr, (caddr_t)&tp->t_pgrp, sizeof (tp->t_pgrp)))
+			u.u_error = EFAULT;
+		break;
+
+	case TIOCGPGRP:
+		if (copyout((caddr_t)&tp->t_pgrp, addr, sizeof(tp->t_pgrp)))
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Modify local mode word.
+	 */
+	case TIOCLBIS:
+		if (copyin(addr, (caddr_t)&temp, sizeof (tp->t_local)))
+			u.u_error = EFAULT;
+		else
+			tp->t_local |= temp;
+		break;
+
+	case TIOCLBIC:
+		if (copyin(addr, (caddr_t)&temp, sizeof (tp->t_local)))
+			u.u_error = EFAULT;
+		else
+			tp->t_local &= ~temp;
+		break;
+
+	case TIOCLSET:
+		if (copyin(addr, (caddr_t)&temp, sizeof (tp->t_local)))
+			u.u_error = EFAULT;
+		else
+			tp->t_local = temp;
+		break;
+
+	case TIOCLGET:
+		if (copyout((caddr_t)&tp->t_local, addr, sizeof(tp->t_local)))
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Return number of characters in
+	 * the output.
+	 */
+	case TIOCOUTQ:
+		if (copyout((caddr_t)&(tp->t_optr->c_cc), addr, sizeof(short)))
+			u.u_error = EFAULT;
+		break;
+
+	/*
+	 * Simulate typing of a character at the terminal.
+	 * Я хотел бы отметить один такой нюанс:
+	 * непонятно, что надо делать если я хочу ввести символы
+	 * именно в нужном мне регистре.
+	 * Наверно, лучше было бы имитировать ввод в RAW режиме !
+	 *                                      @@VG
+	 */
+	case TIOCSTI:
+		c = fubyte(addr);
+		if (u.u_uid && u.u_ttyp != tp || c < 0)
+			u.u_error = EFAULT;
+		else
+			(*linesw[tp->t_line].l_input)(c, tp);
+		break;
+
+#ifdef  TEXAS_AUTOBAUD
+	case TIOCSIMG:
+		tp->t_xflags |= LIMAGE;
+		break;
+
+	case TIOCCIMG:
+		tp->t_xflags &= ~LIMAGE;
+		break;
+#endif
+
+	default:
+		return(com);
+	}
+	return(0);
+}
+
+ttnread(tp)
+register struct tty *tp;
+{
+	register int nread = 0;
+
+	if (tp->t_local & LPENDIN)
+		ttypend(tp);
+	nread = tp->t_canq.c_cc;
+	if (tp->t_flags & (RAW|CBREAK))
+		nread += tp->t_rawq.c_cc;
+	return (nread);
+}
+
+ttselect(dev, rw)
+	dev_t dev;
+	int rw;
+{
+	register struct tty *tp = &cdevsw[major(dev)].d_ttys[minor(dev)&077];
+	int nread;
+	int s = spl5();
+
+	switch (rw) {
+
+	case FREAD:
+		nread = ttnread(tp);
+		if (nread > 0)
+			goto win;
+		if (tp->t_rsel && tp->t_rsel->p_wchan == (caddr_t)&selwait)
+			tp->t_state |= TS_RCOLL;
+		else
+			tp->t_rsel = u.u_procp;
+		break;
+
+	case FWRITE:
+		if (tp->t_optr->c_cc <= TTLOWAT(tp))
+			goto win;
+		if (tp->t_wsel && tp->t_wsel->p_wchan == (caddr_t)&selwait)
+			tp->t_state |= TS_WCOLL;
+		else
+			tp->t_wsel = u.u_procp;
+		break;
+	}
+	splx(s);
+	return (0);
+win:
+	splx(s);
+	return (1);
+}
+
+/*
+ * Copy n bytes from from to to    @@VG
+ */
+copby( to, from, n )
+register char *to, *from;
+register n;
+{
+	while( n-- )
+		*to++ = *from++;
+}
+@
+
+
+22.3
+log
+@Убран #ifdef IPK_SELECT
+@
+text
+@d2 1
+d4 3
+d55 1
+a55 1
+#include <sys/reg.h>
+d57 1
+a57 1
+#include <sys/buf.h>
+d94 2
+d148 1
+a148 1
+	while (tp->t_outq.c_cc && tp->t_state&CARR_ON) {
+d151 1
+a151 1
+		if( sleep((caddr_t)&tp->t_outq, PCATCH | TTOPRI) )
+d165 1
+a165 1
+	while (tp->t_outq.c_cc && tp->t_state&CARR_ON) {
+d168 1
+a168 1
+		sleep((caddr_t)&tp->t_outq, TTOPRI);
+d193 1
+a193 1
+	if (rw & FWRITE) {
+d196 1
+a196 1
+		while (getc(&tp->t_outq) >= 0)
+d198 1
+a198 1
+		wakeup((caddr_t)&tp->t_outq);
+d228 1
+a228 1
+		if (putc(tun.t_stopc, &tp->t_outq)==0) {
+d672 1
+a672 1
+		if (copyout((caddr_t)&tp->t_outq.c_cc, addr, sizeof(tp->t_outq.c_cc)))
+d742 1
+a742 1
+		if (tp->t_outq.c_cc <= TTLOWAT(tp))
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d3 3
+a533 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a558 1
+#endif
+a609 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a610 5
+#else
+			nread = tp->t_canq.c_cc;
+			if (tp->t_flags & (RAW|CBREAK))
+				nread += tp->t_rawq.c_cc;
+#endif
+a701 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a749 1
+#endif
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d51 1
+a51 1
+#include "bk.h"
+@
+
+
+22.0
+log
+@С этой версии начинается ДЕМОС 2.2.
+@
+text
+@d3 3
+d37 1
+a37 1
+#include "param.h"
+@
+
+
+1.8
+log
+@???
+@
+text
+@d2 4
+a5 1
+ * $Log:        tty.c,v $
+a39 3
+#ifdef  MPX_FILS
+# include <sys/mx.h>
+#endif
+a110 1
+#ifdef  UCB_NTTY
+a118 1
+#endif
+a188 1
+#ifdef  UCB_NTTY
+a191 1
+#endif
+a299 1
+#ifdef  MENLO_JCL
+a327 1
+#endif
+a429 1
+#ifdef  UCB_NTTY
+a446 5
+#ifdef MPX_FILS
+					if (tp->t_chan)
+						(void) sdata(tp->t_chan);
+					else
+#endif
+a449 1
+#endif
+a463 1
+#ifdef UCB_NTTY
+a466 1
+#endif UCB_NTTY
+a487 1
+#ifdef UCB_NTTY
+a490 1
+#endif UCB_NTTY
+a565 1
+#ifdef  UCB_NTTY
+a683 1
+#endif
+@
+
+
+1.7
+log
+@Внесены правки для работы с КОИ-8/QWERTY терминалы
+@
+text
+@d2 4
+a5 1
+ * $Log:	tty.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d15 1
+a15 1
+ * 
+d95 1
+d129 16
+d341 19
+d401 6
+d424 1
+@
+
+
+1.6
+log
+@Вставлен IPK_SELECT (from TCP/IP).
+@
+text
+@d3 3
+d174 1
+a174 1
+		tp->t_lstate &= LIREG|LOREG;
+d437 8
+@
+
+
+1.5
+log
+@По wflushtty теперь вызывается ttstart, а не  oproc !!!
+@
+text
+@d3 3
+d485 1
+a485 1
+#ifdef  UCB_NET
+@
+
+
+1.4
+log
+@По TIOCSETA и TIOCSETP сбрасывается сч. колонок - width будет
+работать правильно.
+@
+text
+@d2 5
+a6 1
+ * $Log:        tty.c,v $
+d29 1
+a29 1
+#include <sys/mx.h>
+d127 1
+a127 1
+		(*tp->t_oproc)(tp);
+d561 1
+a561 1
+#ifdef  UCB_NET
+d660 1
+a660 1
+#ifdef  UCB_NET
+d662 1
+a662 1
+	struct tty *tp;
+d664 1
+a664 1
+	int nread = 0;
+a672 1
+#endif
+a673 1
+#ifdef  UCB_NET
+d678 1
+a678 1
+	register struct tty *tp = &cdevsw[major(dev)].d_ttys[minor(dev)];
+@
+
+
+1.3
+log
+@Исправлена ошибка - см. diff.
+@
+text
+@d3 3
+d372 2
+a373 1
+			if (com == TIOCSETP || com == TIOCSETA)
+d375 1
+d383 2
+a384 1
+			    com == TIOCSETP || com == TIOCSETA)
+d386 1
+a386 1
+			else if ((tp->t_flags&CBREAK) != (iocb.sg_flags&CBREAK)) {
+@
+
+
+1.2
+log
+@Добавлена обработка поля t_width.
+@
+text
+@d3 3
+d161 1
+a161 1
+		tp->t_lstate &= ~(LIREG|LOREG);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d411 1
+d429 1
+d616 5
+@

@@ -1,0 +1,532 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     89.03.25.19.40.36;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.03.21.14.42.31;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.02.04.21.01.00;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Управление лентой.
+@
+
+
+1.3
+log
+@Добавлены операции run и backfile.
+@
+text
+@/*
+**      Управление лентопротяжным устройством.
+**
+**      mt [ -t магнитофон ] команда [ число_повторений ] ...
+**
+**      Коды ответа: 0 - О'KEY (кроме проверок состояния)
+**                   1 - ошибка при операции с лентой
+**                   2 - ошибка открытия мл
+**                   3 - недопустимый аргумент
+**      При проверке состояния :
+**      0 - да, 1 - нет, 2 и 3 - такие же
+**
+**      Стандартное местоположение в системе:  /bin
+**
+**      Метод сборки:  cc -O -n -s
+**
+**      $Header: mt.c,v 1.2 88/03/21 14:42:31 korotaev Exp $
+**      $Log:   mt.c,v $
+ * Revision 1.2  88/03/21  14:42:31  korotaev
+ * *** empty log message ***
+ *
+ * Revision 1.1  87/02/04  21:01:00  alex
+ * Initial revision
+ *
+ * Revision 1.3  86/11/22  19:22:17  alex
+ * Исправлена глупая ошибка (rewind вместо return).
+ *
+ * Revision 1.2  86/10/30  02:11:23  alex
+ * Об'единены версии ДЕМОС и 2.9
+ * Добавлены операции:
+ * feot - поиск конца ленты,
+ * cbot, ceot - опрос, находится ли лента на начале/конце
+ * (ответ 0 - да, 1 - нет). Если нет, прерывается цепочка команд.
+ * Русские диагностики + расширена диагностика статуса.
+ *
+ * Revision 1.2  86/01/16  02:39:31  alex
+ * Убрали закрытие ленты между операциями
+ * (теперь mt rew bsf кончается только по концу перемотки).
+ *
+**
+*/
+
+static  char Rcs_id[] = "$Header: mt.c,v 1.2 88/03/21 14:42:31 korotaev Exp $";
+
+#include        <stdio.h>
+#include        <ctype.h>
+#include        <sys/types.h>
+#include        <sys/mtio.h>
+#include        <sys/ioctl.h>
+#include        <ediag.h>
+
+#define FNO     0
+#define FEOT    101
+#define FBOT    102
+#define FUNN    2       /* неизвестно */
+
+int pstatus(), chkstatus(), findeot(),status();
+struct commands {
+    char   *c_name;             /* мнемоническое имя команды */
+    int     c_code;             /* соответствующий код команды для ioctl */
+    int     c_ronly;            /* режим работы устройства */
+    int     (*c_func)();
+    int     c_farg;
+    int     c_usenext;          /* use next command */
+}               com[] = {
+{"weof"         , MTWEOF        , 1 , NULL      , 0     , 0},
+{"eof"          , MTWEOF        , 1 , NULL      , 0     , 0},
+{"backfile"     , MTBSF         , 0 , NULL      , 0     , 1},
+{"fsf"          , MTFSF         , 0 , NULL      , 0     , 0},
+{"bsf"          , MTBSF         , 0 , NULL      , 0     , 0},
+{"fsr"          , MTFSR         , 0 , NULL      , 0     , 0},
+{"bsr"          , MTBSR         , 0 , NULL      , 0     , 0},
+{"rewind"       , MTREW         , 0 , NULL      , 0     , 0},
+{"run"          , MTREW         , 0 , NULL      , 0     , 1},
+{"offline"      , MTOFFL        , 0 , NULL      , 0     , 0},
+{"status"       , MTNOP         , 0 , pstatus   , 0     , 0},
+/* {"ask"          , MTNOP         , 0 , status    , 0     , 0},  */
+{"feot"         , MTNOP         , 0 , findeot   , 0     , 0},
+{"ceot"         , MTNOP         , 0 , chkstatus , FEOT  , 0},
+{"cbot"         , MTNOP         , 0 , chkstatus , FBOT  , 0},
+{0, 0, 0}
+};
+
+int     curreg = -1;    /* Текущий режим доступа */
+int     mtfd;                   /* дескриптор устройства
+				*/
+struct mtop mt_com;             /* управляющая структура
+				*/
+struct mtget mt_status;
+char   *tape;                   /* имя устройства
+				*/
+char   *pname;                  /* имя программы
+				*/
+
+main (argc, argv)
+int     argc;
+char   *argv[];
+{
+    extern char *getenv ();
+    register struct commands   *comp;
+    register int    ac;
+    register char **av;
+    int lav, ko;
+    pname = *argv;
+    ac = argc - 1;
+    av = argv + 1;
+    if (!ac)
+	usage ();
+    if (strcmp (*av, "-t") == NULL) {
+	ac -= 2;
+	if (!ac)
+	    usage ();
+	tape = av[1];
+	av += 2;
+    }
+    else
+	if ((tape = getenv ("TAPE")) == NULL)
+	    tape = "/dev/nrmt0";
+    for (;;) {
+	lav = strlen(*av);
+	for (comp = com; comp -> c_name != NULL; comp++)
+	    if (strncmp (*av, comp -> c_name,lav) == 0)
+		break;
+	if (comp -> c_name == NULL)
+	    unknown (*av);
+	av++, ac--;
+	if (ac && isdigit (**av)) {
+	    if ((mt_com.mt_count = atoi (*av)) <= 0) {
+		commstr (comp);
+		fprintf (stderr, ediag(": invalid count\n", ": плохой числовой аргумент\n"));
+		exit (3);
+	    }
+	    av++, ac--;
+	}
+	else
+	    mt_com.mt_count = 1;
+UseNext:
+	mt_com.mt_op = comp -> c_code;
+	if ( curreg != comp->c_ronly ) {
+		if ( curreg >= 0 ) close(mtfd);
+		if ((mtfd = open (tape, (curreg = comp->c_ronly) )) < 0) {
+		    perror (tape);
+		    exit (2);
+		}
+	}
+	if (comp->c_func) {
+		if(ko=(*comp->c_func)(mtfd,comp->c_farg))exit(ko);
+	}
+	else if (ioctl (mtfd, MTIOCTOP, &mt_com) < 0) {
+	commstr (comp);
+	perror ("");
+	exit (1);
+}
+if( comp->c_usenext ) {
+	mt_com.mt_count = 1;
+	comp++;
+	goto UseNext;
+}
+if (!ac)
+break;
+}
+close (mtfd);
+}
+
+usage () {
+    fprintf (stderr,
+	    ediag("Usage: %s [-t tape] command [count] ...\n","Вызов: %s [-t лента] команда [счетчик] ...\n"),
+	    pname);
+    exit (3);
+}
+
+unknown (com)
+register char  *com;
+{
+    fprintf (stderr, ediag("%s: unknown command '%s'\n","%s: команда '%s' не определена\n"), pname, com);
+    exit (3);
+}
+
+commstr (comp)
+register struct commands   *comp;
+{
+    fprintf (stderr, "%s -t %s %s %u ", pname, tape,
+	    comp -> c_name, mt_com.mt_count);
+}
+
+/*
+ * Поиск конца ленты
+ * (пока по простому - мотаем и читаем)
+ */
+findeot(fid,arg)
+int fid, arg;
+{
+	register int i,k=0;
+	char bufr[80];
+	while ( (i = read(fid,bufr,(sizeof bufr))) > 0 ) {
+		mt_com.mt_op = MTFSF;
+		mt_com.mt_count = 1;
+		if ((i=ioctl (mtfd, MTIOCTOP, &mt_com)) < 0)
+			break;
+		k++;
+	}
+	if ( i < 0 ) {
+		perror("mt feot");
+		exit(1);
+	}
+	mt_com.mt_op = MTBSF;
+	mt_com.mt_count = 1;
+	if (ioctl (mtfd, MTIOCTOP, &mt_com) < 0) {
+		perror (ediag("mt can not do back file","ошибка при пропуске файла назад"));
+		exit (1);
+	}
+	printf(ediag("mt feot: %d files skiped\n","mt feot: пропущено %d файлов\n"), k);
+	return(0);
+}
+
+/*
+ * Определение статуса ленты
+ * по невыясненным причинам авторам системного вызова
+ * MTIOCGET захотелось сделать информацию о состоянии ленты
+ * зависимой от типа ленты. Пока это не изменилось, mt
+ * приходится знать о регистрах контроллеров все
+ */
+#ifdef vax
+#include <vaxmba/mtreg.h>
+#include <vaxmba/htreg.h>
+
+#include <vaxuba/utreg.h>
+#include <vaxuba/tmreg.h>
+#undef b_repcnt         /* argh */
+#include <vaxuba/tsreg.h>
+#endif
+
+#ifdef pdp11
+#include <sys/htreg.h>
+#include <sys/tmreg.h>
+#undef b_repcnt         /* argh */
+#include <sys/tsreg.h>
+#endif
+
+struct tape_desc {
+	short   t_type;         /* тип ленточного устройства */
+	char    *t_name;        /* тип для печати */
+	char    *t_dsbits;      /* "drive status" регистр */
+	char    *t_erbits;      /* "error" регистр */
+	u_short t_dseot;short t_ereot; /* Биты, означающие eot */
+	u_short t_dsbot;short t_erbot; /* Биты, означающие bot */
+} tapes[] = {
+#ifdef vax
+{ MT_ISTS,"ts11",0,        TSXS0_BITS ,
+		 0,     TS_EOT|TS_ONL,
+		 0,     TS_BOT|TS_ONL
+},
+{ MT_ISHT,"tm03",HTDS_BITS,HTER_BITS ,
+	HTDS_DRY|HTDS__EOT,         0,
+	HTDS_DRY|HTDS__BOT,         0
+},
+{ MT_ISTM,"tm11",0,        TMER_BITS   ,
+		 0,   TMER_DRY|TMER_EOT,
+		 0,   TMER_DRY|TMER_BOT,
+},
+{ MT_ISMT,"tu78",MTDS_BITS,           0, /* Не знаем */
+		 0,                   0,
+		 0,                   0
+},
+{ MT_ISUT,"tu45",UTDS_BITS,UTER_BITS ,  /* Не знаем  */
+		 0,                   0,
+		 0,                   0
+},
+#endif
+#ifdef pdp11
+{ MT_ISTS,"ts11",0,        TSXS0_BITS,
+		 0,     TS_EOT|TS_ONL,
+		 0,     TS_BOT|TS_ONL
+},
+{ MT_ISHT,"tm03",HTFS_BITS,HTER_BITS ,
+	HTFS_DRY|HTFS_EOT,         0,
+	HTFS_DRY|HTFS_BOT,         0
+},
+{ MT_ISTM,"tm11",0,        TMER_BITS   ,
+		 0,   TMER_TUR|TMER_EOT,
+		 0,   TMER_TUR|TMER_BOT
+},
+#endif
+	{ 0 }
+};
+#define IFT(dp,D_BIT,E_BIT) \
+	((!D_BIT || (D_BIT&dp->mt_dsreg) == D_BIT) && \
+	(!E_BIT || (E_BIT&dp->mt_erreg) == E_BIT) )
+
+/*
+ * Интерпретирование статуса и печать
+ */
+pstatus(mtfd)
+{
+	register struct mtget *bp= &mt_status;
+	register struct tape_desc *mt;
+	if (ioctl(mtfd, MTIOCGET, (char *)&mt_status) < 0) {
+		perror("mt");
+		exit(1);
+	}
+	for (mt = tapes; mt->t_type; mt++)
+		if (mt->t_type == bp->mt_type)
+			break;
+	if (mt->t_type == 0) {
+		printf(ediag("unknown tape drive type (%d)\n","Тип устройства (%d) неизвестен\n"), bp->mt_type);
+		return;
+	}
+	printf(ediag("%s tape drive, residual=%d\n","устройство %s, не считано=%d\n"), mt->t_name, bp->mt_resid);
+	printreg("ds", bp->mt_dsreg, mt->t_dsbits);
+	printreg("\ner", bp->mt_erreg, mt->t_erbits);
+	putchar('\n');
+	if ( IFT(bp,mt->t_dseot, mt->t_ereot)) printf(ediag("End mark of tape\n","Лента на марке конца\n"));
+	if ( IFT(bp,mt->t_dsbot, mt->t_erbot)) printf(ediag("Begin mark of tape\n","Лента на марке начала\n"));
+	return(0);
+}
+
+/*
+ * Печать шкалы битов с расшифровкой (как в ядре )
+ */
+printreg(s, v, bits)
+	char *s;
+	register char *bits;
+	register unsigned short v;
+{
+	register int i, any = 0;
+	register char c;
+
+	printf("%s=%o", s, v);
+	bits++;
+	if (v && bits) {
+		putchar('<');
+		while (i = *bits++) {
+			if (v & (1 << (i-1))) {
+				if (any)
+					putchar(',');
+				any = 1;
+				for (; (c = *bits) > 32; bits++)
+					putchar(c);
+			} else
+				for (; *bits > 32; bits++)
+					;
+		}
+		putchar('>');
+	}
+}
+
+/* status(fid,arg)
+ * выдача статуса ленты
+ */
+status(mtfd, arg)
+{
+	register struct mtget *bp= &mt_status;
+	register struct tape_desc *mt;
+	if (ioctl(mtfd, MTIOCGET, (char *)&mt_status) < 0) {
+		perror("mt");
+		exit(1);
+	}
+	for (mt = tapes; mt->t_type; mt++)
+		if (mt->t_type == bp->mt_type)
+			break;
+	if (mt->t_type == 0) {
+		printf(ediag("unknown tape drive type (%d)\n","Тип устройства (%d) неизвестен\n"), bp->mt_type);
+		return(FUNN);
+	}
+	if ( IFT(bp,mt->t_dseot, mt->t_ereot)) return(FEOT);
+	if ( IFT(bp,mt->t_dsbot, mt->t_erbot)) return(FBOT);
+	return(0);
+}
+
+/*
+ * Проверка состояния ленты
+ */
+chkstatus(fid,stat)
+int fid,stat;
+{
+	if ( status(fid,0) == stat ) return(0);
+	return(1);
+}
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d17 5
+a21 2
+**      $Header: mt.c,v 1.1 87/02/04 21:01:00 alex Exp $
+**      $Log:	mt.c,v $
+d24 1
+a24 1
+ * 
+d27 1
+a27 1
+ * 
+d35 1
+a35 1
+ * 
+d39 1
+a39 1
+ * 
+d43 1
+a43 1
+static  char Rcs_id[] = "$Header: mt.c,v 1.1 87/02/04 21:01:00 alex Exp $";
+d64 1
+d66 15
+a80 13
+{"weof"         , MTWEOF        , 1 , NULL      , 0     ,},
+{"eof"          , MTWEOF        , 1 , NULL      , 0     ,},
+{"fsf"          , MTFSF         , 0 , NULL      , 0     ,},
+{"bsf"          , MTBSF         , 0 , NULL      , 0     ,},
+{"fsr"          , MTFSR         , 0 , NULL      , 0     ,},
+{"bsr"          , MTBSR         , 0 , NULL      , 0     ,},
+{"rewind"       , MTREW         , 0 , NULL      , 0     ,},
+{"offline"      , MTOFFL        , 0 , NULL      , 0     ,},
+{"status"       , MTNOP         , 0 , pstatus   , 0     ,},
+/* {"ask"          , MTNOP         , 0 , status    , 0     ,},  */
+{"feot"         , MTNOP         , 0 , findeot   , 0     ,},
+{"ceot"         , MTNOP         , 0 , chkstatus , FEOT  ,},
+{"cbot"         , MTNOP         , 0 , chkstatus , FBOT  ,},
+d85 1
+a85 1
+int     mtfd;			/* дескриптор устройства       
+d87 1
+a87 1
+struct mtop mt_com;		/* управляющая структура       
+d90 1
+a90 1
+char   *tape;			/* имя устройства              
+d92 1
+a92 1
+char   *pname;			/* имя программы               
+a125 1
+	mt_com.mt_op = comp -> c_code;
+d130 1
+a130 1
+		fprintf (stderr, ": invalid count\n");
+d137 2
+d154 5
+d167 1
+a167 1
+	    ediag("usage: %s [-t tape] command [count] ...\n","Использование:%s [-t лента] команда [счетчик] ...\n"),
+d175 1
+a175 1
+    fprintf (stderr, ediag("%s: unknown command '%s'\n","команда '%s' не определена\n"), pname, com);
+d202 3
+a204 3
+	if ( i < 0 ) { 
+		perror("mt feot"); 
+		exit(1); 
+d229 1
+a229 1
+#undef b_repcnt		/* argh */
+d236 1
+a236 1
+#undef b_repcnt		/* argh */
+d241 4
+a244 4
+        short   t_type;         /* тип ленточного устройства */
+        char    *t_name;        /* тип для печати */
+        char    *t_dsbits;      /* "drive status" регистр */
+        char    *t_erbits;      /* "error" регистр */
+d308 1
+a308 1
+	printf(ediag("%s tape drive, residual=%d\n","%s лента, не считано=%d\n"), mt->t_name, bp->mt_resid);
+d375 1
+a375 1
+{ 
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d17 1
+a17 1
+**      $Header: mt.c,v 1.3 86/11/22 19:22:17 alex Stab $
+d19 3
+d40 1
+a40 1
+static  char Rcs_id[] = "$Header: mt.c,v 1.3 86/11/22 19:22:17 alex Stab $";
+d139 3
+a141 1
+	if (comp->c_func&&(ko=(*comp->c_func)(mtfd,comp->c_farg)))exit(ko);
+d143 8
+a150 8
+	    commstr (comp);
+	    perror ("");
+	    exit (1);
+	}
+	if (!ac)
+	    break;
+    }
+    close (mtfd);
+@

@@ -1,0 +1,321 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     89.06.22.11.55.06;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.06.13.21.40.45;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.26.25;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.3
+log
+@???
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: du.c,v 1.2 89/06/13 21:40:45 root Exp $
+** $Log:        du.c,v $
+ * Revision 1.2  89/06/13  21:40:45  root
+ * Вынесен #ifdef UCB_SYMLINKS
+ *
+ * Revision 1.1  88/05/03  20:26:25  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: du.c,v 1.2 89/06/13 21:40:45 root Exp $";
+/* YESXSTR */
+# endif         lint
+
+#include <stdio.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/dir.h>
+
+#define EQ(x,y) (strcmp(x,y)==0)
+#define ML      1000
+
+struct stat Statb;
+char    path[256], name[256];
+int     Aflag = 0,
+	Sflag = 0,
+	Noarg = 0;
+struct {
+	int     dev,
+		ino;
+} ml[ML];
+long    descend();
+long    howmany();
+char    *rindex();
+char    *strcpy();
+
+main(argc, argv)
+char **argv;
+{
+	register        i = 1;
+	long    kbytes = 0;
+	register char   *np;
+
+	if (argc>1) {
+		if(EQ(argv[i], "-s")) {
+			++i;
+			++Sflag;
+		} else if(EQ(argv[i], "-a")) {
+			++i;
+			++Aflag;
+		}
+	}
+	if(i == argc)
+		++Noarg;
+
+	do {
+		strcpy(path, Noarg? ".": argv[i]);
+		strcpy(name, path);
+		if(np = rindex(name, '/')) {
+			*np++ = '\0';
+#ifdef PDEBUG
+			printf("CHDIR('%s')\n", name);
+#endif
+			if(chdir(*name? name: "/") == -1) {
+#ifdef PDEBUG
+				printf("perror: chdir('%s')\n", name);
+#endif
+				perror(*name ?  name : "/");
+				exit(1);
+			}
+		} else
+			np = path;
+		kbytes = descend(path, *np? np: ".");
+		if(Sflag)
+			printf("%ld\t%s\n", kbytes, path);
+	} while(++i < argc);
+
+	exit(0);
+}
+
+long
+descend(np, fname)
+char *np, *fname;
+{
+	int dir = 0, /* open directory */
+		dsize,
+		entries,
+		dirsize;
+	off_t   offset;
+
+	struct direct dentry[BSIZE/sizeof(struct direct)];
+	register  struct direct *dp;
+	register char *c1, *c2;
+	int i;
+	char *endofname;
+	long kbytes = 0;
+
+	if(lstat(fname,&Statb)<0) {
+#ifdef PDEBUG
+		system("pwd");
+		printf("perror: lstat('%s')\n", fname);
+#endif
+		perror(np);
+		return 0L;
+	}
+	if(Statb.st_nlink > 1 && (Statb.st_mode&S_IFMT)!=S_IFDIR) {
+		static linked = 0;
+
+		for(i = 0; i <= linked; ++i) {
+			if(ml[i].ino==Statb.st_ino && ml[i].dev==Statb.st_dev)
+				return 0;
+		}
+		if (linked < ML) {
+			ml[linked].dev = Statb.st_dev;
+			ml[linked].ino = Statb.st_ino;
+			++linked;
+		}
+	}
+	kbytes = howmany(Statb.st_size, 1024);
+
+	if((Statb.st_mode&S_IFMT)!=S_IFDIR) {
+		if(Aflag)
+			printf("%ld\t%s\n", kbytes, np);
+		return(kbytes);
+	}
+
+	for(c1 = np; *c1; ++c1);
+	if(*(c1-1) == '/')
+		--c1;
+	endofname = c1;
+	dirsize = Statb.st_size;
+#ifdef PDEBUG
+	printf("CHDIR-2('%s')\n", fname);
+#endif
+	if(chdir(fname) == -1) {
+#ifdef PDEBUG
+		printf("perror: chdir-2('%s')\n", fname);
+#endif
+		perror(np);
+		return 0;
+	}
+	for(offset=0; offset < dirsize; offset += BSIZE) { /* each block */
+		dsize = BSIZE<(dirsize-offset)? BSIZE: (dirsize-offset);
+		if(!dir) {
+			if((dir=open(".",0))<0) {
+#ifdef PDEBUG
+				printf("perror: open('.')\n");
+#endif
+				perror(np);
+				goto ret;
+			}
+			if(offset) lseek(dir, offset, 0);
+			if(read(dir, (char *)dentry, dsize)<0) {
+#ifdef PDEBUG
+				printf("perror: read(dir)\n");
+#endif
+				perror(np);
+				goto ret;
+			}
+			if(dir > 10) {
+				close(dir);
+				dir = 0;
+			}
+		} else
+			if(read(dir, (char *)dentry, dsize)<0) {
+#ifdef PDEBUG
+				printf("perror: read-2(dir)\n");
+#endif
+				perror(np);
+				goto ret;
+			}
+		for(dp=dentry, entries=dsize>>4; entries; --entries, ++dp) {
+			/* each directory entry */
+			if(dp->d_ino==0
+			|| EQ(dp->d_name, ".")
+			|| EQ(dp->d_name, ".."))
+				continue;
+			c1 = endofname;
+			*c1++ = '/';
+			c2 = dp->d_name;
+			for(i=0; i<DIRSIZ; ++i)
+				if(*c2)
+					*c1++ = *c2++;
+				else
+					break;
+			*c1 = '\0';
+			if(c1 == endofname) /* ?? */
+				return 0L;
+			kbytes += descend(np, endofname+1);
+		}
+	}
+	*endofname = '\0';
+	if(!Sflag)
+		printf("%ld\t%s\n", kbytes, np);
+ret:
+	if(dir)
+		close(dir);
+#ifdef PDEBUG
+	printf("CHDIR-3('..')\n");
+#endif
+	if(chdir("..") == -1) {
+		*endofname = '\0';
+#ifdef PDEBUG
+		printf("perror: chdir('..')\n");
+#endif
+		perror(np);
+		while(*--endofname != '/')
+			;
+		*endofname = '\0';
+#ifdef PDUBUG
+		printf("CHDIR-4('%s')\n", np);
+#endif
+		if(chdir(np) == -1)
+#ifdef PDEBUG
+			printf("chdir-4 FAILS!\n");
+#endif
+			exit(1);
+	}
+	return(kbytes);
+}
+
+long
+howmany(things, ofsize)
+off_t things;
+{
+	return((long) (things + (off_t) (ofsize - 1)) / (long) ofsize);
+}
+@
+
+
+1.2
+log
+@Вынесен #ifdef UCB_SYMLINKS
+@
+text
+@d6 1
+a6 1
+** $Header: du.c,v 1.1 88/05/03 20:26:25 root Exp $
+d8 3
+d18 1
+a18 1
+static char     Rcs_id[] = "$Header: du.c,v 1.1 88/05/03 20:26:25 root Exp $";
+d68 3
+d72 3
+d106 4
+d139 3
+d143 3
+d153 3
+d161 3
+d173 3
+d205 3
+d210 3
+d217 3
+d221 3
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d96 1
+a96 6
+#ifdef  UCB_SYMLINKS
+	if(lstat(fname,&Statb)<0)
+#else
+	if(stat(fname,&Statb)<0)
+#endif
+	{
+@

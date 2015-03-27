@@ -1,0 +1,129 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.5
+date     89.01.17.17.01.23;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.09.09.23.08.15;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.09.18.37.44;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.09.09.17.31.20;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Командный файл для запуска calendar по всем пользователям.
+@
+
+
+1.5
+log
+@При посылке mail добавляется поле Subject:
+@
+text
+@#!/bin/sh
+# $Header: calendar.sh,v 1.5 89/01/17 15:50:24 ache Exp $
+PATH=/bin:/usr/bin
+CPP=/lib/cpp
+tmp=/tmp/cal0$$
+tmp1=/tmp/cal1$$
+trap "rm -f $tmp $tmp1; exit" 0 1 2 13 15
+/usr/lib/calendar > $tmp
+case x$1 in
+x-)
+	sed '
+		s/\([^:]*\):.*:\(.*\):[^:]*$/y=\2 z=\1/
+	' /etc/passwd \
+	| while read x
+	do
+		eval $x
+		if test -r $y/calendar; then
+			$CPP -C $y/calendar 2>/dev/null | sed -f $tmp > $tmp1
+			if test -s $tmp1; then
+				echo 'Subject:  calendar: output' | cat - $tmp1 | mail $z
+			fi
+		fi
+	done;;
+x)
+	$CPP -C calendar | sed -f $tmp;;
+*)
+	$CPP -C $1 | sed -f $tmp;;
+esac
+exit 0
+@
+
+
+1.4
+log
+@Добавлен CPP
+@
+text
+@d2 1
+a2 1
+# $Header: calendar.sh,v 1.3 88/09/09 18:37:44 avg Exp $
+d5 4
+a8 3
+tmp=/tmp/cal$$
+trap "rm $tmp; exit" 0 1 2 13 15
+/usr/lib/calendar >$tmp
+d18 4
+a21 1
+			$CPP -C $y/calendar 2>/dev/null | sed -f $tmp | mail $z
+d29 1
+@
+
+
+1.3
+log
+@Убран ключ -n у sed в связи с изменением /usr/lib/calendar.
+@
+text
+@d2 1
+a2 1
+# $Header: calendar.sh,v 1.2 88/09/09 17:37:53 avg Exp $
+d4 1
+d8 2
+a9 2
+case $1 in
+-)
+d17 1
+a17 1
+			sed -f $tmp $y/calendar 2>/dev/null  | mail $z
+d20 2
+d23 1
+a23 1
+	sed -f $tmp calendar
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+# $Header$
+d16 1
+a16 1
+			egrep -f $tmp $y/calendar 2>/dev/null  | mail $z
+d20 1
+a20 1
+	egrep -f $tmp calendar
+@

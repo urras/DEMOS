@@ -1,0 +1,34 @@
+#ifndef _sys_reg_h_
+#       define  _sys_reg_h_
+
+/*
+ * Расположение сохраненных пользовательских регистров
+ * в системном стеке относительно R0 (или ^P на Mitra).
+ * Используется как u.u_ar0[XX].
+ */
+#ifdef PDP11
+
+#define R0      (0)
+#define R1      (-3)
+#define R2      (-11)
+#define R3      (-10)
+#define R4      (-9)
+#define R5      (-7)
+#define R6      (-4)
+#define R7      (1)
+#define PC      (1)
+#define RPS     (2)
+
+#endif
+#ifdef R_11
+
+#define RA      (4)
+#define RE      (3)
+#define RX      (5)
+#define RL      (1)
+#define RP      (0)
+#define RI      (2)
+
+#endif
+
+#endif  _sys_reg_h_

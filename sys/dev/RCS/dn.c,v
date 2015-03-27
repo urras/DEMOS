@@ -1,0 +1,198 @@
+head     22.3;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз0:1.1.1;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.06.00;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.41.20;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.19.44;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.23.09;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.54.04;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	dn.c,v $
+ * Revision 22.2  89/04/27  13:41:20  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  14:19:44  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:23:09  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.1  86/04/19  17:54:04  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * DN-11 ACU interface
+ */
+
+#include "h/dn.h"
+#if     NDN > 0
+#include <sys/param.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include "../include/dnreg.h"
+
+#define DNPRI   (PZERO+5)
+
+struct  dndevice *dn_addr[NDN];
+
+dnattach(addr, unit)
+struct dndevice *addr;
+{
+	if ((unsigned) unit >= NDN)
+		return 0;
+	dn_addr[unit] = addr;
+	return 1;
+}
+
+/*ARGSUSED*/
+dnopen(dev, flag)
+register dev_t	dev;
+{
+	register struct dndevice *dp;
+
+	dev = minor(dev);
+	if (dev >= NDN << 2
+	    || (dp = dn_addr[dev >> 2]) == NULL
+	    || (dp->dnisr[dev & 03] & (DN_PWI | DN_FDLO | DN_FCRQ)))
+		u.u_error = ENXIO;
+	else
+		{
+		dp->dnisr[0] |= DN_MINAB;
+		dp->dnisr[dev & 03] = DN_INTENB | DN_MINAB | DN_FCRQ;
+	}
+}
+
+dnclose(dev)
+register dev_t	dev;
+{
+	dev = minor(dev);
+	dn_addr[dev >> 2]->dnisr[dev & 03] = DN_MINAB;
+}
+
+dnwrite(dev)
+register dev_t	dev;
+{
+	int s;
+	register c;
+	register *dp;
+	extern lbolt;
+
+	dev = minor(dev);
+	dp = &(dn_addr[dev >> 2]->dnisr[dev & 03]);
+	while ((*dp & (DN_PWI | DN_ACR | DN_DSS)) == 0) {
+		s = spl4();
+		if ((*dp & DN_FPND) == 0 || u.u_count == 0 || (c = cpass()) < 0)
+			sleep((caddr_t) dp, DNPRI);
+		else if (c == '-') {
+			sleep((caddr_t) &lbolt, DNPRI);
+			sleep((caddr_t) &lbolt, DNPRI);
+		} else
+			{
+			*dp = (c << 8) | DN_INTENB|DN_MINAB|DN_FDPR|DN_FCRQ;
+			sleep((caddr_t) dp, DNPRI);
+		}
+		splx(s);
+	}
+	if (*dp & (DN_PWI | DN_ACR))
+		u.u_error = EIO;
+}
+
+dnint(dn11)
+{
+	register *dp, *ep;
+
+	dp = &(dn_addr[dn11]->dnisr[0]);
+	*dp &= ~DN_MINAB;
+	for (ep = dp; ep < dp + 4; ep++)
+		if (*ep & DN_DONE) {
+			*ep &= ~DN_DONE;
+			wakeup((caddr_t)ep);
+		}
+	*dp |= DN_MINAB;
+}
+#endif	NDN
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d3 3
+d26 1
+a26 1
+#include <sys/dnreg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d18 1
+a18 1
+#include "dn.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d3 3
+d17 1
+a17 1
+#include "param.h"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+@

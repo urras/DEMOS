@@ -1,0 +1,8 @@
+:
+PATH=$PATH:/etc
+if [ -f mailx/maux.c ]
+then
+make install
+else
+make copy
+fi

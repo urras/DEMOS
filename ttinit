@@ -1,0 +1,40 @@
+//
+// Простейший драйвер консольного терминала
+//
+COIST = 177560
+COOST = 177564
+
+  .text
+ .globl ttinit
+ .globl ttotst
+ .globl ttitst
+ .globl ttout
+
+ttinit:
+  bic $100,*$COIST
+  bic $100,*$COOST
+  rts pc
+
+/ Попытка выборки символа с ввода
+/ Вых: r0 - символ или 400, если нет символа
+ttitst:
+  mov *$COIST,r0
+  bit $200,r0
+  bne i_1
+    mov $400,r0
+    rts pc
+  i_1:
+  mov *$COIST+2,r0
+  bic $177400,r0
+  rts pc
+
+/ Проверка готовности вывода
+/ Вых: r0 <> 0 - есть готовность, r0 = 0 - интерфейс занят
+ttotst:
+  mov *$COOST,r0
+  bic $177577,r0
+  rts pc
+
+ttout:
+  movb r0,*$[COOST+2]
+  rts pc

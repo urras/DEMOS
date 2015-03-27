@@ -1,0 +1,32 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.25.02.23.38;  author root;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Включен dj
+@
+text
+@struct vec_s {
+	int	v_func;
+	int	v_br;
+} ivec;
+
+#define	IVSIZE	(sizeof ivec)
+
+#define	NVECTOR	100		/* max. number of vectors we can set */
+@

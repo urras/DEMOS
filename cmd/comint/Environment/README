@@ -1,0 +1,23 @@
+for comint to recognize the standart tuning,
+copy tuner to /usr/local/lib/comint/tuner :
+    cp ./tuner /usr/local/comint/tuner
+
+termcap is adopted for SCO UNIX terminal driver.
+Please experiment with keyboard and control codes in other UNIX.
+
+minihelp does not work in any system except DEMOS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

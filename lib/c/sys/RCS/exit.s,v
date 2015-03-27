@@ -1,0 +1,35 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.41.00;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ _exit(status);
+
+.globl	__exit
+
+__exit:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(r5),r0
+	sys	exit
+	/*NOTREACHED*/
+@

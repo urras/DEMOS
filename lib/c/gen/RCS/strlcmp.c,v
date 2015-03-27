@@ -1,0 +1,80 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.17.18.18.32;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.30.19.29.58;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Лексикографическое сравнение текстовых строк.
+@
+
+
+1.2
+log
+@Заменено использование Rsort на lcmp.
+@
+text
+@/*
+ * $Header: strlcmp.c,v 1.1 86/12/30 19:29:58 root Exp $
+ * Сравнение строк с учетом лексикографического порядка
+ * русского алфавита.
+ *
+ * Возвращаемые значения:
+ *      s1 > s2: >0  s1 == s2: 0  s1 < s2: <0
+ * $Log:        strlcmp.c,v $
+ * Revision 1.1  86/12/30  19:29:58  root
+ * Initial revision
+ *
+ */
+#include <sys/code.h>
+#include <ctype.h>
+
+strlcmp (s1, s2)
+register char  *s1,
+*s2;
+{
+	register tmp;
+
+	while (*s1 == *s2++)
+		if (*s1++ == '\0')
+			return (0);
+#ifdef KOI8
+	tmp = Ctou(*s1) - Ctou(*--s2);
+#else
+	tmp = (unsigned) (*s1) - (unsigned) (*--s2);
+#endif
+	return (tmp);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+ * $Header$
+d8 4
+a11 1
+ * $Log$
+a14 1
+#include <Rsort.h>
+d26 1
+a26 1
+	tmp = Rlsort(*s1) - Rlsort(*--s2);
+@

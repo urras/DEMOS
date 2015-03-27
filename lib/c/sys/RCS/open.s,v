@@ -1,0 +1,71 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.2
+date     88.12.17.22.37.20;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.01.17.42.37;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Теперь у open 3 параметра (Переделка под SV.2).
+@
+text
+@/ $Header: open.s,v 1.1 88/04/01 17:42:37 andrew Exp $
+/ $Log:	open.s,v $
+/ Revision 1.1  88/04/01  17:42:37  andrew
+/ Initial revision
+/ 
+/ error = open(name, mode, crmode);
+/	  char *name;
+
+.globl	_open
+.globl	cerror
+
+_open:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(r5),0f
+	mov	6(r5),0f+2
+	mov     8(r5),0f+4
+	sys	0; 9f
+	bec	1f
+	jmp	cerror
+1:
+	mov	(sp)+,r5
+	rts	pc
+.data
+9:
+	sys     open; 0:..; ..; ..
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 6
+a6 3
+/ $Header$
+/ $Log$
+/ error	= open(name, mode);
+d17 1
+d26 1
+a26 1
+	sys	open; 0:..; ..
+@

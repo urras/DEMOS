@@ -1,0 +1,112 @@
+% === RSX:COPY === %  16.09.88 VERSION 8
+GLOBAL (LOCATION=&0) (START=&0)
+%---- Фиксированные ячейки -------%
+.   RSET
+.   BR   MAIN
+. DAT ABZAC0,&00E0          *Прерывание по ошибке шины
+. DAT ABZAC1,&00E0          *Прерывание по резервной инструкции
+%---------------------------------%
+
+  EQUALS MTOFF=&1,MTREAD=&3,MTWRIT=&5             %КОМАНДЫ УСТРОЙСТВА
+  EQUALS MTMARK=&7,MTFORW=&9
+  EQUALS MTBACK=&B,MTLGAP=&D,MTREV=&F
+
+LOCALS LDEVIA
+  BYTES TXEBUS=RN.LF."<< EBUS   >>".0
+  BYTES TXEINS=RN.LF."<< EINSTR >>".0
+
+PROGRAM ABZAC0()
+  CALL DPC 'TXEBUS'
+  GOTO $
+PROGRAM ABZAC1()
+  CALL DPC 'TXEINS'
+  GOTO $
+
+LOCALS LMAIN
+  BYTES TXBEG=RN.LF."*COPY*".0
+  BYTES TXBAD=RN.LF." BAD RECORD".0
+  BYTES TXEND=RN.LF." END".0
+
+  EQUALS NBREC=100                      %ВСЕГО 100. ЗАПИСЕЙ
+  EQUALS RCLEN=48                       %В ЗАПИСИ 48. БЛОКОВ
+  EQUALS BLSIZE=&200                    %А В БЛОКЕ 512. БАЙТ
+
+%    УПР. БЛОКИ МАГНИТОФОНА
+  EQUALS MTBUFF=&200                    %АДРЕС БУФЕРА
+  EQUALS LNREAD=RCLEN*BLSIZE
+  DATA   READ=MTBUFF.0-LNREAD.&6000+MTREAD
+  DATA REVIND=MTBUFF.0-LNREAD.&6000+MTREV
+
+%    УПР. БЛОК ДИСКА
+  DATA ADBLCK,=MTBUFF.RCLEN
+  EQUALS DWRITE=ADBLCK
+
+  DATA EFLAG
+
+  DATA [3],STACK=
+PROGRAM MAIN()
+  SP='STACK'
+  CALL DPC 'TXBEG'
+
+  EFLAG=0
+  (WHILE
+    ADBLCK=0
+    (DCYCLE(R4) 'NBREC'
+      CALL MTHAN 'READ'         %Читаем с магнитофона
+      (IF NOT IS CARRY          %Прочитали ?
+        CALL RKHAN 'DWRITE'
+      ELSE
+        CALL DPC 'TXBAD'        %Диагностируем
+        EFLAG=1
+      )IF
+      ADBLCK=+'RCLEN'
+    )DCYCLE
+  WHILE EFLAG<>0
+    CALL MTHAN 'REVIND'
+  )WHILE
+
+  CALL DPC 'TXEND'
+  GOTO $
+
+%======================%
+%= ХАНДЛЕРА УСТРОЙСТВ =%
+%======================%
+LOCALS LHANDL
+  EQUALS MTADDR=&F558
+PROGRAM MTHAN()
+  R5='MTADDR'
+  _R5=^R0 ; _R5=^R0 ; _R5=^R0
+  REPEAT WHILE @R5:>=0
+. CCL C
+  (IF @R5<0
+.    CST C
+  )IF
+  RETURN
+
+LOCALS LDSK
+  EQUALS RKDAR=&FF0A
+  EQUALS RKCART=&2000   %Кассета
+  EQUALS RKMASK=&3FFF
+  EQUALS RKWRIT=1,RKGO=1
+% INP: 0_R0-ДИСКОВЫЙ АДРЕС, 2_R0-АДРЕС ПАМЯТИ, 4_R0-ДЛИНА В БЛОКАХ
+PROGRAM RKHAN()
+  R2=0 ; R3=^R0 ; R2=/12            % # цилиндра -> R2, сектора -> R3
+  R2=.ASL..ASL..ASL..ASL.           %Сдвигаем #цил., захватывая поверх.
+  R2=.BIS.R3                        %Об'единяем номера цил. и сектора
+  R2=.BIS.'RKCART'                  %Выбираем кассету
+  R5='RKDAR'
+  @R5=R2(.BIC.'RKMASK')
+  _R5=^R0                           %Адрес памяти
+  _R5=R1(^R0.SWAB..NEG.)            %Длина в блоках -> длина в словах
+  _R5='RKWRIT*2+RKGO'
+  REPEAT WHILE @R5:>=0
+  RETURN
+
+LOCALS LDP
+  EQUALS COIST=&FF70,COOST=&FF74
+PROGRAM DPC()
+  (WHILE @R0:<>0
+    REPEAT WHILE @'COOST':>=0
+    @'COOST+2':=^R0
+  )WHILE
+  RETURN

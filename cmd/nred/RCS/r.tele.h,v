@@ -1,0 +1,38 @@
+head     3.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+3.1
+date     86.04.20.23.40.23;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@/*
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+ *      ned.tdefs - определения для работы с терминалом (физ. уровень)
+ *      $Header$
+ *      $Log$
+ */
+
+/*
+ * Таблица клавиатуры ( команда / строка символов )
+ */
+struct ex_int {int incc;char *excc; }; extern struct ex_int inctab[];
+@

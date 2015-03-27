@@ -1,0 +1,45 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.20.21.12.24;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+#include <signal.h>
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+extern int     (*sigsys())();
+
+extern long    _holdmask;
+
+/* ignore these signals */
+
+sigignore(signum)
+register signum;
+{
+	_holdmask &= ~mask (signum);
+	sigsys(signum, SIG_IGN);
+}
+
+@

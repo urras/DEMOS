@@ -1,0 +1,42 @@
+head     22.0;
+access   korotaev dvolodin avg;
+symbols  Архыз0:1.1.1;
+locks    ;
+comment  @ * @;
+
+
+22.0
+date     89.03.25.12.25.18;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.21.11.42.55;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Вставлено с Э-85.
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@/* Сопля для одурачивания ld */
+extern short Font1[];
+
+short   *_Font1 = Font1;
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@@

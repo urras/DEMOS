@@ -1,0 +1,68 @@
+%- - - - - - - - - - - - -% 04.11.88 VERSION 41
+%-    HA‏AלO PAגOTש      -%
+%- - - - - - - - - - - - -%
+LOCALS LSTART
+  USE ACR:STRUCT,FIL:STRUCT,LIB:PARAMS
+  DATA XLIBR=LBLIBR+&100
+  DATA CB=0,ABUF(&100),=&100,SECT=0
+  DATA LOADAD
+  DATA FLEN                                       %נעןחעבםםב ק ףוכפןעבט
+  DATA 1001
+
+  DATA ITMADR                                     %בהעוף ףפבפרי
+  DATA LABIND
+  DATA ITEXT=(:ITEXT=TA."LSI-11 PROGRAM".0,:ITXEN=)
+**DATA PDP11=:PDP11,:PDP11=\_BP.\DP_.\11_.\__
+**BYTES /,ASKTIT="I",EMPBIT+HIDBIT+&80,0,1        %&80=DBSIGN
+  BYTES /,ASKTIT="I",EMPBIT+&80,0,1               %&80=DBSIGN
+  DATA DX8=("DX:0      ")
+
+PROGRAM START(AREG)
+  (IF =&FF OR =&FD                         %קשתקבמ כבכ ימפוענעופבפןע ?
+    IF =&FD THEN #DEBFL:=&80
+    CB:=#AZC(1): ; AREG=#AZC(0):
+    (XCYCLE+ &FE STEP 2) #AZC()=#AZC()]           %ףציםבום AZC
+    #AZC(&FE)=0
+  ELSE
+%                                  - זילרפעבדיס זבךלנעןדוףףןעב -
+**  #AZC(0)]=ASKTIT] ; LABIND=4
+**  ITMADR=#GDIFF('AR0LNG')+#GDIFF
+**  (WHILE @ITMADR:<>
+**    (IF ^A="I" AND CALL :CMPS ITMADR+'FIPROC',PDP11,8=
+**      IF LABIND<20 THEN #AZC(LABIND):=@ITMADR.AND.&7F ; ,,LABIND=,,+1
+**    IF)
+**    $ITMADR=&20
+**  WHILE)
+**  !#AZC(LABIND)=ITEXT,':ITXEN-:ITEXT'
+**  #AZC(2):=LABIND-4                         %כןלי‏וףפקן קשהולוממשט
+    #AZC(0)]=ASKTIT] ; !#AZC(4)=ITEXT,':ITXEN-:ITEXT'
+    IF CSV START 'LIBASK',,XLIBR=0 OR =#MIN1 THEN STOP ,
+    #DEBFL:=((IF <0 THEN =&80 ELSE =0))       %C OTלAהKOך ?
+    CB:=#AZC(1):
+  IF)
+%                                  - נןהכלא‏ומיו היףכב -
+**ITMADR=#GDIFF('AR0LNG')+#GDIFF
+**(WHILE @ITMADR:<>
+**  (IF ^A="D" AND CALL :CMPS ITMADR+'FINAME',DX8,10=
+**    #DISLAB=@ITMADR.AND.&7F
+**    IF CSV LABADR ;.XAX.<D1001 THEN STOP D1001
+**    GOTO FOUND
+**  IF)
+**  $ITMADR=&20
+**WHILE)
+  IF CALL :FIND DX8,,"D">=0 THEN #DISLAB= ; GOTO FOUND
+  #DISLAB=0
+  <<FOUND>> =
+%                                  - תבנןלמומיו נבםספי -
+  ITMADR,,FLEN=((IF CSV LABADR CB:=0 THEN STOP ,))
+  #PC,LOADAD=ITMADR(10)]                      %תבחעץתכב, תבנץףכ
+  IF (LOADAD+1):<> THEN CSV ABORT 'ECALL'.CCA.
+  SECT=0
+  (WHILE ^A<FLEN                              %תAנOלHEHיE MACCיBA
+    CALL :IO CB\                              %קףו ןûיגכי קוהץפ כ ABORT
+    CALL M:SAVE ABUF,,LOADAD:+SECT            %BHץTP. נOהנPOחPAMMA VIOS
+    $SECT=1
+  WHILE)
+
+  #PSW=&E0
+  RETURN AREG

@@ -1,0 +1,68 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.03.10.16.07.51;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+интерфейс к аппарату messages.
+общая часть находится в ../sys/msgsys.s
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
+msgget( key, flag )
+	key_t key;
+	int flag;
+{
+	return msgsys(0, key, flag);
+}
+
+msgctl( id, cmd, buf )
+	int id;
+	int cmd;
+	struct msqid_ds *buf;
+{
+	return msgsys(1, id, cmd, buf);
+}
+
+msgrcv ( id, msgbuf, size, type, flag )
+	int id;
+	struct msgbuf *msgbuf;
+	int size;
+	long type;
+	int flag;
+{
+	return msgsys(2, id, msgbuf, size, type, flag);
+}
+
+msgsnd( id, msgbuf, bufsize, flag )
+	int id;
+	struct msgbuf *msgbuf;
+	int bufsize;
+	int flag;
+{
+	return msgsys(3, id, msgbuf, bufsize, flag );
+}
+@

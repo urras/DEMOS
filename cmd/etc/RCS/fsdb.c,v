@@ -1,0 +1,1620 @@
+head     1.9;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.9
+date     89.05.15.20.02.30;  author abs;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.05.15.19.37.09;  author abs;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.05.15.19.30.09;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.12.05.16.55.55;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.12.05.15.49.07;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.12.05.15.28.26;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.12.02.21.19.24;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.12.02.20.50.28;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.12.02.20.11.09;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Корежитель файловых систем из system-V
+@
+
+
+1.9
+log
+@*** empty log message ***
+@
+text
+@/*  fsdb - file system debugger    */
+
+/* $Header: fsdb.c,v 1.8 89/05/15 19:37:09 abs Exp $
+ * $Log:        fsdb.c,v $
+ * Revision 1.8  89/05/15  19:37:09  abs
+ * апшипки.
+ *
+ * Revision 1.7  89/05/15  19:30:09  abs
+ * маленькая хачка про Si
+ *
+ * Revision 1.6  88/12/05  16:55:55  abs
+ * undo прелыдУщие праВки и  внес новЫе
+ *
+ * Revision 1.5  88/12/05  15:49:07  abs
+ * срезание лишних битов у номера I-узла
+ *
+ * Revision 1.4  88/12/05  15:28:26  abs
+ * style
+ *
+ * Revision 1.3  88/12/02  21:19:24  abs
+ * на ту же тему.
+ *
+ * Revision 1.2  88/12/02  20:50:28  abs
+ * правлен пересчет размера в блоки.
+ *
+ * Revision 1.1  88/12/02  20:11:09  abs
+ * Initial revision
+ *
+ */
+
+#define ushort u_short
+
+# define loword(X)     (((ushort *)&X)[1])
+# define lobyte(X)     (((char *)  &X)[0])
+
+/* блоки по 1K */
+
+#include        <sys/param.h>
+#include        <signal.h>
+#include        <sys/types.h>
+#include        <sys/inode.h>
+#include        <sys/dir.h>
+#include        <sys/ino.h>
+#include        <stdio.h>
+#include        <setjmp.h>
+#include        <sys/filsys.h>
+#include        <ctype.h>
+#include        <ediag.h>
+#include        <signal.h>
+
+/* число внутренних хэш-буферов */
+#define NBUF    3
+
+#define INOSZ   INOPB
+#define ADRMSK  (BSIZE -1)
+
+/* смещения полей в структуре dinode */
+#define MODE    0
+#define LINK    2
+#define UID     4
+#define GID     6
+#define SZ      8
+#define A0      12
+#define MINOR   12
+#define MAJOR   13
+#define AT      52
+#define MT      56
+#define CT      60
+#define NUMB    10
+#define INODE   11
+#define BLOCK   12
+#define DIR     13
+
+#define HIBIT   0100000
+
+#define L1    sizeof( char )
+#define L2    sizeof( ushort )
+#define L4    sizeof( long )
+#define L16   sizeof( struct direct )
+#define L64   sizeof( struct dinode )
+
+struct buf {
+	struct  buf  *fwd;
+	struct  buf  *back;
+	char    *blkaddr;
+	short   valid;
+	long    blkno;
+} buf[NBUF], bhdr;
+char buffers[NBUF][BSIZE];
+/* хэш-буФера */
+#undef dir
+
+struct dir {
+#ifdef IPK_DIRECTORY
+	unsigned   inumb: 14;
+	unsigned   iclass: 2;
+#else
+	ino_t      inumb;
+#endif
+	char nm[DIRSIZ];
+} *dirp;
+
+struct dinode *ip;
+
+long    addr, value, temp, oldaddr, oldvalue, erraddr;
+long    cur_ino = BSIZE * 2;
+short   objsz =  L2;
+short   fd, c_count, i, j, k, oldobjsz, error, type;
+short   count, pid, rpid, mode, char_flag, prt_flag;
+int     retcode;
+unsigned        isize;
+long    fsize;
+char    *p,
+	*getblk();
+short   override = 1;
+jmp_buf env;
+short indicat;  /* режим индикации адреса: 0 - long, 1 - block+offset */
+
+help(){
+	printf( "123i - просмотреть I-узел 123\n");
+	printf( "b123 - встать на блок 123\n");
+	printf( "d0   - посмотреть нулевой слот каталога в этом блоке\n");
+	printf( "  c,    d,    i,    b,    o,    e - форматы печати\n");
+	printf( "       (текст,каталог,I-узел,%%o-byte,%%o-word,%%d-word\n");
+	printf( "p40c - выдать 40 символов текста с текущего адреса\n");
+	printf( "p*c  - распечатать текст до конца блока\n");
+	printf( "2048 - установить адрес равным 2048\n");
+	printf( "       q - выход\n\n");
+}
+
+/* выдать адрес в файловой системе */
+printaddr(){
+	if( !indicat ) printf( "0%lo"   , addr );
+	else           printf( "%ld+%ld", /* addr/BSIZE, addr%BSIZE */
+				addr>>BSHIFT, addr&ADRMSK );
+}
+
+/*
+ * main - continuously looping input scanner.  Lines are scanned
+ * a character at a time and are processed as soon as
+ * sufficient information has been collected. When an error
+ * is detected, the remainder of the line is flushed.
+ */
+
+main(argc,argv)
+	short   argc;
+	char    **argv;
+{
+
+	register        char  *cptr;
+	register        char c;
+	register        short  *iptr;
+	extern  long get();
+	extern  long bmap();
+	extern  long getnumb();
+	extern  err();
+	register struct buf *bp;
+	unsigned block;
+	short offset;
+
+	setbuf(stdin,NULL);
+	printf( "-- FSDB-1.5 --\n\n");
+	printf( "? - %s\n", ediag( "for help", "подсказка"));
+
+	if(argc!=2 && argc!=3) {
+		printf( "usage: fsdb /dev/device [-]\n");
+		exit(1);
+	}
+
+	if((fd = open(argv[1],2)) < 0) {
+		if( (fd = open( argv[1], 0 )) < 0 ) {
+		      perror(argv[0]);
+		      exit(1);
+		}
+		printf( "%s\n", ediag( "read only", "только чтение"));
+	}
+
+       /* инициализироавть список буферов */
+	bhdr.fwd = bhdr.back = &bhdr;
+	for(i=0; i<NBUF; i++) {
+		bp = &buf[i];
+		bp->blkaddr = buffers[i];
+		bp->valid = 0;
+		insert(bp);
+	}
+
+	reload();
+	if(argc == 3) printf( ediag( "error checking off\n",
+		  "проверка ошибок отключена\n"));
+	else override = 0;
+
+	signal(SIGINT,err);
+	setjmp(env);
+
+	for(;;) {
+		if(error) {
+			/* выбить ввод */
+			if(c != '\n') while (getc(stdin) != '\n');
+			c_count = 0;
+			prt_flag = 0;
+			char_flag = 0;
+			error = 0;
+			addr = erraddr;
+			printf("?\n");
+			/* type = -1; allows "d31 + +" to work */
+		}
+		c_count++;
+
+		switch(c = getc(stdin)) {
+
+		case '\n': /* command end */
+			erraddr = addr;
+			if(c_count == 1) addr = addr + objsz;
+			c_count = 0;
+			if(prt_flag) {
+				prt_flag = 0;
+				continue;
+			}
+			temp = get(objsz);
+			/* if an error has been flagged, it is probably
+			 * due to allignment.  This will have set objsz
+			 * to 1 hence the next get should work.
+			 */
+			if(error) temp = get(objsz);
+			switch(objsz) {
+			case L1: cptr = ".B"; break;
+			case L2: cptr = ".W"; break;
+			case 3: cptr  = ".a"; break;
+			case L4: cptr = ".D"; break;
+			case DIRSIZ:
+			case L16:
+				if(bcomp(addr,erraddr)) continue;
+				fprnt('d', 1);
+				prt_flag = 0;
+				continue;
+			case L64: fprnt('i',1);
+				cur_ino = addr;
+				prt_flag = 0;
+				continue;
+			}
+			printaddr();
+			printf( "%s: ", cptr );
+			if( objsz == L1 ){ putf( (int) temp );putchar('\t');}
+			printf("0%-8lo (%ld dec)\n",temp,temp);
+			continue;
+
+		default: /* catch absolute addresses, b and i#'s */
+			if(c<='9' && c>='0') {
+				ungetc(c,stdin);
+				addr = getnumb();
+				value = addr;
+				type = NUMB;
+				objsz = L4;     /* было L2 */
+				continue;
+			}
+			if(feof(stdin)) exit(0);
+			error++;
+			continue;
+
+		case 'i': /* i# to inode conversion */
+			if(c_count == 1) {
+				addr = cur_ino;
+				value = get(L64);
+				type = INODE;
+				continue;
+			}
+			if(type==NUMB)value = addr ;
+#ifdef IPK_DIRECTORY
+			/* inode - это unsigned:14 */
+			value &= 037777l;
+#endif
+			addr = ((value - 1) * sizeof(struct dinode)) + (BSIZE * 2);
+			if(icheck(addr)) continue;
+			cur_ino = addr;
+			value = get(L64);
+			type = INODE;
+			continue;
+
+		case 'b': /* block conversion */
+			if(type == NUMB)value = addr;
+			addr = value << BSHIFT;
+			value = get(L2);
+			type = BLOCK;
+			continue;
+
+		case 'd': /* directory offsets */
+			value = getnumb();
+			if(error||(value > (BSIZE / sizeof(struct direct)) - 1)) {
+				error++;
+				continue;
+			}
+			if(value != 0) if(dircheck()) continue;
+			addr = (addr & ~ADRMSK) + (value * sizeof(struct direct));
+			value = get(L16); /* i-number */
+			type = DIR;
+			continue;
+		case ';':
+			indicat = !indicat;
+			continue;
+		case '\t':
+		case ' ':
+		case '.': continue;
+
+		case '+': /* address addition */
+			c = getc(stdin);
+			ungetc(c,stdin);
+			if(c > '9' || c < '0') temp = objsz;
+			else temp = getnumb() * objsz;
+			if(error) continue;
+			if(objsz == DIRSIZ || objsz == L16)
+				if(bcomp(addr,addr+temp)) {
+					c = '+';
+					continue;
+				}
+			addr = addr + temp;
+			value = get(objsz);
+			continue;
+
+		case '-': /* address subtraction */
+			c = getc(stdin);
+			ungetc(c,stdin);
+			if(c > '9' || c < '0') temp = objsz;
+			else temp = getnumb() * objsz;
+			if(error) continue;
+			if(objsz == DIRSIZ || objsz == L16)
+				if(bcomp(addr,addr-temp)) {
+					c = '-';
+					continue;
+				}
+			addr = addr - temp;
+			value = get(objsz);
+			continue;
+
+		case '*': temp = getnumb();
+			if(error) continue;
+			addr = addr * temp;
+			value = get(objsz);
+			continue;
+
+		case '/': temp = getnumb();
+			if(error) continue;
+			if( temp == 0l ){
+				printf( ediag("zerodivide\n", "деление на 0\n"));
+				error++;
+				continue;
+			}
+			addr = addr / temp;
+			value = get(objsz);
+			continue;
+
+		case 'q': /* quit */
+			if(c_count != 1 || (c = getc(stdin)) != '\n') {
+				error++;
+				continue;
+			}
+			exit(0);
+
+		case '>': /* save current address */
+			oldaddr = addr;
+			oldvalue = value;
+			oldobjsz = objsz;
+			continue;
+
+		case '<': /* restore saved address */
+			addr = oldaddr;
+			value = oldvalue;
+			objsz = oldobjsz;
+			continue;
+
+		case 'a': /* access time */
+			if((c = getc(stdin)) == 't') {
+				addr = cur_ino + AT;
+				type = AT;
+				value = get(L4);
+				continue;
+			}
+
+			/* data block addresses */
+			ungetc(c,stdin);
+			value = getnumb();
+			if(error||(value > NADDR-1)) {
+				error++;
+				continue;
+			}
+			addr = cur_ino + A0 + (value * 3);
+			value = get(3);
+			type = A0;
+			continue;
+
+		case 'm': /* mt, md, maj, min */
+			addr = cur_ino;
+			mode = get(L2);
+			if(error) continue;
+			switch(c = getc(stdin)) {
+			case 't': /* modification time */
+				addr = addr + MT;
+				type = MT;
+				value = get(L4);
+				continue;
+			case 'd': /* mode */
+				addr = addr + MODE;
+				type = MODE;
+				value = get(L2);
+				continue;
+			case 'a': /* major device number */
+				if((c = getc(stdin)) != 'j') {
+					error++;
+					continue;
+				}
+				if(devcheck(mode)) continue;
+				addr = addr + MAJOR;
+				value = get(L1);
+				type = MAJOR;
+				continue;
+			case 'i': /* minor device number */
+				if((c = getc(stdin)) != 'n') {
+					error++;
+					continue;
+				}
+				if(devcheck(mode)) continue;
+				addr = addr + MINOR;
+				value = get(L1);
+				type = MINOR;
+				continue;
+			}
+			error++;
+			continue;
+
+		case 's': /* file size */
+			if((c = getc(stdin)) != 'z') {
+				error++;
+				continue;
+			}
+			addr = cur_ino + SZ;
+			value = get(L4);
+			type = SZ;
+			continue;
+
+		case 'l': /* link count */
+			if((c = getc(stdin)) != 'n') {
+				error++;
+				continue;
+			}
+			addr = cur_ino + LINK;
+			value = get(L2);
+			type = LINK;
+			continue;
+
+		case 'g': /* group id */
+			if((c=getc(stdin))!= 'i' || (c=getc(stdin)) != 'd') {
+				error++;
+				continue;
+			}
+			addr = cur_ino + GID;
+			value = get(L2);
+			type = GID;
+			continue;
+
+		case 'u': /* user id */
+			if((c=getc(stdin))!= 'i' || (c=getc(stdin)) != 'd') {
+				error++;
+				continue;
+			}
+			addr = cur_ino + UID;
+			value = get(L1);
+			type = UID;
+			continue;
+
+		case 'n': /* directory name */
+			if((c = getc(stdin)) != 'm') {
+				error++;
+				continue;
+			}
+			if(dircheck()) continue;
+			type = DIR;
+			objsz = DIRSIZ;
+			addr = (addr & ~017) + L2;
+			continue;
+
+		case 'S':       /* superblock */
+			addr = BSIZE;
+			switch( c=getc( stdin )){
+			case 'f':       /* filsys size */
+				addr += L2;
+				value = get( L4 );
+				type = NUMB;
+				continue;
+			case 'i':       /* inodes size */
+				value = get( L2 );
+				type = NUMB;
+				printf( ediag( "ATTENTION: %u I-nodes\n", "ВНИМАНИЕ: %u I-узлов\n"),
+					((unsigned short)value-2)*INOSZ);
+				printf( ediag( "This field contains NOT the amount of I-nodes but size of I-file !\n",
+					       "В данном поле записано НЕ число I-узлов, а размер инд. файла !\n"));
+				printf( ediag( "formula: I-nodes = (field - 2) * %u\n",
+					       "формула: I-узлов = (значение поля - 2) * %u\n" ),
+						INOSZ );
+				continue;
+			case 'r':       /* reload */
+				reload(); continue;
+			}
+			error++;
+			continue;
+
+		case '=': /* assignment operation       */
+			switch(c = getc(stdin)) {
+			case '"': /* character string */
+				puta();
+				continue;
+			case '+': /* =+ operator */
+				temp = getnumb();
+				value = get(objsz);
+				if(!error) put(value+temp,objsz);
+				continue;
+			case '-': /* =- operator */
+				temp = getnumb();
+				value = get(objsz);
+				if(!error) put(value-temp,objsz);
+				continue;
+			case '&':
+				temp = getnumb();
+				value = get(objsz);
+				if(!error) put(value & temp,objsz);
+				continue;
+			case '|':
+				temp = getnumb();
+				value = get(objsz);
+				if(!error) put(value | temp,objsz);
+				continue;
+			case '<':
+				temp = getnumb();
+				value = get(objsz);
+				if(!error) put(value<<temp,objsz);
+				continue;
+			case '>':
+				temp = getnumb();
+				value = get(objsz);
+				if(!error) put(value>>temp,objsz);
+				continue;
+			case '~':
+				temp = getnumb();
+				value = get(objsz);
+				if(!error) put(value & ~temp , objsz);
+				continue;
+
+			default: /* nm and regular assignment */
+				ungetc(c,stdin);
+				if((type == DIR) && (c > '9' || c < '0')) {
+					addr = (addr & ~017) + L2;
+					puta();
+					continue;
+				}
+				value = getnumb();
+				if(!error) put(value,objsz);
+				continue;
+			}
+
+		case '!': /* shell command */
+#ifdef STANDALONE
+			printf("Shell not available stand-alone");
+			continue;
+#else
+			if(c_count != 1) {
+				error++;
+				continue;
+			}
+			if((pid = fork()) == 0) {
+				execl("/bin/sh", "sh", "-t", 0);
+				error++;
+				continue;
+			}
+			while((rpid = wait(&retcode)) != pid && rpid != -1);
+			printf("!\n");
+			c_count = 0;
+			continue;
+#endif
+
+		case 'F': /* buffer status */
+			for(bp=bhdr.fwd; bp!= &bhdr; bp=bp->fwd)
+				printf("blk=%-6lu %s\n",
+				    bp->blkno,bp->valid?"valid":"");
+			continue;
+
+		case 'f': /* file print facility */
+			if((c=getc(stdin)) >= '0' && c <= '9') {
+				ungetc(c,stdin);
+				temp = getnumb();
+				if (error) continue;
+				c = getc(stdin);
+			}
+			else temp = 0;
+			count = 0;
+			addr = cur_ino;
+			mode = get(L2);     /* mode */
+			if(!override) {
+			    if((mode & IFMT)==0)
+				printf( ediag( "warning: inode not allocated\n",
+					       "внимание: I-узел свободен\n" ));
+			}
+
+			if(mode & IFCHR) {
+				printf( ediag("special device\n",
+					      "байтовое устройство\n"));
+				error++;
+				continue;
+			}
+
+			if((addr = (bmap(temp)) << BSHIFT) == 0)
+				continue;
+			fprnt(c,0);
+			continue;
+
+		case 'O': /* override flip flop */
+			if(override = !override)
+				printf(ediag("error checking off\n",
+					     "выкл. проверку ошибок\n"));
+			else {
+				printf(ediag("error checking on\n",
+					     "вкл. проверку ошибок\n"));
+				reload();
+			}
+			prt_flag++;
+			continue;
+
+		case 'B': /* byte offsets */
+			objsz = L1;
+			continue;
+
+		case 'W': /* word offsets */
+			objsz = L2;
+			addr = addr & ~01;
+			continue;
+
+		case 'D': /* double word offsets */
+			objsz = L4;
+			addr = addr & ~01;
+			continue;
+#ifndef STANDALONE
+		case 'A': abort();
+#endif
+
+		case ',': /* general print facilities */
+		case 'p':
+			if(( c = getc(stdin)) >= '0' && c <= '9') {
+				ungetc(c,stdin);
+				count = getnumb();
+				if(error) continue;
+				if((count < 0) || (count > BSIZE))
+					count = 1;
+				c = getc(stdin);
+			}
+			else if(c == '*'){
+				count = 0;      /* print to end of block */
+				c = getc(stdin);
+			}
+			else count = 1;
+			fprnt(c,count);
+			continue;
+		case '$':  /* status report */
+			printaddr();
+			printf( ": objsz=L%-2d cur_ino=%lu value=%lu\n",
+				   objsz,
+						(cur_ino-2*BSIZE)/L64 + 1,
+							   value
+			);
+			continue;
+		case '?':
+			help();
+			while( getc( stdin )!= '\n' );
+			continue;
+
+		}
+	}
+}
+
+/*
+ * getnumb - read a number from the input stream.  A leading
+ * zero signifies octal interpretation. If the first character
+ * is not numeric this is an error, otherwise continue
+ * until the first non-numeric.
+ */
+
+long
+getnumb()
+{
+
+	extern  short  error;
+	long    number, base;
+	register        char  c;
+
+	if(((c = getc(stdin)) < '0')||(c > '9')) {
+		error++;
+		ungetc(c,stdin);
+		return(-1);
+	}
+	if(c == '0') base = 8;
+	else base = 10;
+	number = c - '0';
+	while(((c = getc(stdin)) >= '0' )&&( c <= '9')) {
+		if((base == 8) && ((c =='8')||(c == '9'))) {
+			error++;
+			return(-1);
+		}
+		number = number * base + c - '0';
+	}
+	ungetc(c,stdin);
+	return(number);
+}
+
+/*
+ * get - read a byte, word or double word from the file system.
+ * The entire block containing the desired item is read
+ * and the appropriate data is extracted and returned.
+ * Inode and directory size requests result in word
+ * fetches. Directory names (objsz == DIRSIZ) result in byte
+ * fetches.
+ */
+
+long
+get(lngth)
+	short   lngth;
+{
+
+	long    vtemp;
+	char *bptr;
+	short offset;
+
+	objsz = lngth;
+	if(allign(objsz)) return(-1);
+	if((bptr = getblk(addr)) == 0) return(-1);
+	vtemp = 0l;
+	offset = addr & ADRMSK;
+	bptr = bptr + offset;
+	if(offset + lngth > BSIZE) {
+		error++;
+		printf ("get(lngth) - %d %s\n",offset + lngth,
+		       ediag("too long","слишком длинно"));
+		return(-1);
+	}
+	switch(objsz) {
+	case L4: vtemp = *(long *)bptr;
+		 return(vtemp);
+	case L64:
+	case L16:
+	case L2: loword(vtemp) = *((short *)bptr);
+		 return(vtemp);
+	case DIRSIZ:
+	case L1: lobyte(loword(vtemp)) = *bptr;
+		 return(vtemp);
+	case 3:
+		 l3tol(&vtemp,bptr,1);
+		 return(vtemp);
+	}
+	error++;
+	printf ("get(%d) - %s\n",lngth,
+		ediag("invalid length","неверная длина"));
+	return(0);
+}
+
+/*
+ * icheck - check if the current address is within the I-list.
+ * The I-list extends for isize blocks beginning at the
+ * super block + 1, i.e., from block 2 to block isize.
+ */
+
+icheck(address)
+	long    address;
+{
+	unsigned blk;
+
+	if(override) return(0);
+	blk = address >> BSHIFT;
+	if((blk >= 2) && (blk < isize))
+		return(0);
+	printf("%s: blk=%u addr=%lu\n",
+	  ediag("inode out of range","такого I-узла нет"), blk, address );
+	error++;
+	return(1);
+}
+
+/*
+ * putf - print a byte as an ascii character if possible.
+ * The exceptions are tabs, newlines, backslashes
+ * and nulls which are printed as the standard c
+ * language escapes. Characters which are not
+ * recognized are printed as \???.
+ */
+
+putf(c)
+{
+	switch( c ){
+	case '\\':  printf( "\\\\");  break;
+	case '\t':  printf( "\\t");   break;
+	case '\n':  printf( "\\n");   break;
+	case 0:     printf( "\\0");   break;
+	case '\b':  printf( "\\b");   break;
+	case '\f':  printf( "\\f");   break;
+	default:
+		if( isprint( c)){
+			putc(' ',stdout);
+			putc( c ,stdout);
+		}else if( 01<= c && c < 033 ){
+			putc( '^', stdout );
+			putc( 'A' - 1 + c ,stdout );
+		}else{
+			printf( "\\%o", c & 0377 );
+		}
+	}
+	putc(' ',stdout);
+}
+
+/*
+ * put - write an item into the buffer for the current address
+ * block.  The value is checked to make sure that it will
+ * fit in the size given without truncation.  If successful,
+ * the entire block is written back to the file system.
+ */
+
+put(item,lngth)
+	long item;
+	short lngth;
+{
+
+	register char *bptr, *sbptr;
+	register long *vptr;
+	short offset;
+	long    s_err,nbytes;
+
+	objsz = lngth;
+	if(allign(objsz)) return(-1);
+	if((sbptr = getblk(addr)) == 0) return;
+	offset = addr & ADRMSK;
+	if(offset + lngth > BSIZE) {
+		error++;
+		printf( ediag("block overflow\n", "конец блока\n"));
+		return;
+	}
+	bptr = sbptr + offset;
+	switch(objsz) {
+	case 3: vptr = &item;
+		if ( ((long)vptr & 1) != 0 ) break;
+		ltol3(bptr,vptr,1);
+		goto rite;
+	case L4: *(long *)bptr = item;
+		goto rite;
+	case L64:
+	case L16:
+	case L2: if(item & ~0177777L) break;
+		*(short *)bptr = item;
+		goto rite;
+	case DIRSIZ:
+	case L1: if(item & ~0377) break;
+		*bptr = lobyte(loword(item));
+rite:   if((s_err = lseek(fd,addr & ~(long)ADRMSK,0)) == -1) {
+		error++;
+		printf("seek error :");printaddr();putchar('\n');
+		return(0);
+	}
+	if((nbytes = write(fd,sbptr,BSIZE)) != BSIZE) {
+		error++;
+		printf("write error : addr   = ");printaddr();putchar('\n');
+		printf("            : s_err  = %lo\n",s_err);
+		printf("            : nbytes = %lo\n",nbytes);
+		return(0);
+	}
+		return;
+	default: error++;
+		return;
+	}
+	printf( ediag( "truncation error\n", "ошибка округления") );
+	error++;
+}
+
+/*
+ * getblk - check if the desired block is in the file system.
+ * Search the incore buffers to see if the block is already
+ * available. If successful, unlink the buffer control block
+ * from its position in the buffer list and re-insert it at
+ * the head of the list.  If failure, use the last buffer
+ * in the list for the desired block. Again, this control
+ * block is placed at the head of the list. This process
+ * will leave commonly requested blocks in the in-core buffers.
+ * Finally, a pointer to the buffer is returned.
+ */
+
+char *getblk(address)
+	long    address;
+{
+
+	register struct buf *bp;
+	long    block;
+	long    s_err,nbytes;
+
+	block = addr >> BSHIFT;
+	if(!override)
+		if(block >= fsize) {
+			printf( ediag( "block out of range\n",
+				  "блок вне файловой системы"));
+			error++;
+			return(0);
+		}
+	for(bp=bhdr.fwd; bp!= &bhdr; bp=bp->fwd)
+		if(bp->blkno==block && bp->valid) goto xit;
+	bp = bhdr.back;
+	bp->blkno = block;
+	bp->valid = 0;
+
+	if((s_err = lseek(fd,addr & ~(long)ADRMSK,0)) == -1) {
+		error++;
+		printf("seek error :");
+		printaddr();putchar('\n');
+		return(0);
+	}
+	if((nbytes = read(fd,bp->blkaddr,BSIZE)) != BSIZE) {
+		error++;
+		printf("read error : addr   = ");printaddr();putchar('\n');
+		printf("           : s_err  = %lo\n",s_err);
+		printf("           : nbytes = %lo\n",nbytes);
+		return(0);
+	}
+	bp->valid++;
+xit:    bp->back->fwd = bp->fwd;
+	bp->fwd->back = bp->back;
+	insert(bp);
+	return(bp->blkaddr);
+}
+
+/*
+ * insert - place the designated buffer control block
+ * at the head of the linked list of buffers.
+ */
+
+insert(bp)
+	register struct buf *bp;
+{
+
+	bp->back = &bhdr;
+	bp->fwd = bhdr.fwd;
+	bhdr.fwd->back = bp;
+	bhdr.fwd = bp;
+}
+
+/*
+ * allign - before a get or put operation check the
+ * current address for a boundary corresponding to the
+ * size of the object.
+ */
+
+allign(ment)
+	short ment;
+{
+
+	switch(ment) {
+	case L4: if(addr & 01L) break;
+		return(0);
+	case DIRSIZ: if((addr & 017) != 02) break;
+		return(0);
+	case L16:
+	case L64:
+	case L2: if(addr & 01L) break;
+	case 3:
+	case L1: return(0);
+	}
+	error++;
+	objsz = 1;
+	printf(ediag( "allignment\n", "выравнивание\n"));
+	return(1);
+}
+
+/*
+ * err - called on interrupts.  Set the current address
+ * back to the last address stored in erraddr. Reset all
+ * appropriate flags.  If the prt_flag is set, the interrupt
+ * occured while transferring characters to a buffer.
+ * These are "erased" by invalidating the buffer, causing
+ * the entire block to be re-read upon the next reference.
+ * A reset call is made to return to the main loop;
+ */
+
+err()
+{
+	signal(2,err);
+	addr = erraddr;
+	error = 0;
+	c_count = 0;
+	if(char_flag) {
+		bhdr.fwd->valid = 0;
+		char_flag = 0;
+	}
+	prt_flag = 0;
+	printf("\n?\n");
+	fseek(stdin, 0L, 2);
+	longjmp(env,0);
+}
+
+/*
+ * devcheck - check that the given mode represents a
+ * special device. The IFCHR bit is on for both
+ * character and block devices.
+ */
+
+devcheck(md)
+	register short md;
+{
+	if(override) return(0);
+	if(md & (IFCHR|IFBLK)) return(0);
+	printf( ediag( "not char or block device\n","не устройство\n"));
+	error++;
+	return(1);
+}
+
+/*
+ * nullblk - return error if address is zero.  This is done
+ * to prevent block 0 from being used as an indirect block
+ * for a large file or as a data block for a small file.
+ */
+
+nullblk(bn)
+	long    bn;
+{
+	if(bn != 0) return(0);
+	printf( ediag( "non existent block\n",
+		       "несуществующий блок (полностью нулевой)\n"));
+	error++;
+	return(1);
+}
+
+/*
+ * dircheck - check if the current address can be in a directory.
+ * This means it is not in the I-list, block 0 or the super block.
+ */
+
+dircheck()
+{
+	unsigned block;
+
+	if(override) return (0);
+	if((block = (addr >> BSHIFT)) >= isize) return(0);
+	error++;
+	printf( ediag( "block in I-list\n", "блок в списке I-узлов\n"));
+	return(1);
+}
+
+/*
+ * puta - put ascii characters into a buffer.  The string
+ * terminates with a quote or newline.  The leading quote,
+ * which is optional for directory names, was stripped off
+ * by the assignment case in the main loop.  If the type
+ * indicates a directory name, the entry is null padded to
+ * DIRSIZ bytes.  If more than 14 characters have been given
+ * with this type or, in any case, if a block overflow
+ * occurs, the current block is made invalid. See the
+ * description for err.
+ */
+
+puta()
+{
+	register char *bptr, c;
+	register offset;
+	char *sbptr;
+	unsigned block;
+	long    s_err,nbytes;
+
+	if((sbptr = getblk(addr)) == 0) return;
+	char_flag++;
+	offset = addr & ADRMSK;
+	bptr = sbptr + offset;
+
+	while((c = getc(stdin)) != '"') {
+		if(offset++ == BSIZE) {
+			bhdr.fwd->valid = 0;
+			error++;
+			char_flag = 0;
+			printf( ediag("block overflow\n","конец блока\n"));
+			return;
+		}
+		if(c == '\n') {
+			ungetc(c,stdin);
+			break;
+		}
+		if(c == '\\') {
+			switch(c = getc(stdin)) {
+			case 't': *bptr++ = '\t'; break;
+			case 'n': *bptr++ = '\n'; break;
+			case '0': *bptr++ = '\0'; break;
+			case 'b': *bptr++ = '\b'; break;
+			default: *bptr++ = c; break;
+			}
+		}
+		else *bptr++ = c;
+	}
+	char_flag = 0;
+	if(type == DIR) {
+		c = offset - (addr & ADRMSK);
+		if(c > DIRSIZ) {
+			bhdr.fwd->valid = 0;
+			error++;
+			char_flag = 0;
+			printf( ediag("name too long\n","имя длинее DIRSIZ\n"));
+			return;
+		}
+		while(c++ < DIRSIZ) *bptr++ = '\0';
+	}
+	if((s_err = lseek(fd,addr & ~(long)ADRMSK,0)) == -1) {
+		error++;
+		printf("seek error : ");
+		printaddr();putchar('\n');
+		return(0);
+	}
+	if((nbytes = write(fd,sbptr,BSIZE)) != BSIZE) {
+		error++;
+		printf("write error : addr   = ");printaddr();putchar('\n');
+		printf("            : s_err  = %lo\n",s_err);
+		printf("            : nbytes = %lo\n",nbytes);
+		return(0);
+	}
+}
+
+char *nam(i){
+	if( i>=0 && i < NADDR-3 )
+		return "direct";
+	if( i == NADDR-3 )
+		return "indir1";
+	if( i == NADDR-2 )
+		return "indir2";
+	if( i == NADDR-1 )
+		return "indir3";
+	return         "ERROR ";
+};
+
+/*
+ * fprnt - print data as characters, octal or decimal words, octal
+ * bytes, directories or inodes A total of "count" entries
+ * are printed. A zero count will print all entries to the
+ * end of the current block.  If the printing would cross a
+ * block boundary, the attempt is aborted and an error returned.
+ * This is done since logically sequential blocks are generally
+ * not physically sequential.  The error address is set
+ * after each entry is printed.  Upon completion, the current
+ * address is set to that of the last entry printed.
+ */
+
+fprnt(style,count)
+	register char style;
+	register count;
+{
+	short offset;
+	unsigned block;
+	char *cptr;
+	short *iptr;
+	short *tptr;
+	long tmp;
+
+	prt_flag++;
+	block = addr >> BSHIFT;
+	offset = addr & ADRMSK;
+	if((cptr = getblk(addr)) == 0){
+		ip = 0;
+		iptr = 0;
+		dirp = 0;
+		return;
+	}
+	ip = ((struct dinode *)cptr);
+	erraddr = addr;
+
+	switch (style) {
+	case '.': objsz = L2; return;  /* no print */
+
+	case 'c': /* print as characters */
+	case 'b': /* or octal bytes */
+		if(count == 0) count = BSIZE - offset;
+		if(offset + count > BSIZE) break;
+		objsz = L1;
+		cptr = cptr + offset;
+		for(i=0; count--; i++) {
+			if(i % 16 == 0){printf("\n");printaddr();printf(": ");}
+
+			if(style == 'c') putf(*cptr++);
+			else printf("%-4o",*cptr++ & 0377);
+
+			erraddr = addr;
+			addr++;
+		}
+		addr--;
+		putc('\n',stdout);
+		return;
+
+	case 'd': /* print as directories */
+		if(dircheck()) return;
+		addr = addr & ~017;
+		offset = offset / sizeof(struct direct);
+		if(count == 0) count = (BSIZE / sizeof(struct direct)) - offset;
+		if(count + offset > (BSIZE / sizeof(struct direct))) break;
+		type = DIR;
+		objsz = L16;
+		for(dirp = ((struct dir *)cptr) + offset; count--; dirp++) {
+#ifdef IPK_DIRECTORY
+			printf("d%d:\t%d\tC_%d    ",offset++,dirp->inumb, dirp->iclass);
+			if( dirp-> inumb )
+			     switch( dirp-> iclass){
+			     case DIR_IFDIR:
+				printf( "/DIR\\");break;
+			     case DIR_IFREG:
+				printf( " REG ");break;
+			     case DIR_IFLNK:
+				printf( "(LNK)");break;
+			     default:
+				printf( "  ?  ");break;
+			     }
+			else    printf( " ... ");
+			printf("\t\"");
+#else
+			printf("d%d:\t%d\t\"",offset++,dirp->inumb);
+#endif
+
+			cptr = dirp->nm;
+			for(j=0; j<DIRSIZ; j++) {
+				if(*cptr == '\0') break;
+				putf(*cptr++);
+			}
+			printf("\"\n");
+			erraddr = addr;
+			addr = addr + sizeof(struct direct);
+		}
+		addr = erraddr;
+		return;
+
+	case 'o': /* print as octal words */
+	case 'e': /* print as decimal words */
+		addr = addr & ~01;
+		offset = offset >> 1;
+		/* offset /= L2; */
+		iptr = ((short *)cptr) + offset;
+		/**********  ??? ***********************/
+		if(count == 0) count = BSIZE / 2 - offset;
+		if(offset + count > BSIZE / 2) break;
+		/***************************************/
+
+		objsz = L2;
+		for(i=0; count--; i++) {
+			if(i % 8 == 0) {
+
+				/*  this code deletes lines of zeros  */
+				tptr = iptr;
+				k = count -1;   /* always print last line */
+				for(j = i; k--; j++)
+				if(*tptr++ != 0) break;
+				if(j > (i + 7)) {
+					j = (j - i) >> 3;
+					while(j-- > 0){
+						iptr = iptr + 8;
+						count = count - 8;
+						i = i + 8;
+						addr = addr + L16;
+					}
+					printf("\n*");
+				}
+
+				printf("\n");
+				printaddr();
+				putchar(':');
+			}
+			if(style == 'o')printf("  %6.6o",*iptr++ & 0177777);
+			else printf("  %6d",*iptr++);
+			erraddr = addr;
+			addr = addr + L2;
+		}
+		addr = erraddr;
+		putc('\n',stdout);
+		return;
+
+	case 'i': /* print as inodes */
+		if(icheck(addr)) return;
+		addr = addr & ~077;
+		offset = offset / sizeof(struct dinode);
+		if(count == 0) count = INOSZ - offset;
+		if(count + offset > INOSZ) break;
+		type = INODE;
+		objsz = L64;
+		ip = ip + offset;
+		temp = (addr - (BSIZE * 2)) / sizeof(struct dinode) + 1;
+		for(i=0; count--; ip++) {
+			printf("I-%s #%ld     ",ediag("node","узел"),temp++);
+			p = " ugtrwxrwxrwx";
+			mode = ip->di_mode;
+			switch(mode & IFMT) {
+			case IFDIR: putc('d',stdout); break;
+			case IFCHR: putc('c',stdout); break;
+			case IFBLK: putc('b',stdout); break;
+			case IFREG: putc('-',stdout); break;
+			case IFIFO: putc('p',stdout); break;
+			case IFLNK: putc('l',stdout); break;
+			default: putc('?',stdout); break;
+			}
+			for(mode = mode << 4; *++p; mode = mode << 1) {
+				if(mode & HIBIT) putc(*p,stdout);
+				else putc('-',stdout);
+			}
+			printf("\nln:%d  uid:%d  gid:%d",
+				ip->di_nlink,ip->di_uid,ip->di_gid);
+			printf("  sz: %lu (%ld blks)\n", ip->di_size,
+			   ip->di_size/BSIZE + ((ip-> di_size % BSIZE)? 1l : 0l)
+			);
+
+			if(ip->di_mode & IFCHR)
+				printf("maj:%o  min:%o\n",
+					ip->di_addr[1] & 0377, ip->di_addr[0] & 0377);
+			else {
+				for(i = 0; i < NADDR; i++) {
+					l3tol(&tmp,&ip->di_addr[3*i],1);
+					printf("%s a%d:   %lu\n",
+						nam(i), i,tmp);
+				}
+			}
+			printf("at: %s",ctime(&ip->di_atime));
+			printf("mt: %s",ctime(&ip->di_mtime));
+			printf("ct: %s",ctime(&ip->di_ctime));
+			/* if(count) putc('\n',stdout); */
+			cur_ino = erraddr = addr;
+			addr = addr + sizeof(struct dinode);
+		}
+		addr = erraddr;
+		return;
+
+	default: error++;
+		printf( ediag("no such print option\n","неверный формат\n"));
+		return;
+	}
+	error++;
+	printf(ediag( "block overflow\n", "конец блока\n"));
+}
+
+/*
+ * reload - read new values for isize and fsize. These are
+ * the basis for most of the error checking procedures.
+ */
+
+reload()
+{
+	long saddr;             /* save addr */
+	short   sv_objsz;
+
+	saddr = addr;
+	sv_objsz = objsz;
+
+	addr = BSIZE;
+	isize = get(L2);
+
+	addr = BSIZE + L2;
+	fsize = get(L4);
+
+	addr = saddr;
+	objsz = sv_objsz;
+
+	if(error) printf(ediag("cannot read superblock\n",
+			       "суперблок не читается\n"));
+	else printf( ediag("FSIZE = %ld blocks, ISIZE = %u inodes\n",
+			   "* %ld блоков в Файл.Системе\n* %u I-узлов\n"),
+			    fsize, (isize - 2) * INOSZ);
+}
+
+/*
+ * bcomp - compare the block numbers of two long addresses.
+ * Used to check for block over/under flows when stepping through
+ * a file system.
+ */
+
+bcomp(addr1,addr2)
+	long addr1;
+	long addr2;
+{
+	if(override) return(0);
+	if((addr1 & ~(long)ADRMSK) == (addr2 & ~(long)ADRMSK)) return(0);
+	error++;
+	printf(ediag( "block overflow\n", "конец блока\n"));
+	return(1);
+}
+
+/*
+ * bmap - maps the logical block number of a file into
+ * the corresponding physical block on the file
+ * system.  Algorithm is that of the version 7 bmap routine.
+ */
+
+long
+bmap(bn)
+	long    bn;
+{
+
+	long    nb;
+	int     j, sh, i;
+
+	addr = cur_ino;
+	if(bn < NADDR - 3) {
+		addr += A0 + bn * 3;
+		return(nullblk(nb=get(3)) ? 0L : nb);
+	}
+
+	sh = 0;
+	nb = 1;
+	bn -= NADDR - 3;
+	for(j=3; j>0; j--) {
+		sh += NSHIFT;
+		nb = nb << NSHIFT;
+		if(bn < nb)
+			break;
+		bn -= nb;
+	}
+	if(j==0) {
+		error++;
+		printf(ediag( "file too big\n","очень большой файл\n"));
+		return(0L);
+	}
+	addr += A0 + (NADDR - j) * 3;
+	if(nullblk(nb=get(3)))
+		return(0L);
+	for(; j<=3; j++) {
+		sh -= NSHIFT;
+		addr = (nb << BSHIFT) + L4 * ((bn >> sh) & NMASK);
+		if(nullblk(nb=get(L4)))
+			return(0L);
+	}
+	return(nb);
+}
+@
+
+
+1.8
+log
+@апшипки.
+@
+text
+@d3 5
+a7 2
+/* $Header: fsdb.c,v 1.7 89/05/15 19:30:09 abs Exp $
+ * $Log:	fsdb.c,v $
+d10 1
+a10 1
+ * 
+d492 3
+a494 3
+					(value-2)*INOSZ);
+				printf( ediag( "This field contains NOT the amount of I-nodes !\n",
+					       "В данном поле записано НЕ число I-узлов !\n"));
+@
+
+
+1.7
+log
+@маленькая хачка про Si
+@
+text
+@d3 5
+a7 2
+/* $Header: fsdb.c,v 1.6 88/12/05 16:55:55 abs Exp $
+ * $Log:        fsdb.c,v $
+d88 1
+d491 1
+a491 1
+					       "В данном поле записано НЕ число I-узлов !\n");
+@
+
+
+1.6
+log
+@undo прелыдУщие праВки и  внес новЫе
+@
+text
+@d3 1
+a3 1
+/* $Header: fsdb.c,v 1.5 88/12/05 15:49:07 abs Exp $
+d5 3
+d484 7
+@
+
+
+1.5
+log
+@срезание лишних битов у номера I-узла
+@
+text
+@d3 1
+a3 1
+/* $Header: fsdb.c,v 1.4 88/12/05 15:28:26 abs Exp $
+d5 3
+d584 1
+a584 1
+			if(mode & IFCHR|IFBLK) {
+@
+
+
+1.4
+log
+@style
+@
+text
+@d3 1
+a3 1
+/* $Header: fsdb.c,v 1.3 88/12/02 21:19:24 abs Exp $
+d5 3
+d254 5
+a258 1
+			if(type==NUMB)value = addr;
+@
+
+
+1.3
+log
+@на ту же тему.
+@
+text
+@d3 1
+a3 1
+/* $Header: fsdb.c,v 1.2 88/12/02 20:50:28 abs Exp $
+d5 3
+d574 1
+a574 1
+			if(mode & IFCHR) {
+@
+
+
+1.2
+log
+@правлен пересчет размера в блоки.
+@
+text
+@d3 1
+a3 1
+/* $Header: fsdb.c,v 1.1 88/12/02 20:11:09 abs Exp $
+d5 3
+d1271 2
+a1272 2
+			printf("  sz: %lu (%lu blks)\n", ip->di_size,
+			   ip->di_size/BSIZE + (ip-> di_size % BSIZE)? 1l : 0l
+d1281 1
+a1281 1
+					printf("%s a%d:%lu\n",
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+/* $Header$
+d5 3
+d1269 1
+a1269 2
+				ip->di_size >> BSHIFT +
+			       (ip->di_size &ADRMSK)?1l:0l
+a1270 1
+		/* size/BSIZE + (size%BSIZE)?1l:0l */
+@

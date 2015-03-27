@@ -1,0 +1,31 @@
+From comp.sys.dec.micro Sun Mar 20 11:59:31 1994
+Newsgroups: comp.sys.dec.micro
+Path: ipmce!demos1!uunet!world!mbg
+From: mbg@world.std.com (Megan)
+Subject: Re: VENIX (or MINIX)
+Message-ID: <CMw44A.Ir6@world.std.com>
+Organization: The World Public Access UNIX, Brookline, MA
+References: <707_9403092115@ican.com> <CMGy3G.3zq@world.std.com> <CMI8r9.1AL@watdragon.uwaterloo.ca> <1994Mar11.215814.13280@cc.usu.edu> <CMKKw3.Kv2@world.std.com> <1994Mar18.105720.14052@sydrd15.tplrd.tpl.oz.au>
+Date: Sat, 19 Mar 1994 02:26:33 GMT
+Lines: 19
+
+keithh@tplrd.tpl.oz.au (Keith Harwood) writes:
+
+
+>In article <CMKKw3.Kv2@world.std.com>, mbg@world.std.com (Megan) writes:
+>> 
+>> It may be in the GNU portion of the tree on gatekeeper.dec.com, I seem
+>> to remember getting the same files at one point relating to gcc and
+>> pdp-11.
+
+>Could someone please post the true path/access method etc. for this.
+>I would really *really* appreciate getting gcc for RT-11.
+
+First, login via anonymous ftp to gatekeeper.dec.com.  The files are in:
+
+	pub/GNU/gcc-2.5.8.tar.gz
+	pub/GNU/gcc.pdp-11
+
+					Megan Gentry
+
+

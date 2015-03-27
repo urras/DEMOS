@@ -1,0 +1,37 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.11.25;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ * A subroutine version of the macro getchar.
+ */
+#include <stdio.h>
+
+#undef getchar
+
+getchar()
+{
+	return(getc(stdin));
+}
+@

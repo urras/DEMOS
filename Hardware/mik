@@ -1,0 +1,168 @@
+	  Генератор символов DZM-180 для 8-ми разрядного кода.
+
+
+     Назначение. Генератор предназначен для замены существующего генератора
+DZM-180 с целью расширения исходного набора печатаемых символов строчными
+буквами русского и английского алфавитов, без существенной переделки платы
+управления. Кодировка знаков соответствует кодировке дисплея 15ИЭ-00-013.
+
+     Устройство. Три исходных ПЗУ знакогенератора DZM-180 заменяются одним
+типа К573РФ2. Содержимое нового ПЗУ приведено в таблицах 0, 1, 2, 3, 4, 5,
+6, 7. Расположение таблиц в ПЗУ по порядку начиная с нулевого адреса. На
+рис.1 представлена схема подключения нового ПЗУ к плате управления DZM-180.
+     Лучше всего для этого изготовить дополнительную плату размерами 40*75 мм
+рис.2 (разводку можно выполнить монтажным проводом).
+     В посадочное место Ш1 вставляются штырьки, а посадочное место РФ2 -
+панелька под новое ПЗУ. Такая плата штырьками вставляется в панельку платы
+управления DZM-180 для ROM4, так чтобы новое ПЗУ панелькой вниз попало на
+место под ROM3 рис.3, дополнительные 5 проводов (0V, R8, R7, R6, ^MT3)
+распаиваются согласно рис.1.
+     Замечание. Для работы со старым набором символов достаточно вынуть
+дополнительную плату и поставить на свои места исходные ПЗУ DZM-180.
+
+
+Рис.1  Принципиальная схема подключения нового ПЗУ
+       (в скобках указаны сигналы платы управления DZM-180)
+
+		       ---------------------
+ ___                   |     К573РФ2       |
+(MT3)   Z0H12 --*--20--O CS0            Q0 O--09------ Z4E04  (CAIG1)
+		|      |                   |
+		---18--O CS1            Q1 O--10------ Z4E05  (CAIG2)
+		       |                   |
+(R8)    Z1B09 -----19--| A10            Q2 O--11------ Z4E06  (CAIG3)
+		       |                   |
+(R7)    Z1B10 -----22--| A9             Q3 O--13------ Z4E07  (CAIG4)
+		       |                   |
+(R6)    Z1B15 -----23--| A8             Q4 O--14------ Z4E08  (CAIG5)
+		       |                   |
+(R5)    Z4E17 -----01--| A7             Q5 O--15------ Z4E09  (CAIG6)
+		       |                   |
+(R4)    Z4E18 -----02--| A6             Q6 O--16------ Z4E10  (CAIG7)
+		       |                   |
+(R3)    Z4E19 -----03--| A5             Q7 O--17--
+		       |                   |
+(R2)    Z4E20 -----04--| A4                |
+		       |                   |
+(R1)    Z4E21 -----05--| A3                |
+		       |                   |
+(C4)    Z4E01 -----06--| A2                |
+		       |                   |
+(C2)    Z4E02 -----07--| A1                |
+		       |                   |
+(C1)    Z4E03 -----08--| A0                |
+	    ______     |                   |
+   +5в <----| 3к |-21--| W                 |
+	    ~~~~~~     |                   |
+		       ---------------------
+
+
+
+Таблицы 0, 4, 5:                            Таблица 1:
+(Можно определить дополнительно)
+адрес     содержимое        символ      адрес      содержимое       символ
+----------------------------------      ----------------------------------
+ 0   FF FF FF FF FF FF FF FF             0   FF FF FF FF FF FF FF FF
+ 8   FF FF FF FF FF FF FF FF             8   FF FF FF FF 82 FF FF FF  !
+10   FF FF FF FF FF FF FF FF            10   FF FF DF BF FF DF BF FF  "
+18   FF FF FF FF FF FF FF FF            18   FF EB FF 88 FF 88 FF EB  #
+20   FF FF FF FF FF FF FF FF            20   FF DD F7 EB FF EB F7 DD  $
+28   FF FF FF FF FF FF FF FF            28   FF DE AD DB F7 ED DA BD  %
+30   FF FF FF FF FF FF FF FF            30   FF F9 D6 AF D6 FB FD FA  &
+38   FF FF FF FF FF FF FF FF            38   FF FF FF EF DF BF FF FF  '
+40   FF FF FF FF FF FF FF FF            40   FF FF FF FF E3 DD BE FF  (
+48   FF FF FF FF FF FF FF FF            48   FF FF BE DD E3 FF FF FF  )
+50   FF FF FF FF FF FF FF FF            50   FF F7 DD E3 FF E3 DD F7  *
+58   FF FF FF FF FF FF FF FF            58   FF F7 FF F7 C9 F7 FF F7  +
+60   FF FF FF FF FF FF FF FF            60   FF FF FF F2 FD F3 FF FF  ,
+68   FF FF FF FF FF FF FF FF            68   FF F7 FF F7 FF F7 FF F7  -
+70   FF FF FF FF FF FF FF FF            70   FF FF FF FC FF FC FF FF  .
+78   FF FF FF FF FF FF FF FF            78   FF FE FD FB F7 EF DF BF  /
+80   FF FF FF FF FF FF FF FF            80   FF E3 DD BE FF BE DD E3  0
+88   FF FF FF FF FF FF FF FF            88   FF FF DE FF 80 FF FE FF  1
+90   FF FF FF FF FF FF FF FF            90   FF DE BD FE BB FE B7 CE  2
+98   FF FF FF FF FF FF FF FF            98   FF BD FE BF F6 AF D6 B9  3
+A0   FF FF FF FF FF FF FF FF            A0   FF FB F7 EB DF BB E4 FB  4
+A8   FF FF FF FF FF FF FF FF            A8   FF 8D FE AF FE AF FE B1  5
+B0   FF FF FF FF FF FF FF FF            B0   FF F9 F6 EF D6 BF F6 F9  6
+B8   FF FF FF FF FF FF FF FF            B8   FF BF FE BD FB B7 EF 9F  7
+C0   FF FF FF FF FF FF FF FF            C0   FF C9 B6 FF B6 FF B6 C9  8
+C8   FF FF FF FF FF FF FF FF            C8   FF CF B7 FE B5 FB B7 CF  9
+D0   FF FF FF FF FF FF FF FF            D0   FF FF FF C9 FF C9 FF FF  :
+D8   FF FF FF FF FF FF FF FF            D8   FF FF FF 92 FD 93 FF FF  ;
+E0   FF FF FF FF FF FF FF FF            E0   FF FF F7 EB DD BE FF FF  <
+E8   FF FF FF FF FF FF FF FF            E8   FF EB FF EB FF EB FF EB  =
+F0   FF FF FF FF FF FF FF FF            F0   FF FF FF BE DD EB F7 FF  >
+F8   FF FF FF FF FF FF FF FF            F8   FF DF BF FF BA FF B7 CF  ?
+
+Таблица 2:                              Таблица 3:
+адрес     содержимое        символ      адрес      содержимое       символ
+----------------------------------      ----------------------------------
+ 0   FF C1 BE FF BE E3 BE C3  @          0   FF FF BF DF EF FF FF FF  `
+ 8   FF F0 EF DB BF DB EF F0  A          8   FF FD EA FF EA FF EA F5  a
+10   FF BE C1 BE F7 BE F7 C9  B         10   FF 90 EF FE EF FE EF F1  b
+18   FF C1 BE FF BE FF BE DD  C         18   FF F1 EE FF EE FF EE F7  c
+20   FF BE C1 BE FF BE FF C1  D         20   FF F1 EF FE EF FE EF 90  d
+28   FF 80 FF B6 FF B6 FF BE  E         28   FF F1 EE FB EE FB EE F3  e
+30   FF 80 FF B7 FF B7 FF BF  F         30   FF F7 FE C1 BE D7 FF FF  f
+38   FF C1 BE FF BE F7 BE D1  G         38   FF F7 EA FF EA FF EA D5  g
+40   FF 80 FF F7 FF F7 FF 80  H         40   FF 88 F7 FF EF FF EF F0  h
+48   FF FF BE FF 80 FF BE FF  I         48   FF EE FF A0 FF FE FF FF  i
+50   FF FD FE FF FE FF FE 81  J         50   FF FD FE EF FE A1 FF FF  j
+58   FF 80 FF EF F7 DB FD BE  K         58   FF 80 FF FB FF FB F5 EE  k
+60   FF 80 FF FE FF FE FF FE  L         60   FF FF BE FF 80 FF FE FF  l
+68   FF A0 DF EF F7 EF DF A0  M         68   FF E0 FF EF F0 EF FF F0  m
+70   FF A0 DF EF F7 FB FD 82  N         70   FF E8 F7 FF EF FF EF F0  n
+78   FF C1 BE FF BE FF BE C1  O         78   FF F1 EE FF EE FF EE F1  o
+80   FF 80 FF B7 FF B7 FF CF  P         80   FF E4 FB EF FB EF FB F7  p
+88   FF C1 BE FF BE FB BD C2  Q         88   FF F1 EE FF EE FB ED F2  q
+90   FF 80 FF B7 FF B3 FD CE  R         90   FF E0 FF EF FF EF F7 FF  r
+98   FF CD B6 FF B6 FF B6 D9  S         98   FF F7 EA FF EA FF EA FD  s
+A0   FF BF FF BF C0 BF FF BF  T         A0   FF EF FF 81 FE EF FE FD  t
+A8   FF 81 FE FF FE FF FE 81  U         A8   FF E1 FE FF FE FF FD E2  u
+B0   FF 87 FB FD FE FD FB 87  V         B0   FF E7 FB FD FE FD FB E7  v
+B8   FF 81 FE FD FB FD FE 81  W         B8   FF E1 FE FF F9 FF FE E1  w
+C0   FF BE DD EB F7 EB DD BE  X         C0   FF EE F5 FB FF FB F5 EE  x
+C8   FF BF DF EF F0 EF DF BF  Y         C8   FF EE F7 FA FD FB F7 EF  y
+D0   FF BE FD BA F7 AE DF BE  Z         D0   FF EE FD EE FB EE F7 EE  z
+D8   FF FF 80 FF BE FF BE FF  [         D8   FF FF F7 C9 BE FF BE FF  {
+E0   FF BF DF EF F7 FB FD FE  \         E0   FF FF FF FF 80 FF FF FF  |
+E8   FF FF BE FF BE FF 80 FF  ]         E8   FF BE FF BE C9 F7 FF FF  }
+F0   FF BF FF BF FF BF FF 8F  ^         F0   FF BF FF BF FF BF FF BF  ~
+F8   FF FE FF FE FF FE FF FE  _         F8   FF AA D5 AA D5 AA D5 AA
+
+Таблица 6:                              Таблица 7:
+адрес     содержимое        символ      адрес     содержимое        символ
+----------------------------------      ----------------------------------
+ 0   FF E0 FF F1 EE FF EE F1  ю          0   FF 80 FF C1 BE FF BE C1  Ю
+ 8   FF ED FA EF FA EF F1 FE  а          8   FF F0 EF DB FF BB FF 80  А
+10   FF D1 AE FF AE FF AE F1  б         10   FF BE C1 BE F7 BE F7 99  Б
+18   FF E0 FF FE FF FE E1 FE  ц         18   FF FD 83 FD FF FD 83 FC  Ц
+20   FF FE EF F0 EF FE E1 FE  д         20   FF FC A3 DD BF FD 83 FC  Д
+28   FF F1 EE FB EE FB EE F3  e         28   FF 80 FF B6 FF B6 FF BE  Е
+30   FF F3 ED FF E0 FF ED F3  ф         30   FF E3 DD FF 80 FF DD E3  Ф
+38   FF EF F0 EF FF EF FF E7  г         38   FF 80 FF BF FF BF FF 9F  Г
+40   FF EE F5 FB FF FB F5 EE  х         40   FF BE DD EB F7 EB DD BE  Х
+48   FF E0 FF FD FB F7 FF E0  и         48   FF 82 FD FB F7 EF DF A0  И
+50   FF E0 FF BD FB B7 FF E0  й         50   FF 82 FD FB B7 EF DF A0  Й
+58   FF E0 FF FB F7 EB FD EE  к         58   FF 80 FF EF F7 DB FD BE  К
+60   FF FE FD E3 FF EF FF E0  л         60   FF BD FE BD 83 BF FF 80  Л
+68   FF E8 F7 FB FD FB F7 E8  м         68   FF A0 DF EF F7 EF DF A0  М
+70   FF E0 FF FB FF FB FF E0  н         70   FF 80 FF F7 FF F7 FF 80  Н
+78   FF F1 EE FF EE FF EE F1  о         78   FF C1 BE FF BE FF BE C1  О
+80   FF EF F0 EF FF EF F0 EF  п         80   FF BF C0 BF FF BF C0 BF  П
+88   FF F7 FA ED FB EF FB E4  я         88   FF CE FD B3 FF B7 FF 80  Я
+90   FF EF F0 EF FD EF FD F3  р         90   FF 80 FF B7 FF B7 FF CF  Р
+98   FF F1 EE FF EE FF EE F7  с         98   FF C1 BE FF BE FF BE DD  С
+A0   FF EF FF EF F0 EF FF EF  т         A0   FF 9F FF BF C0 BF FF 9F  Т
+A8   FF E7 FA FF FA FF FA E5  у         A8   FF BE DD EB F7 EF DF BF  У
+B0   FF E4 FB FF E0 FF FB E4  ж         B0   FF BE C9 FF 80 FF C9 BE  Ж
+B8   FF EE F1 EE FB EE FB F5  в         B8   FF BE C1 BE F7 BE F7 C9  В
+C0   FF E4 FB FE FB FE FB FD  ь         C0   FF 80 FF F6 FF F6 F9 FF  Ь
+C8   FF E4 FB FE FB FD FF E0  ы         C8   FF 80 FF F6 F9 FF FF 80  Ы
+D0   FF FD EE FF EA FF EA F5  з         D0   FF DD BE FF B6 FF B6 C9  З
+D8   FF E0 FF FE E1 FE FF E0  ш         D8   FF 80 FF FE C1 FE FF 80  Ш
+E0   FF FF EE FB EE FB EE F1  э         E0   FF DD BE F7 BE F7 BE C1  Э
+E8   FF E1 FF FD E3 FD FF E0  щ         E8   FF 81 FF FD C3 FD FF 80  Щ
+F0   FF E7 FB FF FB FF FB E4  ч         F0   FF FF 8F F7 FF F7 88 FF  Ч
+F8   FF EF FF E4 FB FE FB FD  ъ         F8   FF BF FF 80 FF F6 FF F9  ъ

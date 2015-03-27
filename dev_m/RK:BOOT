@@ -1,0 +1,57 @@
+% === RK:BOOT === %  30.11.88 VERSION 8
+GLOBAL (LOCATION=0) (START=0)
+%---------------------------------% FIXED WORDS
+. JMP @#RKBOOT
+  DATA =ERROR.&00E0
+  DATA =ERROR.&00E0
+  DATA IOADDR,IOLENG              %Заполняется генератором загрузчиков
+%---------------------------------%
+
+  EQUALS RKDAR=&FF0A
+  EQUALS RKREAD=2,RKGO=1
+
+LOCALS LBOOT
+  BYTES TXBEG=RN.LF." MIUS RK BOOTSTRAP".0
+  BYTES TXRKE=RN.LF."-DISK ERROR".0
+  BYTES TXEND=RN.LF." O.K.".0
+
+  EQUALS ADLOAD=&400
+
+  REGISTERS PDEV=%5
+
+PROGRAM RKBOOT()
+  SP='ADLOAD'
+  CALL DPC 'TXBEG'
+
+  PDEV='RKDAR'
+  R3=IOADDR ; R2=0/12               % # цилиндра -> R2, сектора -> R3
+  R2=.ASL..ASL..ASL..ASL.           %Сдвигаем #цил., захватывая поверх.
+  R2=.BIS.R3.BIC.&E000              %Об'единяем номера цил. и сектора
+  @PDEV=R2
+  _PDEV='ADLOAD'                    %Адрес памяти
+  _PDEV=R2(IOLENG.SWAB..NEG.)       %Длина в блоках -> длина в словах
+  _PDEV='RKREAD*2+RKGO'
+  REPEAT WHILE @PDEV:>=0
+  (IF @PDEV<0
+    CALL DPC 'TXRKE'
+    GOTO $
+  )IF
+
+  CALL DPC 'TXEND'
+  PC='ADLOAD'
+
+LOCALS LERROR
+  BYTES TXERR=RN.LF."<<FAILED!>>".0
+PROGRAM ERROR()
+  SP=&400
+  CALL DPC 'TXERR'
+  GOTO $
+
+LOCALS LDP
+  EQUALS COIST=&FF70,COOST=&FF74
+PROGRAM DPC()
+  (WHILE @R0:<>0
+    REPEAT WHILE @'COOST':>=0
+    @'COOST+2':=^R0
+  )WHILE
+  RETURN

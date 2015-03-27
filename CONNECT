@@ -1,0 +1,116 @@
+% === RAW:TEST === %  11.10.88 VERSION 19
+GLOBAL (LOCATION=&400) (START=MAIN)
+  DATA GDIFF,AZC
+  EQUALS BRCKSY=&04,SPECSY=&07
+
+LOCALS LMAIN
+  EQUALS X:OFF="S"-&40  ,X:ON="Q"-&40
+  BYTES INPSY[1]
+
+  EQUALS DUMDLY=100        %קעוםס עובכדיי םבûימש מב X-OFF
+  EQUALS STPDLY=250        %םבכףיםבלרמשך עבתעשק םוצהץ ףיםקןלבםי קשהב‏י
+
+  DATA DUMCTR,STPCTR
+  DATA ISOUT
+
+%% םבפעידב םוצתבהב‏משט ףיחמבלןק
+  BYTES 0     ,IOF[1],IGF[1],IPF[1]
+  BYTES OIF[1],0     ,OGF[1],OPF[1]
+  BYTES GIF[1],GOF[1],0     ,GPF[1]
+  BYTES PIF[1],POF[1],PGF[1],0
+
+%%
+%%  חלבקמשך נלבמיעןק‎יכ
+%%
+PROGRAM MAIN()
+. BPT
+  CALL GPINIT          %% ימידייעץום כבעפץ ףןנעסצומיס
+  CALL INIBUF          %% ימידייעץום גץזועב
+%  ....                %% ימידייעץום תבהב‏י
+  (WHILE
+    GOSUB CCKGET
+    GOSUB CCKPUT
+    GOSUB CCKINP
+    GOSUB CCKOUT
+%.. SYSCALL DELAY ......
+  )WHILE
+
+
+%%
+%%  תבהב‏ב קקןהב ף לימיי
+%%
+LABEL CCKGET
+  (IF R0(CALL GTEST)<>0       %נעיûול ףיםקןל ?
+    STPCTR='STPDLY'           %קתקןהים תבהועצכץ מב נעיום ףלוה. ףיםקןלב
+    CALL PUTBUF R0(CALL GET)  %כלבהום ק גץזוע
+    (IF R0(CALL TSTFUL)<>0    %נוענןלמומיו גליתכן ?
+      GPF:=1                  %נעןגץצהבום קשהב‏ץ X-OFF'A
+      DUMCTR='DUMDLY'         %קתקןהים תבהועצכץ קשהב‏י מב üכעבמ
+      STPCTR=0                % ‏פןגש מו קשףלבפר 2 X-OFF'ב
+    )IF
+  )IF
+
+  (IF STPCTR<>0
+    (IF STPCTR(-1)=           %נועוהב‏ב ית םבûימש נעוכעבפילףר ?
+      GPF:=1                  %נןףשלבום X-OFF
+      DUMCTR='DUMDLY'
+    )IF
+  )IF
+
+  (IF DUMCTR<>0
+    (IF DUMCTR(-1)=           % צהום נעוכעב‎ומיס קשהב‏י
+      GOF:=1                  %תבנץףכבום קשהב‏ץ מב היףנלוך
+    )IF
+  )IF
+
+  RETURN ,
+
+%%
+%%  תבהב‏ב קשקןהב ק לימיא
+%%
+LABEL CCKPUT
+%%                 נעיןעיפופש תבנעןףןק ץגשקבאפ נן פוכףפץ
+  (IF GPF:<>0                 %תבנעןף X-OFF ?
+    GPF:=0
+    INPSY:='X:OFF+&80' ; ISOUT=1
+  ELSE IF OPF:<>0             %תבנעןף X-ON ?
+    OPF:=0
+    INPSY:='X:ON+&80' ; ISOUT=1
+  ELSE IF IPF:<>0             %מבצבפ ףיםקןל ?
+    IPF:=0
+    ISOUT=1
+  )IF
+
+  (IF ISOUT<>0                %מבהן קשהבקבפר ?
+    (IF R0(CALL PTEST)<>0     %ץףפעןךףפקן חןפןקן ?
+      CALL PUT R0:(INPSY)
+      ISOUT=0
+    )IF
+  )IF
+
+  RETURN ,
+
+%%
+%%  תבהב‏ב קקןהב ף היףנלוס
+%%
+LABEL CCKINP
+  (IF R0(SYSCALL DPM)>=0
+    IF R0:='SPECSY' THEN SYSCALL EXIT &FFFF   %BRCKSY מץצומ ק ףיףפוםו
+
+    IF R0:='"K"-&40' THEN R0='X:ON+&80'
+
+    INPSY:=R0                 %ףנבףבום ק נועוהבקבוםשו הבממשו
+    IPF:=1                    %נןףשלבום ףיחמבל מב קשקןה ק לימיא
+  )IF
+  RETURN ,
+
+%%
+%%  תבהב‏ב קשקןהב מב היףנלוך
+%%
+LABEL CCKOUT
+  (IF GOF:<>0                 %וףפר עבגןפב הלס קשקןהב?
+    GOF:=0
+    CALL FLUSH                %קשפבלכיקבום גץזוע (üפן מבהןלחן)
+    OPF:=1                    %םןצמן נןףשלבפר X-ON
+  )IF
+  RETURN ,

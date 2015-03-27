@@ -1,0 +1,802 @@
+head     2.2;
+access   ;
+symbols  v7:1.1 DEMOS2:2 bsd29:1.2 MNOS:1.1.2 DEMOS1:1.1.1;
+locks    ;
+comment  @ *	@;
+
+
+2.2
+date     86.11.26.17.28.35;  author dmitry;  state Exp;
+branches ;
+next     2.1;
+
+2.1
+date     86.11.26.16.38.17;  author dmitry;  state Exp;
+branches ;
+next     2.0;
+
+2.0
+date     86.11.25.20.42.27;  author dmitry;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.11.25.12.06.38;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.25.11.55.26;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.24.21.04.12;  author dmitry;  state Rel;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.24.18.16.45;  author dmitry;  state Rel;
+branches 1.1.1.1 1.1.2.1;
+next     ;
+
+1.1.1.1
+date     86.11.24.18.30.52;  author dmitry;  state Rel;
+branches ;
+next     ;
+
+1.1.2.1
+date     86.11.24.19.38.06;  author dmitry;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Си-компилятор Д.М.Ритчи
+Первый проход.
+@
+
+
+2.2
+log
+@Исправлена ошибка -
+Headerы не должны обрабатываться xstrом.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static char rcsid[] = "$Header: c04.c,v 2.1 86/11/26 16:38:17 dmitry Exp $" ;
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * C compiler
+ *
+ *      $Log:   c04.c,v $
+ *      Revision 2.1  86/11/26  16:38:17  dmitry
+ *      Оформлено под Manifest avg.
+ *
+ *      Последнее изменение:31.03.85 @@VG
+ */
+
+#include "c0.h"
+#include <ediag.h>
+
+/*
+ * Reduce the degree-of-reference by one.
+ * e.g. turn "ptr-to-int" into "int".
+ */
+decref(at)
+{
+	register t;
+
+	t = at;
+	if ((t & ~TYPE) == 0) {
+		error(ediag("Illegal indirection",
+			    "неправильное использование указателя"));
+		return(t);
+	}
+	return((t>>TYLEN) & ~TYPE | t&TYPE);
+}
+
+/*
+ * Increase the degree of reference by
+ * one; e.g. turn "int" to "ptr-to-int".
+ */
+incref(t)
+{
+	return(((t&~TYPE)<<TYLEN) | (t&TYPE) | PTR);
+}
+
+/*
+ * Make a tree that causes a branch to lbl
+ * if the tree's value is non-zero together with the cond.
+ */
+cbranch(t, lbl, cond)
+struct tnode *t;
+{
+	treeout(t, 0);
+	if(lineexpr < 0 ) lineexpr = line;
+	outcode("BNNN", CBRANCH, lbl, cond, lineexpr);
+	lineexpr = -1;
+}
+
+/*
+ * Write out a tree.
+ */
+rcexpr(atp)
+struct tnode *atp;
+{
+	register struct tnode *tp;
+
+	/*
+	 * Special optimization
+	 */
+	if ((tp=atp)->op==INIT && tp->tr1->op==CON) {
+		if( tp->type == CHAR ){
+			outcode("B1N0", BDATA, tp->tr1->value);
+			return;
+		}else if( tp->type == INT || tp->type == UNSIGN ){
+			outcode("BN", SINIT, tp->tr1->value);
+			return;
+		}
+	}
+	treeout(tp, 0);
+	if(lineexpr < 0 ) lineexpr = line;
+	outcode("BN", EXPR, lineexpr);
+	lineexpr = -1;
+}
+
+treeout(atp, isstruct)
+struct tnode *atp;
+{
+	register struct tnode *tp;
+	register struct hshtab *hp;
+	register nextisstruct;
+
+	if ((tp = atp) == 0) {
+		outcode("B", NULLOP);
+		return;
+	}
+	nextisstruct = tp->type==STRUCT;
+	switch(tp->op) {
+
+	case NAME:
+		hp = tp->tr1;
+		if (hp->hclass==TYPEDEF)
+			error(ediag("Illegal use of type name",
+				    "неправильное использование имени типа"));
+		outcode("BNN", NAME, hp->hclass==0?STATIC:hp->hclass, tp->type);
+		if (hp->hclass==EXTERN)
+			outcode("S", hp->name);
+		else
+			outcode("N", hp->hoffset);
+		break;
+
+	case LCON:
+		outcode("BNNN", tp->op, tp->type, tp->lvalue);
+		break;
+
+	case CON:
+		outcode("BNN", tp->op, tp->type, tp->value);
+		break;
+
+	case FCON:
+		outcode("BNF", tp->op, tp->type, tp->cstr);
+		break;
+
+	case STRING:
+		outcode("BNNN", NAME, STATIC, tp->type, tp->tr1);
+		break;
+
+	case FSEL:
+		treeout(tp->tr1, nextisstruct);
+		outcode("BNNN",tp->op,tp->type,tp->tr2->bitoffs,tp->tr2->flen);
+		break;
+
+	case ETYPE:
+		error(ediag("Illegal use of type",
+			    "неправильное использование типа"));
+		break;
+
+	case AMPER:
+		treeout(tp->tr1, 1);
+		outcode("BN", tp->op, tp->type);
+		break;
+
+
+	case CALL:
+		treeout(tp->tr1, 1);
+		treeout(tp->tr2, 0);
+		outcode("BN", CALL, tp->type);
+		break;
+
+	default:
+		treeout(tp->tr1, nextisstruct);
+		if (opdope[tp->op]&BINARY)
+			treeout(tp->tr2, nextisstruct);
+		outcode("BN", tp->op, tp->type);
+		break;
+	}
+	if (nextisstruct && isstruct==0)
+		outcode("BNN", STRASG, STRUCT, tp->strp->ssize);
+}
+
+/*
+ * Generate a branch
+ */
+branch(lab)
+{
+	outcode("BN", BRANCH, lab);
+}
+
+/*
+ * Generate a label
+ */
+label(l)
+{
+	outcode("BN", LABEL, l);
+}
+
+/*
+ * ap is a tree node whose type
+ * is some kind of pointer; return the size of the object
+ * to which the pointer points.
+ */
+plength(ap)
+struct tname *ap;
+{
+	register t, l;
+	register struct tnode *p;
+
+	p = ap;
+	if (p==0 || ((t=p->type)&~TYPE) == 0)           /* not a reference */
+		return(1);
+	p->type = decref(t);
+	l = length(p);
+	p->type = t;
+	return(l);
+}
+
+/*
+ * return the number of bytes in the object
+ * whose tree node is acs.
+ */
+length(acs)
+struct tnode *acs;
+{
+	register t, elsz;
+	long n;
+	register struct tnode *cs;
+	int nd;
+
+	cs = acs;
+	t = cs->type;
+	n = 1;
+	nd = 0;
+	while ((t&XTYPE) == ARRAY) {
+		t = decref(t);
+		n =* cs->subsp[nd++];
+	}
+	if ((t&~TYPE)==FUNC)
+		return(0);
+	if (t>=PTR)
+		elsz = SZPTR;
+	else switch(t&TYPE) {
+
+	case INT:
+	case UNSIGN:
+		elsz = SZINT;
+		break;
+
+	case CHAR:
+		elsz = 1;
+		break;
+
+	case FLOAT:
+		elsz = SZFLOAT;
+		break;
+
+	case LONG:
+		elsz = SZLONG;
+		break;
+
+	case DOUBLE:
+		elsz = SZDOUB;
+		break;
+
+	case STRUCT:
+		if ((elsz = cs->strp->ssize) == 0)
+			error(ediag("Undefined structure",
+				    "неопределенная структура"));
+		break;
+	default:
+		error(ediag( "Compiler error (length)",
+			     "внутренняя ошибка компилятора (length)"));
+		return(0);
+	}
+	n *= elsz;
+	if (n >= (unsigned)50000) {
+		error(ediag( "Warning: very large data structure",
+			     "предупреждение: слишком большой массив данных"));
+		nerror--;
+	}
+	return(n);
+}
+
+/*
+ * The number of bytes in an object, rounded up to a word.
+ */
+rlength(cs)
+struct tnode *cs;
+{
+	return((length(cs)+ALIGN) & ~ALIGN);
+}
+
+/*
+ * After an "if (...) goto", look to see if the transfer
+ * is to a simple label.
+ */
+simplegoto()
+{
+	register struct hshtab *csp;
+
+	if ((peeksym=symbol())==NAME && nextchar()==';') {
+		csp = csym;
+		if (csp->hblklev == 0)
+			pushdecl(csp);
+		if (csp->hclass==0 && csp->htype==0) {
+			csp->htype = ARRAY;
+			csp->hflag =| FLABL;
+			if (csp->hoffset==0)
+				csp->hoffset = isn++;
+		}
+		if ((csp->hclass==0||csp->hclass==STATIC)
+		 &&  csp->htype==ARRAY) {
+			peeksym = -1;
+			return(csp->hoffset);
+		}
+	}
+	return(0);
+}
+
+/*
+ * Return the next non-white-space character
+ */
+nextchar()
+{
+	while (spnextchar()==' ')
+		peekc = 0;
+	return(peekc);
+}
+
+/*
+ * Return the next character, translating all white space
+ * to blank and handling line-ends.
+ */
+spnextchar()
+{
+	register c;
+
+	if ((c = peekc)==0)
+		c = getchar();
+	if (c=='\t' || c=='\014')       /* FF */
+		c = ' ';
+	else if (c=='\n') {
+		c = ' ';
+		if (inhdr==0)
+			line++;
+		inhdr = 0;
+	} else if (c=='\001') { /* SOH, insert marker */
+		inhdr++;
+		c = ' ';
+	}
+	peekc = c;
+	return(c);
+}
+
+/*
+ * is a break or continue legal?
+ */
+chconbrk(l)
+{
+	if (l==0)
+		error(ediag( "Break/continue error",
+			     "ошибка в break/continue"));
+}
+
+/*
+ * The goto statement.
+ */
+dogoto()
+{
+	register struct tnode *np;
+
+	*cp++ = tree();
+	build(STAR);
+	chkw(np = *--cp, -1);
+	rcexpr(block(JUMP,0,NULL,NULL,np));
+}
+
+/*
+ * The return statement, which has to convert
+ * the returned object to the function's type.
+ */
+doret()
+{
+	register struct tnode *t;
+
+	if (nextchar() != ';') {
+		t = tree();
+		*cp++ = &funcblk;
+		*cp++ = t;
+		build(ASSIGN);
+		cp[-1] = cp[-1]->tr2;
+		if( funcblk.type == CHAR )
+			cp[-1] = block(ITOC, INT, NULL, NULL, cp[-1]);
+		build(RFORCE);
+		rcexpr(*--cp);
+	}
+	branch(retlab);
+}
+
+/*
+ * Write a character on the error output.
+ */
+/*
+ * Coded output:
+ *   B: beginning of line; an operator
+ *   N: a number
+ *   S: a symbol (external)
+ *   1: number 1
+ *   0: number 0
+ */
+outcode(s, a)
+register char *s;
+{
+	register *ap;
+	register FILE *bufp;
+	register n;
+	register char *np;
+
+	bufp = stdout;
+	if (strflg)
+		bufp = sbufp;
+	ap = &a;
+	for (;;) switch(*s++) {
+	case 'B':
+		putc(*ap++, bufp);
+		putc(0376, bufp);
+		continue;
+
+	case 'N':
+		putc(*ap, bufp);
+		putc(*ap++>>8, bufp);
+		continue;
+
+	case 'F':
+		n = 1000;
+		np = *ap++;
+		goto str;
+
+	case 'S':
+		n = NCPS;
+		np = *ap++;
+		if (*np)
+			putc('_', bufp);
+	str:
+		while (n-- && *np) {
+			putc(*np++&CMASK, bufp);
+		}
+		putc(0, bufp);
+		continue;
+
+	case '1':
+		putc(1, bufp);
+		putc(0, bufp);
+		continue;
+
+	case '0':
+		putc(0, bufp);
+		putc(0, bufp);
+		continue;
+
+	case '\0':
+		if (ferror(bufp)) {
+			error(ediag( "Write error on temp",
+				     "ошибка записи во временный файл"));
+			exit(1);
+		}
+		return;
+
+	default:
+		error(ediag( "Botch in outcode",
+			     "внутренняя ошибка компилятора в outcode"));
+	}
+}
+@
+
+
+2.1
+log
+@Оформлено под Manifest avg.
+@
+text
+@d2 3
+a4 1
+static char rcsid[] = "$Header$" ;
+d10 4
+a13 1
+ *      $Log$
+@
+
+
+2.0
+log
+@Исправлены диагностики
+@
+text
+@d1 4
+a4 1
+#
+d8 1
+@
+
+
+1.4
+log
+@Сливки с версией из МНОС РЛ 1.2
+@
+text
+@d21 1
+a21 1
+		error(ediag("bad usage of pointer",
+d93 1
+a93 1
+			error(ediag("bad usage of type name",
+d124 1
+a124 1
+		error(ediag("bad type usage",
+d236 1
+a236 1
+			error(ediag("undefined structure",
+d240 2
+a241 2
+		error(ediag( "compiler error (length)",
+			     "ошибка компилятора (длина)"));
+d246 2
+a247 2
+		error(ediag( "warning: structure too big",
+			     "предупреждение: слишком большая структура"));
+d330 1
+a330 1
+		error(ediag( "break/continue error",
+d432 1
+a432 1
+			error(ediag( "error writing temp file",
+d439 2
+a440 2
+		error(ediag( "output code botch !",
+			     "бяка в выходном коде !"));
+@
+
+
+1.3
+log
+@Сливки с версией из Демос 1.3
+@
+text
+@a0 1
+/*      @@(#)c04.c       2.1     SCCS id keyword */
+@
+
+
+1.2
+log
+@Версия из bsd 2.9
+@
+text
+@d6 1
+a6 1
+ *
+d10 1
+d22 2
+a23 1
+		error("Illegal indirection");
+d46 3
+a48 1
+	outcode("BNNN", CBRANCH, lbl, cond, line);
+d63 1
+a63 1
+		if (tp->type==CHAR) {
+d66 1
+a66 1
+		} else if (tp->type==INT || tp->type==UNSIGN) {
+d72 3
+a74 1
+	outcode("BN", EXPR, line);
+d94 2
+a95 1
+			error("Illegal use of type name");
+d125 2
+a126 1
+		error("Illegal use of type");
+d237 2
+a238 1
+			error("Undefined structure");
+d241 2
+a242 1
+		error("Compiler error (length)");
+d247 2
+a248 1
+		error("Warning: very large data structure");
+d331 2
+a332 1
+		error("Break/continue error");
+d362 1
+a362 1
+		if (funcblk.type==CHAR)
+d382 1
+a382 1
+char *s;
+d386 1
+a386 1
+	int n;
+d416 1
+a416 1
+			putc(*np++&0177, bufp);
+d433 2
+a434 1
+			error("Write error on temp");
+d440 2
+a441 1
+		error("Botch in outcode");
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+@
+
+
+1.1.2.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d1 1
+d5 1
+a5 1
+ *      Последнее изменение:31.03.85 @@VG
+a8 1
+#include <ediag.h>
+d20 1
+a20 2
+		error(ediag("bad usage of pointer",
+			    "неправильное использование указателя"));
+d58 1
+a58 1
+		if( tp->type == CHAR ){
+d61 1
+a61 1
+		}else if( tp->type == INT || tp->type == UNSIGN ){
+d87 1
+a87 2
+			error(ediag("bad usage of type name",
+				    "неправильное использование имени типа"));
+d117 1
+a117 2
+		error(ediag("bad type usage",
+			    "неправильное использование типа"));
+d228 1
+a228 2
+			error(ediag("undefined structure",
+				    "неопределенная структура"));
+d231 1
+a231 2
+		error(ediag( "compiler error (length)",
+			     "ошибка компилятора (длина)"));
+d236 1
+a236 2
+		error(ediag( "warning: structure too big",
+			     "предупреждение: слишком большая структура"));
+d319 1
+a319 2
+		error(ediag( "break/continue error",
+			     "ошибка в break/continue"));
+d349 1
+a349 1
+		if( funcblk.type == CHAR )
+d403 1
+a403 1
+			putc(*np++&CMASK, bufp);
+d420 1
+a420 2
+			error(ediag( "error writing temp file",
+				     "ошибка записи во временный файл"));
+d426 1
+a426 2
+		error(ediag( "output code botch !",
+			     "бяка в выходном коде !"));
+@
+
+
+1.1.1.1
+log
+@Версия из Демос 1.3
+@
+text
+@d5 1
+a5 1
+ *      Последнее изменение:31.03.85 @@VG
+a8 1
+#include <ediag.h>
+d20 1
+a20 2
+		error(ediag("bad usage of pointer",
+			    "неправильное использование указателя"));
+d43 1
+a43 3
+	if(lineexpr < 0 ) lineexpr = line;
+	outcode("BNNN", CBRANCH, lbl, cond, lineexpr);
+	lineexpr = -1;
+d58 1
+a58 1
+		if( tp->type == CHAR ){
+d61 1
+a61 1
+		}else if( tp->type == INT || tp->type == UNSIGN ){
+d67 1
+a67 3
+	if(lineexpr < 0 ) lineexpr = line;
+	outcode("BN", EXPR, lineexpr);
+	lineexpr = -1;
+d87 1
+a87 2
+			error(ediag("bad usage of type name",
+				    "неправильное использование имени типа"));
+d117 1
+a117 2
+		error(ediag("bad type usage",
+			    "неправильное использование типа"));
+d228 1
+a228 2
+			error(ediag("undefined structure",
+				    "неопределенная структура"));
+d231 1
+a231 2
+		error(ediag( "compiler error (length)",
+			     "ошибка компилятора (длина)"));
+d236 1
+a236 2
+		error(ediag( "warning: structure too big",
+			     "предупреждение: слишком большая структура"));
+d319 1
+a319 2
+		error(ediag( "break/continue error",
+			     "ошибка в break/continue"));
+d349 1
+a349 1
+		if( funcblk.type == CHAR )
+d369 1
+a369 1
+register char *s;
+d373 1
+a373 1
+	register n;
+d403 1
+a403 1
+			putc(*np++&CMASK, bufp);
+d420 1
+a420 2
+			error(ediag( "error writing temp file",
+				     "ошибка записи во временный файл"));
+d426 1
+a426 2
+		error(ediag( "output code botch !",
+			     "бяка в выходном коде !"));
+@

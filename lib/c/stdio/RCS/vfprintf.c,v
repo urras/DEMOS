@@ -1,0 +1,40 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.04.18.17.33.36;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header: fprintf.c,v 1.1 88/04/01 16:09:57 andrew Exp $
+ * $Log:	fprintf.c,v $
+ */
+#include	<stdio.h>
+#include        <varargs.h>
+
+int vfprintf (iop, fmt, args)
+FILE *iop;
+char *fmt;
+va_list args;
+{
+	_doprnt (fmt, args, iop);
+	return (ferror (iop)? EOF: 0);
+}
+@

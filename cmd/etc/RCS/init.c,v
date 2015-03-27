@@ -1,0 +1,1221 @@
+head     1.14;
+access   avg dmitry flerov davidov alex fox korotaev;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.14
+date     89.06.29.10.32.57;  author korotaev;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     87.03.30.11.05.19;  author dmitry;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     87.03.07.14.29.10;  author avg;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     86.12.30.19.06.30;  author root;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     86.12.30.17.55.46;  author alex;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     86.12.29.22.47.47;  author alex;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     86.12.20.20.14.49;  author alex;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     86.11.20.20.50.47;  author alex;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.11.19.23.13.25;  author alex;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.10.19.21.06.28;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.07.23.20.50.20;  author avg;  state Stab;
+branches ;
+next     1.3;
+
+1.3
+date     86.04.18.22.39.53;  author root;  state Stab;
+branches ;
+next     1.2;
+
+1.2
+date     86.04.18.20.06.38;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.17.18.33.33;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Первый процесс в системе.
+@
+
+
+1.14
+log
+@???
+@
+text
+@/*
+ *      init.c
+ *
+ * $Log:	init.c,v $
+ * Revision 1.13  87/03/30  11:05:19  dmitry
+ * Внесено игнорирование сигнала SIGTSTP.
+ * Теперь login не будет срубаться по ^Z, и из sh можно будет
+ * убрать дурацкое затыкание вышеуказанного сигнала.
+ * 
+ * Revision 1.12  87/03/07  14:29:10  avg
+ * Добавлено снятие UCASE в Cset.
+ * 
+ * Revision 1.11  86/12/30  19:06:30  root
+ * Установлен "sleep(1)" перед открытием терминала
+ * для работы с "шумящими" линиями.
+ *
+ * Revision 1.10  86/12/30  17:55:46  alex
+ * Добавлена установка режимов терминала на консоли.
+ *
+ * Revision 1.9  86/12/29  22:47:47  alex
+ * Наконец то!!!
+ * Найдена причина< по которой сваливались процессы,
+ * запущенные из "rc". В "dfork" перед "open(tty" была пропущена
+ * "signal(SIGINT,SIG_DFL)". В результате потомок открывал "tty",
+ * получал с него прерывание "INT" из за кучи хлама в буфере
+ * мультиплексора, и делал "shutdown" как себе, так и другим,
+ * срубая все, кроме начального "init".
+ *
+ * Revision 1.8  86/12/20  20:14:49  alex
+ * Исправлена работа с HANGUP
+ * (иначе слетали команды, запущенные из /etc/rc).
+ *
+ * Revision 1.7  86/11/20  20:50:47  alex
+ * В случае, если у init не осталось процессов, он
+ * автоматичеси переходит в single user.
+ * Это сделано для того, чтобы режим специальной сессии
+ * вырождался в single user режим в случае, если ни у
+ * одного терминала не стоит 2 или 3 в режимах.
+ *
+ * Revision 1.6  86/11/19  23:13:25  alex
+ * Добавлен сброс флага специального сеанса.
+ *
+ * Revision 1.5  86/10/19  21:06:28  alex
+ * Внесены исправления для правильной работы без UCB_AUTOBOOT.
+ *
+ * Revision 1.4  86/07/23  20:50:20  avg
+ * Когда система сгенерирована с VHANGUP, процессы
+ * оставшиеся от стартового файла убивались сигналом HUP.
+ *
+ * Revision 1.3  86/04/18  22:39:53  root
+ * *** empty log message ***
+ *
+ * Revision 1.2  86/04/18  20:06:38  root
+ * Правки под новый getty: аргумент getty не comn, а имя терминала.
+ *                                                      (by @@VG).
+ *
+ * Revision 1.1  86/04/17  18:33:33  root
+ * Initial revision
+ *
+ */
+#ifndef lint
+static char rcsid[] = "$Header: init.c,v 1.13 87/03/30 11:05:19 dmitry Exp $";
+#endif
+
+#include "whoami.h"
+#include <signal.h>
+#include <sys/types.h>
+#include <utmp.h>
+#include <setjmp.h>
+#include <sys/reboot.h>
+#include <errno.h>
+#include <sys/autoconfig.h>
+#include <sgtty.h>
+
+#define CONFIGOPTS      "-vc"
+
+#define LINSIZ  sizeof(wtmp.ut_line)
+#define TABSIZ  100
+#define ALL     p = &itab[0]; p < &itab[TABSIZ]; p++
+#define EVER    ;;
+#define SCPYN(a, b)     strncpy(a, b, sizeof(a))
+#define SCMPN(a, b)     strncmp(a, b, sizeof(a))
+
+
+char    shell[] = "/bin/sh";
+char    getty[]  = "/etc/getty";
+char    minus[] = "-";
+char    plus[] = "+";           /* this tells getty we are in sp. sess. */
+char    runc[]  = "/etc/rc";
+char    ifile[] = "/etc/ttys";
+char    utmp[]  = "/etc/utmp";
+char    wtmpf[] = "/usr/adm/wtmp";
+char    ctty[]  = "/dev/console";
+char    dev[]   = "/dev/";
+char    config[]= "/etc/autoconfig";
+
+struct utmp wtmp;
+struct
+{
+	char    line[LINSIZ];
+	char    comn;
+	char    flag;
+} line;
+struct  tab
+{
+	char    line[LINSIZ];
+	char    comn;
+	char    xflag;
+	int     pid;
+} itab[TABSIZ];
+
+extern  errno;
+
+int     fi;
+int     mergflag;
+int     multiuser;
+/*
+ *  Modes: bits in first char of /etc/ttys line
+ */
+#define NORMAL  1               /* anyone can login */
+#define SP_SESS 2               /* only root can login */
+int     mode = NORMAL;
+
+char    tty[20];
+jmp_buf sjbuf, shutpass;
+time_t  time0;
+
+time_t  time();
+int     reset();
+int     idle(), sp_ss(), setmerge();
+char    *strcpy(), *strcat();
+long    lseek();
+
+#define LSK 0456        /* должно соответсвовать boot'у */
+
+
+main(ac, av)
+char    **av;
+{
+	int howto, oldhowto, spcnm = 0, d;
+
+	time0 = time((time_t *) 0);
+	signal(SIGQUIT, idle);
+	if (ac > 1) {
+		howto = * ((int *) av[1]);
+		* ((int *) av[1]) = 0;  /* don't confuse ps with binary args */
+		if (ac > 2){    /* т.е. была загрузка с ленты */
+			spcnm = *((int *)av[2]);
+			*((int *)av[2]) = 0;
+		}
+	 } else
+		howto = RB_SINGLE|RB_ASKNAME;
+	if( howto & RB_FROMTAPE ){
+		if( (d = open("/boot",1)) < 0 ){
+bdnm:
+			perror("can't treat \"/boot\"\n");
+			exit(1);
+		}
+		lseek(d,(long)LSK,0);
+		if( write(d,(int *)av[2],2) < 0 )
+			goto bdnm;
+		close(d);
+	}
+	if (autoconfig() == 0)
+		howto = RB_SINGLE;
+	setjmp(sjbuf);
+	mode=NORMAL;
+	signal(SIGTERM, reset);
+	signal(SIGINT, sp_ss);
+	signal(SIGHUP, setmerge);
+	for(EVER) {
+		shutdown();
+		oldhowto = howto;
+		howto = RB_SINGLE|RB_ASKNAME;
+		if (oldhowto & RB_SINGLE)
+			single();
+		if (runcom(oldhowto) == 0)
+			mode = SP_SESS;
+		merge();
+		multiple();
+	}
+}
+
+int     shutreset();
+
+shutdown()
+{
+	register i, f;
+	register struct tab *p;
+
+	multiuser = 0;
+	for(ALL) {
+		term(p);
+		p->line[0] = 0;
+	}
+	close(creat(utmp, 0644));
+	signal(SIGALRM, shutreset);
+	if (setjmp(shutpass) == 0) {
+		alarm(30);
+		for(i=0; i<5; i++)
+			kill(-1, SIGKILL);
+		while(wait((int *)0) != -1)
+			;
+		alarm(0);
+	}
+	acct(0);
+	signal(SIGALRM, SIG_DFL);
+	for(i=0; i<10; i++)
+		close(i);
+	f = open(wtmpf, 1);
+	if (f >= 0) {
+		lseek(f, 0L, 2);
+		SCPYN(wtmp.ut_line, "~");
+		SCPYN(wtmp.ut_name, "shutdown");
+		time(&wtmp.ut_time);
+		write(f, (char *)&wtmp, sizeof(wtmp));
+		close(f);
+	}
+}
+
+shutreset()
+{
+	cmesg("WARNING: Something is hung (won't die); ps axl advised\n", 0, 0);
+	longjmp(shutpass, 1);
+}
+
+single()
+{
+	register pid;
+	register xpid;
+	extern  errno;
+
+	multiuser = 0;
+   do {
+	pid = fork();
+	if(pid == 0) {
+/*
+		alarm(300);
+*/
+		signal(SIGTERM, SIG_DFL);
+		signal(SIGHUP , SIG_IGN);      /* So, daemon's don't hang up */
+		signal(SIGALRM, SIG_DFL);
+		open(ctty, 2);
+		dup(0);
+		dup(0);
+		Cset(0);
+		execl(shell, minus, (char *)0);
+		cmesg("Init: can't exec ", shell, "\r\n");
+		exit(0);
+	}
+	while((xpid = wait((int *)0)) != pid)
+		if (xpid == -1 && errno == ECHILD)
+			break;
+   } while (xpid == -1);
+}
+
+runcom(howto)
+int howto;
+{
+	register pid, f;
+	int status;
+	char *arg1, *arg2;
+
+	pid = fork();
+	if(pid == 0) {
+		signal(SIGHUP,SIG_IGN);
+		open("/", 0);
+		dup(0);
+		dup(0);
+		if ((howto & RB_ASKNAME) )
+			arg1 = "boot";
+		else
+		if ( (howto & RB_NOFSCK))
+			arg1 = "fastboot";
+		else
+		arg1 = "autoboot";
+		if (howto & RB_POWRFAIL)
+			arg2 = "powerfail";
+		else
+			arg2 = (char *)0;
+		execl(shell, shell, runc, arg1, arg2, (char *)0);
+		exit(1);
+	}
+	while(wait(&status) != pid)
+		;
+	if(status)
+		return(0);
+	f = open(wtmpf, 1);
+	if (f >= 0) {
+		lseek(f, 0L, 2);
+		SCPYN(wtmp.ut_line, "~");
+		SCPYN(wtmp.ut_name, "reboot");
+		if (time0) {
+			wtmp.ut_time = time0;
+			time0 = 0;
+		} else
+			time(&wtmp.ut_time);
+		write(f, (char *)&wtmp, sizeof(wtmp));
+		close(f);
+	}
+	return(1);
+}
+
+setmerge()
+{
+	signal(SIGHUP, SIG_IGN);
+	mergflag = 1;
+}
+
+multiple()
+{
+	register struct tab *p;
+	register pid;
+
+loop:
+	multiuser = 1;
+	mergflag = 0;
+	signal(SIGHUP, setmerge);
+	for(EVER) {
+		pid = wait((int *)0);
+		if(mergflag) {
+			merge();
+			goto loop;
+		}
+		if(pid == -1) {
+			if (errno == ECHILD) {
+				cmesg("Init: ", "no children left", "\r\n");
+				kill(1,SIGTERM);
+				return;
+			}
+			goto loop;
+		}
+		for(ALL)
+			if(p->pid == pid || p->pid == -1) {
+#ifdef  UCB_SUBMIT
+				if (p->pid != -1)
+					killbkg(p->pid, SIGKILL);
+#endif
+				rmut(p);
+				dfork(p);
+			}
+	}
+}
+
+term(p)
+register struct tab *p;
+{
+
+	if(p->pid != 0 && p->pid != -1) {
+		rmut(p);
+		kill(p->pid, SIGKILL);
+#ifdef  UCB_SUBMIT
+		killbkg(p->pid, SIGKILL);
+#endif
+	}
+	p->pid = 0;
+}
+
+rline()
+{
+	register c, i;
+
+loop:
+	c = get();
+	if(c < 0)
+		return(0);
+	if(c == 0)
+		goto loop;
+	line.comn = line.flag = c;
+	SCPYN(line.line, "");
+	for (i=0; i<LINSIZ; i++) {
+		c = get();
+		/*
+		 * If a blank, newline, or end of file, or tab,
+		 * cease accumulating line name
+		 */
+		if(c <= 0 || c == ' ' || c == '\t' || c == ':' )
+			break;
+		line.line[i] = c;
+	}
+	while(c > 0)
+		c = get();
+	if(line.line[0] == 0)
+		goto loop;
+	if(line.flag == '0')
+		goto loop;
+	strcpy(tty, dev);
+	strncat(tty, line.line, LINSIZ);
+	if(access(tty, 06) < 0)
+		goto loop;
+	return(1);
+}
+
+get()
+{
+	char b;
+
+	if(read(fi, &b, 1) != 1)
+		return(-1);
+	if(b == '\n')
+		return(0);
+	return(b);
+}
+
+#define FOUND   1
+#define CHANGE  2
+
+merge()
+{
+	register struct tab *p;
+
+	fi = open(ifile, 0);
+	if(fi < 0)
+		return;
+	for(ALL)
+		p->xflag = 0;
+	while(rline()) {
+		if ((line.flag < '1') || (line.flag > '9'))
+			continue;
+		if (((line.flag-'0') & mode) == 0)
+			continue;
+		for(ALL) {
+			if (SCMPN(p->line, line.line))
+				continue;
+			p->xflag |= FOUND;
+			if(line.comn != p->comn) {
+				p->xflag |= CHANGE;
+				p->comn = line.comn;
+			}
+			goto contin1;
+		}
+		for(ALL) {
+			if(p->line[0] != 0)
+				continue;
+			SCPYN(p->line, line.line);
+			p->xflag |= FOUND|CHANGE;
+			p->comn = line.comn;
+			goto contin1;
+		}
+	contin1:
+		;
+	}
+	close(fi);
+	for(ALL) {
+		if((p->xflag&FOUND) == 0) {
+			term(p);
+			p->line[0] = 0;
+		}
+		if((p->xflag&CHANGE) != 0) {
+			term(p);
+			dfork(p);
+		}
+		/*
+		 * If we are resuming after an idle (possibly a failed reboot)
+		 * we need to restart the lines that shut down.
+		 */
+		if (p->pid == -1)
+			dfork(p);
+	}
+}
+
+dfork(p)
+struct tab *p;
+{
+	register pid;
+
+	pid = fork();
+	if(pid == 0) {
+		signal(SIGQUIT, SIG_DFL);
+		signal(SIGINT , SIG_DFL);
+		signal(SIGTERM, SIG_DFL);
+		signal(SIGALRM, SIG_DFL);
+		signal(SIGTERM, SIG_DFL);
+		signal(SIGHUP , SIG_DFL);
+		signal(SIGTSTP, SIG_IGN);
+		strcpy(tty, dev);
+		strncat(tty, p->line, LINSIZ);
+		chown(tty, 0, 0);
+		chmod(tty, 0622);
+		sleep(1); /* Для предотвращения перегрузки при прерываниях */
+		if (open(tty, 2) < 0) {
+			int repcnt = 0;
+			do {
+				if (repcnt % 10 == 0)
+					cmesg("init: ",tty,": cannot open\n\r");
+				repcnt++;
+				sleep(60);
+			} while (open(tty, 2) < 0);
+		}
+#ifdef  VHANGUP
+		vhangup();
+#endif
+		signal(SIGHUP, SIG_DFL);
+		open(tty, 2);
+		close(0);
+		dup(1);
+		dup(0);
+		if(mode == SP_SESS)
+			execl(getty, plus, p->line, (char *)0);
+		else
+			execl(getty, minus, p->line, (char *)0);
+		exit(0);
+	}
+	p->pid = pid;
+}
+
+rmut(p)
+register struct tab *p;
+{
+	register f;
+	int found = 0;
+
+	f = open(utmp, 2);
+	if(f >= 0) {
+		while(read(f, (char *)&wtmp, sizeof(wtmp)) == sizeof(wtmp)) {
+			if (SCMPN(wtmp.ut_line, p->line) || wtmp.ut_name[0]==0)
+				continue;
+			lseek(f, -(long)sizeof(wtmp), 1);
+			SCPYN(wtmp.ut_name, "");
+			time(&wtmp.ut_time);
+			write(f, (char *)&wtmp, sizeof(wtmp));
+			found++;
+		}
+		close(f);
+	}
+	if (found) {
+		f = open(wtmpf, 1);
+		if (f >= 0) {
+			SCPYN(wtmp.ut_line, p->line);
+			SCPYN(wtmp.ut_name, "");
+			time(&wtmp.ut_time);
+			lseek(f, (long)0, 2);
+			write(f, (char *)&wtmp, sizeof(wtmp));
+			close(f);
+		}
+	}
+}
+
+reset()
+{
+	longjmp(sjbuf, 1);
+}
+
+/*
+ *  Toggle special-session mode.
+ *  Do a shutdown() so that getty's are reissued in the new mode.
+ */
+sp_ss()
+{
+	signal(SIGINT, SIG_IGN);
+	mergflag++;
+	shutdown();
+	if (mode == NORMAL)
+		mode = SP_SESS;
+	else {
+		/*
+		 * Returning to normal operation.
+		 * Run the rc file; either it hasn't been finished
+		 * since we failed a filesystem check, or we shut down.
+		 */
+		(void) runcom(RB_NOFSCK);
+		mode = NORMAL;
+	}
+	signal(SIGINT, sp_ss);
+}
+
+idle()
+{
+	register struct tab *p;
+	register pid;
+
+	signal(SIGQUIT,idle);
+	for (;;) {
+		pid = wait((int *) 0);
+		if (mergflag) {
+			if (!multiuser)
+				reset();
+			else
+				return;
+		}
+		if (pid == -1)
+			pause();
+		else {
+			for (ALL)
+				if (p->pid == pid) {
+					rmut(p);
+					p->pid = -1;
+				}
+		}
+	}
+}
+
+cmesg(s1, s2, s3)
+char *s1, *s2, *s3;
+{
+	register int pid;
+
+	pid = fork();
+	if (pid == 0) {
+		int fd = open(ctty, 2);
+		Cset(fd);
+		write(fd, s1, strlen(s1));
+		if (s2)
+			write(fd, s2, strlen(s2));
+		if (s3)
+			write(fd, s3, strlen(s3));
+		close(fd);
+		exit(0);
+	}
+	while (wait((int *)0) != pid)
+		;
+}
+
+autoconfig()
+{
+	int pid, status;
+
+	cmesg("\r\nCONFIGURE SYSTEM:\n", 0, 0);
+	if ((pid = fork()) == 0) {
+		open(ctty, 2);
+		dup(0);
+		dup(0);
+		Cset(0);
+		execl(config, "autoconfig", CONFIGOPTS, 0);
+		printf("Couldn't exec %s\n", config);
+		exit(AC_SETUP);
+	}
+	while (wait(&status) != pid)
+		;
+	if ((status & 0377) == 0)
+		status >>= 8;
+	else
+		status = AC_SINGLE;
+	switch (status) {
+		case AC_SETUP:
+			cmesg("Configuration setup error\n", 0, 0);
+			return 0;
+		case AC_SINGLE:
+			cmesg("SERIOUS CONFIGURATION ERROR\n", 0, 0);
+			return 0;
+		case AC_OK:
+			return 1;
+		default:
+			cmesg("Unrecognized return from configure\n", 0, 0);
+			return 0;
+	}
+}
+
+Cset(fd)
+{
+	struct sgttyb ttyopt;
+	gtty(fd,&ttyopt);
+	ttyopt.sg_flags = (ttyopt.sg_flags& ~(RAW|UCASE))|(ECHO|LCASE|CRMOD);
+	stty(fd,&ttyopt);
+	return;
+}
+@
+
+
+1.13
+log
+@Внесено игнорирование сигнала SIGTSTP.
+Теперь login не будет срубаться по ^Z, и из sh можно будет
+убрать дурацкое затыкание вышеуказанного сигнала.
+@
+text
+@d5 5
+d62 1
+a62 1
+static char rcsid[] = "$Header: init.c,v 1.12 87/03/07 14:29:10 avg Exp $";
+a83 3
+#if !defined(UCB_SUBMIT) && defined(UCB_SUBM)
+#  define UCB_SUBMIT
+#endif
+d134 3
+d140 1
+a140 1
+	int howto, oldhowto;
+a143 1
+#ifdef  UCB_AUTOBOOT
+d147 4
+d153 11
+a163 3
+#else
+		howto = RB_SINGLE|RB_ASKNAME;
+#endif
+a172 1
+#ifdef  UCB_AUTOBOOT
+a178 4
+#else
+		single();
+		while ( runcom(howto) == 0 ) single();
+#endif
+a269 1
+#ifdef  UCB_AUTOBOOT
+a282 4
+#else
+		execl(shell, shell, runc, (char *)0);
+		exit(1);
+#endif
+@
+
+
+1.12
+log
+@Добавлено снятие UCASE в Cset.
+@
+text
+@d4 4
+a7 1
+ * $Log:        init.c,v $
+d57 1
+a57 1
+static char rcsid[] = "$Header: init.c,v 1.11 86/12/30 19:06:30 root Exp $";
+d469 1
+@
+
+
+1.11
+log
+@Установлен "sleep(1)" перед открытием терминала
+для работы с "шумящими" линиями.
+@
+text
+@d4 5
+a8 1
+ * $Log:	init.c,v $
+d11 1
+a11 1
+ * 
+d17 1
+a17 1
+ * получал с него прерывание "INT" из за кучи хлама в буфере 
+d20 1
+a20 1
+ * 
+d22 1
+a22 1
+ * Исправлена работа с HANGUP 
+d24 1
+a24 1
+ * 
+d28 1
+a28 1
+ * Это сделано для того, чтобы режим специальной сессии 
+d31 1
+a31 1
+ * 
+d34 1
+a34 1
+ * 
+d37 1
+a37 1
+ * 
+d41 1
+a41 1
+ * 
+d54 1
+a54 1
+static char rcsid[] = "$Header: init.c,v 1.10 86/12/30 17:55:46 alex Exp $";
+d141 1
+a141 1
+		howto = RB_SINGLE;
+d143 1
+a143 1
+		howto = RB_SINGLE;
+d156 1
+a156 1
+		howto = RB_SINGLE;
+d257 1
+a257 1
+		if ((howto & RB_SINGLE) )
+d643 1
+a643 1
+	ttyopt.sg_flags = (ttyopt.sg_flags& ~(RAW))|(ECHO|LCASE|CRMOD);
+@
+
+
+1.10
+log
+@Добавлена установка режимов терминала на консоли.
+@
+text
+@d5 3
+d50 1
+a50 1
+static char rcsid[] = "$Header: init.c,v 1.9 86/12/29 22:47:47 alex Exp $";
+d466 1
+@
+
+
+1.9
+log
+@Наконец то!!!
+Найдена причина< по которой сваливались процессы,
+запущенные из "rc". В "dfork" перед "open(tty" была пропущена
+"signal(SIGINT,SIG_DFL)". В результате потомок открывал "tty",
+получал с него прерывание "INT" из за кучи хлама в буфере 
+мультиплексора, и делал "shutdown" как себе, так и другим,
+срубая все, кроме начального "init".
+@
+text
+@d5 9
+d47 1
+a47 1
+static char rcsid[] = "$Header: init.c,v 1.8 86/12/20 20:14:49 alex Exp $";
+d58 1
+d225 1
+d453 1
+d583 1
+d605 1
+d629 9
+@
+
+
+1.8
+log
+@Исправлена работа с HANGUP 
+(иначе слетали команды, запущенные из /etc/rc).
+@
+text
+@d5 4
+d38 1
+a38 1
+static char rcsid[] = "$Header: init.c,v 1.7 86/11/20 20:50:47 alex Exp $";
+a49 1
+#define VHANGUP                 /* undefine if you don't have vhangup */
+d210 1
+a210 1
+		signal(SIGHUP, SIG_IGN);      /* So, daemon's don't hang up */
+d442 1
+d444 3
+a446 1
+		signal(SIGHUP, SIG_IGN);
+@
+
+
+1.7
+log
+@В случае, если у init не осталось процессов, он
+автоматичеси переходит в single user.
+Это сделано для того, чтобы режим специальной сессии 
+вырождался в single user режим в случае, если ни у
+одного терминала не стоит 2 или 3 в режимах.
+@
+text
+@d5 7
+d34 1
+a34 1
+static char rcsid[] = "$Header: init.c,v 1.6 86/11/19 23:13:25 alex Exp $";
+a206 3
+#ifndef VHANGUP
+		signal(SIGHUP, SIG_DFL);
+#else
+a207 1
+#endif
+d231 1
+@
+
+
+1.6
+log
+@Добавлен сброс флага специального сеанса.
+@
+text
+@d5 3
+d27 1
+a27 1
+static char rcsid[] = "$Header: init.c,v 1.5 86/10/19 21:06:28 alex Exp $";
+d232 4
+a235 1
+		if ((howto & RB_SINGLE) || (howto & RB_NOFSCK))
+d238 1
+a238 1
+			arg1 = "autoboot";
+d294 1
+@
+
+
+1.5
+log
+@Внесены исправления для правильной работы без UCB_AUTOBOOT.
+@
+text
+@d5 3
+d24 1
+a24 1
+static char rcsid[] = "$Header: init.c,v 1.4 86/07/23 20:50:20 avg Stab $";
+d118 1
+@
+
+
+1.4
+log
+@Когда система сгенерирована с VHANGUP, процессы
+оставшиеся от стартового файла убивались сигналом HUP.
+@
+text
+@d4 5
+a8 1
+ * $Log:        init.c,v $
+d21 1
+a21 1
+static char rcsid[] = "$Header: init.c,v 1.3 86/04/18 22:39:53 root Stab $";
+a28 1
+#ifdef  UCB_AUTOBOOT
+a29 1
+#endif
+a95 1
+#ifdef  UCB_AUTOBOOT
+a97 3
+#else
+main ()
+#endif
+d102 1
+a103 2
+	signal(SIGQUIT, idle);
+
+d109 3
+a113 3
+#else
+	autoconfig();
+#endif
+d129 1
+a129 1
+		runcom();
+a211 1
+#ifdef  UCB_AUTOBOOT
+a213 3
+#else
+runcom()
+#endif
+a241 1
+#ifdef  UCB_AUTOBOOT
+a243 1
+#endif
+a407 1
+#ifdef  UCB_AUTOBOOT
+a413 1
+#endif
+a509 1
+#ifdef  UCB_AUTOBOOT
+a510 3
+#else
+		(void) runcom();
+#endif
+a515 1
+#ifdef  UCB_AUTOBOOT
+a540 1
+#endif
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d4 4
+a7 1
+ * $Log:	init.c,v $
+d10 2
+a11 2
+ * 							(by @@VG).
+ * 
+d17 1
+a17 1
+static char rcsid[] = "$Header: init.c,v 1.2 86/04/18 20:06:38 root Exp $";
+d41 4
+d196 1
+d198 3
+@
+
+
+1.2
+log
+@Правки под новый getty: аргумент getty не comn, а имя терминала.
+							(by @@VG).
+@
+text
+@d4 5
+a8 1
+ * $Log:        init.c,v $
+d14 1
+a14 1
+static char rcsid[] = "$Header: init.c,v 1.1 86/04/17 18:33:33 root Exp $";
+d448 1
+a448 1
+			execl(getty, plus, tty, (char *)0);
+d450 1
+a450 1
+			execl(getty, minus, tty, (char *)0);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d10 1
+a10 1
+static char rcsid[] = "$Header$";
+d35 10
+a44 10
+char	getty[]	 = "/etc/getty";
+char	minus[]	= "-";
+char	plus[] = "+";		/* this tells getty we are in sp. sess. */
+char	runc[]	= "/etc/rc";
+char	ifile[]	= "/etc/ttys";
+char	utmp[]	= "/etc/utmp";
+char	wtmpf[]	= "/usr/adm/wtmp";
+char	ctty[]	= "/dev/console";
+char	dev[]	= "/dev/";
+char	config[]= "/etc/autoconfig";
+d49 3
+a51 3
+	char	line[LINSIZ];
+	char	comn;
+	char	flag;
+d53 1
+a53 1
+struct	tab
+d55 4
+a58 4
+	char	line[LINSIZ];
+	char	comn;
+	char	xflag;
+	int	pid;
+d61 1
+a61 1
+extern	errno;
+d63 3
+a65 3
+int	fi;
+int	mergflag;
+int	multiuser;
+d69 3
+a71 3
+#define	NORMAL	1		/* anyone can login */
+#define	SP_SESS	2		/* only root can login */
+int	mode = NORMAL;
+d73 3
+a75 3
+char	tty[20];
+jmp_buf	sjbuf, shutpass;
+time_t	time0;
+d77 5
+a81 5
+time_t	time();
+int	reset();
+int	idle(), sp_ss(), setmerge();
+char	*strcpy(), *strcat();
+long	lseek();
+d83 1
+a83 1
+#ifdef	UCB_AUTOBOOT
+d85 1
+a85 1
+char	**av;
+d93 1
+a93 1
+#ifdef	UCB_AUTOBOOT
+d98 1
+a98 1
+		* ((int *) av[1]) = 0;	/* don't confuse ps with binary args */
+d112 1
+a112 1
+#ifdef	UCB_AUTOBOOT
+d117 1
+a117 1
+		if (runcom(oldhowto) == 0) 
+d128 1
+a128 1
+int	shutreset();
+d175 1
+a175 1
+	extern	errno;
+d200 1
+a200 1
+#ifdef	UCB_AUTOBOOT
+d216 1
+a216 1
+#ifdef	UCB_AUTOBOOT
+d234 1
+a234 1
+#ifdef	UCB_AUTOBOOT
+d284 1
+a284 1
+#ifdef	UCB_SUBMIT
+d301 1
+a301 1
+#ifdef	UCB_SUBMIT
+d318 1
+a318 5
+	line.flag = c;
+	c = get();
+	if(c <= 0)
+		goto loop;
+	line.comn = c;
+d326 1
+a326 1
+		if(c <= 0 || c == ' ' || c == '\t')
+d354 2
+a355 2
+#define	FOUND	1
+#define	CHANGE	2
+d402 1
+a402 1
+#ifdef	UCB_AUTOBOOT
+d435 1
+a435 1
+#ifdef	VHANGUP
+a442 2
+		tty[0] = p->comn;
+		tty[1] = 0;
+d498 1
+a498 1
+	if (mode == NORMAL) 
+d506 1
+a506 1
+#ifdef	UCB_AUTOBOOT
+d516 1
+a516 1
+#ifdef	UCB_AUTOBOOT
+d588 1
+a588 1
+			cmesg("SERIOUS CONFIGURATION ERROR\n", 0, 0);
+@

@@ -1,0 +1,43 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     86.04.21.20.05.14;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/
+/ $Log$
+/
+
+/ C library -- exit
+
+/ exit(code)
+/ code is return in r0 to system
+
+.globl  _exit
+.globl  __cleanup
+exit = 1
+
+_exit:
+	mov     r5,-(sp)
+	mov     sp,r5
+	jsr     pc,__cleanup
+	mov     4(r5),r0
+	sys     exit
+@

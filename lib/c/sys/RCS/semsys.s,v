@@ -1,0 +1,50 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/@;
+
+
+1.1
+date     89.03.04.18.17.22;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+системный интерфейс к semctl, semget, semop
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Log:	semsys.s,v $
+/ id =  semsys( arg0, arg1, arg2, arg3, arg4 );
+/
+
+.globl  _semsys
+.globl  cerror
+
+_semsys:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov     4.(r5),0f
+	mov     6.(r5),0f+2
+	mov     8.(r5),0f+4
+	mov     10.(r5),0f+6
+	mov     12.(r5),0f+8
+	sys     local; 9f
+	bec     1f
+	jmp     cerror
+1:
+	mov	(sp)+,r5
+	rts	pc
+.data
+9:
+	sys     semsys; 0:..; ..; ..; ..; ..
+@

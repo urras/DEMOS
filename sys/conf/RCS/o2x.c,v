@@ -1,0 +1,86 @@
+head     1.2;
+access   dvolodin;
+symbols  Архыз0:1.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.26.12.03.17;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.09.24.21.16.00;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Теперь она правильно работает и при уже имеющемся нужном
+MAGIC_NUMBER'e.
+@
+text
+@/* Преобразование одного magic'а в другой.
+ * $Header: o2x.c,v 1.1 88/09/24 21:16:00 ache Exp $
+ * $Log:	o2x.c,v $
+ * Revision 1.1  88/09/24  21:16:00  ache
+ * Initial revision
+ * 
+ */
+
+#include <stdio.h>
+#include <a.out.h>
+
+struct exec exec;
+struct xovlhdr  xovlhdr;	/* расписана 0 */
+
+main () {
+    register    c, flag;
+
+    fread (&exec, sizeof (exec), 1, stdin);
+    if (exec.a_magic != A_MAGIC5 && exec.a_magic != A_MAGIC7) {
+	fprintf (stderr, "Not overlaid\n");
+	exit (1);
+    }
+    flag = exec.a_magic == A_MAGIC5;
+    exec.a_magic = A_MAGIC7;
+    fwrite (&exec, sizeof (exec), 1, stdout);
+    if (flag) {
+	fread (&xovlhdr, sizeof (struct ovlhdr), 1, stdin);
+	fwrite (&xovlhdr, sizeof (xovlhdr), 1, stdout);
+    }
+    while ((c = getchar ()) != EOF)
+	putchar (c);
+    exit (0);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+ * $Header: o2x.c,v 1.1 88/09/24 21:13:18 ache Exp $
+d4 3
+d16 1
+a16 1
+    register    c;
+d19 1
+a19 1
+    if (exec.a_magic != A_MAGIC5) {
+d23 1
+d26 4
+a29 2
+    fread (&xovlhdr, sizeof (struct ovlhdr), 1, stdin);
+    fwrite (&xovlhdr, sizeof (xovlhdr), 1, stdout);
+@

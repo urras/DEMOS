@@ -1,0 +1,80 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.2
+date     88.11.16.15.21.04;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.01.17.43.10;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Аргументы в стеке.
+@
+text
+@/ $Header: read.s,v 1.1 88/04/01 17:43:10 andrew Exp $
+/ $Log:	read.s,v $
+/ Revision 1.1  88/04/01  17:43:10  andrew
+/ Initial revision
+/ 
+/ nread = read(fildes, buffer, nbytes);
+/	  char *buffer;
+/	  unsigned nbytes;
+/ nread ==0 means eof; nread == -1 means error
+
+.globl	_read
+.globl	cerror
+
+_read:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(r5),r0
+	mov	8(r5),-(sp)
+	mov	6(r5),-(sp)
+	sys	read+200
+	bec	1f
+	cmp	(sp)+, (sp)+
+	jmp	cerror
+1:
+	cmp	(sp)+, (sp)+
+	mov	(sp)+,r5
+	rts	pc
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 6
+a6 3
+/ $Header$
+/ $Log$
+/ error	= read(fildes, buffer, nbytes);
+d9 1
+d18 3
+a20 3
+	mov	6(r5),0f
+	mov	8(r5),0f+2
+	sys	0; 9f
+d22 1
+d25 1
+a27 3
+.data
+9:
+	sys	read; 0:..; ..
+@

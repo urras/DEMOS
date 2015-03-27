@@ -1,0 +1,337 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     90.11.09.14.02.41;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.15.14.22.39;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Версия пришла с АЗЛК.
+@
+
+
+1.2
+log
+@Changes for new directory structure.
+@
+text
+@/ RAXX/RDXX/RX50 bootstrap.
+/
+/ Author: A. Skukin (azlk) 24-apr-87
+/
+/ disk boot program to load and transfer
+/ to a unix entry.
+/ for use with 1 KB byte blocks, CLSIZE is 2.
+/ NDIRIN is the number of direct inode addresses (currently 4)
+/ assembled size must be <= 512; if > 494, the 16-byte a.out header
+/ must be removed
+/
+/
+
+/ options:
+
+autoboot= 1             / 1->code for autoboot. 0->no autoboot, saves 12 bytes
+
+/ constants:
+CLSIZE	= 2.			/ physical disk blocks per logical block
+CLSHFT	= 1.			/ shift to multiply by CLSIZE
+BSIZE	= 512.*CLSIZE		/ logical block size
+INOSIZ	= 64.			/ size of inode in bytes
+NDIRIN	= 4.			/ number of direct inode addresses
+ADDROFF	= 12.			/ offset of first address in inode
+INOPB	= BSIZE\/INOSIZ		/ inodes per logical block
+INOFF	= 31.			/ inode offset = (INOPB * (SUPERB+1)) - 1
+
+/  The boot options and device are placed in the last SZFLAGS bytes
+/  at the end of core by the kernel if this is an autoboot.
+ENDCORE=	160000		/ end of core, mem. management off
+SZFLAGS=	6		/ size of boot flags
+BOOTOPTS=	2		/ location of options, bytes below ENDCORE
+BOOTDEV=	4
+CHECKWORD=	6
+
+.. = ENDCORE-512.-SZFLAGS-2     / save room for boot flags
+
+/ entry is made by jsr pc,*$0
+/ so return can be rts pc
+
+/ establish sp, copy
+/ program up to end of core.
+	.byte   240,0
+	br      start
+start:
+	mov	$..,sp
+	mov	sp,r5
+	clr	r4
+	cmp     pc,r5
+	bcc     1f
+2:
+	mov	(r4)+,(r5)+
+	cmp	r5,$end
+	blo     2b
+	jmp     (sp)
+1:
+	clr	(r4)+
+	cmp	r4,sp
+	blo     1b
+
+/ initialize ra
+	mov     r0,unt          / Save unit number
+	mov     r0,ra_unit      / Save unit number
+	mov	r1,ra_csr	/ Save CSR address
+	clr	(r1)+		/ Start controller init sequence
+				/ move pointer to SA register
+	mov	$4000,r5	/ Set cntrl state test bit to step 1
+	mov	$1f,r4		/ Address of init seq table
+	br	2f		/ Branch around table
+1:
+	100000			/ UDA_ERR, init step 1
+	ring			/ Address of ringbase
+	0			/ Hi ringbase address
+	1			/ UDA go bit
+2:
+	tst	(r1)		/ Error ?
+	bmi	.		/ Yes, hang on init error
+	bit	r5,(r1)		/ Current step done ?
+	beq	2b		/ No
+	mov	(r4)+,(r1)	/ Yes, load next step info from table
+	asl	r5		/ Change state test bit to next step
+	bpl	2b		/ If all steps not done, go back
+				/ r5 now = 100000, UDA_OWN bit
+	mov	$36.,cmdhdr	/ Command packet lenght
+				/ don't set response packet lenght,
+				/ little shakey but it works.
+	mov	r0,udacmd+4.	/ Load drive number
+	mov	$11,udacmd+8.	/ On-line command opcode
+	mov	$ring,r2	/ Initialize cmd/rsp ring
+	mov	$udarsp,(r2)+	/ Address of response packet
+	mov	r5,(r2)+	/ Set UDA owner
+	mov	$udacmd,(r2)+	/ Address of command packet
+	mov	r5,(r2)+	/ Set UDA owner
+	mov	-2(r1),r0	/ Start UDA polling
+3:
+	tst	ring+2		/ Wait for response, UDA_OWN goes to zero
+	bmi	3b
+	br      1f
+/ On error, restart from here
+restart:
+1:
+	mov     $buf,r0
+2:
+	clr     (r0)+
+	cmp     r0,sp
+	blo     2b
+/ now start reading the inodes
+/ starting at the root and
+/ going through directories
+	mov     $defnm,r1
+	mov	$2,r0
+3:
+	clr	bno
+	jsr	pc,iget
+	tst     (r1)
+	beq     2f
+4:
+	jsr	pc,rmblk
+		br restart
+	mov	$buf,r2
+5:
+	mov	r1,r3
+	mov	r2,r4
+	add	$16.,r2
+	tst	(r4)+
+	beq     1f
+6:
+	cmpb	(r3)+,(r4)+
+	bne     1f
+	cmp	r4,r2
+	blo     6b
+	mov	-16.(r2),r0
+	add	$14.,r1
+	br      3b
+1:
+	cmp	r2,$buf+BSIZE
+	blo     5b
+	br      4b
+
+/ read file into core until
+/ a mapping error, (no disk address)
+2:
+	clr	r1
+3:
+	jsr	pc,rmblk
+		br 1f
+	mov	$buf,r2
+2:
+	mov	(r2)+,(r1)+
+	cmp	r2,$buf+BSIZE
+	blo	2b
+	br      3b
+/ relocate core around
+/ assembler header
+1:
+	clr	r0
+	cmp	(r0),$407
+	bne	2f
+1:
+	mov	20(r0),(r0)+
+	cmp	r0,sp
+	blo	1b
+/ enter program and
+/ restart if return
+2:
+.if	autoboot
+	mov	ENDCORE-BOOTOPTS, r4
+	mov	ENDCORE-BOOTDEV, r3
+	mov	ENDCORE-CHECKWORD, r2
+.endif
+	mov     unt, r1
+/        ash     $3,r1
+/        bic     $!070,r1
+	bis     $[14.\<8],r1
+	jsr	pc,*$0
+	br	restart
+
+/ get the inode specified in r0
+iget:
+	bic     $140000,r0      / Clear 2 most significant bits in I-number
+	add	$INOFF,r0
+	mov	r0,r5
+	ash     $-4.,r0
+	bic	$!7777,r0
+	mov	r0,dno
+	clr	r0
+	jsr	pc,rblk
+	bic	$!17,r5
+	mul	$INOSIZ,r5
+	add	$buf,r5
+	mov	$inod,r4
+1:
+	mov	(r5)+,(r4)+
+	cmp	r4,$inod+INOSIZ
+	blo	1b
+	rts	pc
+
+/ read a mapped block
+/ offset in file is in bno.
+/ skip if success, no skip if fail
+/ the algorithm only handles a single
+/ indirect block. that means that
+/ files longer than NDIRIN+128 blocks cannot
+/ be loaded.
+rmblk:
+	add	$2,(sp)
+	mov	bno,r0
+	cmp	r0,$NDIRIN
+	blt	1f
+	mov	$NDIRIN,r0
+1:
+	mov	r0,-(sp)
+	asl	r0
+	add	(sp)+,r0
+	add	$addr+1,r0
+	movb	(r0)+,dno
+	movb	(r0)+,dno+1
+	movb	-3(r0),r0
+	bne	1f
+	tst	dno
+	beq	2f
+1:
+	jsr	pc,rblk
+	mov	bno,r0
+	inc	bno
+	sub	$NDIRIN,r0
+	blt	1f
+	ash	$2,r0
+	mov	buf+2(r0),dno
+	mov	buf(r0),r0
+	bne	rblk
+	tst	dno
+	bne	rblk
+2:
+	sub	$2,(sp)
+1:
+	rts	pc
+
+/ Mini MSCP-disk driver.
+/ low order address in dno,
+/ high order in r0.
+rblk:
+	mov     r1,-(sp)
+	mov	dno,r1
+.if     CLSIZE-1
+	ashc    $CLSHFT,r0              / Multiply by CLSIZE
+.endif
+	mov	$41,udacmd+8.		/ Read opcode
+	mov     $BSIZE,udacmd+12.       / Byte count
+	mov	$buf,udacmd+16.		/ Buffer lo address for read
+	mov	r1,udacmd+28.		/ Block number low
+	mov	r0,udacmd+30.		/ Block number hi
+	mov	$100000,ring+2		/ Set UDA owner of response
+	mov	$100000,ring+6		/ Set UDA owner of command
+	mov	*ra_csr,r0		/ Start UDA polling
+1:
+	tst	ring+2			/ Wait for response
+	bmi	1b
+	tstb    udarsp+10.              / Does returned status = SUCCESS ?
+	beq     1f                      / Yes, no error continue read
+	jmp     restart
+1:
+	mov     (sp)+,r1
+	rts	pc
+defnm:  <boot\0\0\0\0\0\0\0\0\0\0\0>
+end:
+
+ra_csr = ..-512.-BSIZE-2        / room for MSCP stuff, inod, buf, stack
+cmdint = ra_csr+2
+rspint = cmdint+2
+ring   = rspint+2
+rsphdr = ring+8.
+udarsp = rsphdr+4.
+cmdhdr = udarsp+48.
+udacmd = cmdhdr+4.
+ra_unit= udacmd+48.
+ra_type= ra_unit+2.
+buf  = ra_type+4.
+inod = buf+BSIZE
+addr= inod+ADDROFF              / first address in inod
+bno = inod+INOSIZ
+dno = bno+2
+unt = dno+2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d36 1
+a36 1
+.. = ENDCORE-512.-SZFLAGS	/ save room for boot flags
+a48 1
+	mov     sp,r5
+d62 1
+a100 3
+	movb    $'.,defnm+4.    / On error, add '.bu' to 'boot' string
+	movb    $'b,defnm+5.    / in defnm and try to find 'boot.bu'
+	movb    $'u,defnm+6.
+d171 4
+d180 1
+d268 1
+a268 1
+ra_csr = ..-512.-BSIZE          / room for MSCP stuff, inod, buf, stack
+d283 1
+@

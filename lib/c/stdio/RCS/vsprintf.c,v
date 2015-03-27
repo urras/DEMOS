@@ -1,0 +1,45 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.04.18.17.34.27;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header: sprintf.c,v 1.1 88/04/01 16:14:18 andrew Exp $
+ * $Log:	sprintf.c,v $
+ */
+#include        <stdio.h>
+#include        <varargs.h>
+
+char *vsprintf (str, fmt, args)
+char *str, *fmt;
+va_list args;
+{
+	FILE _strbuf;
+
+	_strbuf._flag = _IOWRT | _IOSTRG;
+	_strbuf._ptr = str;
+	_strbuf._cnt = 32767;
+	_doprnt (fmt, args, &_strbuf);
+	putc ('\0', &_strbuf);
+	return str;
+}
+@

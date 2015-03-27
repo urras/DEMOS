@@ -1,0 +1,108 @@
+head     1.2;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.04.21.22.03.04;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.21.20.05.13;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.2
+log
+@Добавлены русские буквы.
+@
+text
+@/*
+ * $Log:        ctype_.c,v $
+ * Revision 1.1  86/04/21  20:05:13  root
+ * Initial revision
+ *
+ */
+
+#include        <sys/code.h>
+#include        <ctype.h>
+
+char _ctype_[] = {
+	0,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _S,     _S,     _S,     _S,     _S,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+
+	_S|_P,  _P,     _P,     _P,     _P,     _P,     _P,     _P,
+	_P,     _P,     _P,     _P,     _P,     _P,     _P,     _P,
+	_N,     _N,     _N,     _N,     _N,     _N,     _N,     _N,
+	_N,     _N,     _P,     _P,     _P,     _P,     _P,     _P,
+
+	_P,     _U|_X,  _U|_X,  _U|_X,  _U|_X,  _U|_X,  _U|_X,  _U,
+	_U,     _U,     _U,     _U,     _U,     _U,     _U,     _U,
+	_U,     _U,     _U,     _U,     _U,     _U,     _U,     _U,
+	_U,     _U,     _U,     _P,     _P,     _P,     _P,     _P,
+
+	_P,     _L|_X,  _L|_X,  _L|_X,  _L|_X,  _L|_X,  _L|_X,  _L,
+	_L,     _L,     _L,     _L,     _L,     _L,     _L,     _L,
+	_L,     _L,     _L,     _L,     _L,     _L,     _L,     _L,
+	_L,     _L,     _L,     _P,     _P,     _P,     _P,     _C,
+
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+	_C,     _C,     _C,     _C,     _C,     _C,     _C,     _C,
+
+#ifdef Ucode
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,
+#endif
+
+	_L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,
+	_L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,
+	_L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,
+	_L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,  _L|_R,
+
+#ifndef Ucode   /* КОИ-8 */
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,
+	_U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _U|_R,  _C
+#endif
+};
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d8 1
+d17 1
+d22 1
+d27 1
+d31 30
+a60 1
+	_L,     _L,     _L,     _P,     _P,     _P,     _P,     _C
+@

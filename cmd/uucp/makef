@@ -1,0 +1,21 @@
+cp uucp.h.smdec10 uucp.h
+cp cntrl.c.all cntrl.c
+make clean
+make all
+make uurecover
+mkdir smdec10
+mv    uucp uux uuxqt uucico uulog uuclean uuname uurecover smdec10
+cp uucp.h.bd uucp.h
+make clean
+make all
+make uurecover
+mkdir bd
+mv    uucp uux uuxqt uucico uulog uuclean uuname uurecover bd
+cp uucp.h.tnf uucp.h
+cp cntrl.c.7 cntrl.c
+make clean
+make all
+make uurecover
+mkdir tnf
+mv    uucp uux uuxqt uucico uulog uuclean uuname uurecover tnf
+echo FINISH

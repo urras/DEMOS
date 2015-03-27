@@ -1,0 +1,37 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.13.28;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include        <stdio.h>
+
+putw(i, iop)
+register i;
+register struct _iobuf *iop;
+{
+	putc(i, iop);
+	putc(i>>8, iop);
+}
+@

@@ -1,0 +1,127 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.19.17.12;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+/*
+**      Удаление колонок из файла (фильтр).
+**
+**      colrm  [ начальная_колонка ] [ конечная ]
+**
+**      Стандартное местоположение в системе:  /bin
+**
+**      Метод сборки:  cc -O -n -s
+**
+*/
+
+
+#include <stdio.h>
+
+main (argc, argv)
+char  **argv;
+{
+    int     first;
+    register    ct,
+		last;
+    register char   c;
+    char    buffer[BUFSIZ];
+
+    setbuf (stdout, buffer);
+    first = 20000;
+    last = -1;
+    if (argc > 1) {
+	first = getn (*++argv);
+	last = 20000;
+    }
+    if (argc > 2)
+	last = getn (*++argv);
+
+start: 
+    ct = 0;
+loop1: 
+    if ((c = getc (stdin)) == EOF)
+	goto fin;
+    if (c == '\t')
+	ct = (ct + 8) & ~7;
+    else
+	if (c == '\b')
+	    ct = ct ? ct - 1 : 0;
+	else
+	    ct++;
+    if (c == '\n') {
+	putc (c, stdout);
+	goto start;
+    }
+    if (ct < first) {
+	putc (c, stdout);
+	goto loop1;
+    }
+
+/* Пропуск символов */
+    for (; ct < last; ct++) {
+	if ((c = getc (stdin)) == EOF)
+	    goto fin;
+	if (c == '\n') {
+	    putc (c, stdout);
+	    goto start;
+	}
+    }
+
+/* Вывод остатка строки */
+    while ((c = getc (stdin)) != EOF) {
+	putc (c, stdout);
+	if (c == '\n')
+	    goto start;
+    }
+fin: 
+    fflush (stdout);
+}
+
+getn (ap)
+char   *ap;
+{
+    register int    n,
+                    c;
+    register char  *p;
+
+    p = ap;
+    n = 0;
+    while ((c = *p++) >= '0' && c <= '9')
+	n = n * 10 + c - '0';
+    return (n);
+}
+@

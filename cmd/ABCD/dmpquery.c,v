@@ -1,0 +1,84 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.26.14;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+#define TMOUT   15
+
+#include <sys/file.h>
+#include <sgtty.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sysexits.h>
+
+main( argc, argv )
+char **argv;
+{
+	register short d = open( argv[1], 2 );
+	register FILE * e = fopen( "/dev/console", "w" );
+	int n ;
+	int alrm();
+
+	if( d < 0 ) {
+		fprintf( e, "DMPQUERY: cannot open %s\r\n", argv[1] );
+		exit( EX_CANTCREAT );
+	}
+	signal( SIGALRM, alrm );
+	alarm( TMOUT );
+	goto L ;
+	while( n != 4 ) {
+		char buf[4] ;
+
+		fprintf( e, "I WANNA PLOT !!!\r\n" );
+		fflush( e );
+L:
+		n = FREAD ;
+		ioctl( d, TIOCFLUSH, &n );
+		write( d, ";:Q", 3 );
+		n = read( d, buf, 4 );
+	}
+	n = FREAD ;
+	ioctl( d, TIOCFLUSH, &n );
+	exit( 0 );
+}
+
+alrm()
+{
+	signal( SIGALRM, alrm );
+	alarm( TMOUT );
+}
+@

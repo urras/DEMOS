@@ -1,0 +1,824 @@
+head     22.4;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз1:1.7.2 Архыз0:1.6.1;
+locks    ;
+comment  @ * @;
+
+
+22.4
+date     90.11.12.19.12.12;  author root;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.04.27.13.50.30;  author korotaev;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.24.22.02.25;  author avg;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.31.42;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.31.09;  author korotaev;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.01.18.21.49.22;  author dvolodin;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.11.17.16.23.54;  author dvolodin;  state Exp;
+branches 1.7.2.1;
+next     1.6;
+
+1.6
+date     87.07.02.11.23.16;  author avg;  state Exp;
+branches 1.6.1.1;
+next     1.5;
+
+1.5
+date     87.02.05.20.49.56;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.02.04.17.33.56;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.12.06.00.00.59;  author alex;  state Stab;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.06.00.00.11;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.54.51;  author avg;  state Stab;
+branches ;
+next     ;
+
+1.6.1.1
+date     88.11.01.20.48.08;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+1.7.2.1
+date     88.11.17.16.25.29;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.4
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	rk.c,v $
+ * Revision 22.3  89/04/27  13:50:30  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.2  89/04/24  22:02:25  avg
+ * Правлена плюха с RKWCHECK - забыли return в rkintr после захода
+ * на rkstart для контрольного чтения.
+ * 
+ * Revision 22.1  89/04/12  14:31:42  korotaev
+ * "param.h" ==> <sys/param.h>
+ *
+ * Revision 22.0  89/03/25  12:31:09  korotaev
+ * Отсюда начинается версия 2.2
+ *
+ * Revision 1.8  89/01/18  21:49:22  dvolodin
+ * Правлены рудневские заблуждения.
+ *
+ * Revision 1.7.2.1  88/11/17  16:25:29  dvolodin
+ * Правлены рудневские заблуждения.
+ *
+ * Revision 1.6  87/07/02  11:23:16  avg
+ * Поправлен RKWCHECK.
+ *
+ * Revision 1.5  87/02/05  20:49:56  avg
+ * Убрана диагностика про rkwc для экономии места в ядре.
+ *
+ * Revision 1.4  87/02/04  17:33:56  alex
+ * Вставлен режим XX_SPL - работать на низком приоритете
+ *
+ * Revision 1.3  86/12/06  00:00:59  alex
+ * Сделан многоконтроллерный вариант драйвера.
+ * Добавлен сброс диска при DRE и после 6 попыток обмена.
+ * Сделан rkopen.
+ *
+ * Revision 1.1  86/04/19  17:54:51  avg
+ * Initial revision
+ * Многоконтроллерный вариант
+ */
+
+#include "h/rk.h"
+#if     NRK > 0
+#ifndef NRKC
+#define NRKC 1
+#endif
+#include <sys/param.h>
+#include <sys/systm.h>
+#include "../include/buf.h"
+#include <sys/conf.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include "../include/rkreg.h"
+
+#ifndef RK_SPL
+#define INTR_ARGS(ps) /* */
+#define SPLL(ps) /* */
+#define SPLM     /* */
+#else
+#ifdef  MENLO_KOV
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_ov, i_nps, i_r0, i_pc, ps
+#else
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_nps, i_r0, i_pc, ps
+#endif
+#include "../include/psw.h"
+#define SPLL(ps) splx(((ps)&PS_IPL)?(ps):PS_BR1)
+#define SPLM _spl5()
+#endif
+
+#define NRKBLK  4872    /* Число блоков на устройстве */
+#define RKC(unit) (unit>>3)
+#define RKU(unit) (unit&07)
+#define RKRESETT  12
+
+struct  rkdevice *RKADDR[NRKC];
+#ifdef RK_WCHECK
+char rkwcheck[NRKC];
+#endif
+
+struct  buf     rktab[NRKC];
+#ifdef  UCB_DBUFS
+struct  buf     rrkbuf[NRK][NRKC];
+#else
+struct  buf     rrkbuf[NRKC];
+#endif
+
+rkattach(addr, unit)
+struct rkdevice *addr;
+{
+	if (unit >= NRKC )
+		return(0);
+	RKADDR[unit] = addr;
+	return(1);
+}
+
+rkopen(dev,rw)
+dev_t dev;
+{
+	register struct device *addr;
+	int dd,dn,status;
+
+	dd = minor(dev);
+	dn = RKU(dd);
+	if(dn >= NRK || RKC(dd) >= NRKC || !(addr = RKADDR[RKC(dd)] )) {
+		u.u_error = ENXIO;
+		return;
+	}
+	spl5();
+	while((addr->rkcs&RKCS_RDY) == 0) spl0(), spl5();
+	addr->rkda = dn<<13;
+	status = addr->rkds;
+	spl0();
+
+	if((status&RK_DRY) == 0) {
+		u.u_error = ENXIO;
+		return;
+	}
+	if(rw && (status&RK_WPS)) {
+		u.u_error = EROFS;
+		return;
+	}
+}
+
+rkstrategy(bp)
+register struct buf *bp;
+{
+	register s;
+	int      c;
+	register struct buf *tabrk;
+
+	c = RKC(minor(bp->b_dev));
+	tabrk = &rktab[c];
+	if (RKADDR[c] == (struct rkdevice *) NULL) {
+		bp->b_error = ENXIO;
+		goto errexit;
+	}
+	if (bp->b_blkno >= NRKBLK) {
+		bp->b_error = EINVAL;
+errexit:
+		bp->b_flags |= B_ERROR;
+		iodone(bp);
+		return;
+	}
+#ifdef UNIBUS_MAP
+	mapalloc(bp);
+#endif
+	bp->av_forw = (struct buf *)NULL;
+	s = spl5();
+	if(tabrk->b_actf == NULL)
+		tabrk->b_actf = bp;
+	else
+		tabrk->b_actl->av_forw = bp;
+	tabrk->b_actl = bp;
+	if(tabrk->b_active == NULL)
+		rkstart(c);
+	splx(s);
+}
+
+rkstart(c)
+{
+	register struct rkdevice *rkaddr = RKADDR[c];
+	register struct buf *bp;
+	int com;
+	register struct buf *tabrk = &rktab[c];
+	daddr_t bn;
+	int dn, cn, sn;
+
+	if ((bp = tabrk->b_actf) == NULL)
+		return;
+	tabrk->b_active++;
+	bn = bp->b_blkno;
+	dn = minor(bp->b_dev);
+	cn = bn / 12;
+	sn = bn % 12;
+	rkaddr->rkcs = RKCS_RESET | RKCS_GO;
+	while((rkaddr->rkcs & RKCS_RDY) == 0)
+	;
+	rkaddr->rkda = (dn << 13) | (cn << 4) | sn;
+	rkaddr->rkba = bp->b_un.b_addr;
+	rkaddr->rkwc = -(bp->b_bcount >> 1);
+	com = ((bp->b_xmem & 3) << 4) | RKCS_IDE | RKCS_GO;
+	if(bp->b_flags & B_READ)
+		com |= RKCS_RCOM;
+	else {
+		com |= RKCS_WCOM;
+#ifdef RK_WCHECK
+		if( rkwcheck[c] ) {
+			com ^= (RKCS_WCHK^RKCS_WCOM);
+			rkwcheck[c] = 0;
+		} else
+			rkwcheck[c] = 1;
+#endif
+	}
+	rkaddr->rkcs = com;
+#ifdef  RK_DKN
+	dk_busy |= 1 << RK_DKN;
+	dk_numb[RK_DKN]++;
+	dk_wds[RK_DKN] += bp->b_bcount >> 6;
+#endif  RK_DKN
+}
+
+rkintr(c INTR_ARGS(ps))
+{
+	register struct rkdevice *rkaddr = RKADDR[c];
+	register struct buf *bp;
+	register struct buf *tabrk = &rktab[c];
+	int err;
+
+	if (tabrk->b_active == NULL)
+		return;
+#ifdef  RK_DKN
+	dk_busy &= ~(1 << RK_DKN);
+#endif  RK_DKN
+	bp = tabrk->b_actf;
+	tabrk->b_active = NULL;
+	SPLL(ps);
+
+	if ((rkaddr->rkcs & RKCS_ERR) ||
+	    ((bp->b_flags&B_PHYS) == 0 && rkaddr->rkwc) ) {
+#ifdef RK_WCHECK
+		rkwcheck[c] = 0;
+#endif
+		while ((rkaddr->rkcs & RKCS_RDY) == 0)
+			;
+		err = rkaddr->rker;
+#ifndef APG_DIAG
+#ifdef  UCB_DEVERR
+		bp->b_dev <<= 3;
+		harderr(bp, "rk");
+		printf("er=%b ds=%b\n", rkaddr->rker, RKER_BITS,
+		       rkaddr->rkds, RK_BITS);
+		bp->b_dev >>= 3;
+#else
+		deverror(bp, rkaddr->rker, rkaddr->rkds);
+#endif
+#endif
+		rkaddr->rkcs = RKCS_RESET | RKCS_GO;
+		while((rkaddr->rkcs & RKCS_RDY) == 0)
+			;
+		if( ++tabrk->b_errcnt > 15 )
+			goto error;
+		SPLM;
+		if ( tabrk->b_errcnt%7 == 6 || (err & RKER_DRE) ) {
+			rkaddr->rkda = (RKU(minor(bp->b_dev))) << 13;
+			rkaddr->rkcs = RKCS_GO|RKCS_DRESET;
+			timeout(rkstart, (caddr_t)c, RKRESETT);
+			return;
+		}
+		rkstart(c);
+		return;
+error:
+#ifdef APG_DIAG
+		deverror(bp, rkaddr->rker,rkaddr->rkds);
+#endif
+		bp->b_flags |= B_ERROR;
+	}
+	SPLM;
+#ifdef RK_WCHECK
+	if( rkwcheck[c] ) {
+		rkstart(c);
+		return;
+	}
+#endif
+	tabrk->b_errcnt = 0;
+	tabrk->b_actf = bp->av_forw;
+	bp->b_resid = -(rkaddr->rkwc << 1);
+	SPLL(ps);
+	iodone(bp);
+	SPLM;
+	rkstart(c);
+}
+
+rkread(dev)
+dev_t   dev;
+{
+	register struct buf *bufrrk = &rrkbuf[RKC(minor(dev))];
+#ifdef  UCB_DBUFS
+	register int unit = RKU(minor(dev));
+
+	if (unit >= NRK)
+		u.u_error = ENXIO;
+	else
+		physio(rkstrategy, &bufrrk[unit], dev, B_READ);
+#else
+	physio(rkstrategy, bufrrk, dev, B_READ);
+#endif
+}
+
+rkwrite(dev)
+dev_t   dev;
+{
+	register struct buf *bufrrk = &rrkbuf[RKC(minor(dev))];
+#ifdef  UCB_DBUFS
+	register int unit = RKU(minor(dev));
+
+	if (unit >= NRK)
+		u.u_error = ENXIO;
+	else
+		physio(rkstrategy, &bufrrk[unit], dev, B_WRITE);
+#else
+	physio(rkstrategy, bufrrk, dev, B_WRITE);
+#endif
+}
+#endif  NRK
+@
+
+
+22.3
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d3 3
+d48 1
+a48 1
+#include <sys/buf.h>
+d52 1
+a52 1
+#include <sys/rkreg.h>
+d64 1
+a64 1
+#include <sys/psw.h>
+@
+
+
+22.2
+log
+@Правлена плюха с RKWCHECK - забыли return в rkintr после захода
+на rkstart для контрольного чтения.
+@
+text
+@d2 5
+a6 1
+ * $Log:        rk.c,v $
+d38 1
+a38 1
+#include "rk.h"
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d2 4
+a5 1
+ * $Log:	rk.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d14 1
+a14 1
+ * 
+d93 1
+d101 1
+a101 1
+	while((addr->rkcs&RKCS_RDY) == 0)spl0(), spl5();
+d105 1
+d120 3
+a122 1
+	int c; register struct buf *tabrk;
+d155 2
+a156 1
+	int com; register struct buf *tabrk = &rktab[c];
+d159 1
+d176 1
+a176 2
+	else
+		{
+d179 5
+a183 2
+		if(rkwcheck[c]) com ^= (RKCS_RCOM^RKCS_WCOM), rkwcheck[c] = 0;
+		else rkwcheck[c] = 1;
+d185 1
+a185 1
+		}
+d200 1
+d209 1
+d211 1
+a211 1
+	((bp->b_flags&B_PHYS) == 0 && rkaddr->rkwc) ) {
+d217 1
+a217 1
+			err = rkaddr->rker;
+d220 5
+a224 5
+			bp->b_dev <<= 3;
+			harderr(bp, "rk");
+			printf("er=%b ds=%b\n", rkaddr->rker, RKER_BITS,
+				rkaddr->rkds, RK_BITS);
+			bp->b_dev >>= 3;
+d226 1
+a226 1
+			deverror(bp, rkaddr->rker, rkaddr->rkds);
+d229 14
+a242 14
+			rkaddr->rkcs = RKCS_RESET | RKCS_GO;
+			while((rkaddr->rkcs & RKCS_RDY) == 0)
+				;
+			if (++tabrk->b_errcnt > 15) goto error;
+			SPLM;
+			if ( tabrk->b_errcnt%7 == 6 || (err&(RKER_DRE)))
+			{
+				rkaddr->rkda = (RKU(minor(bp->b_dev))) << 13;
+				rkaddr->rkcs = RKCS_GO|RKCS_DRESET;
+				timeout(rkstart, (caddr_t)c, RKRESETT);
+				return;
+			}
+				rkstart(c);
+				return;
+d251 4
+a254 1
+	if (rkwcheck[c]) rkstart(c);
+d268 1
+a268 1
+ register struct buf *bufrrk = &rrkbuf[RKC(minor(dev))];
+d271 1
+d284 1
+a284 1
+register struct buf *bufrrk = &rrkbuf[RKC(minor(dev))];
+d287 1
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d3 3
+d36 1
+a36 1
+#include "param.h"
+@
+
+
+1.8
+log
+@Правлены рудневские заблуждения.
+@
+text
+@d3 3
+@
+
+
+1.7
+log
+@*** empty log message ***
+@
+text
+@d2 4
+a5 1
+ * $Log:        rk.c,v $
+d49 1
+a49 1
+#define SPLL(ps) splx(((ps&PS_IPL)>>5)|01)
+@
+
+
+1.7.2.1
+log
+@Правлены рудневские заблуждения.
+@
+text
+@d46 1
+a46 1
+#define SPLL(ps) splx(((ps)&PS_IPL)?(ps):PS_BR1)
+@
+
+
+1.6
+log
+@Поправлен RKWCHECK.
+@
+text
+@d3 3
+d196 1
+d206 1
+d222 3
+@
+
+
+1.6.1.1
+log
+@Правки идиотских рудневских ашипок.
+@
+text
+@a2 3
+ * Revision 1.6  87/07/02  11:23:16  avg
+ * Поправлен RKWCHECK.
+ *
+d43 1
+a43 1
+#define SPLL(ps) splx(((ps)&PS_IPL)?(ps):PS_BR1)
+a192 1
+#ifndef APG_DIAG
+a201 1
+#endif
+a216 3
+#ifdef APG_DIAG
+		deverror(bp, rkaddr->rker,rkaddr->rkds);
+#endif
+@
+
+
+1.5
+log
+@Убрана диагностика про rkwc для экономии места в ядре.
+@
+text
+@d2 4
+a5 1
+ * $Log:	rk.c,v $
+d8 1
+a8 1
+ * 
+d13 1
+a13 1
+ * 
+d37 1
+a37 1
+#ifdef	MENLO_KOV
+d159 2
+a160 2
+		if(rkwcheck[c]) com |= RKCS_RCOM, rkwcheck[c] = 0;
+		else rkwcheck[c] == 1;
+d233 1
+a233 1
+dev_t	dev;
+d236 1
+a236 1
+#ifdef	UCB_DBUFS
+d248 1
+a248 1
+dev_t	dev;
+d251 1
+a251 1
+#ifdef	UCB_DBUFS
+d261 1
+a261 1
+#endif	NRK
+@
+
+
+1.4
+log
+@Вставлен режим XX_SPL - работать на низком приоритете
+@
+text
+@d3 3
+a192 1
+			if (rkaddr->rkwc) printf("rkwc!=0 ");
+@
+
+
+1.3
+log
+@Сделан многоконтроллерный вариант драйвера.
+Добавлен сброс диска при DRE и после 6 попыток обмена.
+Сделан rkopen.
+@
+text
+@d3 5
+d26 15
+d47 3
+d140 3
+d150 1
+d152 5
+d165 1
+a165 1
+rkintr(c)
+d178 6
+a183 1
+	if ((rkaddr->rkcs & RKCS_ERR) ) {
+d190 1
+d201 2
+a202 1
+			if ( tabrk->b_errcnt%7 == 6 || (err&(RKER_DRE|RKER_SKE)))
+d204 1
+a204 1
+				rkaddr->rkda = RKU(minor(bp->b_dev)) << 13;
+d214 4
+d221 1
+d223 1
+@
+
+
+1.2
+log
+@Мелкие правки.
+@
+text
+@d5 1
+a5 1
+ * 
+d10 3
+d21 4
+a24 1
+#define NRKBLK  4872    /* Number of blocks per drive */
+d26 1
+a26 1
+struct  rkdevice *RKADDR;
+d28 1
+a28 1
+struct  buf     rktab;
+d30 1
+a30 1
+struct  buf     rrkbuf[NRK];
+d32 1
+a32 1
+struct  buf     rrkbuf;
+d38 1
+a38 1
+	if (unit != 0)
+d40 1
+a40 1
+	RKADDR = addr;
+d44 26
+d74 4
+a77 2
+
+	if (RKADDR == (struct rkdevice *) NULL) {
+d93 2
+a94 2
+	if(rktab.b_actf == NULL)
+		rktab.b_actf = bp;
+d96 4
+a99 4
+		rktab.b_actl->av_forw = bp;
+	rktab.b_actl = bp;
+	if(rktab.b_active == NULL)
+		rkstart();
+d103 1
+a103 1
+static rkstart()
+d105 1
+a105 1
+	register struct rkdevice *rkaddr = RKADDR;
+d107 1
+a107 1
+	register com;
+d110 1
+a110 2
+
+	if ((bp = rktab.b_actf) == NULL)
+d112 1
+a112 1
+	rktab.b_active++;
+a125 1
+
+d133 1
+a133 1
+rkintr()
+d135 1
+a135 1
+	register struct rkdevice *rkaddr = RKADDR;
+d137 3
+a139 2
+
+	if (rktab.b_active == NULL)
+d144 3
+a146 3
+	bp = rktab.b_actf;
+	rktab.b_active = NULL;
+	if (rkaddr->rkcs & RKCS_ERR) {
+d149 1
+a149 8
+		if (rkaddr->rker & RKER_WLO)
+			/*
+			 *      Give up on write locked devices
+			 *      immediately.
+			 */
+			printf("rk%d: write locked\n", minor(bp->b_dev));
+		else
+			{
+d151 1
+d155 1
+d162 6
+a167 2
+			if (++rktab.b_errcnt <= 10) {
+				rkstart();
+d170 3
+a172 1
+		}
+d175 2
+a176 2
+	rktab.b_errcnt = 0;
+	rktab.b_actf = bp->av_forw;
+d179 1
+a179 1
+	rkstart();
+d185 1
+d187 1
+a187 2
+	register int unit = (minor(dev) >> 3) & 07;
+
+d191 1
+a191 1
+		physio(rkstrategy, &rrkbuf[unit], dev, B_READ);
+d193 1
+a193 1
+	physio(rkstrategy, &rrkbuf, dev, B_READ);
+d200 1
+d202 1
+a202 2
+	register int unit = (minor(dev) >> 3) & 07;
+
+d206 1
+a206 1
+		physio(rkstrategy, &rrkbuf[unit], dev, B_WRITE);
+d208 1
+a208 1
+	physio(rkstrategy, &rrkbuf, dev, B_WRITE);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d69 1
+a69 1
+rkstart()
+@

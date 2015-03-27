@@ -1,0 +1,28 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.09.29.22.10.39;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Снос таблиц парсера в сегмент текста.
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@1,$s/\.data/.text/g
+w
+@

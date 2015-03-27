@@ -1,0 +1,106 @@
+% === RAW:TEST === %  12.10.88 VERSION 29
+%
+% ПРОЗРАЧНЫЙ РЕЖИМ (С ОБМАНОМ СИСТЕМЫ (БЕЗ DPC))
+%
+GLOBAL (LOCATION=&400) (START=MAIN)
+  DATA GDIFF,AZC
+  EQUALS BRCKSY=&04,SPECSY=&07
+
+LOCALS LMAIN
+  DATA XOFMRK                    %флаг 'вывод остановлен'
+  EQUALS X:OFF="S"-&40 ,X:ON="Q"-&40
+
+  BYTES INPSY[1]
+  BYTES ISOUT[1]                 %флаг 'очередь ввода непуста'
+
+%% Матрица межзадачных сигналов
+  BYTES 0     ,IOF[1],IGF[1],IPF[1]
+  BYTES OIF[1],0     ,OGF[1],OPF[1]
+  BYTES GIF[1],0     ,0     ,GPF[1]
+  BYTES PIF[1],POF[1],PGF[1],0
+
+%%
+%%  ГЛАВНЫЙ ПЛАНИРОВЩИК
+%%
+PROGRAM MAIN()
+. BPT
+  CALL GPINIT                    %инициируем интерфейс линии
+  CALL INIBUF                    %инициируем буфера
+  CALL DPINIT                    %цепляем терминал в обход системы
+  (WHILE
+    GOSUB CCKGET
+    GOSUB CCKPUT
+    GOSUB CCKINP
+    GOSUB CCKOUT
+  )WHILE
+
+%%
+%%  ЗАДАЧА ВВОДА С ЛИНИИ
+%%
+LABEL CCKGET
+  (IF R0(CALL GTEST)<>0          %пришел символ ?
+    CALL PUTBUF R0(CALL GET)     %кладем в буфер вывода
+    (IF R0(CALL TSTFUL)<>0       %возникла опасность переполнения ?
+      (IF XOFMRK=0               %идет передача ?
+        XOFMRK=1
+        GPF:=1                   %заказываем выдачу X-OFF'а
+      )IF
+    )IF
+  )IF
+  RETURN ,
+
+%%
+%%  ЗАДАЧА ВЫВОДА В ЛИНИЮ
+%%
+% Приоритеты запросов убывают по тексту
+LABEL CCKPUT
+  (IF GPF:<>0                    %запрос X-OFF ?
+    GPF:=0
+    INPSY:='X:OFF' ; ISOUT:=1
+  ELSE IF OPF:<>0                %запрос X-ON ?
+    OPF:=0
+    INPSY:='X:ON' ; ISOUT:=1
+  ELSE IF IPF:<>0                %нажат символ ?
+    IPF:=0
+    ISOUT:=1
+  )IF
+  (IF ISOUT:<>0                  %надо выдавать ?
+    (IF R0(CALL PTEST)<>0        %устройство готово ?
+      CALL PUT R0:(INPSY)
+      ISOUT:=0                   %выдали!
+    )IF
+  )IF
+  RETURN ,
+
+%%
+%%  ЗАДАЧА ВВОДА С ДИСПЛЕЯ
+%%
+LABEL CCKINP
+  (IF R0(CALL DPMTST)<>0         %введен символ ?
+    R0:=R0(CALL DPM)             %читаем его
+    (IF R0:='SPECSY'             %  BRCKSY нужен в системе
+      CALL DPEND                 %передаем терминал в систему
+      SYSCALL EXIT &FFFF
+    )IF
+    IF R0:='"K"-&40' THEN R0='X:ON'           %аварийная выдача X-OFF
+    INPSY:=R0                    %заносим символ в буфер
+    IPF:=1                       %посылаем сигнал выводу в линию
+  )IF
+  RETURN ,
+
+%%
+%%  ЗАДАЧА ВЫВОДА НА ДИСПЛЕЙ
+%%
+LABEL CCKOUT
+  (IF R0(CALL TSTEMP)=0          %есть работа для вывода?
+    (IF R0(CALL DPOTST)<>0       %дисплей готов ?
+      CALL DPO R0:(CALL GETBUF)  %черпаем из буфера и выдаем
+    )IF
+  ELSE
+* ELSE IF R0(CALL TSTFUL)=0      %можно записывать ?
+    (IF XOFMRK<>0                %вывод был остановлен ?
+      XOFMRK=0
+      OPF:=1                     %запускаем чтение с линии (X-ON)
+    )IF
+  )IF
+  RETURN ,

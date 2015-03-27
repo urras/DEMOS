@@ -1,0 +1,74 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.20.21.12.29;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header: sigset.c,v 1.1 88/11/17 12:48:52 ache Exp $
+ * $Log:	sigset.c,v $
+ */
+#include <signal.h>
+#include <errno.h>
+/*
+ * signal system call interface package.
+ */
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+extern int     (*sigsys())();
+
+#define BYTESPERVEC	4			/* size of machine language vector */
+extern  int     errno;
+extern	char	mvectors[NSIG][BYTESPERVEC];	/* machine language vector */
+
+extern int     (*_cactions[NSIG])();            /* saved callers signal actions */
+extern char    _setflg[NSIG];                   /* flags for using sigset */
+extern long    _holdmask;
+
+int (*
+signal(signum, action))()
+register int signum;
+register int (*action)();
+{
+	register int (*retval)();
+
+	if (signum <= 0 || signum > NSIG) {
+		errno = EINVAL;
+		return BADSIG;
+	}
+	retval = _cactions[signum];
+	_cactions[signum] = action;
+	if (action != SIG_IGN && action != SIG_DFL && action != SIG_HOLD)
+		if (SIGISDEFER(action))
+			action = DEFERSIG(mvectors[signum]);
+		else
+			action = (int (*)())(int)mvectors[signum];
+	if (action == SIG_HOLD && signum != SIGKILL && signum != SIGSTOP && signum != SIGCONT)
+		_holdmask |= mask (signum);
+	action = sigsys(signum, action);
+	if (action == SIG_HOLD && !(_holdmask & mask (signum)))
+		_holdmask &= ~mask (signum);
+	if (action == SIG_IGN || action == SIG_DFL || action == SIG_HOLD)
+		retval = action;
+	_setflg[signum] = 0;     /* indicate which kind of protocol */
+	return retval;
+}
+@

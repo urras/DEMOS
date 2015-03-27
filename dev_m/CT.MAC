@@ -1,0 +1,1101 @@
+.MCALL  .MODULE
+.MODULE CT,RELEASE=V05,VERSION=00,COMMENT=<CASSETTE HANDLER>,AUDIT=YES
+
+;                        COPYRIGHT (C) 1983 BY
+;             DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+;                         ALL RIGHTS RESERVED.
+;
+; THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+; ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+; INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+; COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+; OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+; TRANSFERRED.
+;
+; THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+; AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+; CORPORATION.
+;
+; DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+; SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+\\.SBTTL        GENERAL DESCRIPTION
+\.SBTTL DEFINITIONS
+.MCALL  .PRINT, .DATE,.DRBEG,.DRFIN,.DREND,.DRAST,.FORK
+.IIF NDF RTE$M, RTE$M=0
+.IIF NDF MMG$T, MMG$T=0
+.IIF NDF ERL$G, ERL$G=0
+.IIF NDF TIM$IT, TIM$IT=0
+.MACRO  ADDR    LOC,R
+         MOV    PC,R
+         ADD    #LOC-.,R
+.ENDM   ADDR
+T5      = R5
+.IIF NDF CT$VEC, CT$VEC == 260
+.IIF NDF CT$CSR, CT$CSR == 177500
+TACS = CT$CSR
+        ERR     = 100000
+        CRC     =  40000
+        BOTEOT  =  20000
+        WRL     =  10000
+        FGAP    =   4000
+        TIME    =   2000
+        OFF     =   1000
+        UNITNO  =    400
+        TREQ    =    200
+        INTEN   =    100
+        READY   =     40
+        ILBS    =     20
+        FUNC    =      2
+                WGAP    = 0
+                WRITE   = 1
+                READ    = 2
+                LSTFIL  = 3
+                LSTBLK  = 4
+                NXTFIL  = 5
+                NXTBLK  = 6
+                REWIND  = 7
+        GO      =      1
+TADB    = TACS+2
+CTDSIZ  = 0
+CTSTS   = 12013
+RW      = 0
+CLOSE   = 1
+DELETE  = 2
+LOOKUP  = 3
+ENTER   = 4
+Q.WC    = 6
+SJMON   = 1
+HWERR   = 1
+EOVBIT  = 40000
+EOFBIT  = 20000
+MONLOW  = 54
+OFFSET  = 270
+OFFBUF  = 266
+OFFSWW  = 272
+CONFIG  = 300
+SYNCH   = 324
+FILNFD  = 1
+ILLFUN  = 2
+PSW     = -2
+PR6     = 300
+PR7     = 340
+ASTRSK  = 52
+\.SBTTL ENTRY AND DISPATCH ROUTINE
+        RCHECK=0
+        MUL=0
+        NEWVOL=0
+.IF     DF,INIT
+        DEBUG=0
+        NEWVOL=0
+.ENDC
+.IF DF RCHECK
+.ASECT
+.=400
+        BR      .+NOTDUN-RAWOPT
+        .RAD50 /RAW   /
+        .WORD   <OPRAW-400>/2+100000
+        0
+OPRAW:  MOV     (PC)+,R3
+        BNE     .+NOTDUN-RAWOPT
+        MOV     R3,RAWOPT
+        RTS     PC
+.PSECT
+.ENDC
+.IIF NDF DEBUG, .NLIST
+.IF     DF,DEBUG
+        .ENABL  AMA
+        .ASECT
+        .=CT$VEC
+        CTINT
+        0
+        .=1000
+.ENDC
+.IIF NDF DEBUG, .LIST
+\.SBTTL LOAD POINT, INITIATE REQUEST
+.IIF NDF        DEBUG,.NLIST
+.IF     DF      DEBUG
+        .WORD   CT$VEC
+        .WORD   CTINT-.
+        .WORD   PR6
+CTLQE:  .WORD   0
+CTCQE:  .WORD   QEL
+CSWDUM: .WORD   0
+QCSW:   .WORD   CSWDUM
+QEL:
+QB:     .WORD   0
+QF:     .BYTE   0
+QU:     .BYTE   0
+QCA:    .WORD   0
+QWC:    .WORD   400
+JSW:    .WORD   0
+EXT=.+4
+NAME:   .RAD50  "FILEN EXT"
+        .EVEN
+DATA=.
+TEST:
+        MOVB    #7,QF+1
+        JSR     PC,WAIT
+.IF DF  INIT
+        EMT     340+10
+.ENDC
+DO:
+        MOV     #NAME,QCA
+        MOV     #0,QB
+        MOVB    #ENTER,QF
+        JSR     PC,WAIT
+        MOV     PC,R0
+        ADD     #DATA-.,R0
+        MOV     R0,QCA
+        CLRB    QF
+        MOV     #-1000,QWC
+        JSR     PC,WAIT
+        MOVB    #CLOSE,QF
+        JSR     PC,WAIT
+        MOV     #NAME,QCA
+        MOV     #1,QB
+        MOVB    #ENTER,QF
+        JSR     PC,WAIT
+        MOV     PC,R0
+        ADD     #DATA-.,R0
+        MOV     R0,QCA
+        CLRB    QF
+        MOV     #-40,QWC
+        JSR     PC,WAIT
+        MOVB    #CLOSE,QF
+        JSR     PC,WAIT
+        MOVB    #LOOKUP,QF
+        MOV     #0,QB
+        MOV     #NAME,QCA
+        JSR     PC,WAIT
+        MOV     @#MONLOW,R0
+        MOV     OFFBUF(R0),QCA
+        CLRB    QF
+        MOV     #400,QWC
+        JSR     PC,WAIT
+        INC     QB
+        MOV     #40,QWC
+        JSR     PC,WAIT
+        MOV     #400,QWC
+        JSR     PC,WAIT
+        MOVB    #CLOSE,QF
+        JSR     PC,WAIT
+        MOV     #NAME,QCA
+        MOV     #0,QB
+        MOVB    #DELETE,QF
+        JSR     PC,WAIT
+NXTF:   ADD     #51,NAME+2
+        BR      DO
+        MOVB    #-5,QF
+        JSR     PC,WAIT
+        MOV     PC,R0
+        ADD     #DATA-.,R0
+        MOV     R0,QCA
+        MOV     #-400,QWC
+        CLRB    QF
+        JSR     PC,WAIT
+        MOV     #-400,QWC
+        JSR     PC,WAIT
+        MOVB    #-6,QF
+        JSR     PC,WAIT
+        MOVB    #-2,QF
+        JSR     PC,WAIT
+        MOV     @#MONLOW,R0
+        MOV     OFFBUF(R0),QCA
+        MOV     #400,QWC
+        CLRB    QF
+        JSR     PC,WAIT
+        MOVB    #-1,QF
+        JSR     PC,WAIT
+        MOVB    #-3,QF
+        JSR     PC,WAIT
+        HALT
+WAIT:   CLR     (PC)+
+WFLAG:  .WORD   0
+        CLR     @QCSW
+        JSR     PC,CT
+WTLOOP: TST     WFLAG
+        BEQ     WTLOOP
+        BIT     #3,@QCSW
+        BNE     TMDK
+        BIT     #SWERR,@SWWPTR
+        BNE     TMDK
+        RTS     PC
+TMDK:   CLR     @QCSW
+        CLR     @SWWPTR
+        .PRINT  #EM
+        RTS     PC
+EM:     .ASCIZ  "ERROR"
+QMAN:   MOV     SP,WFLAG
+        MOV     (SP)+,R0
+        MOV     (SP)+,R3
+        RTI
+START:  JSR     PC,WAIT
+        HALT
+.ENDC
+.IIF NDF DEBUG, .LIST
+        .DRBEG  CT,CT$VEC,CTDSIZ,CTSTS
+.ENABL  LSB
+CT:     SUB     #10,SP
+        MOV     SP,(PC)+
+SPSAV:  .WORD   0
+        MOV     #TACS,T5
+        MOV     @#MONLOW,R0
+        MOV     CONFIG(R0),CTSJ
+        ADD     #OFFSWW,R0
+        MOV     R0,(PC)+
+SWWPTR: .WORD   0
+        TST     (PC)+
+FIN:    .WORD   0
+        BGE     1$
+        JSR     PC,DUNDEL
+1$:     DEC     FIN
+        CLR     IGNOFF
+.IF NE MMG$T
+        CLRB    CTMVS
+        CLR     RAWFLG
+.ENDC
+        MOV     CTCQE,R0
+        MOV     -2(R0),(PC)+
+CSWPTR: .WORD   0
+        MOV     (R0)+,(PC)+
+BLOCK:  .WORD   0
+        MOVB    1(R0),R1
+        ASR     R1
+        ASR     R1
+        ASR     R1
+        BIC     #177770,R1
+        MOV     R1,SYNBLK+2
+        MOVB    (R0)+,R1
+        CLR     R3
+        MOV     #401,R2
+        MOVB    (R0)+,(PC)+
+UNIT:   .WORD   0
+        BIC     #177770,UNIT
+        BEQ     2$
+        CMP     UNIT,#1
+        BNE     CTILLF
+        ASL     R2
+        BIS     #UNITNO,R3
+2$:     MOV     R3,(T5)
+.IF NE MMG$T
+MOV     R2,UBITS
+        MOV     (R0)+,CA
+        NEG     (R0)
+        MOV     (R0)+,WC
+        TST     (R0)+
+        MOV     (R0),Q.PAR
+        BR      CGETC
+CA:     .WORD   0
+WC:     .WORD   0
+UBITS:  .WORD   0
+Q.PAR:  .WORD   0
+.IFF
+        MOV     R2,(PC)+
+UBITS:  .WORD   0
+        MOV     (R0)+,(PC)+
+CA:     .WORD   0
+        NEG     (R0)
+        MOV     (R0)+,(PC)+
+WC:     .WORD   0
+.ENDC
+.DSABL  LSB
+\.SBTTL FUNCTION DISPATCHER
+.ENABL  LSB
+CGETC:  TST     R1
+        BMI     2$
+        BGT     MACRO
+.IF NE MMG$T
+        INCB    CTURW
+.ENDC
+        MOV     WC,R0
+        BLE     1$
+        INC     R1
+        NEG     R0
+1$:     ASL     R0
+        MOV     R0,(PC)+
+TC:     .WORD   0
+        MOV     R0,WC
+        MOV     R0,(PC)+
+CTTQCT: .WORD   0
+        BITB    R2,F.HW
+        BEQ     MACRW
+2$:     SUB     #2,R1
+        CLRB    F.MACRO
+        NEG     R1
+        CMP     R1,#10
+        BGT     CTILLF
+        JMP     XCT
+.DSABL  LSB
+\.SBTTL FILE SERVICE ROUTINES
+.ENABL  LSB
+MACRW:  ADD     #5,R1
+MACRO:  CMP     R1,#MAXFUN
+        BPL     CTILLF
+        MOV     UBITS,R3
+        ADDR    FLGTAB,R0
+        BICB    R3,(R0)+
+        BISB    R3,@R0
+        ADD     R1,R0
+        BITB    R3,@R0
+        BEQ     CTILLF
+        BICB    R3,ENTFLG
+        ADD     #MACROS-FLGTAB-1,R0
+        ADD     R1,R0
+        ADD     @R0,R0
+        JSR     PC,@R0
+1$:     JMP     RESP
+CTILLF: CMP     R1,#1
+        BEQ     1$
+        BIS     #ILLFUN,@SWWPTR
+        BR      1$
+SWINIT: BIS     #FILNFD,@SWWPTR
+        BR      1$
+.DSABL  LSB
+\.SBTTL WRITE SERVICE
+.ENABL  LSB
+WRITD:  MOV     #-200,WC
+WRTBLK: .IF DF  RCHECK
+        MOV     #3,(PC)+
+WTRY:   .WORD   0
+WRTB:   .ENDC
+        MOV     #-200,TC
+        JSR     R0,SOFT
+         .WORD  WRITE
+.IF DF  RCHECK
+        BIT     #BOTEOT,(T5)
+RAWOPT: BR      NOTDUN
+        JSR     PC,BSP
+        MOV     CA,R2
+.IF NE MMG$T
+        INCB    RAWFLG
+.ENDC
+        JSR     PC,READU
+        MOV     CA,R1
+        MOV     R2,CA
+        MOV     WC,R3
+.IF NE MMG$T
+        MOV     R4,-(SP)
+        MOV     R2,TACA
+        ADDR    TACA-4,R4
+1$:     JSR     PC,@$GTBYT
+        CMPB    (SP)+,(R1)+
+.IFF
+1$:     CMPB    (R1)+,(R2)+
+.ENDC
+        BNE     2$
+        INC     R3
+        BLT     1$
+.IF NE MMG$T
+        CLRB    RAWFLG
+        MOV     (SP)+,R4
+.ENDC
+.ENDC
+NOTDUN: RTS     PC
+2$:
+.IF NE MMG$T
+        MOV     (SP)+,R4
+.ENDC
+.IF DF  RCHECK
+        DEC     WTRY
+        BGT     WRTB
+        JMP     ERRHW
+.ENDC
+.DSABL  LSB
+\.SBTTL $LOOKUP, $ENTER
+.ENABL  LSB
+$LOOKUP:
+.IF NE MMG$T
+        JSR     PC,GETFLN
+.ENDC
+TST     @CA
+        BEQ     1$
+        JSR     PC,SEEK
+         BR     SWINIT
+LUKC:   JSR     PC,FSP
+        JSR     PC,3$
+        BICB    R1,-(R0)
+        BISB    R1,-(R0)
+        RTS     PC
+1$:     JSR     R0,SOFT
+         .WORD  REWIND
+        BISB    UBITS,F.HW
+2$:     JSR     PC,3$
+        BIS     R1,-(R0)
+        RTS     PC
+$ENTER:
+.IF NE MMG$T
+        JSR     PC,GETFLN
+.ENDC
+        TST     @CA
+        BEQ     2$
+        JSR     PC,SEEK
+         BR     NFOUND
+OPEN:   TST     BLOCK
+        BEQ     NFOUND
+        JSR     PC,DELIT
+        JSR     PC,CHKHDR
+         BR     NFOUND
+        BR      OPEN
+NFOUND: BIS     UBITS,(PC)+
+        .BYTE   0
+ENTFLG: .BYTE   0
+        JSR     PC,LABEL
+3$:     ADDR    F.CLOSE,R0
+        MOV     UBITS,R1
+        BISB    R1,(R0)+
+        BICB    R1,(R0)+
+        BIC     R1,(R0)+
+        BICB    R1,(R0)+
+        BISB    R1,(R0)+
+        MOV     CTCQE,R2
+        CLR     Q.WC(R2)
+        RTS     PC
+.DSABL  LSB
+\.SBTTL $NEWVOL, $DELETE, $CLOSE
+.ENABL  LSB
+.IF DF  NEWVOL
+$NEWVOL:JSR     R0,SOFT
+         .WORD  REWIND
+        BR      2$
+.ENDC
+.IF NE MMG$T
+SWINI2: JMP     SWINIT
+.ENDC
+$DELETE:
+.IF NE MMG$T
+        JSR     PC,GETFLN
+.ENDC
+.IF     DF,NEWVOL
+        TST     @CA
+        BEQ     $NEWVOL
+        .ENDC
+        JSR     PC,SEEK
+.IF NE MMG$T
+        BR      SWINI2
+.IFF
+SWINI2:  BR     SWINIT
+.ENDC
+DELIT:  ADDR    FILNAM,R2
+        MOVB    #ASTRSK,(R2)
+        CLRB    SEQNO
+        JSR     PC,DELAB
+1$:     JSR     R0,SOFT
+         .WORD  NXTFIL
+        BR      DUNDEL
+$CLOSE: BITB    UBITS,F.WRITE
+        BEQ     1$
+        BITB    UBITS,F.READ
+        BNE     DUNDEL
+2$:     JSR     PC,WSENT
+DUNDEL: ADDR    F.CLOSE,R0
+        MOV     UBITS,R1
+        BICB    R1,(R0)+
+        BISB    R1,(R0)+
+        BIS     R1,(R0)+
+        BIC     R1,(R0)+
+        CLRB    CTEOFF
+        RTS     PC
+.DSABL  LSB
+.IF NE MMG$T
+GETFLN: ADDR    CA-4,R4
+        MOV     #6,R2
+        ADDR    FILENM,R1
+        MOV     R1,R0
+1$:     JSR     PC,@$GTBYT
+        MOVB    (SP)+,(R1)+
+        DEC     R2
+        BNE     1$
+        MOV     R0,CA
+        RTS     PC
+.ENDC
+\.SBTTL $READ
+.ENABL  LSB
+$READ:  TSTB    CTEOFF
+        BNE     SWEOF
+        MOV     WC,R4
+        BNE     1$
+        TST     BLOCK
+        BEQ     1$
+        ADD     #2,CA
+.IF NE MMG$T
+        JSR     PC,GETFLN
+        CLRB    CTURW
+.ENDC
+        JSR     PC,SEEK
+         BR     DUNDEL
+        BR      DUNDEL
+1$:     JSR     PC,TSTBAK
+2$:     MOV     #-200,WC
+        MOV     R4,TC
+        JSR     PC,READB
+        BIT     #FGAP,(T5)
+        BEQ     4$
+        JSR     PC,BSP
+        MOV     TACA,R2
+        CMP     R4,CTTQCT
+        BEQ     SWEOF
+.IF NE MMG$T
+3$:     MOV     R4,-(SP)
+        ADDR    TACA-4,R4
+        CLR     -(SP)
+        JSR     PC,@$PTBYT
+        MOV     (SP)+,R4
+.IFF
+3$:     CLRB    (R2)+
+.ENDC
+        INC     R4
+        BNE     3$
+        INCB    CTEOFF
+        JMP     RESP
+SWEOF:  BIS     #EOFBIT,@CSWPTR
+        CLRB    CTEOFF
+SWINI3: BR      SWINI2
+4$:     .IF DF  MUL
+        JSR     PC,EOTCHK
+        BEQ     5$
+        CLR     BLOCK
+        JSR     PC,SEEKC
+         BR     SWEOF
+        JSR     PC,LUKC
+        MOV     WCSAV,R4
+        MOV     CASAV,CA
+.IF NE MMG$T
+        CLRB    CTMVS
+.ENDC
+        BR      2$
+5$:     .ENDC
+        ADD     #200,R4
+        BCS     RTSPC
+.IF NE MMG$T
+        ADD     #2,Q.PAR
+.IFF
+        ADD     #200,CA
+.ENDC
+        BR      2$
+CTEOFF: .BYTE   0
+CTMVS:  .BYTE   0
+.DSABL  LSB
+\.SBTTL $WRITE
+$WRITE: MOV     WC,R4
+        JSR     PC,TSTBAK
+1$:     JSR     PC,WRITD
+.IF DF  MUL
+        JSR     PC,EOTCHK
+        BEQ     4$
+        CLR     BLOCK
+        JSR     PC,SEEKC
+         BR     2$
+        JSR     PC,OPEN
+        BR      3$
+2$:     JSR     PC,NFOUND
+3$:     MOV     WCSAV,R4
+        MOV     CASAV,CA
+.IF NE MMG$T
+        CLRB    CTMVS
+.ENDC
+        BR      1$
+4$:     .ENDC
+        ADD     #200,R4
+        BCS     RTSPC
+.IF NE MMG$T
+        ADD     #2,Q.PAR
+.IFF
+        ADD     #200,CA
+.ENDC
+        BR      1$
+\.SBTTL READ SERVICE ROUTINE
+READU:  ADDR    LBLBUF,R0
+        MOV     R0,CA
+READB:  MOV     #READ,R1
+        BR      SOFT1
+TSTBAK: TST     BLOCK
+        BNE     RTSPC
+        JSR     R0,SOFT
+         .WORD  LSTFIL
+FSP:    MOV     #NXTBLK,R1
+        BR      SOFT1
+WSENT:  JSR     R0,SOFT
+         .WORD  WGAP
+        JSR     PC,NAMOFF
+        CLRB    (R1)
+        JSR     PC,LABEL
+BSP:    MOV     #LSTBLK,R1
+        BR      SOFT1
+\.SBTTL SOFT - INITIATE SOFTWARE FUNCTION
+SOFT:   MOV     (R0)+,R1
+        MOV     R0,@SP
+SOFT1:  JSR     R4,SAVSTK
+\.SBTTL FUNCTION INITIATION ROUTINE
+.ENABL  LSB
+XCT:    BIC     #177770,R1
+        MOV     R1,CURFUN
+        TSTB    F.MACRO
+        BNE     2$
+        BITB    UBITS,F.HW
+        BNE     1$
+        CMP     R1,#REWIND
+        BEQ     3$
+        JMP     CTILLF
+3$:     BISB    UBITS,F.HW
+1$:     MOV     R1,-(SP)
+        JSR     PC,DUNDEL
+        MOV     (SP)+,R1
+2$:     MOV     #3,(PC)+
+RETRY:  .WORD   0
+        ASL     R1
+RERE:   CLRB    BIP
+.IF NE MMG$T
+        MOV     CA,TACA
+        MOV     WC,TABC
+        MOV     TC,TATC
+        MOV     Q.PAR,TAQP
+        MOV     #512.,TAQPCT
+.IFF
+        MOV     CA,(PC)+
+TACA:   .WORD   0
+        MOV     WC,(PC)+
+TABC:   .WORD   0
+        MOV     TC,(PC)+
+TATC:   .WORD   0
+.ENDC
+SETFUN: MOVB    R1,(T5)
+        JSR     R3,RESREG
+        BIS     #INTEN+GO,@#TACS
+RTSPC:  RTS     PC
+.IF NE MMG$T
+TACA:   .WORD   0
+TABC:   .WORD   0
+        TATC:   .WORD   0
+TAQP:   .WORD   0
+TAQPCT: .WORD   0
+.ENDC
+.DSABL  LSB
+\.IF DF MUL
+.SBTTL  SYNCH ROUTINE
+        .ENABL  LSB
+CTSYNCH:MOV     @SP,1$
+        ADD     #2,@SP
+        BIT     #SJMON,CTSJ
+        BEQ     10$
+        JSR     R4,SAVSTK
+        ADD     #SYNBLK-.,R4
+        JSR     R3,RESREG
+        CLR     12(R4)
+        JSR     R5,@SYNCH(R5)
+.IF NE MMG$T
+        BR      CTABRJ
+.IFF
+        BR      CTABRT
+.ENDC
+        JSR     PC,@(PC)+
+1$:     .WORD   0
+        MOVB    #PR6,@#PSW
+        MOV     @SP,-(SP)
+        CLR     2(SP)
+        BR      CTINT
+10$:    JSR     PC,@1$
+        RTS     PC
+CTSJ:   .WORD   0
+        .DSABL  LSB
+.ENDC
+.IF NE MMG$T
+CTABRJ: JMP     CTABRT
+.ENDC
+\.SBTTL INTERRUPT ROUTINE
+.ENABL  LSB
+.IF NE MMG$T
+        .DRAST  CT,6,CTABRJ
+.IFF
+        .DRAST  CT,6,CTABRT
+.ENDC
+        MOV     R3,-(SP)
+        MOV     R0,-(SP)
+        MOV     R1,-(SP)
+        MOV     R2,-(SP)
+        MOV     SP,SPSAV
+CTIN2:  MOV     #TACS,T5
+        TSTB    (T5)
+        BPL     10$
+        INC     TABC
+        BGT     3$
+        MOV     TACA,R0
+.IF NE MMG$T
+        MOV     #TADB,R3
+.ENDC
+        INC     TATC
+.IF NE MMG$T
+        BLE     CDOXF
+        ADDR    CXFER,R0
+        BR      CMRW
+CXFER:  .WORD   0
+RAWFLG: .BYTE   0
+CTURW:  .BYTE   0
+CDOXF:  TSTB    CTURW
+        BEQ     CMRW
+        TSTB    CTMVS
+        BNE     CMRW
+        TSTB    RAWFLG
+        BNE     CMRW
+        MOV     R4,-(SP)
+        ADDR    TACA-4,R4
+        CMP     CURFUN,#READ
+        BNE     XCWRIT
+XCREAD: MOVB    (R3),-(SP)
+        JSR     PC,@$PTBYT
+        BR      5$
+XCWRIT: JSR     PC,@$GTBYT
+        MOVB    (SP)+,(R3)
+5$:     MOV     (SP)+,R4
+        BR      6$
+CMRW:   CMP     CURFUN,#READ
+        BNE     1$
+        MOVB    (R3),(R0)
+        BR      2$
+1$:     MOVB    (R0),(R3)
+2$:     INC     TACA
+6$:     DEC     TAQPCT
+        BNE     4$
+        ADD     #8.,TAQP
+        SUB     #8.*32.*2,TACA
+        MOV     #512.,TAQPCT
+.IFF
+        BLE     1$
+        ADDR    2$,R0
+1$:     MOV     #TADB,R3
+        MOV     #111013,2$
+        CMP     CURFUN,#READ
+        BNE     2$
+        MOV     (PC)+,(PC)
+        MOVB    (R3),(R0)
+2$:     HALT
+        INC     TACA
+.ENDC
+        BR      4$
+3$:     BIS     #ILBS,(T5)
+4$:     JSR     R3,RESREG
+        RTS     PC
+10$:    BIC     #INTEN,(T5)
+        BIT     #READY,(T5)
+        BEQ     ERRHW
+        TST     (T5)
+        BMI     20$
+11$:    TSTB    BIP
+        BNE     12$
+        TSTB    F.MACRO
+        BEQ     RESP
+        JSR     R4,RESSTK
+        RTS     PC
+12$:    MOVB    CURFUN,R1
+.IF NE MMG$T
+        JMP     RERE
+.IFF
+        BR      RERE
+.ENDC
+20$:    MOV     (T5),R3
+        BIT     #BOTEOT,R3
+        BNE     22$
+        BIT     #CRC+WRL+TIME,R3;IF NOT BOTEOT,OFF,OR FILE GAP
+        BNE     21$
+22$:    BITB    UBITS,F.HW
+        BNE     21$
+        BIT     #OFF+WRL,(T5)
+        BEQ     11$
+        TST     (PC)+
+IGNOFF: .WORD   0
+        BNE     11$
+21$:    TSTB    BIP
+        BNE     ERRHW
+        DEC     RETRY
+        BLE     ERRHW
+        BIT     #OFF+WRL+BOTEOT+FGAP,R3
+        BNE     ERRHW
+        MOV     R3,(PC)+
+CURFUN: .BYTE   0
+BIP:    .BYTE   0
+        MOV     #LSTBLK*FUNC,R1
+        JMP     SETFUN
+CTABRT: BIC     #INTEN,@#TACS
+        BR      CTHOME
+.DSABL  LSB
+\.SBTTL EXIT SEQUENCE
+.ENABL  LSB
+ERRHW:  BIS     #HWERR,@CSWPTR
+        TSTB    F.MACRO
+        BEQ     RESP
+        BITB    #FILNFD+ILLFUN,@SWWPTR
+        BNE     2$
+        BISB    #FILNFD,@SWWPTR
+CLEAN:  BITB    UBITS,F.WRITE
+        BNE     1$
+        BITB    UBITS,ENTFLG
+        BEQ     RESP
+1$:     JSR     R0,SOFT
+         .WORD  LSTFIL
+        JSR     PC,WSENT
+2$:     JSR     PC,DUNDEL
+RESP:   CLR     FIN
+        MOV     SPSAV,SP
+        JSR     R3,RESREG
+.IF NDF DEBUG
+CTHOME: .DRFIN  CT
+.IFF
+        JMP     QMAN
+.ENDC
+.DSABL  LSB
+\.SBTTL SEEK
+.ENABL  LSB
+SEEK:   MOV     CA,R2
+        ADD     #6,R2
+        JSR     PC,NAMOFF
+        ADD     #11,R1
+        CLRB    (R1)
+        MOV     #^B<0010010010000000>,R3
+1$:     MOV     -(R2),R0
+2$:     CLR     R4
+        MOV     #16.,-(SP)
+3$:     ASL     R0
+        ROL     R4
+        CMP     R4,#50
+        BLO     4$
+        SUB     #50,R4
+        INC     R0
+4$:     DEC     (SP)
+        BNE     3$
+        BIS     (SP)+,R4
+        BEQ     5$
+        CMP     R4,#32
+        BLE     6$
+        SUB     #36,R4
+        BCC     7$
+5$:     MOV     #-40,R4
+6$:     ADD     #20,R4
+7$:     ADD     #60,R4
+        MOVB    R4,-(R1)
+        ASL     R3
+        BCC     2$
+        BNE     1$
+        TST     BLOCK
+        BGT     CHKHDR
+        NEG     BLOCK
+SEEKC:  JSR     R0,SOFT
+         .WORD  REWIND
+CHKHDR: MOV     #-32.,WC
+        MOV     #-32.,TC
+        JSR     PC,READU
+.IF DF  MUL
+        JSR     PC,EOTCHK
+        BNE     SEEKC
+.ENDC
+        JSR     PC,NAMOFF
+        MOV     CA,R0
+        TSTB    (R0)
+        BEQ     12$
+        DEC     BLOCK
+        BEQ     11$
+        MOV     #9.,R3
+10$:    BICB    #200,(R0)
+        CMPB    (R0)+,(R1)+
+        BNE     20$
+        DEC     R3
+        BGT     10$
+.IF DF  MUL
+        CMPB    3(R0),(R1)
+        BNE     20$
+.ENDC
+11$:    ADD     #2,(SP)
+12$:    JMP     BSP
+20$:    JSR     R0,SOFT
+         .WORD  NXTFIL
+        BR      CHKHDR
+.DSABL  LSB
+\.SBTTL EOTCHK, VOLCHK
+.IF DF  MUL
+.ENABL  LSB
+EOTCHK: JSR     PC,VOLCHK
+        BEQ     1$
+.IF NE MMG$T
+        INCB    CTMVS
+.ENDC
+        CMP     WC,#-32.
+        BEQ     2$
+        JSR     PC,NAMOFF
+        ADD     #11,R1
+        INCB    (R1)
+        MOV     R4,(PC)+
+WCSAV:  .WORD   0
+        MOV     CA,(PC)+
+CASAV:  .WORD   0
+2$:     TST     SP
+1$:     RTS     PC
+.DSABL  LSB
+.ENABL  LSB
+VOLCHK: BIT     #BOTEOT,(T5)
+        BEQ     3$
+        DEC     TABC
+        BEQ     3$
+        CLR     (PC)+
+OFLAG:  .WORD   0
+        JSR     PC,CTSYNCH
+         BR     10$
+1$:     INC     IGNOFF
+        JSR     R0,SOFT
+         .WORD  NXTBLK
+        BIT     #OFF,(T5)
+        BEQ     2$
+        MOV     #100001,OFLAG
+        JSR     PC,CTSYNCH
+         RTS    PC
+        CLR     IGNOFF
+        BR      1$
+2$:     CLR     IGNOFF
+        TST     OFLAG
+        BEQ     4$
+        DEC     OFLAG
+        BVC     1$
+3$:     RTS     PC
+4$:     BIT     #BOTEOT+OFF,(T5)
+        BNE     1$
+        JSR     R0,SOFT
+         .WORD  REWIND
+        BICB    UBITS,F.CLOSE
+        JMP     SWEOF
+10$:    ADDR    UNO,R0
+        MOVB    UNIT,@R0
+        BISB    #'0,@R0
+        TST     -(R0)
+        .PRINT
+        RTS     PC
+.NLIST  BEX
+MSG:    .ASCII  "CT"
+UNO:    .ASCIZ  "0: PUSH REWIND OR MOUNT NEW VOLUME"
+.LIST   BEX
+.EVEN
+.DSABL  LSB
+.ENDC
+\.SBTTL LABEL PROCESSOR
+LABEL:  JSR     PC,NAMOFF
+        ADDR    FILNAM,R2
+        MOV     #9.,R4
+1$:     MOVB    (R1)+,(R2)+
+        DEC     R4
+        BGT     1$
+        ADD     #3,R2
+        MOVB    (R1)+,(R2)+
+        TSTB    (R2)+
+        .DATE
+        MOV     R0,R1
+        ASL     R1
+        ASL     R1
+        ASL     R1
+        BIC     #160377,R1
+        JSR     PC,ASC
+        MOV     R0,R1
+        BNE     2$
+        CLRB    -2(R2)
+2$:     ASR     R1
+        ASR     R1
+        JSR     PC,ASC
+        MOV     R0,R1
+        BIC     #177740,R1
+        ADD     #72.,R1
+        SWAB    R1
+        JSR     PC,ASC
+        ADD     #FILNAM-GENNO,R2;POINT R2 TO START OF HEADER
+DELAB:  MOV     R2,CA
+        MOV     #-32.,WC
+        JMP     WRTBLK
+ASC:    CLRB    R1
+1$:     ADD     #173001,R1
+        BPL     1$
+        ADD     #"00+<10.*400-1>,R1
+        MOV     R1,(R2)+
+        RTS     PC
+\.SBTTL UTILITY ROUTINES
+SAVSTK: JSR     R2,@PC
+        ADD     #STAK-.,R2
+        MOV     R2,STKPTR
+1$:     MOV     (SP)+,(R2)+
+        CMP     SPSAV,SP
+        BHI     1$
+        MOV     R2,(PC)+
+SPSAVE: 0
+        JMP     @R4
+.ENABL  LSB
+RESSTK: TST     (SP)+
+        MOV     SPSAVE,R2
+1$:     MOV     -(R2),-(SP)
+        CMP     (PC)+,R2
+STKPTR: 0
+        BNE     1$
+        MOV     (SP)+,R2
+        RTS     R4
+.DSABL  LSB
+RESREG: TST     (SP)+
+        MOV     (SP)+,R2
+        MOV     (SP)+,R1
+        MOV     (SP)+,R0
+        MOV     @#MONLOW,R5
+        RTS     R3
+NAMOFF: MOV     UNIT,R3
+        ADDR    SNAME-12,R1
+1$:     ADD     #12,R1
+        DEC     R3
+        BGE     1$
+        RTS     PC
+\.SBTTL DATA AREAS
+MACROS=.-2
+10$:    .WORD   $CLOSE-.
+        .WORD   $DELETE-.
+        .WORD   $LOOKUP-.
+        .WORD   $ENTER-.
+        .WORD   $READ-.
+        .WORD   $WRITE-.
+.IF DF  NEWVOL
+        .WORD   $NEWVOL-.
+.ENDC
+MAXFUN  = <. - 10$> / 2
+FLGTAB:
+F.HW:   .BYTE   0
+F.MACRO:.BYTE   0
+F.CLOSE:.BYTE   0
+F.DELETE:.BYTE  377
+F.LOOKUP:.BYTE  377
+F.ENTER:.BYTE   377
+F.READ: .BYTE   0
+F.WRITE:.BYTE   0
+.IF DF  NEWVOL
+F.NEWVOL:.BYTE  377
+.ENDC
+.EVEN
+FILNAM: .ASCII  /         /
+FILTYP: .BYTE   0
+LENGTH: .BYTE   0
+        .BYTE   200
+SEQNO:  .BYTE   0
+LEVEL:  .BYTE   1
+DATE:   .ASCII  /      /
+GENNO:  .BYTE   0
+ATTR:   .BYTE   0
+UNUSED: .BYTE   0,0,0,0,0,0,0,0,0,0
+.EVEN
+LBLBUF: .BLKB   32.
+.IF DF  RCHECK
+        .BLKB   128.-32.
+.ENDC
+.IF NE MMG$T
+FILENM: .WORD   0,0,0
+.ENDC
+SNAME:  .BLKB   12*2
+SYNBLK: .WORD   0,0,0,0,0,0,0
+STAK:   .BLKW   12
+.IIF NDF DEBUG, .NLIST
+.IF DF  DEBUG
+        .=.+100
+.ENDC
+.IIF NDF DEBUG, .LIST
+.IF DF INIT
+        .END    TEST
+.ENDC
+        .DREND  CT
+        .END
+\

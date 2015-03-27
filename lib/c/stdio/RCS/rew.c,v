@@ -1,0 +1,41 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.13.50;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include        <stdio.h>
+
+rewind(iop)
+	register struct _iobuf *iop;
+{
+	fflush(iop);
+	lseek(fileno(iop), 0L, 0);
+	iop->_cnt = 0;
+	iop->_ptr = iop->_base;
+	iop->_flag &= ~(_IOERR|_IOEOF);
+	if (iop->_flag & _IORW)
+		iop->_flag &= ~(_IOREAD|_IOWRT);
+}
+@

@@ -1,0 +1,787 @@
+head     1.10;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.10
+date     88.10.31.14.28.59;  author ache;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.10.25.15.42.45;  author ache;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.09.10.13.12.10;  author ache;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.09.09.18.06.27;  author ache;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.09.09.17.01.10;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.09.09.15.20.23;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.03.13.23.26.37;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.03.13.23.10.39;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.03.04.17.11.12;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.03.04.17.03.16;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Выполнение команд в указанное время.
+@
+
+
+1.10
+log
+@Оптимизирована посылка почты.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: at.c,v 1.9 88/10/25 15:42:45 ache Exp $" ;
+#endif  lint
+
+/*
+ * at [-] time mon day
+ * at [-] time wday
+ * at [-] time wday 'week'
+ *
+ */
+/*
+ * $Log:	at.c,v $
+ * Revision 1.9  88/10/25  15:42:45  ache
+ * Напрасно делался setuid, mailx --> mail + Subject, signals
+ * 
+ * Revision 1.8  88/09/10  13:12:10  ache
+ * Теперь уничтожение файла с результатами делает atrun
+ * (иначе можно было безнаказанно писать в past)
+ * 
+ * Revision 1.7  88/09/09  18:06:27  ache
+ * Правлены мелкие ошибки.
+ * 
+ * Revision 1.6  88/09/09  17:01:10  ache
+ * Зачем-то в конце командного файла был переход в каталог past.
+ * 
+ * Revision 1.5  88/09/09  15:20:23  ache
+ * Mail -> mailx, распознавание дней и месяцев почему-то зависело
+ * от языка диагностик.
+ * 
+ * Revision 1.4  87/03/13  23:26:37  dmitry
+ * В дополнение к предыдущей правке.
+ * 
+ * Revision 1.3  87/03/13  23:10:39  dmitry
+ * Стало меньше смеси английского с нижегородским.
+ * 
+ * Revision 1.3  87/03/13  23:06:59  dmitry
+ * Стало немного меньше смеси английского с нижегородским.
+ * 
+ * Revision 1.2  87/03/04  17:11:12  dmitry
+ * Вместо закрывающей "`" была поставлена "'".
+ * Естественно, все ваботало как-то странно.
+ * 
+ * Modified by PLWard, USGS 10/30/80 for csh and mail options
+ */
+#include <stdio.h>
+#include <ctype.h>
+#include <time.h>
+#include <signal.h>
+#include <pwd.h>
+#include <ediag.h>
+
+#define MAIL    "/bin/mail"
+#define CD      "cd"
+#define PWD     "/bin/pwd"
+#define PAST    "/usr/spool/at/past"
+#define THISDAY "/usr/spool/at"
+#define HOUR    100
+#define HALFDAY (12*HOUR)
+#define DAY     (24*HOUR)
+
+int     sendmail = 1;   /* default to send mail = 1, else = 0. */
+
+char *dayse[] = {
+	"sunday",
+	"monday",
+	"tuesday",
+	"wednesday",
+	"thursday",
+	"friday",
+	"saturday",
+};
+char *daysr[] = {
+	"воскресенье",
+	"понедельник",
+	"вторник",
+	"среда",
+	"четверг",
+	"пятница",
+	"суббота",
+};
+
+struct monstr {
+	char *mname;
+	int mlen;
+} monthse[] = {
+	{ "january", 31 },
+	{ "february", 28 },
+	{ "march", 31 },
+	{ "april", 30 },
+	{ "may", 31 },
+	{ "june", 30 },
+	{ "july", 31 },
+	{ "august", 31 },
+	{ "september", 30 },
+	{ "october", 31 },
+	{ "november", 30 },
+	{ "december", 31 },
+	{ 0, 0 },
+}, monthsr[] = {
+	{ "январь", 31 },
+	{ "февраль", 28 },
+	{ "март", 31 },
+	{ "апрель", 30 },
+	{ "май", 31 },
+	{ "июнь", 30 },
+	{ "июль", 31 },
+	{ "август", 31 },
+	{ "сентябрь", 30 },
+	{ "октябрь", 31 },
+	{ "ноябрь", 30 },
+	{ "декабрь", 31 },
+	{ 0, 0 },
+};
+
+char    fname[100];
+char    fileout[100];
+char    temp[15];
+int     utime;          /* requested time in grains */
+int     now;            /* when is it */
+int     uday;           /* day of year to be done */
+int     uyear;          /* year */
+int     today;          /* day of year today */
+FILE    *file;
+FILE    *ifile;
+char    **environ;
+char    *prefix();
+FILE    *popen();
+struct  passwd *user;
+char    *ncom;
+
+main(argc, argv)
+char **argv;
+{
+	extern onintr();
+	register c;
+	char pwbuf[100];
+	FILE *pwfil;
+	int larg;
+	int csh;
+	int i,eq;
+	char *tmp;
+	char **ep;
+	char *cp;
+
+	ncom = argv[0];
+	if(argv[1][0] == '-'){
+		sendmail=!sendmail;
+		for(i=2;i<=argc;i++)argv[i-1]=argv[i];
+		argc--;
+	}
+	/* argv[1] is the user's time: e.g.,  3AM */
+	/* argv[2] is a month name or day of week */
+	/* argv[3] is day of month or 'week' */
+	/* another argument might be an input file */
+	if (argc < 2) {
+		fprintf(stderr, ediag("usage: %s time [day] [file]\n",
+				      "вызов: %s время [день] [файл]\n"),ncom);
+		exit(1);
+	}
+	makeutime(argv[1]);
+	larg = makeuday(argc,argv)+1;
+	if (uday==today && larg<=2 && utime<=now)
+		uday++;
+	c = dysize(uyear);
+	if (uday >= c) {
+		uday -= c;
+		uyear++;
+	}
+	filename(THISDAY, uyear, uday, utime);
+	/* Create file and then change uids */
+	close(creat(fname,0600));
+	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
+		signal(SIGINT, onintr);
+	if (signal(SIGQUIT, SIG_IGN) != SIG_IGN)
+		signal(SIGQUIT, onintr);
+	if (signal(SIGTERM, SIG_IGN) != SIG_IGN)
+		signal(SIGTERM, onintr);
+	chown(fname,getuid(),getgid());
+/*      fix so that root can use at */
+	user=getpwuid(getuid());
+	ifile = stdin;
+	if (argc > larg)
+		ifile = fopen(argv[larg], "r");
+	else argv[larg]=ediag("from stdin", "со станд. ввода");
+	if (ifile == NULL) {
+		fprintf(stderr, ediag("%s: cannot open input: %s\n",
+				      "%s: не могу открыть входной файл: %s\n"),
+				       ncom, argv[larg]);
+		onintr(SIGINT);
+	}
+	file = fopen(fname, "a");
+	if (file == NULL) {
+		fprintf(stderr, ediag("%s: cannot open file in %s.\n",
+				      "%s: не могу открыть файл в %s\n"),
+				      ncom,THISDAY);
+		onintr(SIGINT);
+	}
+	/* Decide if this is a cshell file */
+	if(ifile == stdin){
+		tmp=getenv("SHELL");
+		csh = (strcmp(tmp+strlen(tmp)-3,"csh")==0) ? 1 : 0;
+	}
+	else {
+		csh = ((c=getc(ifile)) == '#') ? 1 : 0;
+		rewind (ifile);
+	}
+	if (csh) fprintf(file,"#%s:cshell\n",ncom);
+	if ((pwfil = popen(PWD, "r")) == NULL) {
+		fprintf(stderr, ediag("%s: can't execute pwd\n",
+				      "%s: не могу вызвать pwd\n"),ncom);
+		onintr(SIGINT);
+	}
+	fgets(pwbuf, 100, pwfil);
+	pclose(pwfil);
+	fprintf(file, "%s %s",CD, pwbuf);
+	c=umask(0);
+	umask(c);
+	fprintf(file,"umask %.1o\n",c);
+	if (environ) {
+		ep = environ;
+		while (*ep){
+			for (tmp = *ep, cp = "TERMCAP"; *tmp==*cp; tmp++,cp++);
+			if (*cp == 0 && *tmp== '=') {
+				ep++;
+				continue;
+			}
+			if (csh) fprintf(file,"setenv ");
+			for(tmp = *ep ; *tmp != '=' ; tmp++) putc(*tmp,file);
+			if (csh) putc(' ', file);
+			else putc(*tmp,file);
+			putc('\'', file);
+			for (tmp++; *tmp; tmp++) {
+				if (*tmp == '\'')
+					putc('\\', file);
+				putc(*tmp, file);
+			}
+			putc('\'', file);
+			putc('\n',file);
+			ep++;
+		}
+	if (csh) fprintf(file,"source %s/.cshrc\n",user->pw_dir);
+	}
+	fprintf(file,ediag("echo 'Began executing %s' `date`\n",
+			   "echo 'Начало выполнения %s' в `date`\n"),ncom);
+	while((c = getc(ifile)) != EOF)
+		putc(c, file);
+	fprintf(file,ediag("echo 'Done  executing %s' `date`\n",
+			   "echo 'Окончание выполнения %s в' `date`\n"),ncom);
+	if(sendmail) {
+		fprintf (file, ediag(
+"echo 'Subject: %s: ran program %s.' | ",
+"echo 'Subject: %s: выполнен %s.' | "),
+		ncom, argv[larg]);
+		fprintf(file,"/bin/cat - %s | %s %s\n",
+			fileout, MAIL, user->pw_name);
+	}
+	exit(0);
+}
+
+makeutime(pp)
+char *pp;
+{
+	register val;
+	register char *p;
+
+	/* p points to a user time */
+	p = pp;
+	val = 0;
+	while(isdigit(*p)) {
+		val = val*10+(*p++ -'0');
+	}
+	if (p-pp < 3)
+		val *= HOUR;
+
+	for (;;) {
+		switch(*p) {
+
+		case ':':
+			++p;
+			if (isdigit(*p)) {
+				if (isdigit(p[1])) {
+					val +=(10* *p + p[1] - 11*'0');
+					p += 2;
+					continue;
+				}
+			}
+			fprintf(stderr, ediag("%s: bad time format:\n",
+					      "%s: плохой формат времени:\n")
+					      ,ncom);
+			exit(1);
+
+		case 'A':
+		case 'a':
+			if (val >= HALFDAY+HOUR)
+				val = DAY+1;  /* illegal */
+			if (val >= HALFDAY && val <(HALFDAY+HOUR))
+				val -= HALFDAY;
+			break;
+
+		case 'P':
+		case 'p':
+			if (val >= HALFDAY+HOUR)
+				val = DAY+1;  /* illegal */
+			if (val < HALFDAY)
+				val += HALFDAY;
+			break;
+
+		case 'n':
+		case 'N':
+			val = HALFDAY;
+			break;
+
+		case 'M':
+		case 'm':
+			val = 0;
+			break;
+
+
+		case '\0':
+		case ' ':
+			/* 24 hour time */
+			if (val == DAY)
+				val -= DAY;
+			break;
+
+		default:
+			fprintf(stderr, ediag("%s: bad time format:\n",
+					      "%s: плохой формат времени:\n")
+					      ,ncom);
+			exit(1);
+
+		}
+		break;
+	}
+	if (val < 0 || val >= DAY) {
+		fprintf(stderr, ediag("%s: time out of range\n",
+				      "%s: время за пределами\n"),ncom);
+		exit(1);
+	}
+	if (val%HOUR >= 60) {
+		fprintf(stderr, ediag("%s: illegal minute field\n",
+				      "%s: минуты за пределами\n"),ncom);
+		exit(1);
+	}
+	utime = val;
+}
+
+
+makeuday(argc,argv)
+char **argv;
+{
+	/* the presumption is that argv[2], argv[3] are either
+	   month day OR weekday [week].  Returns either 2 or 3 as last
+	   argument used */
+	/* first of all, what's today */
+	time_t tm;
+	int found = -1;
+	char **ps;
+	struct tm *detail, *localtime();
+	struct monstr *pt;
+
+	time(&tm);
+	detail = localtime(&tm);
+	uday = today = detail->tm_yday;
+	uyear = detail->tm_year;
+	now = detail->tm_hour*100+detail->tm_min;
+	if (argc<=2)
+		return(1);
+	/* is the next argument a month name ? */
+	for (pt=monthse; pt->mname; pt++) {
+		if (prefix(argv[2], pt->mname)) {
+			if (found<0)
+				found = pt-monthse;
+			else {
+Merr:
+				fprintf(stderr, ediag("%s: ambiguous month\n",
+						      "%s: неоднозначно указан месяц\n"),
+						       ncom);
+				exit(1);
+			}
+		}
+	}
+	if (found < 0)
+	for (pt=monthsr; pt->mname; pt++) {
+		if (prefix(argv[2], pt->mname)) {
+			if (found<0)
+				found = pt-monthsr;
+			else
+				goto Merr;
+		}
+	}
+	if (found>=0) {
+		if (argc<=3)
+			return(2);
+		uday = atoi(argv[3]) - 1;
+		if (uday<0) {
+			fprintf(stderr, ediag("%s: illegal day\n",
+					      "%s: неверный день\n"),
+					      ncom);
+			exit(1);
+		}
+		while(--found>=0)
+			uday += monthse[found].mlen;
+		if (detail->tm_year%4==0 && detail->tm_year%100!=0 && uday>59)
+			uday += 1;
+		return(3);
+	}
+	/* not a month, try day of week */
+	found = -1;
+	for (ps=dayse; ps<dayse+7; ps++) {
+		if (prefix(argv[2], *ps)) {
+			if (found<0)
+				found = ps-dayse;
+			else {
+Derr:
+				fprintf(stderr, ediag("%s: ambiguous day of week\n",
+						      "%s: неоднозначно указан день недели\n"),
+						      ncom);
+				exit(1);
+			}
+		}
+	}
+	if (found < 0)
+	for (ps=daysr; ps<daysr+7; ps++) {
+		if (prefix(argv[2], *ps)) {
+			if (found<0)
+				found = ps-daysr;
+			else
+				goto Derr;
+		}
+	}
+	if (found<0)
+		return(1);
+	/* find next day of this sort */
+	uday = found - detail->tm_wday;
+	if (uday<=0)
+		uday += 7;
+	uday += today;
+	if (argc>3 && (strcmp("week", argv[3])==0 || strcmp("неделя", argv[3])==0)) {
+		uday += 7;
+		return(3);
+	}
+	return(2);
+}
+
+char *
+prefix(begin, full)
+char *begin, *full;
+{
+	int c;
+	while (c = *begin++) {
+		if (isupper(c))
+			c = tolower(c);
+		if (*full != c)
+			return(0);
+		else
+			full++;
+	}
+	return(full);
+}
+
+filename(dir, y, d, t)
+char *dir;
+{
+	register i;
+
+	for (i=0; ; i += 53) {
+		sprintf(temp,"%02d.%03d.%04d.%02d",y,d,t,(getpid()+i)%100);
+		sprintf(fname,"%s/%s",dir,temp);
+		temp[0]='M';
+		sprintf(fileout,"%s/%s",PAST,temp);
+		if (access(fname, 0) == -1)
+			return;
+	}
+}
+
+onintr(n)
+{
+	signal (n, SIG_IGN);
+	unlink(fname);
+	_exit(1);
+}
+@
+
+
+1.9
+log
+@Напрасно делался setuid, mailx --> mail + Subject, signals
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: at.c,v 1.9 88/10/25 15:03:31 ache Exp $" ;
+d6 3
+a8 3
+ * at time mon day
+ * at time wday
+ * at time wday 'week'
+d13 3
+d251 2
+a252 2
+"echo 'Subject: %s: ran program %s.' > /tmp/at$$\n",
+"echo 'Subject: %s: выполнен %s.' > /tmp/at$$\n"),
+d254 1
+a254 1
+		fprintf(file,"/bin/cat /tmp/at$$ %s | %s %s\n",
+a255 1
+		fprintf(file,"rm -f /tmp/at$$\n");
+@
+
+
+1.8
+log
+@Теперь уничтожение файла с результатами делает atrun
+(иначе можно было безнаказанно писать в past)
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: at.c,v 1.7 88/09/09 18:06:27 ache Exp $" ;
+d13 4
+d49 1
+a49 1
+#define MAIL    "mailx"
+d161 1
+a161 1
+	c = uyear%4==0 && uyear%100!=0 ? 366: 365;
+d169 6
+a176 2
+	setgid(getgid());
+	setuid(getuid());
+d186 1
+a186 1
+		exit(1);
+d188 1
+a188 3
+	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
+		signal(SIGINT, onintr);
+	file = fopen(fname, "w");
+d193 1
+a193 1
+		exit(1);
+d208 1
+a208 1
+		exit(1);
+d242 1
+a242 1
+	while((c = getc(ifile)) != EOF) {
+a243 1
+	}
+d246 9
+a254 3
+	if(sendmail)fprintf(file,ediag("%s -s '%s: ran program %s.' %s < %s\n",
+				       "%s -s '%s: выполнен %s.' %s < %s\n"),
+		MAIL,ncom,argv[larg],user->pw_name,fileout);
+d475 1
+a475 1
+onintr()
+d477 1
+d479 1
+a479 1
+	exit(1);
+@
+
+
+1.7
+log
+@Правлены мелкие ошибки.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: at.c,v 1.6 88/09/09 17:01:10 ache Exp $" ;
+d13 3
+a46 1
+#define RM      "/bin/rm"
+a243 1
+	fprintf(file,"%s %s\n",RM,fileout);
+@
+
+
+1.6
+log
+@Зачем-то в конце командного файла был переход в каталог past.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: at.c,v 1.5 88/09/09 15:20:23 ache Exp $" ;
+d13 3
+d138 1
+a138 1
+		sendmail=sendmail ? 0 : 1;
+d155 1
+a155 1
+	c = uyear%4==0? 366: 365;
+d162 1
+a162 1
+	close(creat(fname,0755));
+d165 1
+d194 1
+a194 1
+		fseek(ifile,0,0);
+d230 1
+a230 1
+	if (csh) fprintf(file,"source %s/.cshrc\n",getenv("HOME"));
+@
+
+
+1.5
+log
+@Mail -> mailx, распознавание дней и месяцев почему-то зависело
+от языка диагностик.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: at.c,v 1.4 87/03/13 23:26:37 dmitry Exp $" ;
+d13 4
+a232 1
+	fprintf(file,"%s %s\n",CD,PAST);
+@
+
+
+1.4
+log
+@В дополнение к предыдущей правке.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: at.c,v 1.3 87/03/13 23:10:39 dmitry Exp $" ;
+d13 3
+d35 1
+a35 1
+#define MAIL    "Mail"
+d233 1
+a233 1
+				       "%s -s '%s: выполнена программа %s.' %s < %s\n"),
+d335 1
+a335 1
+	long tm;
+d349 1
+a349 1
+	for (pt=ediag(monthse,monthsr); pt->mname; pt++) {
+d352 1
+a352 1
+				found = pt-ediag(monthse,monthsr);
+d354 1
+d362 9
+d382 2
+a383 2
+			uday += ediag(monthse[found].mlen,monthsr[found].mlen);
+		if (detail->tm_year%4==0 && uday>59)
+d389 1
+a389 1
+	for (ps=ediag(dayse,daysr); ps<ediag(dayse,daysr)+7; ps++) {
+d392 1
+a392 1
+				found = ps-ediag(dayse,daysr);
+d394 1
+d402 9
+d418 1
+a418 1
+	if (argc>3 && strcmp("week", argv[3])==0) {
+@
+
+
+1.3
+log
+@Стало меньше смеси английского с нижегородским.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: at.c,v 1.3 87/03/13 23:06:59 dmitry Exp $" ;
+d13 3
+d222 1
+a222 1
+			   "echo 'Начало выполнения %s' `date`\n"),ncom);
+d228 1
+a228 1
+			   "echo 'Окончание выполнения %s' `date`\n"),ncom);
+@
+
+
+1.2
+log
+@Вместо закрывающей "`" была поставлена "'".
+Естественно, все ваботало как-то странно.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$" ;
+d12 8
+a19 1
+ * $Log$
+d157 1
+a157 1
+	else argv[larg]="from stdin";
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 4
+d11 4
+a14 2
+/*! Modified by PLWard, USGS 10/30/80 for csh and mail options */
+
+d218 1
+a218 1
+			   "echo 'Окончание выполнения %s' `date'\n"),ncom);
+@

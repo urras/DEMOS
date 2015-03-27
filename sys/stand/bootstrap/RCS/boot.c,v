@@ -1,0 +1,1519 @@
+head     1.17;
+access   dvolodin korotaev;
+symbols  Архыз0:1.11.1;
+locks    ;
+comment  @ * @;
+
+
+1.17
+date     90.12.12.17.15.25;  author korotaev;  state Exp;
+branches ;
+next     1.16;
+
+1.16
+date     90.11.12.19.25.35;  author root;  state Exp;
+branches ;
+next     1.15;
+
+1.15
+date     89.05.03.17.34.06;  author korotaev;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     89.05.03.14.01.54;  author korotaev;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     89.04.11.17.17.02;  author korotaev;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.09.26.19.07.54;  author avg;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.06.23.21.36.30;  author ache;  state Exp;
+branches 1.11.1.1;
+next     1.10;
+
+1.10
+date     88.06.13.15.55.38;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     87.09.29.15.41.58;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     87.05.17.18.29.00;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     87.04.24.09.40.42;  author dmitry;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.03.03.22.24.55;  author avg;  state Stab;
+branches ;
+next     1.5;
+
+1.5
+date     86.12.13.19.31.08;  author alex;  state Stab;
+branches ;
+next     1.4;
+
+1.4
+date     86.12.03.22.03.22;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.27.23.02.17;  author alex;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.24.23.32.58;  author alex;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.14.20.14.09;  author avg;  state Stab;
+branches ;
+next     ;
+
+1.11.1.1
+date     88.11.02.22.22.13;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+2-я фаза начального загрузчика.
+@
+
+
+1.17
+log
+@Правки под ДВК.
+@
+text
+@/*
+ * 2-я фаза загрузчика системы
+ *
+ *  $Log:	boot.c,v $
+ * Revision 1.16  90/11/12  19:25:35  root
+ * Новые вещи для СМ1425 и перемещение include.
+ * 
+ * Revision 1.15  89/05/03  17:34:06  korotaev
+ * Проверка label'а на CHECKSUM.
+ * 
+ * Revision 1.14  89/05/03  14:01:54  korotaev
+ * New label.
+ * 
+ * Revision 1.13  89/04/11  17:17:02  korotaev
+ * Теперь загрузчик умеет грузить ядро с базовым сегментом
+ * 8 Кб и 16 Кб. Это сделано для совметсимости. Раньше баовый
+ * сегмент занимал 16 Кб.
+ * 
+ * Revision 1.12  88/09/26  19:07:54  avg
+ * Теперь если с у-ва был прочитан файл, то в дальнейших подстановках будет
+ * использоваться именно у-во, с которого и читался этот файл.
+ *
+ * Revision 1.11  88/06/23  21:36:30  ache
+ * + 31 оверлей в ядре
+ *
+ * Revision 1.10  88/06/13  15:55:38  avg
+ * Сделан вызов editboot для обработки конструкций типа %?
+ *
+ * Revision 1.9  87/09/29  15:41:58  avg
+ * Теперь если надо поставить свое устройство для загрузки
+ * надо в аргументах cc поставить -DMY_DEFLINE='"dd(min,maj)name"'
+ * или (для Э-85) MY_DEF85.
+ *
+ * Revision 1.8  87/05/17  18:29:00  avg
+ * Правлен небольшой плюха: вместо && стоял &.
+ *
+ * Revision 1.7  87/04/24  09:40:42  dmitry
+ * Если по истечении таймаута с консоли не придет символов,
+ * будем грузить по умолчанию.
+ *
+ * Revision 1.6  87/03/03  22:24:55  avg
+ * Добавлена работа с defname для Электроники-85.
+ *
+ * Revision 1.5  86/12/13  19:31:08  alex
+ * Для работы с лентами заменили read на reada, работающий через getc.
+ *
+ * Revision 1.4  86/12/03  22:03:22  alex
+ * Исправлена мелкая ошибка с крупными последствиями.
+ *
+ * Revision 1.3  86/11/27  23:02:17  alex
+ * сделаны параметры настройки на конфигурацию
+ * и командный файл
+ *
+ * Revision 1.2  86/11/24  23:32:58  alex
+ * rcsid
+ *
+ * Revision 1.1  86/07/14  20:14:09  avg
+ * Initial revision
+ *
+ */
+/* #define AUTOBOOT */
+#define P(x) /* printf(x) */
+char rcsid[]="$Header: boot.c,v 1.16 90/11/12 19:25:35 root Exp $";
+#include        <sys/param.h>
+#include        <sys/seg.h>
+#include        <sys/ino.h>
+#include        <sys/inode.h>
+#include        <sys/filsys.h>
+#include        <sys/dir.h>
+#include        <sys/reboot.h>
+#include        "../../include/koverlay.h"
+#include        <a.out.h>
+
+#ifndef TEST
+#include        "../saio.h"
+#else
+int segflag;
+#define setsep() /* */
+#define setnosep() /* */
+#endif
+
+#define RB_MAGIC 005043 /* #\n - Признак - строка для boot */
+
+#undef  btoc
+#define KB      * 1024L
+
+#undef  KISA0
+#undef  KDSD0
+
+#define KISD0   ((u_short *) 0172300)
+#define KISD2   ((u_short *) 0172304)
+#define KISD3   ((u_short *) 0172306)
+#define KDSD0   ((u_short *) 0172320)
+#define KISA0   ((u_short *) 0172340)
+#define KISA2   ((u_short *) 0172344)
+#define KISA3   ((u_short *) 0172346)
+#define KDSA0   ((u_short *) 0172360)
+
+#define SEG_DATA        01
+#define SEG_TEXT        02
+#define SEG_OVLY        04
+
+extern  int     cputype;
+extern  bool_t  ksep;                   /* Включено разделение I/D ядра */
+extern  bool_t  sep_id;                 /* Процессор поддерживает разделение I/D */
+extern  int     bootopts, bootdev, checkword, rbootdev;
+char    module[]        = "Boot";       /* Имя этой программы (используется trap-ом) */
+char    line[100];
+char    defline[100]    = RB_DEFNAME;
+bool_t  overlaid        = 0;
+bool_t  xoverlaid       = 0;
+u_short pdrproto[16 + NXOVL]     = {0};
+struct  exec    exec;
+struct  xovlhdr ovlhdr;
+unsigned        btoc();
+
+short   oldkernel = 0;  /* Если старое распределение оверлеев (base<=8K) */
+
+struct  loadmap {
+	int     seg_type;
+	long    seg_len;
+};
+
+struct  loadtable       {
+	short   lt_flag;
+	short   lt_magic;
+	struct  loadmap *lt_map;
+};
+
+struct  loadmap load407[]       =       {
+	  SEG_DATA,       56 KB,
+	  0,              0  KB
+};
+struct  loadmap load410[]       =       {
+	  SEG_TEXT,       48 KB,
+	  SEG_DATA,       56 KB,
+	  0,              0  KB
+};
+struct  loadmap load411[]       =       {
+	  SEG_DATA,       56 KB,
+	  SEG_TEXT,       64 KB,
+	  0,              0  KB
+};
+struct  loadmap load430[]       =       {
+	  SEG_TEXT,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_DATA,       32 KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  0,              0  KB
+};
+struct  loadmap load444[]       =       {
+	  SEG_TEXT,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_DATA,       32 KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  0,              0  KB
+};
+struct  loadmap load431[]       =       {
+	  SEG_DATA,       56 KB,        /* minumum, 48 KB + 1 */
+	  SEG_TEXT,       56 KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  SEG_OVLY,       8  KB,
+	  0,              0  KB
+};
+
+struct  loadtable       loadtable[]     =       {
+	0, A_MAGIC1,       load407,
+	0, A_MAGIC2,       load410,
+	0, A_MAGIC3,       load411,
+	1, A_MAGIC5,       load430,
+	0, A_MAGIC6,       load431,
+	1, A_MAGIC7,       load444
+};
+
+int fileondev = -1; /* opened file on load device -- if positive */
+
+main ()
+{
+	extern video;
+	int i, j;
+	int retry       = 0;
+	int cmdfile = 0;
+	struct  loadtable       *setup (), *ko;
+	static char wstr[] = "Boot (%s) co-operative demos/*\n";
+	register char *a;
+
+/*
+ * Подсчет и проверка контрольной суммы.
+ * Контрольная сумма подставлена извне.
+ */
+	for( i = 0, a = wstr ; *a != '\0' ; a++ )
+		i += *a;
+#define CHECKSUM 2598
+	if( i != CHECKSUM )
+		goto loop;
+	segflag = 3;                    /* дрaйверы у-в знают этот флаг */
+	if( video && cputype == 23 )    /* Электроника-85 */
+		printf("\n\n\n\n\n\n");
+	printf ("\nCPU: %d\n", cputype);
+	rcsid[18+13] = '\0';
+	printf (wstr,rcsid+18);
+	rcsid[18+13] = ' ';
+	if( (rbootdev>>8) == 3 || (rbootdev>>8) == 9 ) {
+		for( i = 0 ; defline[i] = (RB_DEFTAPE)[i] ; i++ );
+		printf("<from tape>\n");
+	}
+	strcpy(line, defline);
+
+	/*
+	 * Процедуры на ассемблере прочитали режимы загрузки
+	 * в случае автозагрузки.
+	 * Если регистр r2 (checkword) содержал дополнение к bootopts,
+	 * продолжать автозагрузку, иначе придется делать все
+	 * сначала.
+	 */
+
+#ifdef  AUTOBOOT
+	if ((bootopts & 0177600) | (checkword != ~bootopts)) {
+		printf ("To abort autoboot type ^C ");
+		if (autoboot())
+			bootopts = RB_SINGLE;
+		else
+			bootopts = RB_SINGLE | RB_ASKNAME;
+	printf("\r                          \n");
+	}
+#else
+	if (checkword != ~bootopts)
+		bootopts = RB_SINGLE | RB_ASKNAME;
+#endif  AUTOBOOT
+	j = -1;
+	i = -1;
+	initpar();
+	do {
+		if ( i >= 0 ) close(i);
+		i = -1;
+		if ( ++retry > 3 ) {
+			retry = 0;
+			bootopts        = RB_SINGLE | RB_ASKNAME;
+		}
+		if ( (bootopts & RB_ASKNAME) && !cmdfile ) {
+			extern int boottmout ;
+			static wuztmout = 1 ;
+
+			initpar();
+			printf(": ");
+			boottmout = wuztmout ;
+			fileondev = -1;
+			gets(line);
+			if( boottmout == 1 ) {
+				boottmout = wuztmout = bootopts = 0 ;
+			}
+			if ( line[0] == 0 ) {
+				strcpy(line, defline);
+				printf("> %s\n",line);
+			}
+		} else
+			printf("> %s\n",line);
+		switch( editboot(line) ) {
+		    case 0:
+			continue;
+		    case 1:
+			printf("> %s\n", line);
+		}
+		cmdfile = 0;
+		if ( !getpar(line) || (i = open(line,0)) <0 )
+		    continue;
+		fileondev = i;
+		ko = setup(i);
+		if ( !ko ) continue;
+		if ( ko == (struct loadtable *)-1) {
+			getl(i,line);
+			cmdfile = 1;
+			continue;
+		}
+		j = checkunix(i,ko);
+		P("exit checkunix\n");
+	}
+	while ( j < 0 );
+	close(i);
+	i= -1;
+	return;
+loop:
+	while( 1 ) ;
+}
+
+struct  loadtable       *
+setup (io)
+register io;
+{
+	register        i;
+
+	exec.a_magic = getw(io);
+	if ( exec.a_magic == RB_MAGIC ) return((struct loadtable *)-1);
+	reada(io,&exec.a_text, (sizeof exec)-(sizeof exec.a_magic));
+	/*
+	 * Если оверлейное ядро, прочитать заголовок оверлея.
+	 */
+	if (exec.a_magic == A_MAGIC5 || exec.a_magic == A_MAGIC6 ||
+	    exec.a_magic == A_MAGIC7) {
+		overlaid++;
+		xoverlaid = (exec.a_magic == A_MAGIC7);
+		reada(io,&ovlhdr, xoverlaid ?
+			 sizeof (struct xovlhdr) : sizeof (struct ovlhdr));
+		}
+	for (i = 0; i < sizeof (loadtable) / sizeof (struct loadtable); i++)
+		if (loadtable[i].lt_magic == exec.a_magic){
+		       /*
+			* Т.е. надо проверить базовый сегмент на то, что он
+			* меньше 8 Кб и соответственно уменьшить базовый
+			* сегмент и увеличил сегмент данных.
+			*/
+			if( loadtable[i].lt_flag && exec.a_text > (8 KB) ){
+				register struct loadmap *pl;
+
+				for( pl = loadtable[i].lt_map ; pl->seg_type ; pl++ )
+					if( pl->seg_type == SEG_TEXT )
+						pl->seg_len += (8 KB);
+					else if( pl->seg_type == SEG_DATA )
+						pl->seg_len -= (8 KB);
+				oldkernel++;
+			}
+			return (&loadtable[i]);
+		}
+	printf ("Bad magic number 0%o\n", exec.a_magic);
+	return ((struct loadtable *) NULL);
+}
+
+
+checkunix (io, lt)
+struct  loadtable       *lt;
+{
+	char    *segname;
+	register        ovseg, segtype;
+	register unsigned               seglen;
+	struct  loadmap *lm     = lt->lt_map;
+
+	if (lt == (struct loadtable *) NULL)
+		return (-1);
+
+	/*
+	 * Проверить и установить требование раздельных полей I/D.
+	 */
+	if (exec.a_magic == A_MAGIC3 || exec.a_magic == A_MAGIC6)
+		if (!sep_id)    {
+			printf ("Cannot load separate I & D object files\n");
+			return (-1);
+			}
+		else
+			setsep ();
+	else
+		if (sep_id)
+			setnosep ();
+
+	/*
+	 * Проверить размеры каждого сегмента.
+	 */
+	ovseg   = 0;
+	while (segtype = lm->seg_type)  {
+		switch (segtype)        {
+			case SEG_TEXT:
+				/*
+				 * Округлить размер текстового
+				 * сегмента до след. страницы.
+				 */
+				if (exec.a_magic == A_MAGIC2)
+					seglen  = ctob (stoc (ctos (btoc (exec.a_text))));
+				else
+					seglen  = exec.a_text;
+				segname = "Text";
+				break;
+
+			case SEG_DATA:
+				seglen  = exec.a_data + exec.a_bss;
+				segname = "Data";
+				if (exec.a_magic == A_MAGIC1)
+					seglen  += exec.a_text;
+				else
+					/*
+					 *      Force a complaint if the file
+					 *      won't fit.  It's here instead
+					 *      of in the SEG_TEXT case above
+					 *      because it's more likely to be
+					 *      a data overflow problem.
+					 */
+					if (exec.a_magic == A_MAGIC2)
+						seglen  += ctob (stoc (ctos (btoc (exec.a_text))));
+				break;
+
+			case SEG_OVLY:
+				seglen  = ovlhdr.xov_siz[ovseg];
+				segname = "Overlay";
+				ovseg++;
+				break;
+
+			default:
+				/*
+				 *      Это ``не может быть.''
+				 */
+				printf ("Unknown segment type in load table:  %d\n", segtype);
+				return (-1);
+				/*NOTREACHED*/
+			}
+
+		seglen  = ctob (btoc (seglen));
+		if (((long) seglen) > lm->seg_len)      {
+			if (segtype == SEG_OVLY)
+				printf ("%s %d too large by %D bytes", segname, ovseg, lm->seg_len - ((long) seglen));
+			else
+				printf ("%s too large by %D bytes", segname, lm->seg_len - ((long) seglen));
+			return (-1);
+			}
+		if (segtype == SEG_TEXT)
+		    switch (exec.a_magic) {
+			case A_MAGIC7:
+			case A_MAGIC5:
+			    if( oldkernel && seglen <= (8 KB) ) {
+				 printf("Base segment too small, 8K minimum\n");
+				 return(-1);
+			    }
+			    break;
+			case A_MAGIC6:
+			    if (seglen <= 48 KB) {
+				printf("Base segment too small, 48K minimum\n");
+				return(-1);
+			    }
+			    break;
+			default:
+			    break;
+		}
+
+		lm++;
+		}
+
+	if( !copyunix (io, lt)) return(-1);;
+	setregs (lt);
+	return (0);
+}
+
+copyunix (io, lt)
+register        io;
+struct  loadtable       *lt;
+{
+	int     i; int ko = -1;
+	bool_t  donedata = 0;
+	register        addr;
+	register unsigned       seglen;
+	off_t   segoff;
+	int     segtype;
+	int     nseg, phys,physn, ovseg;
+	struct  loadmap *lm     = lt->lt_map;
+	/*
+	 * Загрузить сегменты и установить программную копию РОС.
+	 */
+	nseg    = 0;
+	physn   = phys    = 0;
+	ovseg   = 0;
+	lm      = lt->lt_map;
+	while (segtype = lm++->seg_type)        {
+
+		segoff  = (off_t) N_TXTOFF(exec);
+
+		switch (segtype)        {
+			case SEG_TEXT:
+				seglen  = exec.a_text;
+				break;
+
+			case SEG_DATA:
+				seglen  = exec.a_data;
+				if (exec.a_magic != A_MAGIC1)   {
+					segoff  += (off_t) exec.a_text;
+					if (overlaid)
+						for (i = 0; i < (xoverlaid?NXOVL:NOVL); i++)
+							segoff  += (off_t) ovlhdr.xov_siz[i];
+					}
+				else
+					seglen  += exec.a_text;
+				donedata++;
+				break;
+
+			case SEG_OVLY:
+				seglen  = ovlhdr.xov_siz[ovseg];
+				segoff  += exec.a_text;
+				for (i = 0; i < ovseg; i++)
+					segoff  += (off_t) ovlhdr.xov_siz[i];
+				ovseg++;
+				break;
+
+			}
+
+		if (!seglen)
+			continue;
+		setseg (phys);
+		if (exec.a_magic != A_MAGIC1)
+			(void) lseek (io, segoff, 0);
+		for (addr = 0; addr < seglen; addr += 2)
+			mtpi (getw (io), addr);
+
+		if (segtype == SEG_DATA)        {
+			physn = phys;
+			clrseg (addr, exec.a_bss);
+			seglen  += exec.a_bss;
+			}
+
+		pdrproto[nseg++]        = btoc (seglen);
+		if (!donedata)
+			seglen  = ctob (stoc (ctos (btoc (seglen))));
+		phys    += btoc (seglen);
+		}
+		setseg (physn);
+		ko = nastroi(io);
+	P("exit copyunix\n");
+	return( ko );
+}
+
+/*
+ * Установить аппаратные регистры описания страниц.
+ */
+setregs (lt)
+struct  loadtable       *lt;
+{
+#ifdef TEST
+	return;
+}
+#else
+	register        i;
+	register u_short        *par_base, *pdr_base;
+	bool_t  donedata = 0;
+	int     phys, segtype;
+	int     nseg, ntextpgs, novlypgs, npages, pagelen;
+	struct  loadmap *lm     = lt->lt_map;
+	P("start setregs\n");
+	nseg    = 0;
+	phys    = 0;
+	ntextpgs        = 0;
+	novlypgs        = 0;
+
+	setseg (0);
+	if (exec.a_magic == A_MAGIC1)
+		return;
+
+	/*
+	 * Первым делом, закрыть доступ ко всему, кроме страницы В/В.
+	 */
+	par_base        = KISA0;
+	pdr_base        = KISD0;
+	for (i = 0; i < (ksep ?  8 : 7); i++)   {
+		*par_base++     = 0;
+		*pdr_base++     = NOACC;
+		}
+	if (ksep)       {
+		par_base        = KDSA0;
+		pdr_base        = KDSD0;
+		for (i = 0; i < 7; i++) {
+			*par_base++     = 0;
+			*pdr_base++     = NOACC;
+			}
+		}
+
+	if (overlaid)   {
+		/*
+		 * Нужно записать прототип таблицы оверлейного регистра.
+		 * N.B.:  предполагается что
+		 *        эта таблица расположена в первых 8K
+		 *        виртуальной памяти ядра и соотв. страница
+		 *        расположена по физ. адресу 0.
+		 */
+		if (ksep)
+			*KDSD0  =       ((128 -1) << 8) | RW;
+		else
+			*KISD0  =       ((128 -1) << 8) | RW;
+		par_base        = &(((u_short *) OVLY_TABLE_BASE)[0]);
+		pdr_base        = &(((u_short *) OVLY_TABLE_BASE)[1 + (xoverlaid?NXOVL:NOVL)]);
+		for (i = 0; i < (xoverlaid?NXOVL:NOVL); i++)      {
+			mtpd (0, par_base++);
+			mtpd (NOACC, pdr_base++);
+			}
+		}
+
+	/*
+	 * Установить все ненулевые регистры.
+	 */
+	lm      = lt->lt_map;
+	while (segtype = lm++->seg_type)        {
+		if (!(npages = ctos (pdrproto[nseg])))
+			continue;
+
+		switch (segtype)        {
+			case SEG_TEXT:
+				/*
+				 * Текст всегда начинается в KI0;
+				 */
+				par_base        = KISA0;
+				pdr_base        = KISD0;
+				ntextpgs        += npages;
+				break;
+
+			case SEG_DATA:
+				if (overlaid)
+					if (ksep)       {
+						par_base        = I_DATA_PAR_BASE;
+						pdr_base        = I_DATA_PDR_BASE;
+						}
+					else {
+		/*
+		 * Если ядро со старым размещением по оверлеям,
+		 * то адреса данных начинаются с 3-его листа.
+		 * Иначе они начинаются со второго листа.
+		 * (см. <sys/koverlay.h>)
+		 */
+						if( oldkernel ){
+							par_base        = ON_DATA_PAR_BASE;
+							pdr_base        = ON_DATA_PDR_BASE;
+						} else {
+							par_base        = N_DATA_PAR_BASE;
+							pdr_base        = N_DATA_PDR_BASE;
+						}
+					}
+				else
+					if (ksep)       {
+						par_base        = KDSA0;
+						pdr_base        = KDSD0;
+						}
+					else
+						{
+						par_base        = &KISA0[ntextpgs + novlypgs];
+						pdr_base        = &KISD0[ntextpgs + novlypgs];
+						}
+				donedata++;
+				break;
+
+			case SEG_OVLY:
+				par_base        = &(((u_short *) OVLY_TABLE_BASE)[1 + novlypgs]);
+				pdr_base        = &(((u_short *) OVLY_TABLE_BASE)
+				  [1 + (xoverlaid?NXOVL:NOVL) + 1 + novlypgs]);
+				novlypgs        += npages;
+				break;
+
+			}
+
+		for (i = 0; i < npages; i++)    {
+			pagelen = MIN (btoc ((int) (8 KB)), pdrproto[nseg]);
+			if (segtype == SEG_OVLY)        {
+				mtpd (phys, par_base);
+				mtpd (((pagelen - 1) << 8) | RO, pdr_base);
+				}
+			else
+				{
+				*par_base       = phys;
+				if (segtype == SEG_TEXT)
+					if (ksep)
+						*pdr_base       = ((pagelen - 1) << 8) | RO;
+					else
+						/*
+						 * Неразделяемые ядра
+						 * обычно что-нибудь записывают в
+						 * лист 0.
+						 */
+						if (i == 0)
+							*pdr_base       = ((pagelen - 1) << 8) | RW;
+						else
+							*pdr_base       = ((pagelen - 1) << 8) | RO;
+				else
+					*pdr_base       = ((pagelen - 1) << 8) | RW;
+				}
+			par_base++, pdr_base++;
+			if (donedata)
+				phys    += pagelen;
+			else
+				phys    += stoc (ctos (pagelen));
+			pdrproto[nseg]  -= pagelen;
+			}
+
+		nseg++;
+		}
+
+	/*
+	 * Переменная phys содержит (сейчас) адрес начала
+	 * свободной памяти. Надо установить K[ID]6 или
+	 * systrap в системном режиме потрет текст по адресу 0140000.
+	 */
+	if (ksep)       {
+		KDSA0[6]        = phys;
+		KDSD0[6]        = (stoc(1) - 1) << 8 | RW;
+		}
+	else
+		{
+		KISA0[6]        = phys;
+		KISD0[6]        = (stoc(1) - 1) << 8 | RW;
+		}
+
+	if (overlaid)
+		mtpd (phys, &(((u_short *) OVLY_TABLE_BASE)
+			    [2 + 2*(xoverlaid?NXOVL:NOVL)]));
+		P("exit setregs\n");
+}
+#endif
+
+unsigned
+btoc (nclicks)
+unsigned nclicks;
+{
+	return ((unsigned) (((((long) nclicks) + ((long) 63)) >> 6)));
+}
+
+getl(io,buf)
+register char *buf;
+{
+	register int i;
+	while ( (i=getc(io)) >= 040 && i <= 0177 )
+		*buf++ = i;
+		*buf = 0;
+}
+
+reada(fd,buf,count)
+register char *buf;
+register fd,count;
+{
+ while ( count--) *buf++ = getc(fd);
+}
+@
+
+
+1.16
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@d5 3
+d63 1
+a63 1
+char rcsid[]="$Header: boot.c,v 1.15 89/05/03 17:34:06 korotaev Exp $";
+d71 1
+a71 1
+#include        <sys/koverlay.h>
+a73 15
+#ifdef MY_DEFNAME
+#undef RB_DEFNAME
+#define RB_DEFNAME MY_DEFNAME
+#endif
+
+#ifdef MY_DEF85
+#undef RB_DEF85
+#define RB_DEFNAME MY_DEF85
+#endif
+
+#ifdef MY_DEFTAPE
+#undef RB_DEFTAPE
+#define RB_DEFTAPE MY_DEFTAPE
+#endif
+
+d236 1
+a236 2
+	if( video && cputype == 23 ) {  /* Электроника-85 */
+		for( i = 0 ; defline[i] = (RB_DEF85)[i] ; i++ );
+a237 1
+	}
+a254 2
+
+	 printf("rbootdev=(%d,%d) bootdev=(%d,%d)\n",major(rbootdev),minor(rbootdev),major(bootdev),minor(bootdev));
+@
+
+
+1.15
+log
+@Проверка label'а на CHECKSUM.
+@
+text
+@d5 3
+d60 1
+a60 1
+char rcsid[]="$Header: boot.c,v 1.14 89/05/03 14:01:54 korotaev Exp $";
+d252 1
+a252 1
+	printf ("\nCPU %d\n", cputype);
+d269 3
+@
+
+
+1.14
+log
+@New label.
+@
+text
+@d5 3
+d57 1
+a57 1
+char rcsid[]="$Header: boot.c,v 1.13 89/04/11 17:17:02 korotaev Exp $";
+d232 12
+d250 3
+a252 1
+	printf ("Boot (%s) co-operative demos/*\n",rcsid+19);
+d330 3
+@
+
+
+1.13
+log
+@Теперь загрузчик умеет грузить ядро с базовым сегментом
+8 Кб и 16 Кб. Это сделано для совметсимости. Раньше баовый
+сегмент занимал 16 Кб.
+@
+text
+@d4 6
+a9 1
+ *  $Log:       boot.c,v $
+d54 1
+a54 1
+char rcsid[]="$Header: boot.c,v 1.12 88/09/26 19:07:54 avg Exp $";
+d235 1
+a235 1
+	printf ("Boot (%s)\n",rcsid+18);
+@
+
+
+1.12
+log
+@Теперь если с у-ва был прочитан файл, то в дальнейших подстановках будет
+использоваться именно у-во, с которого и читался этот файл.
+@
+text
+@d4 5
+a8 1
+ *  $Log:	boot.c,v $
+d11 1
+a11 1
+ * 
+d49 1
+a49 1
+char rcsid[]="$Header: boot.c,v 1.11 88/06/23 21:36:30 ache Exp $";
+d88 3
+d92 1
+a94 1
+#undef  KISA0
+d96 1
+d118 2
+d126 1
+d132 2
+a133 2
+	SEG_DATA,       56 KB,
+	0,              0  KB
+d136 3
+a138 3
+	SEG_TEXT,       48 KB,
+	SEG_DATA,       56 KB,
+	0,              0  KB
+d141 3
+a143 3
+	SEG_DATA,       56 KB,
+	SEG_TEXT,       64 KB,
+	0,              0  KB
+d146 10
+a155 10
+	SEG_TEXT,       16 KB,                  /* minumum, 8 KB + 1 */
+	SEG_OVLY,       8  KB,
+	SEG_DATA,       24 KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	0,              0  KB
+d158 34
+a191 34
+	SEG_TEXT,       16 KB,                  /* minumum, 8 KB + 1 */
+	SEG_OVLY,       8  KB,
+	SEG_DATA,       24 KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	0,              0  KB
+d194 10
+a203 10
+	SEG_DATA,       56 KB,                  /* minumum, 48 KB + 1 */
+	SEG_TEXT,       56 KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	SEG_OVLY,       8  KB,
+	0,              0  KB
+d207 6
+a212 6
+	A_MAGIC1,       load407,
+	A_MAGIC2,       load410,
+	A_MAGIC3,       load411,
+	A_MAGIC5,       load430,
+	A_MAGIC6,       load431,
+	A_MAGIC7,       load444
+d315 1
+d330 16
+a345 1
+		if (loadtable[i].lt_magic == exec.a_magic)
+d347 1
+d440 3
+a442 3
+			    if (seglen <= 8 KB) {
+				printf("Base segment too small, 8K minimum\n");
+				return(-1);
+d627 13
+a639 4
+					else
+						{
+						par_base        = N_DATA_PAR_BASE;
+						pdr_base        = N_DATA_PDR_BASE;
+d641 1
+@
+
+
+1.11
+log
+@+ 31 оверлей в ядре
+@
+text
+@d4 4
+a7 1
+ *  $Log:       boot.c,v $
+d45 1
+a45 1
+char rcsid[]="$Header: boot.c,v 1.10 88/06/13 15:55:38 avg Exp $";
+d204 2
+d263 1
+d283 1
+@
+
+
+1.11.1.1
+log
+@Правки из САО под 1630.
+@
+text
+@d4 1
+a4 10
+ *  $Log:	boot.c,v $
+ * Revision 1.13  88/10/25  19:13:41  dvolodin
+ * Еще немножко 1630.
+ * 
+ * Revision 1.12  88/10/22  20:54:55  sys
+ * Дальнейшие правки под 1630.
+ * 
+ * Revision 1.11  88/06/23  21:36:30  ache
+ * + 31 оверлей в ядре
+ * 
+d41 2
+a42 2
+#define P(x)  /* printf(x)  */
+char rcsid[]="$Header: boot.c,v 1.13 88/10/25 19:13:41 dvolodin Exp $";
+a525 1
+	P("-->setseg(0)\n");
+a526 1
+	P("setseg(0)-->\n");
+a532 1
+	P("revoking permissions\n");
+a547 1
+	P("permissions revoked\n");
+a548 1
+		P("overlay proto fiddling\n");
+a567 1
+	P("overlay fiddling done.\n");
+a570 1
+	P("setup nonzero regs\n");
+d623 1
+a623 2
+				if( cputype == 1630 ) mtpd (((stoc(1) - 1) << 8) | RW, pdr_base);
+				else        mtpd (((pagelen - 1) << 8) | RO, pdr_base);
+d628 1
+a628 2
+				if( cputype == 1630 )     *pdr_base       = ((stoc(1) - 1) << 8) | RW;
+				else if (segtype == SEG_TEXT)
+a654 1
+	P("regs are set up\n");
+a659 1
+	P("phys to K[ID]6\n");
+a668 1
+	P("done.\n");
+d670 1
+a670 2
+	if (overlaid){
+		P("m phys tpd\n");
+d673 1
+a673 2
+	}
+	P("exit setregs\n");
+@
+
+
+1.10
+log
+@Сделан вызов editboot для обработки конструкций типа %?
+@
+text
+@d5 3
+d42 1
+a42 1
+char rcsid[]="$Header: boot.c,v 1.9 87/09/29 15:41:58 avg Exp $";
+d101 2
+a102 1
+u_short pdrproto[16 + NOVL]     = {0};
+d104 1
+a104 1
+struct  ovlhdr  ovlhdr;
+d143 36
+d197 2
+a198 1
+	A_MAGIC6,       load431
+d215 1
+a215 1
+	if( rbootdev == 3 || rbootdev == 9 ) {
+d303 2
+a304 1
+	if (exec.a_magic == A_MAGIC5 || exec.a_magic == A_MAGIC6)       {
+d306 3
+a308 1
+		reada(io,&ovlhdr,sizeof ovlhdr);
+d379 1
+a379 1
+				seglen  = ovlhdr.ov_siz[ovseg];
+d403 1
+d461 2
+a462 2
+						for (i = 0; i < NOVL; i++)
+							segoff  += (off_t) ovlhdr.ov_siz[i];
+d470 1
+a470 1
+				seglen  = ovlhdr.ov_siz[ovseg];
+d473 1
+a473 1
+					segoff  += (off_t) ovlhdr.ov_siz[i];
+d561 2
+a562 2
+		pdr_base        = &(((u_short *) OVLY_TABLE_BASE)[1 + NOVL]);
+		for (i = 0; i < NOVL; i++)      {
+d612 2
+a613 1
+				pdr_base        = &(((u_short *) OVLY_TABLE_BASE)[1 + NOVL + 1 + novlypgs]);
+d671 2
+a672 1
+		mtpd (phys, &(((u_short *) OVLY_TABLE_BASE)[1 + NOVL + 1 + NOVL]));
+@
+
+
+1.9
+log
+@Теперь если надо поставить свое устройство для загрузки
+надо в аргументах cc поставить -DMY_DEFLINE='"dd(min,maj)name"'
+или (для Э-85) MY_DEF85.
+@
+text
+@d5 5
+d37 1
+d39 1
+a39 1
+char rcsid[]="$Header: boot.c,v 1.8 87/05/17 18:29:00 avg Exp $";
+d60 5
+d93 1
+a93 1
+extern  int     bootopts, bootdev, checkword;
+d170 1
+a170 1
+		printf( "\n\n\n\n\n\n" );
+a171 1
+	strcpy( line, defline);
+d174 6
+d187 10
+d198 2
+a199 1
+		bootopts        = RB_SINGLE | RB_ASKNAME;
+d223 1
+a223 1
+				printf(": %s \n",line);
+d225 7
+a232 1
+		else printf(": %s\n",line);
+@
+
+
+1.8
+log
+@Правлен небольшой плюха: вместо && стоял &.
+@
+text
+@d5 3
+d33 1
+a33 1
+char rcsid[]="$Header: boot.c,v 1.7 87/04/24 09:40:42 dmitry Exp $";
+d44 1
+d46 4
+d51 2
+a52 2
+#define RB_DEFNAME      "tm(0,1)\0onfa"
+#define RB_DEF85        "rd(0,0)confa"
+@
+
+
+1.7
+log
+@Если по истечении таймаута с консоли не придет символов,
+будем грузить по умолчанию.
+@
+text
+@d4 5
+a8 1
+ *  $Log:	boot.c,v $
+d11 1
+a11 1
+ * 
+d30 1
+a30 1
+char rcsid[]="$Header: boot.c,v 1.6 87/03/03 22:24:55 avg Stab $";
+d40 6
+d149 1
+a149 1
+	if( video & cputype == 23 ) {   /* Электроника-85 */
+@
+
+
+1.6
+log
+@Добавлена работа с defname для Электроники-85.
+@
+text
+@d4 4
+a7 1
+ *  $Log:       boot.c,v $
+d26 1
+a26 1
+char rcsid[]="$Header: boot.c,v 1.5 86/12/13 19:31:08 alex Stab $";
+d166 3
+d171 1
+d173 3
+@
+
+
+1.5
+log
+@Для работы с лентами заменили read на reada, работающий через getc.
+@
+text
+@d4 4
+a7 1
+ *  $Log:	boot.c,v $
+d10 1
+a10 1
+ * 
+d14 1
+a14 1
+ * 
+d17 1
+a17 1
+ * 
+d23 1
+a23 1
+char rcsid[]="$Header: boot.c,v 1.4 86/12/03 22:03:22 alex Exp $";
+d63 2
+a64 1
+char    line[100]       = RB_DEFNAME;
+d133 1
+d136 5
+a140 2
+	if( video & cputype == 23 )     /* Электроника-85 */
+		for( i = 0 ; line[i] = (RB_DEF85)[i] ; i++ );
+d152 1
+a152 1
+	j = -1; 
+d162 1
+a162 1
+		if ( bootopts & RB_ASKNAME ) {
+d167 1
+a167 1
+				strcpy(line,RB_DEFNAME);
+d170 1
+a170 1
+		} 
+d172 1
+d179 1
+a179 1
+			bootopts &= ~RB_ASKNAME;
+d184 1
+a184 1
+	} 
+@
+
+
+1.4
+log
+@Исправлена мелкая ошибка с крупными последствиями.
+@
+text
+@d5 3
+d20 1
+a20 1
+char rcsid[]="$Header: boot.c,v 1.3 86/11/27 23:02:17 alex Exp $";
+d188 1
+a188 1
+	read(io,&exec.a_text, (sizeof exec)-(sizeof exec.a_magic));
+d194 1
+a194 1
+		read(io,&ovlhdr,sizeof ovlhdr);
+d574 7
+@
+
+
+1.3
+log
+@сделаны параметры настройки на конфигурацию
+и командный файл
+@
+text
+@d5 4
+d17 1
+a17 1
+char rcsid[]="$Header: boot.c,v 1.2 86/11/24 23:32:58 alex Exp $";
+d363 1
+a363 1
+		setseg (physn=phys);
+d370 1
+@
+
+
+1.2
+log
+@rcsid
+@
+text
+@d4 4
+a7 1
+ *  $Log:       boot.c,v $
+d12 2
+a13 1
+char rcsid[]="$Header$;
+d23 1
+d25 5
+d31 2
+d122 2
+a123 3
+	struct  loadtable       *setup ();
+
+	segflag = 3;                    /* драйверы у-в знают этот флаг */
+d126 2
+a127 4
+
+	printf ("\nCPU %d\n%s\n", cputype, module);
+	printf ("Vers: %s\n",rcsid+7);
+#ifdef  UCB_AUTOBOOT
+a135 1
+#endif
+d137 9
+a145 4
+	do      {
+		if (bootopts & RB_ASKNAME)      {
+			printf (": ");
+			gets (line);
+d147 18
+a164 5
+		else
+			printf (": %s\n", line);
+		if (line[0] == '\0')    {
+			printf (": %s\n", RB_DEFNAME);
+			i       = open (RB_DEFNAME, 0);
+d166 6
+a171 11
+		else
+			i       = open (line, 0);
+		j = -1;
+		if (i >= 0)     {
+			j       = checkunix (i, setup (i));
+			(void) close (i);
+			}
+		if (++retry > 2)
+			bootopts        = RB_SINGLE | RB_ASKNAME;
+	}       while (j < 0);
+
+d179 3
+a181 6
+
+	exec.a_magic    = getw (io);
+	exec.a_text     = (unsigned) getw (io);
+	exec.a_data     = (unsigned) getw (io);
+	exec.a_bss      = (unsigned) getw (io);
+
+a182 7
+	 * Оставшиеся слова в заголовке a.out.
+	 * Здесь не делается seek, т.к. загрузка может
+	 * производиться с ленты.
+	 */
+	getw (io); getw (io); getw (io); getw (io);
+
+	/*
+d187 1
+a187 3
+		ovlhdr.max_ovl  = getw (io);
+		for (i = 0; i < NOVL; i++)
+			ovlhdr.ov_siz[i]        = (unsigned) getw (io);
+a188 1
+
+a191 1
+
+d301 1
+a301 1
+	copyunix (io, lt);
+d310 1
+a310 1
+	int     i;
+d316 1
+a316 1
+	int     nseg, phys, ovseg;
+a317 1
+
+d322 1
+a322 1
+	phys    = 0;
+d359 1
+a359 1
+		setseg (phys);
+d375 4
+d387 4
+d397 1
+a397 1
+
+d548 1
+d550 1
+d557 9
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ *  $Log$
+d9 1
+a9 1
+
+d107 1
+d113 2
+d116 2
+a117 1
+	printf ("\n%d%s\n", cputype, module);
+@

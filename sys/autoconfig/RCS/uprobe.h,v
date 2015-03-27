@@ -1,0 +1,35 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.25.01.16.38;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+аутоцонфиг
+autoconfig
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@struct uprobe {
+	char	*up_name;
+	int	(*up_func)();
+};
+
+#define DELAY(n)	{ int _nn = n; while (_nn--); }
+
+extern struct uprobe uprobe[];
+@

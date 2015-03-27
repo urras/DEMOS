@@ -1,0 +1,245 @@
+head     22.3;
+access   avg;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.04.38;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.32.59;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.16.25;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.21.14;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.11.17.16.41.50;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Камак-драйвер имени Егошина.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * КАМАК-драйвер Егошина (основная часть на Си)
+ */
+#include        "h/cc.h"
+#if   NCC > 0
+#include        <sys/param.h>
+#include        <sys/dir.h>
+#include        <sys/user.h>
+#include        "../include/ccreg.h"
+
+
+struct  param
+{       int     (**dflag)();
+        int     func;
+        int * array;
+        int * cna;
+        int     counter;
+        int * glamid;
+	int     (*qr)();
+	int	(*nqr)();
+        int * p1;
+        int * p2;
+        int * p3;
+        int     spsave;
+};
+
+extern  int     (dtable[])() ,(stable[])();
+
+extern  qma(),nqma(),qubl(),nqubl(),qubc(),nqubc(),
+        qubr(),nqubr(),qmad(),nqmad(),qxma(),nqxma();
+
+ccattach(addr,unit)
+struct ccdevice *addr;
+{
+	if( unit > NCC )
+		return(0);
+	return(1);
+}
+
+ccopen(dev,flag)
+dev_t   dev;
+{
+        if( minor(dev) )
+        {
+                u.u_error = ENXIO;
+                return;
+        }
+}
+
+
+ccioctl(dev,command,addr,flag)
+dev_t   dev;
+int     command;
+int ** addr;
+int     flag;
+{
+        register        struct  param   pr;
+        register        int *aaddr, *baddr;
+        int * tallyadr, * csr;
+        int     cnt;
+
+        if( ((aaddr = (int *)fuword((caddr_t)(addr++))) == -1 ) ||
+                (baddr = (int *)fuword((caddr_t)addr)) == -1)
+                                goto bad;
+
+        if( command & SOP )
+        {
+                if(((csr = (int *)fuword((caddr_t)aaddr)) == -1 ) ||
+		     cnacheck(csr) ||
+                    csrdo( baddr, csr, command ) )
+                                        goto bad;
+                return;
+        }
+
+        pr.dflag = (command & DFLAG) ? &dtable : &stable ;
+
+        if( ((pr.p1 = (int *)fuword((caddr_t)(aaddr++))) == -1) ||
+            ((pr.p2 = (int *)fuword((caddr_t)(aaddr++))) == -1) ||
+            ((pr.array = (int *)fuword((caddr_t)(aaddr++))) == -1) ||
+           ((pr.counter = cnt = fuword((caddr_t)(baddr++))) == -1 )  ||
+          ( suword((caddr_t)(tallyadr = baddr++), 0 ) == -1 )   ||
+          (( pr.glamid = (int *)fuword((caddr_t)(baddr++))) == -1 )  ||
+	    ((pr.func = fuword((caddr_t)(pr.p1++))) == -1) || ((pr.cna = (int *)fuword((caddr_t)(pr.p2++))) == -1) )
+	      goto bad;
+
+	if( !cnacheck(pr.cna) )
+        {
+badcna:         u.u_error = ENXIO;
+                return;
+        }
+
+	switch( command & ~DFLAG )
+	{
+		case	MA:
+		           pr.qr = &qma;
+		           pr.nqr = &nqma;
+	macont:
+			if( (pr.p3 = (int *)fuword((caddr_t)aaddr)) ==
+						-1 )
+							goto bad;
+			break;
+
+		case	XMA:
+			pr.qr = &qxma;
+			pr.nqr = &nqxma;
+			goto macont;
+
+                case UBL:
+                        if( !pr.glamid )
+                                        goto bad;
+                        pr.qr  = &qubl;
+                        pr.nqr = &nqubl;
+                        break;
+
+                case UBC:
+                        pr.qr  = &qubc;
+                        pr.nqr = &nqubc;
+                        break;
+
+                case UBR:
+                        pr.p1 = 010000;
+                        pr.qr  = &qubr;
+                        pr.nqr = &nqubr;
+                        break;
+
+                case MAD:
+                        if( (pr.p1 = (int *)fuword((caddr_t)pr.p2)) == -1)
+                                                goto bad;
+                        if( !cnacheck(pr.p1) )
+                                                goto badcna;
+                        pr.qr  = &qmad;
+                        pr.nqr = &nqmad;
+			break;
+
+		default:
+			goto badcna;
+         }
+
+        iofunct(&pr);
+        suword( (caddr_t)tallyadr, cnt - pr.counter );
+        return;
+
+bad:
+        u.u_error = EFAULT;
+        return;
+}
+
+ccint(ca,dummy,dev)
+register struct device *ca;
+{
+        register  int dv;
+
+        ca->dmr &= ~(dv = (1<<dev));
+
+        if( ca->dmr & DMR  )
+                ca->csr  |= DENB;
+        wakeup( (caddr_t)( (int)ca + dv) );
+}
+#endif NCC
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d9 1
+a9 1
+#include        <sys/ccreg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d4 1
+a4 1
+#include        "cc.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d6 1
+a6 1
+#include        "param.h"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@@

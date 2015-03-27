@@ -1,0 +1,61 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.33.01;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+#include <stdio.h>
+#include <sys/param.h>
+#include <sys/ino.h>
+#include <dumprestor.h>
+struct idates dat;
+
+main() {
+	int f;
+	char *ctime();
+	long tim;
+
+	if ((f = open("/etc/ddate",0)) < 0) {
+		printf("Can't open /etc/ddate.\n");
+		exit(1);
+		}
+	while (read(f,(char *)&dat,sizeof(dat)) > 0 ) {
+		tim = dat.id_ddate;
+		printf("%5s, Level %c, %s",dat.id_name ,dat.id_incno,
+			ctime(&tim) );
+		}
+}
+@

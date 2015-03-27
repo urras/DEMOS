@@ -1,0 +1,240 @@
+% === SAVEL:BOOT === %  06.12.88 VERSION 10
+GLOBAL (LOCATION=&0) (START=&0)
+%---- Фиксированные ячейки -------%
+. JMP @#MAIN
+. DAT ABZAC0,&00E0           *Прерывание по ошибке шины
+. DAT ABZAC1,&00E0           *Прерывание по резервной инструкции
+. DAT 'TRACER*0+TRACER,&00E0 *Отладчик
+%---------------------------------%
+
+  EQUALS MTOFF=&1,MTREAD=&3,MTWRIT=&5             %КОМАНДЫ УСТРОЙСТВА
+  EQUALS MTMARK=&7,MTFORW=&9
+  EQUALS MTBACK=&B,MTLGAP=&D,MTREV=&F
+
+  EQUALS ETBAD=&8000,ETMRK=&4000,ETLEN=&200,ETLDP=&20,ETBUSY=&8
+
+LOCALS LDEVIA
+  BYTES TXEBUS=RN.LF."<< EBUS   >>".0
+  BYTES TXEINS=RN.LF."<< EINSTR >>".0
+
+PROGRAM ABZAC0()
+  R1='TXEBUS'
+  GOTO LBREAK
+PROGRAM ABZAC1()
+  R1='TXEINS'
+LABEL LBREAK
+  SP=&1000
+  CALL DPC ,R1
+  GOTO $
+
+*\======================================
+LOCALS LMAIN
+  BYTES TXBEG=RN.LF.LF.LF."*SYSTEM COPY*".0
+  BYTES TXMTAD=RN.LF." TM11 UNIT #".0
+  BYTES TXRKAD=RN.LF." RK11 UNIT #".0
+  BYTES TXEND=RN.LF." O.K.".0
+  BYTES TXASK0=RN.LF." HEAD",SECFLG[1],0
+  BYTES BUFNU="00000:".0
+  BYTES TXASK1=RN.LF." :".0
+  BYTES TXREPT=RN.LF." REPEAT".0
+  BYTES TXNEXT=RN.LF." SECOND COPY".0
+  BYTES TXBDMT=RN.LF."-TAPE ERROR".0
+  BYTES TXEMP=RN.LF."-EMPTY HEAD".0
+  BYTES TXBDS=RN.LF."-DISK ERROR".0
+  BYTES TXBDNU=RN.LF."-OUT OF SEQUENCE".0
+  BYTES TXCOPY=RN.LF." SYSTEM COPYING".0
+
+. DUM
+  DATA CSUMM[1],[1],HOMEBL[1]
+  EQUALS HDRSIZ=$
+. FIN
+  EQUALS INFLEN=&1000,CATLEN=&200         %Длины блоков без заголовков
+  EQUALS RCLENG=HDRSIZ+INFLEN,HEADLN=HDRSIZ+CATLEN  %.. и с заголовками
+
+  BUFFERS MTBUFF(RCLENG)
+  USE FIL:STRUCT
+
+%    УПР. БЛОКИ МАГНИТОФОНА
+  DATA RCREAD=!MTBUFF.0-RCLENG.&6000+MTREAD
+  DATA HDREAD=!MTBUFF.0-HEADLN.&6000+MTREAD
+  DATA FIBACK=!MTBUFF.&8001   .&6000+MTBACK
+
+%    УПР. БЛОК ДИСКА
+  DATA DWRITE=,DSADDR=0,DSMEM=!MTBUFF+HDRSIZ,DSLENG=INFLEN/&200
+
+  DATA QREAD,RDCTR   ,EFLAG
+
+  EQUALS LNSTK=20
+  BUFFERS STACK0(LNSTK)
+
+PROGRAM MAIN()
+  RESET
+  SP='!STACK0+LNSTK'
+  CALL DPC ,'TXBEG'
+%=
+%=  НАСТРАИВАЕМСЯ НА УСТРОЙСТВА
+%=
+  CALL DPC ,'TXMTAD'
+  (WHILE
+    CALL DPI
+  )WHILE R0:<<"0" OR R0:>>="8"
+  CALL DPO R0
+  CALL SETMT R0(-"0")
+
+  CALL DPC ,'TXRKAD'
+  (WHILE
+    CALL DPI
+  )WHILE R0:<<"0" OR R0:>>="8"
+  CALL DPO R0
+  CALL SETRK R0(-"0")
+
+%=
+%=  ПОЗИЦИОНИРУЕМ НА НУЖНЫЙ HEAD
+%=
+  R0:=">"
+  (WHILE
+    (IF R0:="<"
+      SECFLG:=" "
+      (WHILE
+        CALL MTHAN 'FIBACK'
+      )WHILE R0(.BIT.'ETMRK+ETLDP')=
+      R0:=">"
+    )IF
+    (IF R0:=">"
+      SECFLG:="/"
+      (WHILE
+        (WHILE (CALL MTHAN 'HDREAD') IS CARRY
+          IF R0(.BIT.'ETMRK')<> THEN SECFLG:=" "
+        )WHILE
+      )WHILE ^R0('!MTBUFF')<>"IM" OR @R0<>"SS"
+      CALL DPC ,'TXASK0'
+      CALL S:BNDC R0:(@'!MTBUFF+HDRSIZ'),'BUFNU'
+      CALL DPC ,'BUFNU+3'
+      CALL DPC ,'!MTBUFF+HDRSIZ+1'
+      CALL DPC ,'TXASK1'
+    )IF
+    CALL DPI
+    CALL DPO
+  )WHILE R0:<>" " AND R0:<>'ET'
+
+%=
+%=  КОПИРУЕМ СИСТЕМУ
+%=
+  (IF @'!MTBUFF+HDRSIZ+&20':=0    %Пустой head
+    CALL DPC ,'TXEMP' ; GOTO $
+  )IF
+  CALL DPC ,'TXCOPY'
+
+* MOV #'TRACER*0+TRACER,@#&0C
+. BPT
+
+  R4=@'!MTBUFF+HDRSIZ+&20+FIOWN'.SWAB.    %длина в MISS-секторах
+  R4=+&F.ASR..ASR..ASR..ASR.              %переводим в ленточные блоки
+  QREAD=R4
+
+  SECFLG:=" "
+  (WHILE
+    R3=0                            %Номер блока ленты
+    DSADDR=0                        %Номер блока диска
+    EFLAG=0
+    (DCYCLE(RDCTR) QREAD
+      CALL MTHAN 'RCREAD'           %Читаем с магнитофона
+      (IF NOT IS CARRY              %Прочитали ?
+        (IF R0(@'!MTBUFF+HOMEBL'.SWAB.)=R3
+          (IF (CALL RKHAN 'DWRITE') IS CARRY       %Записываем
+            CALL DPC ,'TXBDS'
+          )IF
+        ELSE                        %Номер несовпал
+          CALL DPC ,'TXBDNU'
+          EFLAG=1
+          RDCTR=0                   %Выход из цикла
+        )IF
+      ELSE
+        CALL DPC ,'TXBDMT'          %Диагностируем
+        EFLAG=1
+      )IF
+      R3=+1
+      DSADDR=+DSLENG
+    )DCYCLE
+  WHILE EFLAG<>0
+    (IF SECFLG:=" "
+      CALL DPC ,'TXNEXT'
+      (WHILE
+        CALL MTHAN 'HDREAD'
+      )WHILE IS CARRY
+      SECFLG:="/"
+    ELSE
+      CALL DPC ,'TXREPT'
+      CALL MTHAN 'FIBACK'
+      IF R0(.BIT.'ETMRK')<> THEN CALL MTHAN 'HDREAD'    %Пропуск TM
+      CALL MTHAN 'HDREAD'
+      SECFLG:=" "
+    )IF
+  )WHILE
+
+  CALL DPC ,'TXEND'
+  GOTO $
+
+%======================%
+%= ХАНДЛЕРА УСТРОЙСТВ =%
+%======================%
+LOCALS LHANDL
+  EQUALS MTADDR=&F558
+  DATA MTUNIT
+PROGRAM MTHAN(R1,R5)
+  R5='MTADDR'
+  _R5=^R0 ; _R5=^R0 ; _R5=R1(^R0.BIS.MTUNIT)
+  REPEAT WHILE @R5:>=0
+  R0=0
+* CCL C
+  (IF @R5<0 OR 2[R5]<>0
+    R0=_R5
+.   CST C
+  )IF
+  RETURN
+PROGRAM SETMT(R0)
+  MTUNIT=R0(.SWAB.)
+  RETURN
+
+LOCALS LDSK
+  EQUALS RKDAR=&FF0A
+  EQUALS RKWRIT=1,RKGO=1
+  DATA RKUNIT
+% INP: 0_R0-ДИСКОВЫЙ АДРЕС, 2_R0-АДРЕС ПАМЯТИ, 4_R0-ДЛИНА В БЛОКАХ
+PROGRAM RKHAN(R1,R2,R3,R5)
+  R2=0 ; R3=^R0 ; R2=/12            % # цилиндра -> R2, сектора -> R3
+  R2=.ASL..ASL..ASL..ASL.           %Сдвигаем #цил., захватывая поверх.
+  R2=.BIS.R3                        %Об'единяем номера цил. и сектора
+  R2=.BIS.RKUNIT                    %Выбираем тарелку
+  R5='RKDAR'
+  @R5=R2
+  _R5=^R0                           %Адрес памяти
+  _R5=R1(^R0.SWAB..NEG.)            %Длина в блоках -> длина в словах
+  _R5='RKWRIT*2+RKGO'
+  REPEAT WHILE @R5:>=0
+  R0=0
+* CCL C                             %TST сбрасывает ^C
+  (IF @R5<0
+    R0=&FFFE[R5]
+.   CST C
+  )IF
+  RETURN
+PROGRAM SETRK(R0)
+  RKUNIT=R0(.SWAB..ASL..ASL..ASL..ASL..ASL.)
+  RETURN
+
+LOCALS LDP
+  EQUALS COIST=&FF70,COOST=&FF74
+PROGRAM DPC(R0)
+  (WHILE @R1:<>0
+    GOSUB DPO R0:(^R1)
+  )WHILE
+  RETURN
+PROGRAM DPO()
+  REPEAT WHILE @'COOST':>=0
+  @'COOST+2'=R0
+  RETURN
+PROGRAM DPI()
+  REPEAT WHILE @'COIST':>=0
+  R0=@'COIST+2'.BIC.&FF80
+  RETURN

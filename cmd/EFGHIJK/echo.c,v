@@ -1,0 +1,63 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.26.41;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+#include <stdio.h>
+
+main(argc, argv)
+int argc;
+char *argv[];
+{
+	register int i, nflg;
+
+	nflg = 0;
+	if(argc > 1 && argv[1][0] == '-' && argv[1][1] == 'n') {
+		nflg++;
+		argc--;
+		argv++;
+	}
+	for(i=1; i<argc; i++) {
+		fputs(argv[i], stdout);
+		if (i < argc-1)
+			putchar(' ');
+	}
+	if(nflg == 0)
+		putchar('\n');
+	exit(0);
+}
+@

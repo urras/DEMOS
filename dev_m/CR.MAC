@@ -1,0 +1,427 @@
+.MCALL  .MODULE
+.MODULE CR,RELEASE=V05,VERSION=00,COMMENT=<CARD READER HANDLER>,AUDIT=YES
+
+;                        COPYRIGHT (C) 1983 BY
+;             DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+;                         ALL RIGHTS RESERVED.
+;
+; THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+; ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+; INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+; COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+; OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+; TRANSFERRED.
+;
+; THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+; AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+; CORPORATION.
+;
+; DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+; SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+\.SBTTL MACROS AND DEFINITIONS
+.MCALL  .DRDEF
+        .DRDEF  CR,14,RONLY$,0,177160,230
+CRB1    = CR$CSR+2
+CRB2    = CR$CSR+4
+CR      = 15
+LF      = 12
+SPACE   = 40
+EOF     = 41
+READ    =      1
+EJECT   =      2
+INTEB   =    100
+COLD    =    200
+READY   =    400
+BUSY    =   1000
+ONLIN   =   2000
+DATLAT  =   4000
+MOTIN   =  10000
+HOPCK   =  20000
+CARDN   =  40000
+ERR     = 100000
+\.SBTTL SET OPTIONS
+        .DRSET  CRLF,<BR .+LXCRLF-XCRLF>,CRLF,NO
+        .DRSET  TRIM,<BR .+LXTRIM-XTRIM>,TRIM,NO
+        .DRSET  HANG,<BNE .+LERROR-XHANG>,HANG,NO
+        .DRSET  CODE,026.,CODE,NUM
+        .DRSET  IMAGE,<NOIMAG-IMBASE>,IMAGE,NO
+\.SBTTL CONFIGURATION SUBROUTINES
+CRLF:   MOV     (PC)+,R3
+         NOP
+        MOV     R3,XCRLF
+        RTS     PC
+TRIM:   MOV     (PC)+,R3
+         NOP
+        MOV     R3,XTRIM
+        RTS     PC
+HANG:   MOV     (PC)+,R3
+         NOP
+        MOV     R3,XHANG
+        RTS     PC
+CODE:   MOV     PC,R1
+        ADD     #SET026-.,R1
+        SUB     R3,R0
+        BMI     CODEXT
+        BEQ     SETCOD
+        ADD     #SET029-SET026,R1
+        CMP     #3,R0
+        BEQ     SETCOD
+        SEC
+CODEXT: RTS     PC
+SETCOD: MOV     PC,R3
+        ADD     #CHRTBL-.,R3
+SCODE:  CLR     R0
+        BISB    (R1)+,R0
+        BEQ     CODEXT
+        ADD     R3,R0
+        MOVB    (R1)+,@R0
+        BR      SCODE
+IMAGE:  ADD     #YAIMAG-NOIMAG,R3
+        ADD     PC,R3
+IMBASE: MOV     (R3)+,XIM1
+        MOV     (R3)+,XIM2
+        MOV     (R3)+,XIM2+2
+        MOV     (R3)+,XIM3+2
+        RTS     PC
+NOIMAG: BEQ     .+NXTCHR-XIM1
+        MOVB    CHRTBL-XIM2(R4),@(PC)+
+        .WORD   1
+YAIMAG: BR      .+NXTCHR-XIM1
+        MOV     @#CRB1,@(PC)+
+        .WORD   2
+\.SBTTL 026, 029 CONVERSION TABLES
+SET026: .BYTE   012,137
+        .BYTE   013,075
+        .BYTE   015,136
+        .BYTE   016,047
+        .BYTE   017,134
+        .BYTE   052,073
+        .BYTE   054,050
+        .BYTE   055,042
+        .BYTE   056,043
+        .BYTE   057,045
+        .BYTE   112,072
+        .BYTE   115,133
+        .BYTE   116,076
+        .BYTE   117,046
+        .BYTE   200,053
+        .BYTE   212,077
+        .BYTE   214,051
+        .BYTE   215,135
+        .BYTE   216,074
+        .WORD   0
+SET029: .BYTE   012,072
+        .BYTE   013,043
+        .BYTE   015,047
+        .BYTE   016,075
+        .BYTE   017,042
+        .BYTE   052,134
+        .BYTE   054,045
+        .BYTE   055,137
+        .BYTE   056,076
+        .BYTE   057,077
+        .BYTE   112,135
+        .BYTE   115,051
+        .BYTE   116,073
+        .BYTE   117,136
+        .BYTE   200,046
+        .BYTE   212,133
+        .BYTE   214,074
+        .BYTE   215,050
+        .BYTE   216,053
+        .WORD   0
+.IIF GE <CHRTBL-CRSTRT+216>-1000,       .ERROR
+\.SBTTL DRIVER ENTRY
+        .DRBEG  CR
+        MOV     CRCQE,R4
+        MOV     CHRPTR,R5
+        ASL     6(R4)
+        BLOS    LERROR
+        TST     EOFFLG
+        BNE     CLREOF
+        BIT     #READY+BUSY,@#CR$CSR
+XHANG:  NOP
+.IF EQ  MMG$T
+        TST     (R4)+
+.IFF
+        TST     (R4)
+.IFTF
+        BEQ     READR
+.IFT
+        TST     (R4)+
+.IFF
+.ENDC
+        BR      CONT
+\.SBTTL INTERRUPT ENTRY POINT
+        .DRAST  CR,6,ABORTB
+        DEC     COLCNT
+        MOV     @#CR$CSR,R4
+        BMI     ERROR
+        TSTB    R4
+        BPL     CARD
+        MOV     @#CRB2,R4
+        BEQ     INCOLT
+        MOV     @#CRB1,-(SP)
+        CMP     CHRPTR,BUFPTR
+        BNE     TSTPUN
+        MOV     @SP,CHAR12
+TSTPUN: BIC     #177003,@SP
+        MOV     @SP,-(SP)
+        NEG     @SP
+        BIC     (SP)+,(SP)+
+XIM1:   BEQ     NXTCHR
+        MOV     #377,R4
+NXTCHR: MOV     CHRPTR,(PC)+
+ENDPTR: .WORD   0
+INCOLT: ADD     PC,R4
+XIM2:   MOVB    CHRTBL-.(R4),@(PC)+
+CHRPTR:  .WORD  0
+XIM3:   ADD     #1,CHRPTR
+INTRET: BIS     #INTEB,@#CR$CSR
+        RTS     PC
+\.SBTTL CARD DONE OR ERROR
+CARD:   BIT     #CARDN,R4
+        BEQ     ERR1
+        CLR     @#CR$CSR
+        .FORK   CRFBLK
+        MOV     (PC)+,R5
+BUFPTR:  .WORD  0
+        MOV     CRCQE,R4
+.IF EQ  MMG$T
+        CMP     (R4)+,(R4)+
+.ENDC
+        CMP     #7417,(PC)+
+CHAR12:  .WORD  0
+        BEQ     ENDFIL
+        MOV     CHRPTR,R1
+XTRIM:  NOP
+        MOV     ENDPTR,R1
+        INC     R1
+LXTRIM:
+XCRLF:  NOP
+        MOVB    #CR,(R1)+
+        MOVB    #LF,(R1)+
+LXCRLF: MOV     R1,ENDPTR
+        BR      CONT
+FILBUF:
+.IF EQ  MMG$T
+        MOVB    (R5)+,@(R4)+
+        DEC     @R4
+        BEQ     RETMON
+        INC     -(R4)
+.IFF
+        MOVB    (R5)+,-(SP)
+        JSR     PC,@$PTBYT
+        DEC     6(R4)
+        BEQ     RETMON
+.ENDC
+CONT:   CMP     ENDPTR,R5
+        BHI     FILBUF
+ERR1:   BIT     #READY+BUSY,@#CR$CSR
+        BNE     INTRET
+READR:  MOV     PC,R5
+        ADD     #CHRBUF-.,R5
+        MOV     R5,CHRPTR
+        MOV     R5,ENDPTR
+        MOV     R5,BUFPTR
+        CLR     CHAR12
+        MOV     #80.,(PC)+
+COLCNT:  .WORD  0
+        MOV     #READ+INTEB,@#CR$CSR
+        RTS     PC
+CLREOF: BIS     #20000,@-2(R4)
+        CLR     EOFFLG
+        BR      RETMON
+LERROR: MOV     CRCQE,R4
+        BIS     #HDERR$,@-(R4)
+ABORTB: BR      ABORT
+ERROR:  BIT     #DATLAT,R4
+        BNE     LERROR
+        TST     COLCNT
+        BPL     ERR1
+        BR      CARD
+ENDFIL:
+.IF EQ  MMG$T
+        MOV     (R4)+,R5
+.ENDC
+        MOV     SP,(PC)+
+EOFFLG: .WORD   0
+CLRBUF:
+.IF EQ  MMG$T
+        CLRB    (R5)+
+        DEC     @R4
+.IFF
+        CLRB    -(SP)
+        JSR     PC,@$PTBYT
+        DEC     6(R4)
+.ENDC
+        BNE     CLRBUF
+ABORT:  CLR     ENDPTR
+RETMON: MOV     R5,CHRPTR
+        CLR     @#CR$CSR
+        CLR     CRFBLK+2
+        .DRFIN  CR
+\.SBTTL CHARACTER TABLE
+.MACRO  C       $LIST
+        T=0
+.IRP    X,<$LIST>
+.IF NE  X'.
+.IF LE  X'.-7
+        T=T+X'.
+.IFF
+        U=10
+.REPT   X'.-8.
+        U=U+U
+.ENDR
+        T=T+U
+.ENDC
+.IFF
+        T=T+40
+.ENDC
+.ENDR
+        .=CHRTBL+T
+         .BYTE  $CHAR
+        $CHAR = $CHAR + 1
+.ENDM   C
+.NLIST  BEX
+CHRTBL:
+.REPT   256.
+        .BYTE   134
+.ENDR
+        .=CHRTBL
+        $CHAR = 0
+C       <12,0,9,8,1>
+C       <12,9,1>
+C       <12,9,2>
+C       <12,9,3>
+C       <9,7>
+C       <0,9,8,5>
+C       <0,9,8,6>
+C       <0,9,8,7>
+C       <11,9,6>
+C       <12,9,5>
+C       <0,9,5>
+C       <12,9,8,3>
+C       <12,9,8,4>
+C       <12,9,8,5>
+C       <12,9,8,6>
+C       <12,9,8,7>
+C       <12,11,9,8,1>
+C       <11,9,1>
+C       <11,9,2>
+C       <11,9,3>
+C       <9,8,4>
+C       <9,8,5>
+C       <9,2>
+C       <0,9,6>
+C       <11,9,8>
+C       <11,9,8,1>
+C       <9,8,7>
+C       <0,9,7>
+C       <11,9,8,4>
+C       <11,9,8,5>
+C       <11,9,8,6>
+C       <11,9,8,7>
+C       <>
+C       <12,8,7>
+C       <8,7>
+C       <8,3>
+C       <11,8,3>
+C       <0,8,4>
+C       <12>
+C       <8,5>
+C       <12,8,5>
+C       <11,8,5>
+C       <11,8,4>
+C       <12,8,6>
+C       <0,8,3>
+C       <11>
+C       <12,8,3>
+C       <0,1>
+C       <0>
+C       <1>
+C       <2>
+C       <3>
+C       <4>
+C       <5>
+C       <6>
+C       <7>
+C       <8>
+C       <9>
+C       <8,2>
+C       <11,8,6>
+C       <12,8,4>
+C       <8,6>
+C       <0,8,6>
+C       <0,8,7>
+C       <8,4>
+C       <12,1>
+C       <12,2>
+C       <12,3>
+C       <12,4>
+C       <12,5>
+C       <12,6>
+C       <12,7>
+C       <12,8>
+C       <12,9>
+C       <11,1>
+C       <11,2>
+C       <11,3>
+C       <11,4>
+C       <11,5>
+C       <11,6>
+C       <11,7>
+C       <11,8>
+C       <11,9>
+C       <0,2>
+C       <0,3>
+C       <0,4>
+C       <0,5>
+C       <0,6>
+C       <0,7>
+C       <0,8>
+C       <0,9>
+C       <12,8,2>
+C       <0,8,2>
+C       <11,8,2>
+C       <11,8,7>
+C       <0,8,5>
+C       <8,1>
+C       <12,0,1>
+C       <12,0,2>
+C       <12,0,3>
+C       <12,0,4>
+C       <12,0,5>
+C       <12,0,6>
+C       <12,0,7>
+C       <12,0,8>
+C       <12,0,9>
+C       <12,11,1>
+C       <12,11,2>
+C       <12,11,3>
+C       <12,11,4>
+C       <12,11,5>
+C       <12,11,6>
+C       <12,11,7>
+C       <12,11,8>
+C       <12,11,9>
+C       <11,0,2>
+C       <11,0,3>
+C       <11,0,4>
+C       <11,0,5>
+C       <11,0,6>
+C       <11,0,7>
+C       <11,0,8>
+C       <11,0,9>
+C       <12,0>
+C       <12,11>
+C       <11,0>
+C       <11,0,1>
+C       <12,9,7>
+. = CHRTBL + 256.
+.LIST   BEX
+CHRBUF: .BLKW   81.
+CRFBLK: .WORD   0,0,0,0
+        .DREND  CR
+.END
+\

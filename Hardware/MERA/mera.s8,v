@@ -1,0 +1,1568 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @;@;
+
+
+1.2
+date     86.12.15.11.04.48;  author tolik;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.15.10.37.17;  author tolik;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Вставлен алгоритм отработки задержки после ESC'па (63 такта)
+@
+text
+@; Программа процессора видеотерминала MERA 7209
+; Внесенные изменения:
+; 1. Реализован режим 4-х регистров
+; 2. Отображается символ <DEL>
+; 3. Исключены режимы AUTO COPY, COPY SCREEN, идентификация дисплея ( ESC Z )
+; 4. Реализованы вставка/удаление строки и символа
+;
+; Автор изменений и комментариев Бахмуров А.Г. при участии
+;   Даниярходжаева Т.И.
+;$Log:  mera.s8,v $
+;Revision 1.1  86/12/15  10:37:17  tolik
+;Initial revision
+;
+;
+D0071       =     050h
+D0078       =     0780h   ; длина экрана
+; Некоторые сведения о микропроцессорной системе терминала.
+;
+; Память системы:
+;
+; 0000h - 07ffh  программное ПЗУ
+; 0800h - 0fffh  программное ПЗУ-2 (не используется)
+; 1000h - 1377h  ОЗУ программы
+; 3000h - 37ffh  ОЗУ экрана (используется лишь 0780h байтов)
+;
+; Порты ввода - вывода
+;
+; 00h - регистр данных линии
+; 01h - регистр управления линии
+; 08h - регистр данных клавиатуры
+; 09h - регистр данных печати
+; 0ah - регистр порта C парал. интерфейса (старшая половина - световые
+;       индикаторы передней панели, младшая - сигналы синхронизации
+;       клавиатуры и печати
+; 0bh - регистр управл. слова парал. интерфейса
+; 10h - ввод: состояние переключателя режимов работы (М31 по схеме)
+; 18h - звуковой сигнал.
+;
+; Более подробную информацию можно получить при изучении документации на
+; терминал.
+;
+; Распределение оперативной памяти
+;
+; 1000h - 10ffh,
+; 1100h - 117fh буфера данных от ЭВМ
+; 1180h - 1197h что-то для строк, используемое в режимах AUTO COPY и COPY SCR.
+; 1198h -       ?
+; 11a0h -       сохранение символа под курсором
+; 11a1h - 11a2h адрес позиции курсора в ОЗУ экрана
+; 11a5h -       режимы работы: line, дуплекс, alt key, auto copy.
+; 11a6h -       ? (что-то для посылки CY/S, CY/Q)
+; 11a7h -       режим последоват. интерфейса линии
+; 11a8h -       бит 7: 0 - HOLD SCREEN, 1 - нет; мл. разряды - число выводимых
+;               строк ( 1 или 24 )
+; 11a9h -       число символов ESC-последовательности (не считая ESC); 1 или 2
+; 11aah -       режим контроля четности;
+; 11abh - 11ach символы ESC-последовательности
+; 11adh -       "завещание"; номер по таблице ATABL ESC-функции, кот. надо
+;               выполнить перед отображением следующего символа
+
+
+D0071       =     050h
+D0078       =     0780h   ; длина экрана
+DNUM        =     03fh     ; число пропускаемых циклов для ESC - п-тей  (63)
+
+	    lxi   sp,01400h
+	    mvi   a,081h  ; 201
+	    out   001h  ; 001
+	    mvi   a,095h  ; 225
+	    out   00bh  ; 013
+	    out   010h  ; 020
+	    out   018h  ; 030
+	    mvi   a,005h  ; 005
+	    out   00bh  ; 013
+	    mvi   a,0c4h  ; 304
+	    call  L0000
+	    lxi   h,03000h
+	    shld  011a1h
+	    mvi   h,038h  ; 8
+	    inr   m
+	    in    010h  ; 020
+	    call  L0001
+	    mvi   a,088h  ; 210
+	    sta   011adh
+	    sta   011a8h
+	    call  L0002
+	    call  INICNT
+	    jmp   L0003
+	    rst   7
+; Вход по прерыванию
+	    push  psw
+	    push  h
+	    push  b
+	    lda   011a5h
+	    ana   a
+	    jm    L0004
+	    lxi   h,D0005
+	    push  h
+	    in    000h  ; 000
+	    ani   07fh  ; 177
+	    mov   b,a
+	    in    001h  ; 001
+	    ani   028h  ; (
+	    jnz   L0006
+	    mov   a,b
+	    ana   a
+	    rz
+;           cpi   07fh  ; 177
+;           rz
+L0013:      call  L0007
+	    mov   a,l
+	    sta   0119ah
+	    lxi   h,011a6h
+	    jz    L0008
+	    sub   c
+	    ani   07fh  ; 177
+	    cpi   060h  ; `
+	    rc
+	    mov   a,m
+	    ani   080h  ; 200
+	    jm    L0009
+L0012:      mov   b,a
+	    in    001h  ; 001
+	    rrc
+	    mov   a,b
+	    mvi   b,013h  ; 023
+	    jc    L0010
+	    ora   b
+L0009:      mov   m,a
+	    ret
+L0010:      mvi   m,080h  ; 200
+	    jmp   L0011
+L0008:      mov   a,m
+	    ani   080h  ; 200
+	    jmp   L0012
+L0014:      lxi   h,011a7h
+	    mov   a,m
+	    ori   010h  ; 020
+	    mov   m,a
+	    jmp   L0013
+L0006:      mvi   b,07fh  ; 177
+	    in    001h  ; 001
+	    rrc
+	    jnc   L0014
+	    mvi   a,037h  ; 7
+	    out   001h  ; 001
+	    jmp   L0013
+L0004:      mvi   a,020h  ;
+	    out   001h  ; 001
+	    sta   011a7h
+D0005:      pop   b
+	    pop   h
+	    pop   psw
+	    ei
+	    ret
+L0007:      di
+	    lhld  0119ah
+	    mov   c,h
+	    mov   a,l
+	    lxi   h,01100h
+	    mov   l,a
+L0030:      mov   a,l
+	    inr   a
+	    ani   07fh  ; 177
+	    cmp   c
+	    rz
+	    mov   m,b
+	    mov   l,a
+	    ret
+L0003:      call  L0015
+	    call  L0016
+	    call  L0017
+	    jmp   L0003
+L0015:      lda   011a5h
+	    mov   e,a
+	    ana   a
+	    jm    L0018
+	    in    001h  ; 001
+	    rrc
+	    rnc
+	    lxi   h,011a9h
+	    dcr   m
+	    jm    L0019
+; Отсчет циклов для задержки
+	    lxi   h,11c0h
+	    dcr   m
+	    jz    L      ; прошло нужное количество осн. циклов
+	    lxi   h,011a9h
+	    jmp   L0019
+L:          mvi   m,DNUM
+	    lda   011a9h
+	    ana   a
+;Вывод ESC-последовательности
+	    lhld  011abh
+	    mov   b,l
+	    jnz   L0020
+	    mov   b,h
+L0020:      lda   011a7h
+	    out   001h  ; 001
+	    ani   027h  ; '
+	    sta   011a7h
+L0011:      lda   011aah
+	    ora   b
+	    out   000h  ; 000
+	    ret
+L0019:      inr   m
+	    di
+	    lxi   h,011a6h
+	    mov   a,m
+	    ani   01fh  ; 037
+	    jz    L0018
+	    mov   b,a
+	    rrc
+	    rrc
+	    ani   080h  ; 200
+	    mov   m,a
+	    ei
+	    jmp   L0020
+L0018:      ei
+	    in    00ah  ; 012
+	    ani   008h  ; 010
+	    jz    L0021
+	    out   010h  ; 020
+	    lda   011b7h
+	    ana   a
+	    jnz   L0022
+	    mvi   a,0f9h  ; 371
+	    sta   011b7h
+	    lda   0119ch
+	    cpi   04fh  ; O
+	    cnc   L0023
+	    in    008h  ; 010
+	    cma
+	    mov   b,a
+	    ana   a
+	    jm    L0024 ; упр. клавиша
+
+L0032:      cpi   00eh  ; 016
+	    cz    CTRN
+	    cpi   00fh  ; 017
+	    cz    CTRO
+	    mov   a,e
+	    ani   0c0h  ; 300
+	    jz    L0020
+	    mov   a,b
+;           cpi   07fh  ; 177
+;           jz    L0025
+	    call  L0007
+L0031:      mov   a,l
+	    sta   0119ah
+	    ei
+L0025:      mov   a,e
+	    ana   a
+	    rm
+	    jmp   L0020
+L0022:      inr   a
+L0021:      sta   011b7h
+	    ret
+L0024:      ani   07fh  ; 177
+	    mov   b,a
+	    mvi   a,052h  ; R
+	    cmp   b
+	    rc
+	    mvi   a,04fh  ; O
+	    cmp   b
+	    jc    L0026
+	    mvi   a,044h  ; D
+	    cmp   b
+	    rc
+	    mvi   a,040h  ; @@
+	    cmp   b
+	    jc    L0026
+	    mvi   a,039h  ; 9
+	    cmp   b
+	    rc
+	    mvi   a,02fh  ; /
+	    cmp   b
+	    jc    L0027
+	    dcr   a
+	    cmp   b
+	    jz    L0027
+	    mvi   a,00dh  ; 015
+	    cmp   b
+	    jz    L0027
+	    mvi   c,001h  ; 001
+	    xra   a
+	    cmp   b
+	    jz    L0028   ; ROL
+	    mvi   c,018h  ; 030
+	    inr   a
+	    cmp   b
+	    jz    L0028   ; SHIFT/ROL
+
+ ;  проверка нажатия клавиш COPY и BREAK
+
+	    inr   a
+	    cmp   b
+	    jz    COPY
+	    inr   a
+	    cmp   b
+	    jnz   NTEST   ; не COPY и не SHIFT/COPY
+
+;  COPY = русский регистр
+COPY:       mvi   b,00eh  ; 016
+	    mov   a,b
+	    jmp   L0032   ; смоделировать посылку CTRL/N с клав.
+
+NTEST:      inr   a
+	    cmp   b
+	    jz    BREAK
+	    inr   a
+	    cmp   b
+	    rnz           ; не BREAK и не SHIFT/BREAK
+
+;  BREAK = латинский регистр
+BREAK:      mvi   b,00fh  ; 017
+	    mov   a,b
+	    jmp   L0032   ; смоделировать посылку CTRL/O с клав.
+
+;  ESC
+L0026:      mov   a,b
+	    mov   d,b
+	    sta   011ach
+	    mvi   a,001h  ; 001
+	    sta   011a9h
+	    mov   a,e
+	    ani   0c0h  ; 300
+	    mvi   b,01bh  ; 033
+	    jz    L0020
+	    call  L0007
+L0033:      mov   b,d
+	    call  L0030
+	    mvi   b,01bh  ; 033
+	    jmp   L0031
+L0027:      mov   a,e
+	    ani   020h  ;
+	    jz    L0032
+	    mov   a,b
+	    ori   040h  ; @@
+	    mov   b,a
+	    mvi   l,03fh  ; ?
+	    mov   h,b
+	    shld  011abh
+	    mvi   a,002h  ; 002
+	    sta   011a9h
+	    mov   d,b
+	    mov   a,e
+	    ani   0c0h  ; 300
+	    mvi   b,01bh  ; 033
+	    jz    L0020
+	    call  L0007
+	    mvi   b,03fh  ; ?
+	    call  L0030
+	    jmp   L0033
+L0028:      lxi   h,011a8h
+	    mov   a,m
+	    ana   a
+	    rm
+	    mov   m,c
+	    xra   a
+	    sta   011b8h
+	    lda   011a6h
+	    ana   a
+	    rp
+	    mvi   a,011h  ; 021
+	    sta   011a6h
+	    ret
+
+CTRN:       lda   011a5h
+	    ori   010h     ; 020, зажечь лампочку AUTO COPY ( рус. рег. )
+	    sta   011a5h
+	    ret
+
+CTRO:       lda   11a5h
+	    ani   0efh     ; ~020, погасить лампочку AUTO COPY
+	    sta   11a5h
+	    ret
+
+M5d:        ret            ; режим отключен
+;            lxi   d,0e800h
+;L0094:      lda   0119eh
+;            add   e
+;            call  L0034
+;            mov   e,a
+;            lxi   h,01180h
+;            mov   b,l
+;            add   l
+;            mov   l,a
+;            mov   c,d
+;            mov   a,e
+;L0036:      inr   m
+;            inx   h
+;            inr   a
+;            cpi   018h  ; 030
+;            jc    L0035
+;            xra   a
+;            mov   l,b
+;L0035:      inr   c
+;            jm    L0036
+;            mov   b,e
+;            call  L0037
+;            mov   a,b
+;L0040:      inr   d
+;            jp    L0038
+;            call  L0039
+;            mov   m,a
+;            inr   l
+;            jmp   L0040
+;L0038:      mov   a,l
+;            sta   01198h
+;            sub   c
+;            cpi   0c8h  ; 310
+;            rc
+;            mvi   a,001h  ; 001
+
+L0097:      lxi   h,011a5h
+	    ora   m
+	    mov   m,a
+	    ret
+
+;L0037:      lhld  01198h
+;            mov   c,h
+;            mov   a,l
+;            lxi   h,01000h
+;            mov   l,a
+;            mov   m,b
+;            inr   l
+;            ret
+L0017:      lda   011a5h
+	    rrc
+	    jc    L0041
+	    lxi   h,011adh
+	    mov   a,m
+	    mvi   m,000h  ; 000
+	    mov   b,a
+	    mov   c,a
+	    ana   a
+	    jm    L0042
+	    jnz   L0043
+	    di
+	    lhld  0119ah
+	    mov   a,h
+	    mov   c,l
+	    cmp   l
+	    jz    L0044
+	    lxi   h,01100h
+	    mov   l,a
+	    mov   b,m
+	    inr   a
+	    ani   07fh  ; 177
+	    sta   0119bh
+	    sub   c
+	    cma
+	    ani   07fh  ; 177
+	    cpi   010h  ; 020
+	    cc    L0045
+	    ei
+L0043:      mov   a,b
+	    lhld  011aeh
+	    cpi   020h  ;
+	    jc    L0046
+	    pchl
+L0046:      cpi   007h  ; 007
+	    jz    L0023
+	    cpi   00ah  ; 012
+	    jz    L0047
+	    cpi   00eh  ; 016
+	    jz    RUS
+	    cpi   00fh  ; 017
+	    jz    LAT
+	    cpi   01bh  ; 033
+	    jz    L0048
+	    call  L0049
+	    mov   a,b
+	    cpi   008h  ; 010
+	    jz    L0050
+	    cpi   009h  ; 011
+	    jz    L0051
+	    cpi   00dh  ; 015
+	    jz    L0052
+	    ret
+L0048:      call  L0053
+	    cpi   059h  ; Y
+	    jz    L0054
+	    call  L0002
+	    lxi   h,CTABL
+	    mov   c,m
+L0056:      inr   c
+	    inx   h
+	    mov   a,m
+	    ana   a
+	    rm
+	    cmp   b
+	    jnz   L0056
+L0042:      lxi   h,ATABL
+	    mov   a,c
+	    add   a
+	    mov   e,a
+	    mvi   d,000h  ; 000
+	    dad   d
+	    mov   e,m
+	    inx   h
+	    mov   d,m
+	    push  d
+L0049:      lhld  0119fh
+	    xchg
+	    lhld  011a1h
+	    mov   a,e
+	    xri   080h  ; 200
+	    rm
+	    sta   0119fh
+	    mov   m,d
+	    ret
+ATABL:      dw    M41
+	    dw    M42
+	    dw    M43
+	    dw    M44
+	    dw    M46
+	    dw    M47
+	    dw    M48
+	    dw    M49
+	    dw    M4a
+	    dw    M4b
+	    dw    M5a
+	    dw    M3d
+	    dw    M3e
+	    dw    M5b
+	    dw    M5c
+	    dw    M5d
+	    dw    M5e
+	    dw    M5f
+	    dw    INSLIN
+	    dw    DELLIN
+	    dw    INSCH
+	    dw    DELCH
+CTABL:      db    7fh
+	    db    41h
+	    db    42h
+	    db    43h
+	    db    44h
+	    db    46h
+	    db    47h
+	    db    48h
+	    db    49h
+	    db    4ah
+	    db    4bh
+	    db    5ah
+	    db    3dh
+	    db    3eh
+	    db    5bh
+	    db    5ch
+	    db    5dh
+	    db    5eh
+	    db    5fh
+	    db    4eh
+	    db    4fh
+	    db    50h
+	    db    51h
+	    db    80h
+
+L0002:      lxi   h,PRSYM
+	    shld  011aeh
+	    ret
+L0053:      pop   h
+	    shld  011aeh
+	    ret
+PRSYM:      lhld  0119dh
+	    mov   a,h
+	    add   l
+	    call  L0034
+	    call  L0062
+	    jnz   L0063
+	    call  L0049
+	    mov   a,b
+	    cpi   05eh  ; ^
+	    jc    L0064
+	    cpi   07fh  ; 177
+	    jz    L0064
+	    lda   011b0h; проверка графич. режима
+	    rrc
+	    jc    L0065 ; уст. режим графики
+	    mov   a,b
+L0064:      mov   b,a
+	    lda   011b0h
+	    ani   080h   ; 0200
+	    ora   b      ; если русский регистр, то уст. разряд 7
+	    mov   m,a
+M43:        lda   0119ch
+	    cpi   04fh  ; O
+	    rnc
+	    inr   a
+	    sta   0119ch
+	    inx   h
+	    shld  011a1h
+	    ret
+L0065:      mov   a,b
+	    sui   060h  ; `
+	    jp    L0064
+	    mvi   a,020h  ;
+	    jmp   L0064
+L0063:      mov   a,b
+L0083:      sta   011adh
+	    jmp   L0041
+L0051:      lda   0119ch
+	    mov   b,a
+	    cpi   048h  ; H
+	    jnc   L0066
+	    ani   0f8h  ; 370
+	    adi   008h  ; 010
+	    sub   b
+	    mov   c,a
+	    add   b
+	    mvi   b,000h  ; 000
+	    jmp   L0067
+L0066:      cpi   04fh  ; O
+	    rz
+	    inr   a
+	    inx   h
+	    jmp   L0068
+M44:
+L0050:      lda   0119ch
+	    dcr   a
+	    rm
+	    dcx   h
+	    jmp   L0068
+L0052:      lda   0119ch
+	    cma
+	    mov   c,a
+	    mvi   b,0ffh  ; 377
+	    inx   b
+	    xra   a
+L0067:      dad   b
+L0068:      shld  011a1h
+	    sta   0119ch
+	    ret
+
+;   установить режим русского регистра
+RUS:        lda   011b0h
+	    ori   080h
+	    sta   011b0h
+	    ret
+
+;   установить режим латинского регистра
+LAT:        lda   011b0h
+	    ani   07fh
+	    sta   011b0h
+	    ret
+
+;   BELL
+L0023:      out   018h  ; 030
+	    ret
+
+;   <ВК>
+L0047:      lhld  0119dh
+	    mov   a,l
+	    cpi   017h  ; 027
+	    jc    L0069
+	    lda   011a8h
+	    ana   a
+	    jz    L0070
+	    mov   a,h
+	    call  L0062
+	    jnz   L0063
+L0069:      call  L0049
+L0080:      lxi   d,D0071
+	    dad   d
+	    shld  011a1h
+	    lxi   d,0c880h
+	    dad   d
+	    jnc   L0072
+	    mvi   h,030h  ; 0
+	    lda   0119ch
+	    mov   a,l
+	    shld  011a1h
+L0072:      lhld  0119dh
+	    xchg
+;           lda   011a5h
+;           ani   010h     ; 020
+;           jz    L0073
+;            jmp    L0073    ;искл. режим AUTO COPY
+;            lxi   h,01180h
+;            mov   a,e
+;            add   d
+;            call  L0034
+;            mov   b,a
+;            add   l
+;            mov   l,a
+;            inr   m
+;            call  L0037
+;            call  L0038
+L0073:      mov   a,e
+	    inr   a
+	    cpi   018h  ; 030
+	    jnc   L0074
+	    sta   0119dh
+	    ret
+L0070:      call  L0063
+	    lda   011b8h
+	    ana   a
+	    rnz
+	    inr   a
+	    sta   011b8h
+	    lxi   h,011a6h
+	    di
+	    call  L0008
+	    ei
+	    ret
+L0074:      lxi   h,011a8h
+	    mov   a,m
+	    ana   a
+	    jm    L0075
+	    dcr   m
+L0075:      mov   a,d
+	    mov   c,d
+	    call  L0039
+L0085:      sta   0119eh
+	    rrc
+	    rrc
+	    ori   038h  ; 8
+	    mov   h,a
+	    mov   m,a
+L0089:      call  L0076
+	    lxi   d,D0071
+	    dad   d
+	    xchg
+	    lxi   h,00000h
+	    dad   sp
+	    xchg
+	    sphl
+	    xchg
+	    lxi   d,02020h
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    di
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    push  d
+	    sphl
+	    ei
+	    ret
+L0045:      lxi   h,011a6h
+	    mov   a,m
+	    ani   080h  ; 200
+	    jz    L0077
+	    mvi   a,091h  ; 221
+L0077:      mov   m,a
+	    ret
+L0076:      mov   a,c
+	    rlc
+	    rlc
+	    add   c
+	    rlc
+	    rlc
+	    rlc
+	    rlc
+	    mov   l,a
+	    ani   00fh  ; 017
+	    ori   030h  ; 0
+	    mov   h,a
+	    mov   a,l
+	    ani   0f0h  ; 360
+	    mov   l,a
+	    ret
+L0062:      lxi   d,01180h
+	    add   e
+	    mov   e,a
+	    ldax  d
+	    ana   a
+	    ret
+L0039:      inr   a
+L0034:      cpi   018h  ; 030
+	    rc
+	    sui   018h  ; 030
+	    ret
+L0081:      call  L0049
+M41:        lda   0119dh
+	    dcr   a
+	    rm
+	    sta   0119dh
+L0084:      lxi   d,0ffb0h
+L0079:      dad   d
+	    shld  011a1h
+	    mov   a,h
+	    cpi   030h  ; 0
+	    rnc
+	    lxi   d,D0078
+	    jmp   L0079
+M42:        lda   0119dh
+	    cpi   017h  ; 027
+	    rnc
+	    jmp   L0080
+M46:        lda   011b0h
+	    ori   001h  ; 001
+	    sta   011b0h
+	    ret
+M47:        lda   011b0h
+	    ani   0feh  ; 376
+	    sta   011b0h
+	    ret
+M48:        lxi   h,00000h
+	    shld  0119ch
+	    lda   0119eh
+	    mov   c,a
+	    call  L0076
+	    shld  011a1h
+	    ret
+;  ESC I
+M49:        lda   0119dh
+	    dcr   a
+	    jp    L0081
+	    lda   0119eh
+	    dcr   a
+	    jp    L0082
+	    mvi   a,017h  ; 027
+L0082:      mov   c,a
+	    call  L0062
+	    mvi   a,087h  ; 207
+	    jnz   L0083
+	    call  L0049
+	    call  L0084
+	    mov   a,c
+	    jmp   L0085
+;  ESC J
+M4a:        lhld  0119dh
+	    mvi   a,017h  ; 027
+	    sub   l
+	    mov   b,a
+	    mov   a,l
+	    add   h
+	    mov   h,a
+	    mov   l,b
+L0087:      call  L0034
+	    mov   c,a
+	    call  L0062
+	    jnz   L0086
+	    mov   a,c
+	    inr   a
+	    dcr   b
+	    jp    L0087
+	    mov   b,l
+	    mov   a,h
+	    call  L0034
+	    mov   c,a
+	    call  L0088
+L0090:      dcr   b
+	    rm
+	    mov   a,c
+	    call  L0039
+	    mov   c,a
+	    call  L0089
+	    jmp   L0090
+L0086:      mvi   a,088h  ; 210
+	    jmp   L0083
+M4b:        lhld  0119dh
+	    mov   a,l
+	    add   h
+	    call  L0034
+	    mov   c,a
+	    call  L0062
+	    mvi   a,089h  ; 211
+	    jnz   L0083
+L0088:      call  L0049
+	    lda   0119ch
+	    sui   050h  ; P
+	    mvi   e,020h  ;
+L0091:      mov   m,e
+	    inx   h
+	    inr   a
+	    jm    L0091
+	    ret
+L0054:      call  L0053
+	    sui   020h  ;
+	    sta   011b1h
+	    call  L0053
+	    call  L0002
+	    call  L0049
+	    mvi   a,081h  ; 201
+	    sta   011a3h
+	    mov   a,b
+	    sui   020h  ;
+	    cpi   050h  ; P
+	    jc    L0092
+	    mvi   a,04fh  ; O
+L0092:      sta   0119ch
+	    mov   e,a
+	    mvi   d,000h  ; 000
+	    lxi   h,0119dh
+	    mov   b,m
+	    lda   011b1h
+	    cpi   018h  ; 030
+	    jc    L0093
+	    mov   a,b
+L0093:      mov   m,a
+	    mov   c,a
+	    mov   a,b
+	    sta   011b1h
+	    sub   c
+	    mov   b,a
+	    lda   0119eh
+	    add   c
+	    call  L0034
+	    mov   c,a
+	    call  L0076
+	    dad   d
+	    shld  011a1h
+   ;        lda   011a5h
+   ;        ani   010h  ; 020
+	    ret
+   ;         mov   a,b
+   ;         ana   a
+   ;         rp
+   ;         mov   d,b
+   ;         lda   011b1h
+   ;         mov   e,a
+   ;         jmp   L0094
+M5a:        ret
+;            lxi   h,04c2fh
+;            lda   011b2h
+;            ana   a
+;            jp    L0095
+;            mvi   a,00dh  ; 015
+;            out   009h  ; 011
+;            mvi   b,000h  ; 000
+;L0096:      in    00ah  ; 012
+;            rrc
+;            jc    L0095
+;            inr   b
+;            jnz   L0096
+;            dcr   h
+;L0095:      in    001h  ; 001
+;            rrc
+;            jnc   L0095
+;            shld  011abh
+;            mvi   a,002h  ; 002
+;            sta   011a9h
+;            mvi   b,01bh  ; 033
+;            lda   011a5h
+;           mov   e,a
+;            ani   0c0h  ; 300
+;            jz    L0020
+;            mov   d,h
+;            di
+;            call  L0007
+;            mvi   b,02fh  ; /
+;            call  L0030
+;            jmp   L0033
+M3d:        mvi   a,020h  ;
+	    jmp   L0097
+M3e:        mvi   a,0dfh  ; 337
+L0098:      lxi   h,011a5h
+	    ana   m
+	    mov   m,a
+	    ret
+M5b:        xra   a
+	    sta   011a8h
+	    ret
+M5c:        mvi   a,080h  ; 200
+	    sta   011a8h
+	    ret
+M5e:        ret
+;            mvi   a,010h  ; 020
+;            jmp   L0097
+M5f:        ret
+;            mvi   a,0efh  ; 357
+;            jmp   L0098
+L0016:      lda   011b2h
+	    ana   a
+	    jp    L0099
+	    lhld  01198h
+	    mov   a,h
+	    cmp   l
+	    rz
+	    mov   b,l
+	    lxi   h,01000h
+	    mov   l,a
+	    mov   c,m
+	    inr   a
+	    sta   01199h
+	    sub   b
+	    cma
+	    inr   a
+	    cpi   0c8h  ; 310
+	    mvi   a,0feh  ; 376
+	    cc    L0098
+	    call  L0076
+	    shld  011b5h
+	    mov   a,c
+	    sta   011b3h
+	    lxi   d,D0071
+	    dad   d
+	    mvi   b,0b0h  ; 260
+	    mvi   a,020h  ;
+L0101:      dcx   h
+	    cmp   m
+	    jnz   L0100
+	    inr   b
+	    jm    L0101
+L0100:      mov   a,b
+	    sta   011b4h
+L0105:      lhld  011b5h
+	    mov   b,m
+	    inx   h
+	    shld  011b5h
+	    dcx   h
+	    xchg
+	    lhld  011a1h
+	    mov   a,h
+	    xra   d
+	    mov   d,a
+	    mov   a,l
+	    xra   e
+	    ora   d
+	    jnz   L0102
+	    lda   0119fh
+	    ana   a
+	    jp    L0102
+	    lda   011a0h
+	    mov   b,a
+L0102:      mov   a,b
+	    cpi   020h  ;
+	    jnc   L0103
+	    mvi   b,020h  ;
+L0103:      lxi   d,011b4h
+	    ldax  d
+	    ana   a
+	    jm    L0104
+	    mvi   b,00ah  ; 012
+	    jz    L0104
+	    mvi   a,0ffh  ; 377
+	    sta   011b2h
+	    lda   011b3h
+	    call  L0062
+	    rz
+	    dcr   a
+	    stax  d
+	    ret
+L0104:      inr   a
+	    stax  d
+	    mov   a,b
+	    out   009h  ; 011
+	    mvi   a,00ah  ; 012
+	    sta   011b2h
+	    ret
+L0099:      mov   b,a
+	    in    00ah  ; 012
+	    rrc
+	    jc    L0105
+	    mov   a,b
+	    ana   a
+	    rnz
+	    mvi   a,0e6h  ; 346
+L0000:      lxi   h,01180h
+L0106:      mvi   m,000h  ; 000
+	    inx   h
+	    inr   a
+	    jm    L0106
+	    mvi   a,0eeh  ; 356
+	    sta   011b2h
+	    jmp   L0098
+L0044:      ei
+L0041:      lxi   h,0119fh
+	    in    010h  ; 020
+	    mov   c,a
+	    xra   m
+	    ani   080h  ; 200
+	    jz    L0107
+	    xra   m
+	    mov   b,a
+	    lda   011a3h
+	    ana   a
+	    jm    L0108
+	    mov   m,b
+	    lxi   h,011b2h
+	    mov   a,m
+	    dcr   a
+	    jm    L0109
+	    mov   m,a
+L0109:      mov   a,b
+	    lhld  011a1h
+	    ana   a
+	    jp    L0110
+	    mov   a,m
+	    mvi   m,001h  ; 001
+	    sta   011a0h
+	    ret
+L0110:      lda   011a0h
+	    mov   m,a
+	    ret
+L0108:      lxi   h,011a4h
+	    inr   m
+	    rnz
+	    mvi   m,0fch  ; 374
+	    dcx   h
+	    inr   m
+	    ret
+L0107:      lda   011a5h
+	    xri   080h  ; 200
+	    ani   0b0h  ; 260
+	    mov   b,a
+	    ani   020h  ;
+	    add   b
+	    mov   b,a
+	    lda   011a8h
+	    cma
+	    rrc
+	    rrc
+	    ani   020h  ;
+	    ora   b
+	    out   00ah  ; 012
+	    mov   a,c
+	    ani   0fch  ; 374
+	    cmp   m
+	    rz
+	    mov   m,a
+L0001:      ani   07fh  ; 177
+	    mov   c,a
+	    lxi   h,011a5h
+	    mov   a,m
+	    ani   03fh  ; ?
+	    mov   d,a
+	    mov   a,c
+	    rlc
+	    rlc
+	    mov   e,a
+	    cma
+	    ani   080h  ; 200
+	    ora   c
+	    ani   0c0h  ; 300
+	    ora   d
+	    mov   m,a
+	    mov   a,e
+	    rlc
+	    rlc
+	    ani   080h  ; 200
+	    sta   011aah
+	    mov   a,e
+	    ani   030h  ; 0
+	    ori   04eh  ; N
+	    mov   c,a
+	    mov   a,e
+	    rlc
+	    ani   080h  ; 200
+	    ora   c
+	    mov   e,a
+	    ani   010h  ; 020
+	    rrc
+	    rrc
+	    xra   e
+	    mov   e,a
+	    mvi   a,040h  ; @@
+	    out   001h  ; 001
+	    mov   a,e
+	    out   001h  ; 001
+	    mvi   a,037h  ; 7
+	    out   001h  ; 001
+	    sta   011a7h
+	    in    000h  ; 000
+	    in    000h  ; 000
+	    ret
+;  Некоторые предварительные действия перед вставкой (удалением) строки
+;  b = относит. номеру последней (текущей) строки
+
+INIT:       call  L0049 ; если на экране курсор, то восст. символ в тек. поз.
+
+
+	    lda   119eh ; a = номеру начальной строки
+	    add   b
+	    call  L0034
+	    mov   c,a   ; физический номер последней (текущ.) строки экрана
+
+	    lda   119dh
+	    mov   l,a
+	    mvi   a,017h
+	    sub   l     ; номер тек.строки
+	    mov   b,a   ; количество пересылаемых строк
+	    ret
+
+; Вставка строки
+  INSLIN:   mvi   b,017h
+	    call  INIT
+	    jz    CLEAR ; a=0, надо лишь очистить тек.строку
+
+	    call  L0076 ; HL := адрес начала последней строки
+
+	    dcx   h
+	    call  CHECK  ; скорректировать hl при перех. через край экрана
+	    push  h
+	    lxi   d,0050h
+	    dad   d
+	    call  CHECK1
+	    pop   d      ; hl - "to", de - "from"
+
+
+;  пересылка
+
+STLOOP:     mvi   c,050h ; число повторений внутр. цикла
+SYMLP:      ldax  d
+	    mov   m,a
+	    dcx   h
+	    dcx   d
+	    dcr   c
+	    jnz   SYMLP
+
+	    call  CHECK
+	    xchg
+	    call  CHECK
+	    xchg
+
+	    dcr   b
+	    jnz   STLOOP
+
+;   очистка тек.строки
+
+CLEAR:      lhld  119dh
+	    mov   a,l
+	    add   h
+	    call  L0034
+	    mov   c,a
+	    jmp   FIN
+
+CHECK:      mov   a,h
+	    cpi   030h
+	    rnc
+	    push  d
+	    lxi   d,0780h
+	    dad   d
+	    pop   d
+	    ret
+
+; Удаление строки
+
+DELLIN:     lda   119dh
+	    mov   b,a
+	    call  INIT
+	    jz    CLEAR1
+
+	    call  L0076
+
+	    push  h
+	    lxi   d,0050h
+	    dad   d
+	    call  CHECK1
+	    pop   d ;hl - "from", de - "to"
+
+
+; пересылка
+
+LNLP1:      mvi   c,050h
+SYMLP1:     mov   a,m
+	    stax  d
+	    inx   h
+	    inx   d
+	    dcr   c
+	    jnz   SYMLP1
+	    call  CHECK1
+	    xchg
+	    call  CHECK1
+	    xchg
+	    dcr   b
+	    jnz   LNLP1
+
+
+CLEAR1:     lda   119eh
+	    adi   017h
+	    call  L0034
+	    mov   c,a
+
+FIN:        call   L0089
+;            lhld   011a1h
+;            mov    a,m
+;            sta    011a0h
+	    ret
+
+CHECK1:     mov   a,h
+	    cpi   037h
+	    rc
+	    mov   a,l
+	    cpi   080h
+	    rc
+	    push  d
+	    lxi   d,0f880h ; -780h
+	    dad   d
+	    pop   d
+	    ret
+
+
+; Некоторые предваритетельные действия при вставке/удалении символа
+
+INITCH:     call  L0049
+	    lda   119ch
+	    mov   c,a
+	    mvi   a,04fh ;79 - длина строки без 1
+	    sub   c
+	    mov   c,a    ; c = число пересылок
+	    lhld  11a1h
+	    ret
+
+; Вставка символа
+
+INSCH:      call  INITCH
+	    rz
+	    xra   a
+	    mov   b,a   ; очистить b
+
+	    dad   b     ; hl указывает на конец тек. строки
+	    push  h
+	    pop   d
+	    dcx   d
+
+; собственно перемещение
+; c = счетчик цикла
+; hl = указатель "to"
+; de = указатель "from"
+
+CLOOP:      ldax  d
+	    mov   m,a
+	    dcx   h
+	    dcx   d
+	    dcr   c
+	    jnz   CLOOP
+
+; пробел - в тек. позицию!
+	    mvi   m,020h ; сейчас hl = тек. позиция
+	    ret
+
+; Удаление символа
+
+DELCH:      call INITCH
+	    jz   CHCLR  ;
+	    push h
+	    pop  d
+	    inx  d      ; de = тек. позиция + 1
+
+; пересылка, c = счетчик цикла
+; hl = указатель "to"
+; de = указатель "from"
+
+CLOOP1:     ldax  d
+	    mov   m,a
+	    inx   h
+	    inx   d
+	    dcr   c
+	    jnz   CLOOP1
+CHCLR:      mvi   m,020h
+	    ret
+
+; Инициализация счетчика циклов для вывода ESC-последовательностей.
+INICNT:     mvi   a,DNUM
+	    sta   11c0h
+	    ret
+
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d10 3
+a12 1
+;$Log$
+d50 10
+a59 2
+; 11a5h -       режимы работы:
+;
+a61 2
+; Рас
+
+d64 2
+d87 1
+d90 1
+a90 3
+	    rst   7
+	    rst   7
+	    rst   7
+d184 10
+d301 1
+a301 1
+	    jnz   NTEST   ; не COPY и не SH/COPY
+d313 1
+a313 1
+	    rnz           ; не BREAK и не SH/BREAK
+d1381 6
+a1386 15
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+	    rst   7
+@

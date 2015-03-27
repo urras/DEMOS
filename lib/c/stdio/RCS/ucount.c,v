@@ -1,0 +1,62 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.14.41;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include        <stdio.h>
+#include        <utmp.h>
+
+# define        reg     register
+
+typedef struct  utmp    UTMP;
+
+static UTMP     Utstr;
+static  char    UTMPFILE[] = "/etc/utmp";
+
+/*
+ *      This routine returns the number of users currently logged
+ * on the system.  It opens the utmp file, counts users by noting
+ * non-null login names, and then closes it.
+ */
+ucount() {
+
+	reg UTMP        *uts;
+	reg int         num;
+	reg FILE        *inf;
+	reg char        *sp;
+
+	uts = &Utstr;
+	num = 0;
+	if ((inf=fopen(UTMPFILE, "r")) == NULL) {
+		perror(UTMPFILE);
+		exit(1);
+	}
+	while (fread(uts, 1, sizeof (UTMP), inf) > 0)
+		if (uts->ut_name[0] != '\0')
+			num++;
+	fclose(inf);
+	return num;
+}
+@

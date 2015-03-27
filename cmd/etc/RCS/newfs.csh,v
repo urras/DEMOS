@@ -1,0 +1,246 @@
+head     1.7;
+access   korotaev;
+symbols  ;
+locks    ;
+comment  @@;
+
+
+1.7
+date     88.09.15.15.01.35;  author korotaev;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.09.14.19.07.35;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.09.14.14.43.29;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.01.22.20.40.06;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.01.21.16.57.37;  author dburkov;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.05.18.16.19;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.05.19.21.29.39;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.7
+log
+@Исправлено деление разделов hk (в пред. раз была апшибачка).
+@
+text
+@#! /bin/csh
+#
+# Создание файловой системы
+# по имени устройства:
+# newfs -c hk1g  - создать на hk1g с отбраковкой плохих блоков
+# newfs rp2h    -            rp2h без отбраковки
+# $Header: newfs.csh,v 1.6 88/09/14 19:07:35 korotaev Exp $
+#
+unalias *
+if (  $?MSG == 0 ) set MSG=e
+if ( $MSG != 'r' ) then
+alias ediag "echo \!:1"
+else
+alias ediag "echo \!:2"
+endif
+
+set types =("hk?a" "hk?b" "hk?d"  "hk?g"  "rk?"  "rp?a" "rp?b"  "rp?c"  "rp?h"  "rx?" "fd?" "rw?a" "rw?c" "rw?h" "xp?a" "xp?b"  "xp?c"  "xp?e" "xp?f"  "xp?g"  )
+set sizes =( 5940    5280  15906   27060   4872   6000   5000   29600   40600    494   800   17984  22272  9344   5852   5434  160512   80256  80256  171798   )
+set ksizes=( 2970    2640   7953   13530   2436   3000   2500   14800   20300    247   400    8992  11136  4672   2926   2717   80256   40128  40128   85899   )
+set minter=(  3       3      3       3       5      4      4       4       4      1      1       2      2     2     2      2       2       2      2       2    )
+set ninter=(  22     22     22      22      12     20     20      20      20     18     10      32     32    32    209    209     209     209    209     209   )
+set nuboot=(  hk     00     00      hk      rk     rp     00      00      rp     00     fd      rw     00    rw    xp     00      00      00     00      xp    )
+set suboot=(   0      0      0       0       0      0      0       0       0      0      0       1      0     1     0      0       0       0      0       0    )
+#
+# Проверяем аргументы
+#
+set check=0
+if ( $1 == -c ) then
+set check=1
+shift
+endif
+new:
+set DEV=$1
+set i=0
+while ( $i < $#types)
+if ( $DEV =~ $types[$i] ) then
+goto find
+endif
+@@ i++
+end
+ediag "$DEV : type undefined. " "$DEV : неизвестный тип."
+exit 1
+find:
+set size = $ksizes[$i]
+ediag "Creating file system on $DEV size=$size Kb" "Создается файловая система на $DEV размер=$size Кбайт"
+sleep 3
+# mount | grep -s "^$DEV"
+# if ( $status == 0) then
+# ediag "Disk $DEV busy\!\!" "Диск $DEV занят, вы хотите испортить его\!\!"
+# df
+# exit 1
+# endif
+if ( ! -e /dev/r$DEV ) then
+echo /dev/r$DEV not exist
+exit 1
+endif
+if ( $check == 1 ) then
+mkfs /dev/r$DEV $size $minter[$i] $ninter[$i] -b `tstdev /dev/r$DEV $sizes[$i]`
+set s=$status
+else
+mkfs /dev/r$DEV $size $minter[$i] $ninter[$i]
+set s=$status
+endif
+if ( $s == 0 ) then
+if ( $nuboot[$i] != 00 ) dd if=/mdec/$nuboot[$i]uboot of=/dev/r$DEV count=1 seek=$suboot[$i]
+ediag "Ready " "Готово"
+df /dev/r$DEV
+shift
+if ( $#argv > 0 ) goto new
+exit 0
+else
+ediag "mkfs error" "Ошибка при работе mkfs"
+exit 1
+endif
+@
+
+
+1.6
+log
+@Изменено деление разделов hk.
+@
+text
+@d7 1
+a7 1
+# $Header: newfs.csh,v 1.5 88/09/14 14:43:29 korotaev Exp $
+d19 1
+a19 1
+set ksizes=( 2970    2640   9405   13530   2436   3000   2500   14800   20300    247   400    8992  11136  4672   2926   2717   80256   40128  40128   85899   )
+@
+
+
+1.5
+log
+@Вставлено и изменено деление дисков xp.
+@
+text
+@d7 1
+a7 1
+# $Header: newfs.csh,v 1.3 88/01/21 16:57:37 dburkov Exp $
+d18 2
+a19 2
+set sizes =( 5940    2376  18810   27060   4872   6000   5000   29600   40600    494   800   17984  22272  9344   5852   5434  160512   80256  80256  171798   )
+set ksizes=( 2970    1188   9405   13530   2436   3000   2500   14800   20300    247   400    8992  11136  4672   2926   2717   80256   40128  40128   85899   )
+@
+
+
+1.4
+log
+@Добавлены диски СМ-5404 (100 Мб).
+@
+text
+@d17 7
+a23 7
+set types =("hk?a" "hk?d"  "hk?g"  "rk?"  "rp?a" "rp?b"  "rp?c"  "rp?h"  "rx?" "fd?" "rw?a" "rw?c" "rw?h" "xp?a" "xp?b"  "xp?c"  "xp?h"  )
+set sizes =( 5940   18810   27060   4872   6000   5000   29600   40600    494   800   17984  22272  9344   9614   8778  153406  171798   )
+set ksizes=( 2970    9405   13530   2436   3000   2500   14800   20300    247   400    8992  11136  4672   4807   4389   75000   85000   )
+set minter=(  3       3       3       5      4      4       4       4      1      1       2      2     2     2      2       2       2    )
+set ninter=(  22     22      22      12     20     20      20      20     18     10      32     32    32    203    203     203     203   )
+set nuboot=(  hk     00      hk      rk     rp     00      00      rp     00     fd      rw     00    rw    xp     00      00      xp    )
+set suboot=(   0      0       0       0      0      0       0       0      0      0       1      0     1     0      0       0       0    )
+@
+
+
+1.3
+log
+@Добавлено описание xp(СМ5404). 
+@
+text
+@d7 1
+a7 1
+# $Header: newfs.csh,v 1.2 88/01/05 18:16:19 avg Exp $
+d17 7
+a23 7
+set types =("hk?a" "hk?d"  "hk?g"  "rk?"  "rp?a" "rp?b"  "rp?c"  "rp?h"  "rx?" "fd?" "rw?a" "rw?c" "rw?h" "xp?a" "xp?b"  "xp?c"  "xp?h"  "fd?" )
+set sizes =( 5940   18810   27060   4872   6000   5000   29600   40600    494   800   17984  22272  9344   9614   8778  153406  171798     800  )
+set ksizes=( 2970    9405   13530   2436   3000   2500   14800   20300    247   400    8992  11136  4672   8807   4889   14203   85899     400  )
+set minter=(  3       3       3       5      4      4       4       4      1      1       2      2     2     2      2       2       2       2   )
+set ninter=(  22     22      22      12     20     20      20      20     18     10      32     32    32    203    203     203     203     10  )
+set nuboot=(  hk     00      hk      rk     rp     00      00      rp     00     fd      rw     00    rw    xp     00      00      xp      fd   )
+set suboot=(   0      0       0       0      0      0       0       0      0      0       1      0     1     0      0       0       0       0   )
+@
+
+
+1.2
+log
+@Правлена пара ошибок и добавлен hk?b.
+@
+text
+@d7 1
+a7 1
+# $Header: newfs.csh,v 1.1 87/05/19 21:29:39 alex Exp $
+d17 7
+a23 7
+set types =("hk?a" "hk?d"  "hk?g"  "rk?"  "rp?a" "rp?b"  "rp?c"  "rp?h"  "rx?" "fd?" "rw?a" "rw?c" "rw?h")
+set sizes =( 5940   18810   27060   4872   6000   5000   29600   40600    494   800   17984  22272  9344 )
+set ksizes=( 2970    9405   13530   2436   3000   2500   14800   20300    247   400    8992  11136  4672 )
+set minter=(  3       3       3       5      4      4       4       4      1      1       2      2     2 )
+set ninter=(  22     22      22      12     20     20      20      20     18     10      32     32    32 )
+set nuboot=(  hk     00      hk      rk     rp     00      00      rp     00     fd      rw     00    rw )
+set suboot=(   0      0       0       0      0      0       0       0      0      0       1      0     1 )
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d7 1
+a7 1
+# $Header$
+d10 1
+d17 7
+a23 6
+set types =("hk?a" "hk?d"  "hk?g"  "rk?"  "rp?a" "rp?c"  "rp?h"  "rx?" "fd?" "rw?a" "rw?c" "rw?h")
+set sizes =( 5940   18810   27060   4872   6000   29600   40600   494   400   17984  22272  9344 )
+set minter=(  3       3       3       5      4      4       4      1      1       2      2     2 )
+set ninter=(  22     22      22      12     20     20      20     18     10      32     32    32 )
+set nuboot=(  hk     00      hk      rk     rp     00      rp     00     fd      rw     00    rw )
+set suboot=(   0      0       0       0      0      0       0      0      0       1      0     1 )
+d41 1
+a41 1
+ediag "$DISK : type undefined. " "$DISK : неизвестный тип."
+d44 3
+a46 2
+@@ size = ( $sizes[$i] / 2 )
+ediag "Creating file system on $DEV size= $size Kb" "Создается файловая система на $DEV размер=$size Кбайт"
+d49 1
+a49 1
+# ediag "Disk $DISK busy\!\!" "Диск $DISK занят, вы хотите испортить его\!\!"
+a52 1
+sleep 3
+@

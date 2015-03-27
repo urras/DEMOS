@@ -1,0 +1,11 @@
+/tumn Микросреда для начинающего Си-программиста.
+
+<ta ww
+ . ____Редактировать re .test.c; (sync; exit 0)
+ . ____Отлаживать make -f .Makefile debug
+ . ____Запускать ,make -f .Makefile start
+)
+
+\  = ta
+
+rn = ta

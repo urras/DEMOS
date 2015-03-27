@@ -1,0 +1,100 @@
+head     1.2;
+access   avg dmitry alex ache;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.11.17.13.06.32;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.21.20.06.46;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.2
+log
+@Новый механизм сигналов.
+@
+text
+@/*
+ * $Log:	sleep.c,v $
+ * Revision 1.1  86/04/21  20:06:46  root
+ * Initial revision
+ * 
+ */
+
+#include <signal.h>
+
+static	ringring;
+
+sleep(n)
+unsigned n;
+{
+	int sleepx();
+	unsigned altime;
+	int (*alsig)() = SIG_DFL;
+
+	if (n==0)
+		return;
+	altime = alarm(1000);	/* time to maneuver */
+	if (altime) {
+		if (altime > n)
+			altime -= n;
+		else {
+			n = altime;
+			altime = 1;
+		}
+	}
+	alsig = sigset(SIGALRM, sleepx);
+	alarm(n);
+	for(;;) {
+		pause();
+		if (ringring) {
+			sigset(SIGALRM, alsig);
+			alarm(altime);
+			ringring = 0;
+			return;
+		}
+	}
+	/*NOTREACHED*/
+}
+
+static
+sleepx()
+{
+	ringring = 1;
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d10 1
+a10 1
+static  ringring;
+d21 1
+a21 1
+	altime = alarm(1000);   /* time to maneuver */
+d30 1
+a30 1
+	alsig = signal(SIGALRM, sleepx);
+d35 1
+a35 1
+			signal(SIGALRM, alsig);
+@

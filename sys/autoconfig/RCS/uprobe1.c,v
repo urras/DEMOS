@@ -1,0 +1,555 @@
+head     1.11;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.11
+date     90.12.12.16.55.05;  author korotaev;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     90.11.11.23.29.17;  author root;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.09.28.19.55.21;  author korotaev;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.01.05.15.55.34;  author korotaev;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     87.01.29.17.34.41;  author alex;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.01.05.23.26.30;  author alex;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.01.04.22.35.24;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.12.21.16.51.00;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.12.20.21.10.54;  author alex;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.25.02.24.59;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.25.01.16.50;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+autoconfig
+@
+
+
+1.11
+log
+@Правки для ДВК
+@
+text
+@/*
+ * User-level probe routines to make devices interrupt.
+ * One per device; entered through uprobe table.
+ * Return values:
+ *      ACP_NXDEV       device doesn't exist
+ *      ACP_IFINTR      OK if device has interrupted by now
+ *      ACP_EXISTS      OK, not checking interrupt
+ *
+ * NOTES:
+ *      Reads and writes to kmem (done by grab, stuff)
+ *      are currently done a byte at a time in the kernel.
+ *      Beware!
+ *
+ *      The hs, rp, hk and dvhp probes have not been tested.
+ */
+
+#include        "uprobe.h"
+#include        <sys/param.h>
+#include        <sys/autoconfig.h>
+
+#include        "../include/hkreg.h"
+#include        "../include/hpreg.h"
+#include        "../include/hsreg.h"
+#include        "../include/rkreg.h"
+#include        "../include/rlreg.h"
+#include        "../include/rpreg.h"
+#include        "../include/rxreg.h"
+#include        "../include/dwreg.h"
+#include        "../include/myreg.h"
+
+int     xpprobe(), hkprobe(), hsprobe(), rlprobe(), rkprobe(), rpprobe();
+int     htprobe(), tmprobe(), tsprobe();
+int raprobe();
+int     dnprobe(), klprobe(), dzprobe(), dhprobe(), dmprobe(), djprobe();
+int     lpprobe(), wlprobe(),
+#ifdef UNDEF
+vpprobe(),
+#endif UNDEF
+	rxprobe(), pcprobe(), dhuprobe(), pkprobe();
+int     ksprobe(), dwprobe(), myprobe();        /* Chech&Co */
+#ifdef  VIRUS
+int     caryprobe();
+#endif
+extern  int errno;
+
+struct uprobe uprobe[] = {
+	/*
+	 *      Disks
+	 */
+	"xp",   xpprobe,
+	"rm",   xpprobe,
+	"hp",   xpprobe,
+	"hk",   hkprobe,
+	"hs",   hsprobe,
+	"rl",   rlprobe,
+	"rk",   rkprobe,
+	"rp",   rpprobe,
+	"rx",   rxprobe,
+	"dw",   dwprobe,        /* Винчестер ДВК-4 */
+	"my",   myprobe,        /* гибкий диск MY (Qbus22) */
+	"ra",   raprobe,
+
+	/*
+	 *      Tapes
+	 */
+	"ht",   htprobe,
+	"tm",   tmprobe,
+	"ts",   tsprobe,
+
+	/*
+	 *      Communication interfaces
+	 */
+	"dn",   dnprobe,
+	"kl",   klprobe,
+	"dz",   dzprobe,
+	"dh",   dhprobe,
+	"dm",   dmprobe,
+	"dj",   djprobe,
+	"ks",   ksprobe,        /* DL/Kisi - один канал, 2 байта */
+	"mk",   ksprobe,        /* DL/Kisi - мыльтиплексор */
+	"dhu",  dhuprobe,
+	"pk",   pkprobe,
+	"wl",   wlprobe,
+	/*
+	 *      Printers
+	 */
+	"lp",   lpprobe,
+#ifdef UNDEF
+	"vp",   vpprobe,
+#endif UNDEF
+	/*
+	 * Paper tapes
+	 */
+	"pc",   pcprobe,
+
+	0,      0
+};
+
+xpprobe(addr)
+struct hpdevice *addr;
+{
+	stuff(HP_IE | HP_RDY, &(addr->hpcs1.w));
+	DELAY(10);
+	stuff(0, &(addr->hpcs1.w));
+	return(ACP_IFINTR);
+}
+
+hkprobe(addr)
+struct hkdevice *addr;
+{
+	stuff(HK_CDT | HK_IE | HK_CRDY, (&(addr->hkcs1)));
+	DELAY(10);
+	stuff(HK_CDT, (&(addr->hkcs1)));
+	return(ACP_IFINTR);
+}
+
+hsprobe(addr)
+struct hsdevice *addr;
+{
+	stuff(HS_IE | HS_DCLR | HS_GO, (&(addr->hscs1)));
+	DELAY(10);
+	stuff(0, (&(addr->hscs1)));
+	return(ACP_IFINTR);
+}
+
+rlprobe(addr)
+struct rldevice *addr;
+{
+	stuff(RL_GETSTATUS | RL_IE, (&(addr->rlcs)));
+	DELAY(100);
+	stuff(RL_CRDY, (&(addr->rlcs)));
+	return(ACP_IFINTR);
+}
+
+rkprobe(addr)
+struct rkdevice *addr;
+{
+	stuff( RKCS_RESET | RKCS_GO, (&(addr->rkcs)));
+	DELAY(10);
+	stuff(RKCS_IDE , (&(addr->rkcs)));
+	DELAY(10);
+	stuff(0, (&(addr->rkcs)));
+	return(ACP_IFINTR);
+}
+
+
+rpprobe(addr)
+struct rpdevice *addr;
+{
+	stuff( RP_IDLE | RP_GO, (&(addr->rpcs)));
+	DELAY(10);
+	stuff( RP_IDE , (&(addr->rpcs)));
+	DELAY(10);
+	return(ACP_IFINTR);
+}
+
+rxprobe(addr)
+struct rxdevice *addr;
+{
+	stuff( RX_INIT, (&(addr->rxcs)));
+	sleep(4);
+	stuff( RX_INTR , (&(addr->rxcs)));
+	DELAY(500);
+	return(ACP_IFINTR);
+}
+
+/* Tест контроллера Винчестера ДВК-4
+ * Тест прерываний через собственную "пробу" реализовать не удается,
+ * т.к. контроллер не сбрасывает запрос прерывания с шины даже после
+ * отработки его. Необходимо сбрасывать бит разр.прер-я устройства
+ * сразу в программе обработки прерывания, это можно сделать только
+ * поместив пробу непосредственно в ядро. Возможно, что это дыра
+ * только нашего контроллера...
+ * Чечик И.Е., Качулин Н.Г., ЛГУ,Физ.фак.
+ */
+dwprobe(addr)
+struct dwdevice *addr;
+{
+	register cnt;
+	for (cnt = 10; grab (&(addr->dw_stat)) & DWDS_BSY; cnt--) {
+		if (!cnt)
+			return(ACP_NXDEV);
+		sleep (1);
+	}
+	if (grab (&(addr->dw_rid)) != 0401)
+		return(ACP_NXDEV);
+	return(ACP_EXISTS);
+}
+
+/* Tест контроллера гибкого диска MY (для Qbus22, напр. ДВК-4) */
+myprobe(addr)
+struct mydevice *addr;
+{
+	stuff (MY_RESET | MY_GO, (&(addr->my_csr)));
+	DELAY (500);
+	stuff (MY_IE | MY_RSTATE | MY_GO, (&(addr->my_csr)));
+	DELAY (500);
+	stuff (0, (&(addr->my_csr)));
+	return(ACP_IFINTR);
+}
+
+/*
+ * Must be only one.
+ * Interupt vector write always.
+ * (very difficult probe this device)
+ */
+raprobe(addr)
+{
+	return(ACP_EXISTS);
+}
+@
+
+
+1.10
+log
+@Вставлены устройства wl и ra.
+@
+text
+@d21 9
+a29 7
+#include        <sys/hkreg.h>
+#include        <sys/hpreg.h>
+#include        <sys/hsreg.h>
+#include        <sys/rkreg.h>
+#include        <sys/rlreg.h>
+#include        <sys/rpreg.h>
+#include        <sys/rxreg.h>
+d40 1
+d59 2
+d79 2
+d164 35
+@
+
+
+1.9
+log
+@Убрано усво vp.
+@
+text
+@d31 1
+d33 1
+a33 1
+int     lpprobe(),
+d56 1
+d76 1
+d160 9
+a168 1
+
+@
+
+
+1.8
+log
+@Слияние ядер АЗЛК и ИПК.
+@
+text
+@d32 5
+a36 1
+int     lpprobe(), vpprobe(), rxprobe(), pcprobe(), dhuprobe(), pkprobe();
+d78 1
+d80 1
+@
+
+
+1.7
+log
+@Дополнен опрос lp и некоторых других обнулением CSW
+@
+text
+@d32 1
+a32 1
+int     lpprobe(), vpprobe(), rxprobe(), pcprobe();
+d68 2
+@
+
+
+1.6
+log
+@Увеличили ожидание rx до 4-х секунд, т.к. 1 не хватало.
+@
+text
+@d5 3
+a7 3
+ *	ACP_NXDEV	device doesn't exist
+ *	ACP_IFINTR	OK if device has interrupted by now
+ *	ACP_EXISTS	OK, not checking interrupt
+d10 3
+a12 3
+ *	Reads and writes to kmem (done by grab, stuff)
+ *	are currently done a byte at a time in the kernel.
+ *	Beware!
+d14 1
+a14 1
+ *	The hs, rp, hk and dvhp probes have not been tested.
+d17 3
+a19 3
+#include	"uprobe.h"
+#include	<sys/param.h>
+#include	<sys/autoconfig.h>
+d21 6
+a26 6
+#include	<sys/hkreg.h>
+#include	<sys/hpreg.h>
+#include	<sys/hsreg.h>
+#include	<sys/rkreg.h>
+#include	<sys/rlreg.h>
+#include	<sys/rpreg.h>
+d29 6
+a34 6
+int	xpprobe(), hkprobe(), hsprobe(), rlprobe(), rkprobe(), rpprobe();
+int	htprobe(), tmprobe(), tsprobe();
+int	dnprobe(), klprobe(), dzprobe(), dhprobe(), dmprobe(), djprobe();
+int     lpprobe(), vpprobe(), rxprobe ();
+#ifdef	VIRUS
+int	caryprobe();
+d36 1
+a36 1
+extern	int errno;
+d40 1
+a40 1
+	 *	Disks
+d42 8
+a49 8
+	"xp",	xpprobe,
+	"rm",	xpprobe,
+	"hp",	xpprobe,
+	"hk",	hkprobe,
+	"hs",	hsprobe,
+	"rl",	rlprobe,
+	"rk",	rkprobe,
+	"rp",	rpprobe,
+d53 1
+a53 1
+	 *	Tapes
+d55 3
+a57 3
+	"ht",	htprobe,
+	"tm",	tmprobe,
+	"ts",	tsprobe,
+d60 1
+a60 1
+	 *	Communication interfaces
+d62 5
+a66 5
+	"dn",	dnprobe,
+	"kl",	klprobe,
+	"dz",	dzprobe,
+	"dh",	dhprobe,
+	"dm",	dmprobe,
+d69 1
+a69 1
+	 *	Printers
+d71 8
+a78 3
+	"lp",	lpprobe,
+	"vp",	vpprobe,
+	0,	0
+@
+
+
+1.5
+log
+@Изменен алгоритм опроса rk -
+убрали сброс диска, так как нам встретились диски,
+на которых сброс давал ошибку подвода.
+@
+text
+@d138 1
+a138 1
+	sleep(1);
+@
+
+
+1.4
+log
+@Ошибочка была в rpprobe
+@
+text
+@d27 1
+d32 1
+a32 1
+int	lpprobe(), vpprobe();
+d50 1
+d115 1
+a115 1
+	stuff(RKCS_IDE | RKCS_DRESET | RKCS_GO, (&(addr->rkcs)));
+d117 2
+d127 1
+a127 1
+	stuff( RP_IDLE | RP_GO, (&(addr->rkcs.w)));
+d129 1
+a129 1
+	stuff( RP_IDE , (&(addr->rkcs.w)));
+d133 11
+@
+
+
+1.3
+log
+@Исправлен опрос RP
+@
+text
+@d123 1
+a123 1
+	stuff(0, (&(addr->rpcs.w)));
+d125 1
+a125 1
+	stuff(RP_IDE | RP_IDLE | RP_GO, (&(addr->rkcs.w)));
+a126 1
+	stuff(0, (&(addr->rpcs.w)));
+@
+
+
+1.2
+log
+@включен dj
+@
+text
+@a70 6
+#ifdef	VIRUS
+	/*
+	 *	Don't ask
+	 */
+	"cary",	caryprobe,
+#endif
+d123 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@a27 6
+#include	<sys/htreg.h>
+#undef	b_repcnt
+#include	<sys/tmreg.h>
+#undef	b_repcnt
+#include	<sys/tsreg.h>
+
+a134 38
+htprobe(addr)
+struct htdevice *addr;
+{
+	stuff(HT_SENSE | HT_IE | HT_GO, (&(addr->htcs1)));
+	DELAY(10);
+	stuff(0, (&(addr->htcs1)));
+	return(ACP_IFINTR);
+}
+
+/*
+ * TM-11 probe routine.
+ * Also check one of the more distant registers
+ * to make sure this isn't a TS-11.
+ */
+tmprobe(addr)
+struct tmdevice *addr;
+{
+	stuff(TM_IE, &(addr->tmcs));
+	errno = 0;
+	grab(&(addr->tmba));
+	if (errno != 0)
+		return(ACP_NXDEV);
+	return(ACP_IFINTR);
+}
+
+/*
+ * TS-11 probe.
+ * Assume that the device exists if there's no TM-11 there.
+ */
+tsprobe(addr)
+struct tsdevice *addr;
+{
+	errno = 0;
+	grab(&((struct tmdevice *)addr->tmba));
+	if (errno == 0)
+		return(ACP_NXDEV);
+	return(ACP_EXISTS);
+}
+@

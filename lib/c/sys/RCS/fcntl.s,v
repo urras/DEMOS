@@ -1,0 +1,45 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     89.03.16.15.15.19;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ result = fcntl(fildes, request, argp);
+/ result == -1 if error
+
+.globl  _fcntl, cerror
+
+_fcntl:
+	mov     r5,-(sp)
+	mov     sp,r5
+	mov     8(r5), -(sp)
+	mov     6(r5), -(sp)
+	mov     4(r5), -(sp)
+	sys     ioctl+200
+	bec     1f
+	add     $6, sp
+	jmp     cerror
+1:
+	add     $6, sp
+	mov     (sp)+,r5
+	rts     pc
+@

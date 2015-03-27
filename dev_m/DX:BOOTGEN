@@ -1,0 +1,144 @@
+%- - - - - - - - - - - - - - - - - - - - - -% 06.10.88 VERSION 18
+%-             ЗАПИСЬ СИСТЕМЫ              -%
+%-       НА 8-МИ ДЮЙМОВЫЙ ГИБКИЙ ДИСК      -%
+%- - - - - - - - - - - - - - - - - - - - - -%
+
+(MACRO _DX?(?))-> CSV UNIT ^3\,#SYSIDN,''DX^2''
+MACRO _DX?(?,ERROR:?)
+ #W1=^3\
+ CSV UNIT ,#SYSIDN,''DX^2''
+ IF <>#W1 GOTO ^4
+ENDM
+
+GLOBAL BOOTG
+  USE LIB:PARAMS,FIL:STRUCT,ACR:STRUCT
+  USE DRI:ERRORS
+  DATA XLIBR=LBLIBR+&100
+  DATA SYSIDN
+  EQUALS DXLOCK=&80,DXUNL=&82,DXWRIT=1
+
+LOCALS LDXBOT
+%%USE DX:BOOT
+%== СМЕЩЕНИЯ ФИКСИРОВАННЫХ СЛОВ =======%
+  EQUALS AQSECT=&0A                    %Длина в секторах
+  EQUALS ATRCK0=&10                    %Дорожка, с которой читать
+  EQUALS ASECT0=&12                    %Сектор, из которого читать
+%======================================%
+  DATA CBLOCK=!IOBUFF,&200,DXADDR=0.0
+  DATA CIO=0.!IOBUFF,IOLEN=&200,IONSEC=0
+  BUFFERS IOBUFF(&200)
+  DATA DXIDEN
+  DATA &100
+  EQUALS TRCMIS=&0D                    %Длина дорожки в MISS-секторах
+
+  DATA BOOTAD,BOOTLN  ,BLOCKS
+  DATA TXBOOT=(TA."DX BOOTSTRAP".0)
+  DATA CPTR
+  DATA PTRY
+  BYTES BOOTL[1],PRGLAB[1]
+  DATA NMSTRT=("STARTER:U ".0)
+
+PROGRAM BOOTG()
+  CALL AZCGEN ,,TXBOOT
+  IF CSV START 'LIBASK',,#XLIBR<0 THEN STOP ,   %FINISY ?
+  BOOTL:=((IF ^A<>0 THEN =#AZC(1):))            %Выбран файл ? (не HO)
+  !#AZC(0)=<<"&".EMPBIT.0.1.TA."SYSTEM TO SWAP".0>>,21
+  IF CSV START 'LIBASK',,#XLIBR<1 THEN STOP ,
+  PRGLAB:=#AZC(1):
+%-                 - BЫБOP ДИСКОВОДА -
+  (WHILE
+    DPC <<ER."DX ADDRESS:".0>>
+    IF ((DPQ "0"))='FINISY' THEN STOP 0
+    DXIDEN=-"0".CCA.
+    ,#SYSIDN=((CSV UNIT 0,DXIDEN,'DXLOCK'))
+  WHILE) <>0
+%%RCOPY():=DXIDEN.CCA.+"0"
+  DPC <<ER."*SWAP OF THE SYSTEM*".LF.0>>
+
+  ,,BLOCKS=((CSV LABADR PRGLAB:)),,+1/ %Округляем вверх до блока (512)
+
+  DPC <<" Starter searching".LF.0>>
+  CIO:=PRGLAB:
+  IONSEC=2                             %Читаем метку тома
+  CALL :IO CIO\
+  IONSEC=CBLOCK(&12).XAA..CCA.*2       %Адрес ROOT'а
+  CALL :IO CIO\
+  CPTR=CBLOCK
+  (WHILE @CPTR:<>0
+    IF CALL :CMPS CPTR+'FINAME',NMSTRT,'LFNAME'= GOTO FIND
+    (IF &20$CPTR-H:200>=CBLOCK
+      $IONSEC=2 ; CALL :IO CIO\
+      CPTR=CBLOCK
+    IF)
+  WHILE)
+  DPC <<" - CAN'T FIND ".0>> ; DPC NMSTRT ; DPQ "!" ; STOP 0
+
+  <<FIND>> =
+  BOOTAD=CPTR(2).XAA..CCA.             %Поле FIADDR -> дополн. к длине
+  BOOTLN=CPTR(4).XAA.                  %Поле FIPASS -> длина файла
+
+  DPC <<" Bootstrap swapping".LF.0>>
+  CIO:=((IF BOOTL:= THEN =PRGLAB:))    %Читаем из образа системы ?
+  IONSEC=0
+  IOLEN=H:100 ; CALL :IO CIO\ ; IOLEN=H:200
+  #W1=CBLOCK+H:100 ; =*0
+  (XCYCLE H:100 STEP 4) #W1()]=
+
+%  Записываем стандартные ячейки
+  CBLOCK('AQSECT')=BOOTLN*4.XAA.       %Длина в секторах (128)
+  =BOOTAD*4                            %Переводим в сектора (128)
+  CBLOCK('ATRCK0')=/'TRCMIS*2'+1.XAA.  %Частное - номер дорожки
+  CBLOCK('ASECT0')=^E+1.XAA.           %Остаток - номер сектора
+
+  (DXADDR+2)='TRCMIS'
+  DXWRIT(CBLOCK,ERROR:ABZAC)
+
+  DPC <<" System swapping".LF.0>>
+  PTRY=0
+  IONSEC=2 ; CIO:=PRGLAB:              %0-й блок (загрузчик) настроен
+  (XCYCLE(XREG) BLOCKS-1
+    CALL :IO CIO\ ; $IONSEC=2
+    $(DXADDR+2)=2
+    <<RETRY0>> =
+      DXWRIT(CBLOCK,ERROR:RETRY1)
+  XCYCLE)
+* DXUNL(0)                             %Диск не освобождаем
+  STOP 0
+
+RETRY1 IF 1$PTRY<5 GOTO RETRY0
+ABZAC STOP 'EDISK'.CCA.
+
+
+LOCALS LAZCG
+  DATA AITEM
+  DATA LABIND
+  EQUALS LABBEG=4
+  DATA PROC=:PROC
+.:PROC RDX _BP,DP_,11_,___
+
+PROGRAM AZCGEN(,,XREG)
+  #AZC(0)="I"[(=EMPBIT+HIDBIT)
+  LABIND='LABBEG'
+  AITEM=#GDIFF('AR0LNG')+#GDIFF
+  (WHILE @AITEM:<>0
+    (IF .AND.&7F="I" AND CALL :CMPS AITEM+'FIPROC',PROC,8=
+      #AZC(LABIND):=@AITEM.AND.&7F ; ,,LABIND=,,+1
+    IF)
+    $AITEM=&20
+  WHILE)
+  #AZC(2):=LABIND-'LABBEG'
+  #AZC(+1):=0
+  =,,LABIND
+  (WHILE @XREG:<>
+    #AZC():= ; =,,+1 ; $XREG=1
+  WHILE)
+  RETURN ,
+%%
+%%  DATA WCMP1,WCMP2
+%%SUBROUTINE CMPS
+%%  WCMP1,WCMP2=
+%%  (XCYCLE ^X
+%%    =WCMP1():.XAE.
+%%    IF WCMP2():.AEE.<> THEN RETURN:CMPS 1
+%%  XCYCLE)
+%%  RETURN:CMPS 0

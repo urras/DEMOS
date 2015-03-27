@@ -1,0 +1,45 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.54.04;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ count subroutine calls during profiling
+
+.globl	mcount
+.comm	countbase,2
+
+mcount:
+	mov	(r0),r1
+	bne	1f
+	mov	countbase,r1
+	beq	2f
+	add	$6,countbase
+	mov	(sp),(r1)+
+	mov	r1,(r0)
+1:
+	inc	2(r1)
+	bne	2f
+	inc	(r1)
+2:
+	rts	pc
+
+@

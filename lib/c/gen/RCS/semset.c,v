@@ -1,0 +1,90 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.03.06.15.34.32;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.04.20.06.50;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+управление семафорами
+@
+
+
+1.2
+log
+@аргументы semctl специфицированы как надо.
+@
+text
+@/*
+ * $Header: semsys.c,v 1.1 89/03/04 20:06:50 abs Exp $
+ * $Log:	semsys.c,v $
+ * Revision 1.1  89/03/04  20:06:50  abs
+ * Initial revision
+ * 
+ * Revision 1.1  89/03/04  20:02:03  abs
+ * Initial revision
+ * 
+ *   интерфейс системных вызовов управления семафорами.
+ *   общая часть находится в ../sys/semsys.s
+ */
+#include <sys/types.h>
+#include <sys/sem.h>
+#include <sys/ipc.h>
+
+semget( key, count, flag )
+	key_t key;
+	int count;
+	int flag;
+{
+	return semsys(1, key, count, flag);
+}
+
+semctl( id, count, cmd, flag )
+	int id;
+	unsigned int count;
+	int cmd;
+	union semunion {
+		int val;
+		struct semid_ds *semstat;
+		u_short *array;
+	}flag;
+
+{
+	return semsys(0, id, count, cmd, flag );
+}
+
+semop( id, oplist, count )
+	int id;
+	struct sembuf *oplist;
+	unsigned int count;
+{
+	return semsys(2, id, oplist, count );
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+ * $Header: semsys.c,v 1.1 89/03/04 20:02:03 abs Exp $
+d4 3
+d29 6
+a34 1
+	unsigned int flag;  /* или аргумент */
+@

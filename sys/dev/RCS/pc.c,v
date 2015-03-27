@@ -1,0 +1,480 @@
+head     22.3;
+access   korotaev dvolodin avg;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.11.34;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.49.39;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.30.32;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.30.32;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.03.24.22.09.21;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.03.10.21.30.26;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.11.01.20.46.23;  author dvolodin;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.02.05.20.49.04;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Драйвер перфоленты СМ 6204.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * Драйвер перфоленточной станции СМ 6204
+ *
+ *  $Log:	pc.c,v $
+ * Revision 22.2  89/04/27  13:49:39  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  14:30:32  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:30:32  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.4  89/03/24  22:09:21  korotaev
+ * После unifdef'a.
+ * 
+ * Revision 1.3  89/03/10  21:30:26  korotaev
+ * Работает ( from timur).
+ * 
+ * Revision 1.1  87/02/05  20:49:04  avg
+ * Initial revision
+ *
+ */
+
+#include "h/pc.h"
+#if     NPC > 0
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/file.h>
+#include "../include/pcreg.h"
+
+int              npc11 = NPC;        /* for pstat */
+struct pcdevice *pcaddr = NULL;
+int              pczerocnt;
+int              pcstsim;
+
+#define OPENR   001
+#define OPENW   002
+#define WAITING 004
+#define EOF     010
+#define ERROR   020
+
+#define PCIPRI  30
+#define PCOPRI  40
+#define PCOLWAT 50
+#define PCOHWAT 100
+#define PCIHWAT 250
+#define PCTIME  100
+
+struct clst {
+	int     cc;
+	int     cf;
+	int     cl;
+};
+
+struct pc11 {
+	int     pcstate;
+	struct  clst pcin;
+	struct  clst pcout;
+} pc11;
+
+pcattach(addr, unit)
+struct pcdevice *addr;
+{
+	if( unit )
+		return(0);
+	pcaddr = addr;
+	return(1);
+}
+
+pcopen(dev, flag)
+{
+	extern int lbolt;
+	register struct pcdevice *pc = pcaddr;
+
+	if( minor(dev) != 0 || pcaddr == NULL ) {
+Nopen:
+		u.u_error = ENXIO;
+		return;
+	}
+	if (!(flag & FWRITE)) {
+		if (pc11.pcstate & OPENR) {
+			u.u_error = EBUSY;
+			return;
+		}
+		pc11.pcstate |= OPENR | WAITING;
+		pcstsim = -1;
+		while((pc11.pcstate & WAITING) && !(pc11.pcstate & (ERROR | EOF))) {
+			if ((pc->pcrcsr & (PC_ERROR | PC_BUS | PC_DONE)) == 0)
+				pc->pcrcsr = PC_IENABLE | PC_RDRENB;
+			sleep(&lbolt, PCIPRI);
+		}
+		if (pc11.pcstate & (ERROR | EOF)) {
+			pc11.pcstate &= ~(OPENR | ERROR | EOF | WAITING);
+			goto Nopen;
+		}
+	} else {
+		if (!(pc->pcpcsr & PC_DONE)) goto Nopen;
+		if (pc11.pcstate & OPENW) {
+			u.u_error = EBUSY;
+			return;
+		}
+		pc11.pcstate |= OPENW;
+		pc->pcpcsr |= PC_IENABLE;
+		pcleader();
+	}
+}
+
+pcclose(dev, flag)
+{
+	register s;
+	register struct pcdevice *pc = pcaddr;
+
+	if (!(flag & FWRITE)) {
+		s = spl4();
+		while (getc(&pc11.pcin) >= 0);
+		pc->pcrcsr = 0;
+		pc11.pcstate &= ~(OPENR | WAITING | EOF | ERROR);
+		splx(s);
+	} else {
+		pcleader();
+		pc11.pcstate &= ~OPENW;
+	}
+}
+
+pcread()
+{
+	register int c;
+	register struct pcdevice *pc = pcaddr;
+	int s;
+
+	s = spl4();
+	do {
+nextn:
+		if (pczerocnt > 0) {
+			pczerocnt--;
+			c = 0;
+		} else
+		if (pcstsim >= 0) {
+			c = pcstsim;
+			pcstsim = -1;
+		} else {
+nextc:
+			while ((c = getc(&pc11.pcin)) < 0) {
+				if (pc11.pcstate & (ERROR | EOF)) {
+					pczerocnt = 0;
+					goto out;
+				}
+				if ((pc->pcrcsr & (PC_ERROR | PC_BUS | PC_DONE)) == 0)
+					pc->pcrcsr |= PC_IENABLE | PC_RDRENB;
+				sleep(&pc11.pcin, PCIPRI);
+			}
+			if (c == 0) {
+				pczerocnt++;
+				goto nextc;
+			} else
+			if (pczerocnt > 0) {
+				pcstsim = c;
+				goto nextn;
+			}
+		}
+	} while (passc(c) >= 0);
+out:
+	splx(s);
+	if (pc11.pcstate & ERROR) u.u_error = EIO;
+}
+
+pcwrite()
+{
+	register int c;
+
+	while ((c = cpass()) >= 0) pcoutput(c);
+}
+
+pcstart()
+{
+	register int c;
+	register struct pcdevice *pc = pcaddr;
+
+	if ((pc->pcpcsr & PC_DONE) && (c = getc(&pc11.pcout)) >= 0)
+		pc->pcpbuf = c;
+}
+
+pcrint()
+{
+	register struct pcdevice *pc = pcaddr;
+	register int c;
+
+	for(c = 0; (pc->pcrcsr & PC_BUS) && --c;);
+	if ((c = pc->pcrcsr & (PC_ERROR | PC_BUS | PC_DONE)) != PC_DONE) {
+		if (c & (PC_ERROR | PC_BUS))
+			pc11.pcstate |= ERROR;
+		else
+			pc11.pcstate |= EOF;
+	} else
+	if (pc11.pcstate & WAITING) {
+		if ((c = pc->pcrbuf) != 0) {
+			pc11.pcstate &= ~WAITING;
+			putc(c, &pc11.pcin);
+		}
+		pc->pcrcsr |= PC_IENABLE | PC_RDRENB;
+	} else {
+		putc(pc->pcrbuf, &pc11.pcin);
+		if (pc11.pcin.cc < PCIHWAT)
+			pc->pcrcsr |= PC_IENABLE | PC_RDRENB;
+		wakeup(&pc11.pcin);
+	}
+}
+
+pcxint()
+{
+
+	pcstart();
+	if (pc11.pcout.cc <= PCOLWAT) wakeup(&pc11.pcout);
+}
+
+pcoutput(c)
+{
+	register struct pcdevice *pc = pcaddr;
+	int s;
+
+	if (pc->pcpcsr & PC_ERROR) {
+		u.u_error = EIO;
+		return;
+	}
+	if (pc11.pcout.cc >= PCOHWAT)
+		sleep(&pc11.pcout, PCOPRI);
+	putc(c, &pc11.pcout);
+	s = spl4();
+	pcstart();
+	splx(s);
+}
+
+pcleader()
+{
+	register int i;
+
+	i = 100;
+	do
+		pcoutput(0);
+	while (--i);
+}
+
+#endif
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d5 3
+d33 1
+a33 1
+#include <sys/pcreg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d5 3
+d22 1
+a22 1
+#include "pc.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d5 3
+d21 1
+a21 1
+#include "param.h"
+@
+
+
+1.4
+log
+@После unifdef'a.
+@
+text
+@d5 3
+@
+
+
+1.3
+log
+@Работает ( from timur).
+@
+text
+@d4 4
+a7 1
+ *  $Log:       pc.c,v $
+d234 2
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d23 1
+d25 5
+a29 4
+#define CLOSED  0
+#define WAITING 1
+#define READING 2
+#define EOF     3
+d36 1
+d61 1
+a61 1
+	extern lbolt;
+d65 1
+d69 3
+a71 3
+	if (flag==0) {
+		if (pc11.pcstate!=CLOSED) {
+			u.u_error = ENXIO;
+d74 5
+a78 5
+		pc11.pcstate = WAITING;
+		pczerocnt = -16000; /* большое отрицательное число -
+				       пропустить лидирующие нули */
+		while(pc11.pcstate==WAITING) {
+			pc->pcrcsr = PC_IENABLE|PC_RDRENB;
+d81 4
+d86 6
+d102 1
+a102 1
+	if (flag==0) {
+d106 1
+a106 1
+		pc11.pcstate = CLOSED;
+d108 1
+a108 1
+	} else
+d110 2
+d122 2
+a123 3
+		if(pc11.pcstate==EOF)
+			goto out;
+		if( pczerocnt > 0 ) {
+d126 4
+d133 2
+a134 1
+				if (pc11.pcstate==EOF)
+d136 3
+a138 2
+				if ((pc->pcrcsr&(PC_ERROR|PC_BUS|PC_DONE))==0)
+					pc->pcrcsr |= PC_IENABLE|PC_RDRENB;
+d141 1
+a141 1
+			if(c == 0) {
+d144 4
+a148 1
+			pczerocnt = 0;
+d150 1
+a150 1
+	} while (passc(c)>=0);
+d153 1
+d160 1
+a160 2
+	while ((c=cpass())>=0)
+		pcoutput(c);
+d168 1
+a168 1
+	if ((pc->pcpcsr&PC_DONE) && (c = getc(&pc11.pcout)) >= 0)
+d175 1
+d177 11
+a187 12
+	if (pc11.pcstate==WAITING) {
+		if (pc->pcrcsr&PC_ERROR)
+			return;
+		pc11.pcstate = READING;
+	}
+	if (pc11.pcstate==READING) {
+		if ((pc->pcrcsr&(PC_ERROR|PC_DONE))!=PC_DONE)
+			pc11.pcstate = EOF;
+		else {
+			putc(pc->pcrbuf, &pc11.pcin);
+			if (pc11.pcin.cc < PCIHWAT)
+				pc->pcrcsr |= PC_IENABLE|PC_RDRENB;
+d189 5
+d202 1
+a202 2
+	if (pc11.pcout.cc <= PCOLWAT)
+		wakeup(&pc11.pcout);
+d210 1
+a210 1
+	if (pc->pcpcsr&PC_ERROR) {
+a230 2
+
+#endif NPC
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ *  $Log$
+a104 2
+	if(pc11.pcstate==EOF)
+		goto out;
+d106 2
+d203 2
+@

@@ -1,0 +1,39 @@
+{
+	C = substr($1,1,length($1)-9);
+	L = length(C);
+	if( C != P ){
+		if( P != "" ){
+			print S;
+		}
+		if( substr(C,1,2) == ".." ){
+			if( substr(C,1,4) == "../c" )
+				i = 9;
+			else
+				i = 8;
+		} else
+			i = 1;
+		F = substr(C,i,L-i);
+		T = sprintf "%so:",F;
+		S = T;
+		P = C;
+		print T " " C;
+	}
+	if( $2 == "<sys/param.h>" ){
+		W = "h/param.h";
+	} else {
+		if( substr($2,1,1) == "<" )
+			O = "${I}/%s";
+		else
+			O = "%s";
+		W = sprintf O, substr($2,2,length($2)-2);
+	}
+	if( length(S W) > 78 ){
+		print S;
+		S = T;
+	}
+	S = S " " W;
+}
+END {
+	print S;
+	print "";
+}

@@ -1,0 +1,370 @@
+head     1.9;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.9
+date     89.07.20.23.04.32;  author ache;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.07.20.21.38.48;  author ache;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.05.23.13.24.11;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.05.10.16.03.06;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.05.10.15.31.15;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.11.16.16.40.45;  author ache;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.11.16.16.25.43;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.06.24.20.57.25;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.18.13.01.41;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.9
+log
+@+_setflg,-signal
+@
+text
+@/ $Header: zzzz.s,v 1.8 89/07/20 21:38:48 ache Exp $
+/ $Log:	zzzz.s,v $
+/ Revision 1.8  89/07/20  21:38:48  ache
+/ +_cactions
+/ 
+/ Revision 1.7  89/05/23  13:24:11  abs
+/ ustat
+/ 
+/ Revision 1.6  89/05/10  16:03:06  ache
+/ +mkdir, rmdir
+/
+/ Revision 1.5  89/05/10  15:31:15  ache
+/ +msgsys, semsys
+/
+/ Revision 1.4  88/11/16  16:40:45  ache
+/ Новый механизм сигналов.
+/
+/ Revision 1.3  88/11/16  16:25:43  ache
+/ -Rctype, +setpgrp, +getpgrp, +wait2
+/
+/ Revision 1.2  88/06/24  20:57:25  ache
+/ +select
+/
+/ Revision 1.1  88/04/18  13:01:41  andrew
+/ Initial revision
+/
+.globl __cactions
+.globl __cleanup
+.globl __ctype_
+.globl __exit
+.globl __setflg
+.globl __sibuf
+.globl __sigcatch
+.globl __sobuf
+.globl _access
+.globl _acct
+.globl _alarm
+.globl _brk
+.globl _chdir
+.globl _chmod
+.globl _chown
+.globl _chroot
+.globl _close
+.globl _creat
+.globl _dup
+.globl _dup2
+.globl _end
+.globl _execl
+.globl _execle
+.globl _execv
+.globl _execve
+.globl _exit
+.globl _fetchi
+.globl _flock
+.globl _fork
+.globl _fperr
+.globl _fstat
+.globl _ftime
+.globl _ftruncate
+.globl _getegid
+.globl _geteuid
+.globl _getgid
+.globl _getpgrp
+.globl _getpid
+.globl _getppid
+.globl _getuid
+.globl _gldav
+.globl _ioctl
+.globl _fcntl
+.globl _kill
+.globl _killbkg
+.globl _killpg
+.globl _link
+.globl _lock
+.globl _login
+.globl _longjmp
+.globl _lseek
+.globl _lstat
+.globl _mkdir
+.globl _mknod
+.globl _mount
+.globl _mpxcall
+.globl _msgsys
+.globl _mvectors
+.globl _nice
+.globl _open
+.globl _pause
+.globl _phys
+.globl _pipe
+.globl _profil
+.globl _ptrace
+.globl _qfstat
+.globl _qstat
+.globl _quota
+.globl _read
+.globl _readlink
+.globl _reboot
+.globl _renice
+.globl _rmdir
+.globl _rtp
+.globl _rtp_
+.globl _sbrk
+.globl _select
+.globl _semsys
+.globl _setgid
+.globl _setgrp
+.globl _setjmp
+.globl _setpgrp
+.globl _setuid
+.globl _sigsys
+.globl _stat
+.globl _stime
+.globl _submit
+.globl _symlink
+.globl _sync
+.globl _sys_errlist
+.globl _sys_siglist
+.globl _time
+.globl _times
+.globl _truncate
+.globl _ucall
+.globl _umask
+.globl _umount
+.globl _unlink
+.globl _ustat
+.globl _utime
+.globl _vfork
+.globl _vhangup
+.globl _wait
+.globl _wait2
+.globl _write
+.globl aldiv
+.globl almul
+.globl alrem
+.globl cdebug
+.globl cerror
+.globl cret
+.globl csv
+.globl fltused
+.globl fptrap
+.globl ldiv
+.globl lmul
+.globl lrem
+.globl mcount
+.globl ovhndlr1
+.globl ovhndlr2
+.globl ovhndlr3
+.globl ovhndlr4
+.globl ovhndlr5
+.globl ovhndlr6
+.globl ovhndlr7
+.globl ovhndlr8
+.globl ovhndlr9
+.globl ovhndlra
+.globl ovhndlrb
+.globl ovhndlrc
+.globl ovhndlrd
+.globl ovhndlre
+.globl ovhndlrf
+.globl ovhndlrg
+.globl ovhndlrh
+.globl ovhndlri
+.globl ovhndlrj
+.globl ovhndlrk
+.globl ovhndlrl
+.globl ovhndlrm
+.globl ovhndlrn
+.globl ovhndlro
+.globl ovhndlrp
+.globl ovhndlrq
+.globl ovhndlrr
+.globl ovhndlrs
+.globl ovhndlrt
+.globl ovhndlru
+.globl ovhndlrv
+.globl pfloat
+.globl pgen
+.globl pscien
+@
+
+
+1.8
+log
+@+_cactions
+@
+text
+@d1 1
+a1 1
+/ $Header: zzzz.s,v 1.7 89/05/23 13:24:11 abs Exp $
+d3 3
+d31 1
+a109 1
+.globl _signal
+@
+
+
+1.7
+log
+@ustat
+@
+text
+@d1 5
+a5 2
+/ $Header: zzzz.s,v 1.6 89/05/10 16:03:06 ache Exp $
+/ $Log: zzzz.s,v $
+d24 1
+@
+
+
+1.6
+log
+@+mkdir, rmdir
+@
+text
+@d1 5
+a5 2
+/ $Header: zzzz.s,v 1.5 89/05/10 15:31:15 ache Exp $
+/ $Log:	zzzz.s,v $
+d8 1
+a8 1
+/ 
+d118 1
+@
+
+
+1.5
+log
+@+msgsys, semsys
+@
+text
+@d1 5
+a5 2
+/ $Header: zzzz.s,v 1.4 88/11/16 16:40:45 ache Exp $
+/ $Log: zzzz.s,v $
+d68 1
+d88 1
+@
+
+
+1.4
+log
+@Новый механизм сигналов.
+@
+text
+@d1 5
+a5 2
+/ $Header: zzzz.s,v 1.3 88/11/16 16:25:43 ache Exp $
+/ $Log:	zzzz.s,v $
+d8 1
+a8 1
+/ 
+d11 1
+a11 1
+/ 
+d14 1
+a14 1
+/ 
+d55 1
+d68 1
+d88 1
+@
+
+
+1.3
+log
+@-Rctype, +setpgrp, +getpgrp, +wait2
+@
+text
+@d1 1
+a1 1
+/ $Header: zzzz.s,v 1.2 88/06/24 20:57:25 ache Exp $
+d3 3
+d16 2
+d64 1
+d89 1
+@
+
+
+1.2
+log
+@+select
+@
+text
+@d1 1
+a1 1
+/ $Header: zzzz.s,v 1.1 88/04/18 13:01:41 andrew Exp $
+d3 3
+a8 2
+.globl __Rctype
+.globl __Ructype
+d41 1
+d80 1
+d101 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+/ $Header: zzzz.s,v 1.2 88/04/08 20:09:09 andrew Exp $
+d3 3
+d74 1
+@

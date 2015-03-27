@@ -1,0 +1,321 @@
+head     1.6;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.6
+date     88.09.10.13.14.46;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.09.09.17.54.46;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.04.01.13.24.30;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.03.06.20.00.20;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.03.06.19.05.54;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.03.06.19.02.28;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Запуск файлов, заготовленных at.
+@
+
+
+1.6
+log
+@Добавлено уничтожение файла с результатами.
+(см at.c)
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: atrun.c,v 1.5 88/09/09 17:54:46 ache Exp $" ;
+#endif  lint
+
+/*
+ * Запуск программ, заготовленных at.
+ *
+ * $Log:	atrun.c,v $
+ * Revision 1.5  88/09/09  17:54:46  ache
+ * Все могли читать/писать в выполняемый файл и файл результатов
+ * в каталоге past. Теперь делать это может только хозяин.
+ * 
+ * Revision 1.4  87/04/01  13:24:30  dmitry
+ * Оказывается, командные файлы бывают и на shell.
+ * 
+ * Revision 1.3  87/03/06  20:00:20  dmitry
+ * Исправлена ошибка - setgid и setuid теперь делаются вовремя.
+ * 
+ * Revision 1.2  87/03/06  19:05:54  dmitry
+ * Исправлены дурацкие русские диагностики.
+ * 
+ */
+
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/dir.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <ediag.h>
+
+# define DIR    "/usr/spool/at"
+# define PDIR   "past"
+# define LASTF  "/usr/spool/at/lasttimedone"
+#define MV      "/bin/mv"
+
+int     nowtime;
+int     nowdate;
+int     nowyear;
+
+main(argc, argv)
+char **argv;
+{
+	int tt, day, year, uniq;
+	struct direct dirent;
+	char file[DIRSIZ+1];
+	FILE *dirf;
+
+	chdir(DIR);
+	makenowtime();
+	if ((dirf = fopen(".", "r")) == NULL) {
+		fprintf(stderr, ediag("Cannot read at directory\n",
+				      "Не могу прочитать каталог at\n"));
+		exit(1);
+	}
+	while (fread((char *)&dirent, sizeof(dirent), 1, dirf) == 1) {
+		if (dirent.d_ino==0)
+			continue;
+		strncpy(file, dirent.d_name, DIRSIZ);
+		file[DIRSIZ] = '\0';
+		if (sscanf(file, "%2d.%3d.%4d.%2d", &year, &day, &tt, &uniq) != 4)
+			continue;
+		if (nowyear < year)
+			continue;
+		if (nowyear==year && nowdate < day)
+			continue;
+		if (nowyear==year && nowdate==day && nowtime < tt)
+			continue;
+		run(file);
+	}
+	fclose(dirf);
+	updatetime(nowtime);
+	exit(0);
+}
+
+makenowtime()
+{
+	time_t t;
+	struct tm *localtime();
+	register struct tm *tp;
+
+	time(&t);
+	tp = localtime(&t);
+	nowtime = tp->tm_hour*100 + tp->tm_min;
+	nowdate = tp->tm_yday;
+	nowyear = tp->tm_year;
+}
+
+updatetime(t)
+{
+	FILE *tfile;
+
+	tfile = fopen(LASTF, "w");
+	if (tfile == NULL) {
+		fprintf(stderr, ediag("can't write lastfile\n",
+				      "Не могу записать lastfile\n"));
+		exit(1);
+	}
+	fprintf(tfile, "%04d\n", t);
+	fclose (tfile);
+}
+
+run(file)
+char *file;
+{
+	struct stat stbuf;
+	register pid, i;
+	char sbuf[64];
+	char outfile[DIRSIZ+1];
+	extern ctime(),time();
+	char c ;
+
+	if (stat(file, &stbuf) == -1) exit(1);
+	if (stbuf.st_nlink != 1) {
+		fprintf(stderr, "atrun:  %s:  st_nlink != 1\n", file);
+		unlink(file);
+		exit(1);
+	}
+	strcpy(outfile,file);
+	outfile[0]='M';
+	sprintf(sbuf, "%s %.14s %s", MV, file, PDIR);
+	if (system(sbuf)<0) {
+		perror(MV);
+		return;
+	}
+	if (fork()!=0)
+		return;
+	for (i=0; i<_NFILE; i++)
+		close(i);
+	chdir(PDIR);
+	chown(file,stbuf.st_uid,stbuf.st_gid);
+	chmod(file,0400);
+	open("/dev/null",0);
+	dup(creat(outfile,0600));
+	chown(outfile,stbuf.st_uid,stbuf.st_gid);
+	if (pid = fork()) {
+		if (pid == -1)
+			exit(1);
+		wait((int *)0);
+		unlink(file);
+		unlink(outfile);
+		exit(0);
+	}
+/*      nice(3); executed by chron which has nice of 20 already. PLW */
+	setgid(stbuf.st_gid);
+	setuid(stbuf.st_uid);
+	if((i = open( file, 0 )) < 0 ) {
+		fprintf(stderr, "atrun:  %s: %s\n", file,
+				ediag( "cannot open", "не могу открыть" ));
+		exit(1);
+	}
+	read( i, &c, 1 );
+	close( i );
+	if( c == '#' ) {
+		execl("/bin/csh", "csh","-f", file, 0);
+		execl("/usr/bin/csh", "csh","-f", file, 0);
+	} else {
+		execl("/bin/sh", "sh", file, 0);
+		execl("/usr/bin/sh", "sh", file, 0);
+	}
+	fprintf(stderr, ediag("Can't execl shell\n",
+			       "Не могу вызвать shell\n"));
+	exit(1);
+}
+@
+
+
+1.5
+log
+@Все могли читать/писать в выполняемый файл и файл результатов
+в каталоге past. Теперь делать это может только хозяин.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: atrun.c,v 1.4 87/04/01 13:24:30 dmitry Exp $" ;
+d9 4
+a120 4
+	if (fork()!=0)
+		return;
+	for (i=0; i<_NFILE; i++)
+		close(i);
+d126 4
+d141 1
+@
+
+
+1.4
+log
+@Оказывается, командные файлы бывают и на shell.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: atrun.c,v 1.3 87/03/06 20:00:20 dmitry Exp $" ;
+d9 3
+d31 1
+a31 1
+#define MV      "mv"
+d74 1
+a74 1
+	long t;
+d96 1
+d119 1
+a119 1
+	for (i=0; i<15; i++)
+d122 4
+a125 2
+	if (system(sbuf)<0)
+		perror("mv");
+d127 2
+d130 2
+a131 1
+	dup(creat(outfile,0666));
+@
+
+
+1.3
+log
+@Исправлена ошибка - setgid и setuid теперь делаются вовремя.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: atrun.c,v 1.2 87/03/06 19:05:54 dmitry Exp $" ;
+d9 3
+d103 1
+d133 14
+a146 2
+	execl("/bin/csh", "csh","-f", file, 0);
+	execl("/usr/bin/csh", "csh","-f", file, 0);
+@
+
+
+1.2
+log
+@Исправлены дурацкие русские диагностики.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$" ;
+d8 4
+a11 1
+ * $Log$
+a106 2
+	setgid(stbuf.st_gid);
+	setuid(stbuf.st_uid);
+d127 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 4
+d6 3
+a8 1
+ * Run programs submitted by at.
+a9 1
+/*! Modified by PLWard, 10/30/80, USGS for csh and mail options */
+d11 1
+d40 1
+a40 1
+				      "Не могу прочитать в каталоге\n"));
+d83 1
+a83 1
+				      "Не могу записать последний файл\n"));
+@

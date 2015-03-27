@@ -1,0 +1,1966 @@
+head     22.5;
+access   avg flerov davidov alex fox andrew dvolodin;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+22.5
+date     89.07.05.16.11.35;  author avg;  state Exp;
+branches ;
+next     22.4;
+
+22.4
+date     89.06.10.18.59.43;  author avg;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.06.10.12.34.42;  author avg;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.06.10.12.15.17;  author avg;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.03.25.13.07.33;  author dvolodin;  state Exp;
+branches ;
+next     2.17;
+
+2.17
+date     88.12.22.12.50.05;  author avg;  state Exp;
+branches ;
+next     2.16;
+
+2.16
+date     88.04.02.20.36.57;  author andrew;  state Exp;
+branches ;
+next     2.15;
+
+2.15
+date     87.10.21.17.25.41;  author avg;  state Exp;
+branches ;
+next     2.14;
+
+2.14
+date     87.10.21.16.49.58;  author avg;  state Exp;
+branches ;
+next     2.13;
+
+2.13
+date     87.06.23.14.52.17;  author alex;  state Exp;
+branches ;
+next     2.12;
+
+2.12
+date     87.03.20.13.56.22;  author dmitry;  state Exp;
+branches ;
+next     2.11;
+
+2.11
+date     86.11.19.23.12.39;  author alex;  state Exp;
+branches ;
+next     2.10;
+
+2.10
+date     86.10.15.18.43.05;  author alex;  state Stab;
+branches ;
+next     2.9;
+
+2.9
+date     86.10.08.22.11.38;  author root;  state Exp;
+branches ;
+next     2.8;
+
+2.8
+date     86.09.29.20.36.23;  author avg;  state Exp;
+branches ;
+next     2.7;
+
+2.7
+date     86.05.20.14.08.15;  author avg;  state Exp;
+branches ;
+next     2.6;
+
+2.6
+date     86.04.21.22.58.15;  author avg;  state Exp;
+branches ;
+next     2.5;
+
+2.5
+date     86.04.18.22.15.18;  author root;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.17.18.23.22;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Установка начальной скорости обмена по линии
+и режимов терминала.
+@
+
+
+22.5
+log
+@Правлены режимы терминала.
+@
+text
+@#
+/*
+ * getty -- установить параметры терминала и вызвать login
+ * Автор: Антонов В.Г.  + Berkeley
+ *
+ * $Log:        getty.c,v $
+ * Revision 22.4  89/06/10  18:59:43  avg
+ * Добавлены ключи getty= prompt= и ident=\
+ *
+ * Revision 22.3  89/06/10  12:34:42  avg
+ * Исправлена ошибка в ifdef-ах и в список допустимых символов добавлена '.'.
+ *
+ * Revision 22.2  89/06/10  12:15:17  avg
+ * Правлена работа с GEXCL на lcase-терминалах и уеньшена задержка в
+ * проверке на exclusive use.
+ *
+ * Revision 22.1  89/03/25  13:07:33  dvolodin
+ * Отсюда пойдут правки под Демос 2.2.
+ *
+ * Revision 2.17  88/12/22  12:50:05  avg
+ * Если на линии установлен EXCL, getty будет каждые 30 сек. проверять это,
+ * и тоько когда EXCL будет снят, getty закончит ожидание.
+ * Кроме того, теперь getty производит эхо-печать только первых 15
+ * вводимых символов - это позволяет двум getty спокойно смотреть друг на друга
+ * с разных концов линии.
+ *
+ * Revision 2.16  88/04/02  20:36:57  andrew
+ * Теперь tgetent'ом получаем описание терминала из /etc/termcap
+ * и помещаем его в environ TERMCAP для ускорения старта
+ * экранных программ.
+ *
+ * Revision 2.15  87/10/21  17:25:41  avg
+ * По eprompt также выдается ident_e (а не _r).
+ *
+ * Revision 2.14  87/10/21  16:49:58  avg
+ * Слиты версии 2.12 и 2.13.
+ * Добавлен флажок eprompt - выдавать диагностики
+ * на английском языке, даже если терминал имеет
+ * русские буквы.
+ *
+ * Revision 2.13  87/06/23  14:52:17  alex
+ * Введен ключ "loadfont" для загрузки фонта из /usr/lib/fonts/$TERM
+ *
+ * Revision 2.12  87/03/20  13:56:22  dmitry
+ * 1) Правки А.П.Руднева:
+ *     а) Сетевое имя машины выдается в скобках;
+ *     б) Пропускается мусор с линии.
+ * 2) Мои правки:
+ *     а) Русские имена пользователей обрабатываются нормально;
+ *     б) Приглашение "login" выдается как во всем цивилизованном мире.
+ *
+ * Revision 2.11  86/11/19  23:12:39  alex
+ * ---
+ *
+ * Revision 2.10  86/10/15  18:43:05  alex
+ * Введена паревыдача приглашения по пустой посылке при запросе имени.
+ * Иначе при включении терминала вылезает "iMQ:" и все.
+ *
+ * Revision 2.9  86/10/08  22:11:38  root
+ * Введено дополнение : символ '1' означает 'выдать приглашение,
+ * не дожидаясь ввода', символ '3' - перед выдачей вывески
+ * ждать ввода какого либо символа. (Имеется в виду первый
+ * символ в строке ttys). Руднев А.П.
+ *
+ * Revision 2.8  86/09/29  20:36:23  avg
+ * Подбор скорости теперь производится по ТРЕМ символам.
+ * Кроме того, изменены параметры у alarm-ов.
+ *
+ * Revision 2.7  86/05/20  14:08:15  avg
+ * Усовершенствован алгоритм подбора скорости на линии.
+ *
+ * Revision 2.6  86/04/21  22:58:15  avg
+ * Изменен алгоритм подбора скорости - теперь скорость
+ * считается найденной при получении символа ^C ^J или ^M.
+ *
+ * Revision 2.5  86/04/18  22:15:18  root
+ * В отдельный файл (getty1.c) вынесен разбор флагов.
+ *
+ * Revision 2.4  86/04/18  19:52:51  root
+ * *** empty log message ***
+ *
+ * Revision 2.3  86/04/18  19:12:07  root
+ * Еще некоторые правки.
+ *
+ * Revision 2.2  86/04/18  17:44:46  root
+ * Сделана правка: значение ttymodes не используется.
+ *
+ * Revision 2.1  86/04/18  17:34:16  root
+ * Новая версия getty, для работы с новым драйвером терминала
+ * Сделана по образу и подобию (а также из) getty из МНОС РЛ 1.2.
+ *
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: getty.c,v 22.4 89/06/10 18:59:43 avg Exp $";
+#endif
+
+#include <stdio.h>
+#include <whoami.h>
+#include <sgtty.h>
+#include <signal.h>
+#include <sys/code.h>
+
+/* Формат строки /etc/ttys :
+
+Attyname:ispeed:ospeed:termtype:flags
+
+*/
+
+/*
+ * Скорости
+ */
+long speeds[] = {
+	0l,          /* B0     0 */
+	50l,         /* B50    1 */
+	75l,         /* B75    2 */
+	110l,        /* B110   3 */
+	134l,        /* B134   4 */
+	150l,        /* B150   5 */
+	200l,        /* B200   6 */
+	300l,        /* B300   7 */
+	600l,        /* B600   8 */
+	1200l,       /* B1200  9 */
+	1800l,       /* B1800 10 */
+	2400l,       /* B2400 11 */
+	4800l,       /* B4800 12 */
+	9600l,       /* B9600 13 */
+	19200l,      /* BEXTA 14 */
+	38400l,      /* BEXTB 15 */
+	1000000l        /* SOME HUGE NUMBER */
+};
+
+char    Term[] = "TERM=\0                             ";
+char    MSG[]  = "MSG=\0                              ";
+char    *Font  = "/usr/lib/fonts/\0                   ";
+char    TERMCAP[1040] = "TERMCAP=";
+char    *tcbuf = TERMCAP + 8;
+
+#define LOGIN   "/bin/login"
+#define TTYF    "/etc/ttys"
+#define IDENTE  "/etc/ident_e"
+#define IDENTR  "/etc/ident_r"
+
+#define NTRIES  5
+#define WAITSEC 60
+
+char    name[16];
+char    ltab[161];
+char    hostname[32];
+struct sgttya  xmode, Rmode;
+int            ldisc;
+int            hupflag = 0;
+int            prevspeed = -1;  /* Предыдущая скорость - устанавливается по - */
+int            abflag    = 0;   /* Autobaud flag */
+int            era1200 = 0;
+int            kil1200 = 0;
+int            nowait = 0;    /* Признак - выдать приглашение сразу */
+int            loadflag = 0;  /* av, для загрузки алфавита */
+int            eprompt = 0;   /* признак: login: всегда выдавать
+				 на английском языке */
+
+#define CTRL(c)  ('c'&037)
+
+char    lang[2] = "e";
+
+#define SKIP  while(*p!=':' && *p!='\n' && *p) p++; *p++ = '\0'
+
+#ifndef lint
+malloc(){return(0);}
+calloc(){return(0);}
+free()  {}
+#endif
+
+int     sp_sess;        /* Флаг специальной сессии */
+int     busy;           /* линия занята? */
+
+char    *altgetty = NULL;  /* программа, запускаемая вместо getty */
+char    *logprompt = NULL; /* приглашение (вместо login:) */
+char    *identfile = NULL; /* файл (вместо /etc/ident_[er]) */
+
+main(argc, argv, env)
+char **argv;
+char **env;
+{
+	char    *ifil;
+	char    *tname;
+	int      ch;
+	char    *enx[40], **ep;
+	int      I;
+	FILE    *ttyf;
+	extern  _sibuf[256];
+	register char *p, *q;
+	char    *l_type;
+	char    *l_ispeed;
+	char    *l_ospeed;
+	char    *l_fval;
+	extern char **environ;
+	static char *np[] = { NULL };
+
+	environ = np;
+	if( argv[0][0] == '+' )
+		sp_sess++;
+	while( (ttyf = fopen( TTYF, "r" )) == NULL )
+		sleep( 300 );
+	setbuf( ttyf, _sibuf );
+
+	signal(SIGINT,  SIG_IGN);
+	signal(SIGQUIT, SIG_IGN);
+
+	tname = argv[1];
+	gethostname(hostname, sizeof (hostname)-1);
+TRYAGAIN:
+	while( fgets( ltab, 160, ttyf ) != NULL ) {
+		if( ltab[0] < '1' || ltab[0] > '3' )
+			continue;
+		p = &ltab[1];
+		q = tname;
+		while( *q ) {
+			if( *p++ != *q++ )
+				goto TRYAGAIN;
+		}
+		if( *p++ == ':' )
+			goto FND;
+	}
+	exit(1);
+FND:
+	fclose( ttyf );
+	l_ispeed = p ;
+	SKIP;
+	if( !*l_ispeed )
+		l_ispeed = "9600";
+	l_ospeed = p;
+	SKIP;
+	if( !*l_ospeed )
+		l_ospeed = "-";
+	l_type = p;
+	if( !*l_type )
+		l_type = "unknown";
+	SKIP;
+	l_fval = p;
+
+	ttymodes( l_fval );
+
+#ifdef TIOCGEXCL
+	/*
+	 * Если линия занята - ждать, пока она не освободится
+	 */
+WaitForBusy:
+	busy = 0;
+	ioctl(0, TIOCGEXCL, &busy);
+	if( busy ) {
+		sleep(30);     /* up .5 minute */
+		goto WaitForBusy;
+	}
+#endif TIOCGEXCL
+
+	ioctl(0, TIOCSETD, &ldisc);
+
+	Rmode = xmode;
+	Rmode.sg_flags = ANYP | RAW;    /* without echo! */
+	xmode.sg_ispeed  = getspeed( l_ispeed );
+	xmode.sg_ospeed  = getspeed( l_ospeed );
+	if( xmode.sg_ospeed >= B1200 ) {
+		if( era1200 )
+			xmode.sg_local |= LCRTERA;
+		if( kil1200 )
+			xmode.sg_local |= LCRTKIL;
+	}
+	if( abflag == 0 ) {
+		Rmode.sg_ospeed = xmode.sg_ospeed;
+		Rmode.sg_ispeed = xmode.sg_ispeed;
+		ioctl(0, TIOCSETA, &Rmode);
+		if(!nowait &&  read( 0, &ch, 1 ) <= 0)
+			exit(0);
+	}
+	Rmode = xmode;
+	Rmode.sg_local |= LLITOUT;
+	ioctl(0, TIOCSETA, &Rmode);
+	if( loadflag ) {                /* av, для загрузки алфавита */
+		strcat( Font, l_type );
+		if( (ttyf = fopen( Font, "r" )) != NULL ) {
+			setbuf( ttyf, _sibuf );
+			while( (ch = getc( ttyf ) ) != EOF )
+				write( 1, &ch, 1 );
+			fclose( ttyf );
+		}
+	}
+	Rmode = xmode;
+	Rmode.sg_flags &= ~ECHO;        /* without echo ! */
+	if( xmode.sg_flags & LCASE )
+		Rmode.sg_flags &= ~UCASE;
+	ioctl(0, TIOCSETA, &Rmode);
+	ifil = identfile;
+	if( ifil == NULL )
+		ifil = ((xmode.sg_flags&CYRILL) && !eprompt)? IDENTR: IDENTE;
+	if( (ttyf = fopen(ifil, "r")) != NULL ) {
+		int ch1;
+		setbuf( ttyf, _sibuf );
+		puts( "\r\n\r\n" );
+		ch = getc(ttyf);
+		while( (ch1 = getc(ttyf)) != EOF ) {
+			if( ch == '\n' )
+				write(1, "\r", 1);
+			write( 1, &ch, 1 );
+			ch = ch1;
+		}
+		fclose( ttyf );
+	}
+	if( identfile == NULL ) {
+		puts( " (" );
+		puts( hostname );
+		puts( ")\r\n\r\n" );
+	} else {
+		if( ch == '\n' )
+			write(1, "\r", 1);
+		write( 1, &ch, 1 );
+	}
+	if( (xmode.sg_flags & CYRILL) && !eprompt ) {
+		lang[0] = 'r';
+		if( sp_sess )
+			puts( ">>> Режим суперпользователя <<<\n\r\r" );
+	} else if( sp_sess )
+			puts( ">>> Maintenance mode <<<\n\r\r" );
+	strcat( Term, l_type );
+	strcat( MSG,  lang );
+	enx[0] = Term;
+	enx[1] = MSG;
+	I = 2;
+	if (wrtermcap(l_type, tcbuf))
+		enx[I++] = TERMCAP;
+	if( ep = env ) {
+		while( *ep )
+			enx[I++] = *(ep++);
+	}
+	enx[I] = 0;
+
+	if( hupflag )
+		ioctl( 0, TIOCHPCL, NULL );
+
+	if( !sp_sess && altgetty != NULL ) {
+		ioctl(0, TIOCSETA, &xmode);
+		execle( altgetty, altgetty, tname, 0, enx);
+		puts( (lang[0] == 'r')? "Не могу запустить "
+				      : "Can not exec " );
+		puts( altgetty );
+		puts( "\r\n\r\n" );
+	}
+
+	if( logprompt == NULL )
+		logprompt = (lang[0]=='r')? "Имя: ": "login: ";
+	while(getname(logprompt)) {
+		Rmode = xmode;
+		Rmode.sg_flags &= ~ECHO;        /* without echo! */
+		ioctl(0, TIOCSETA, &Rmode);
+		execle( LOGIN, sp_sess? "s-login": "-login", name, (xmode.sg_flags & ECHO)? "+echo" : "-echo", 0, enx);
+		puts( "Can not exec login\n" );
+	}
+	sleep(5);
+	xmode.sg_flags &= ~ECHO;        /* without echo! */
+	/* flush all input */
+	ioctl(0, TIOCSETA, &xmode);
+	exit(1);
+}
+
+/*
+ * Прочитать имя с станд. ввода
+ */
+getname( QMSG )
+char *QMSG;
+{
+	register char *np;
+	register c;
+	char     cs;
+	int      rval = 0;
+	int      prtflg = 0;
+	long     rmask, wmask, emask;
+
+	Rmode = xmode;
+	Rmode.sg_flags &= ~ECHO;
+	Rmode.sg_flags |= CBREAK;
+reset:
+	ioctl(0, TIOCSETA, &Rmode);
+again:
+	puts(QMSG);
+	sleep(1);               /* для того, чтобы пропустить мусор с линии */
+#ifndef TIOCGEXCL
+	Rmode = smode;
+#else TIOCGEXCL
+	busy = 0;
+	ioctl(0, TIOCGEXCL, &busy);
+	if( busy ) {
+		do {
+			sleep(30);
+			ioctl(0, TIOCGEXCL, &busy);
+		} while( busy );
+		goto reset;
+	}
+#endif TIOCGEXCL
+
+	ioctl( 0, TIOCSETA, &Rmode );   /* опустошить входной буфер */
+	np = name;
+	do {
+readit:
+#ifdef TIOCGEXCL
+		/*
+		 * Ждать, пока на линии не появится очередной символ
+		 */
+		rmask = 1l;
+		wmask = emask = 0l;
+		select(1, &rmask, &wmask, &emask, NULL);
+		busy = 0;
+		ioctl(0, TIOCGEXCL, &busy);
+		if( busy ) {
+			do {
+				sleep(30);
+				ioctl(0, TIOCGEXCL, &busy);
+			} while( busy );
+			goto reset;
+		}
+#endif TIOCGEXCL
+		read(0, &cs, 1);
+		c = cs & 0377;
+		if( c == ' ' || c == '\t' )
+			goto readit;
+#ifdef TIOCGEXCL
+		if( c == xmode.sg_erase ) {
+			if( np > name ) {
+				--np;
+				if( !(xmode.sg_flags & ECHO) )
+					goto readit;
+				if( (xmode.sg_local & (LCRTERA|LCRTBS)) == (LCRTERA|LCRTBS) ) {
+					puts( (xmode.sg_local & LESCH)? "\33H \33H" : "\10 \10" );
+				} else if( xmode.sg_local & LPRTERA ) {
+					if( !prtflg )
+						write(1, "\\", 1);
+					cs = *np;
+					write(1, &cs, 1);
+					prtflg = 1;
+				} else
+					write(1, &cs, 1);
+			}
+			goto readit;
+		}
+		if( c == xmode.sg_kill ) {
+			if( np > name ) {
+				if( !(xmode.sg_flags & ECHO) ) {
+					np = name;
+					prtflg = 0;
+					goto readit;
+				}
+				if( (xmode.sg_local & (LCRTERA|LCRTBS)) == (LCRTERA|LCRTBS) ) {
+				    while( np-- > name )
+					puts( (xmode.sg_local & LESCH)? "\33H \33H" : "\10 \10" );
+				} else
+				    printf( "^U\r\n" );
+			}
+			np = name;
+			prtflg = 0;
+			goto readit;
+		}
+		if( prtflg ) {
+			write(1, "/", 1);
+			prtflg = 0;
+		}
+#endif TIOCGEXCL
+		/* Non-alnum char */
+		if( (c < '0' || c > '9') &&
+		    (c < 'A' || c > 'Z') &&
+		    (c < 'a' || c > 'z') &&
+		    (c & 0300) != 0300   && c != '.' && (c & 0340) )
+			goto readit;
+		if( np > &name[15] )
+			goto readit;
+		if( (c == '\n' || c == '\r') && np == name )
+			goto ret;
+#ifdef  Ucode
+		if( ('A' <= c && c <= 'Z') || (c & 0340) == 0300 )
+			c |= 040;
+#else   KOI8
+		if( ('A' <= c && c <= 'Z') || (c & 0340) == 0340 )
+			c ^= 040;
+#endif
+		*np++ = c;
+#ifdef TIOCGEXCL
+		cs = c;
+		if( (xmode.sg_flags & ECHO) ) {
+			if( c >= 040 )
+				write(1, &cs, 1);
+			else if( cs == '\n' || cs == '\r' )
+				write(1, "\r\n", 2);
+		}
+#endif
+		if ( c != '\n' && c != '\r' && c < '\040' )
+			goto ret;
+	} while ( c!='\n' && c!='\r' );
+	*--np = 0;
+	rval = 1;
+ret:
+#ifdef TIOCGEXCL
+	Rmode = xmode;
+	Rmode.sg_flags &= ~ECHO;        /* without echo! */
+	ioctl(0, TIOCSETA, &Rmode);
+#endif TIOCGEXCL
+	return rval;
+}
+
+/*
+ * Выдать строку на терминал
+ */
+puts(as)
+char *as;
+{
+	register char *s;
+	register i;
+
+	s = as;
+	i = 0;
+	while (*s++)
+		i++;
+	write(1, as, i);
+}
+
+#define MAXC  10  /* Макс. число скоростей в цикле */
+
+int     TOUTflag = 0;   /* Таймаут in progress */
+int     Started  = 0;
+onalrm() { signal( SIGALRM, onalrm ); TOUTflag++; }
+
+/*
+ * Прочитать скорость передачи по линии,
+ * если A, то подобрать скорость автоматически.
+ */
+getspeed( s )
+register char *s;
+{
+	long     l;
+	register i;
+	int      Scycle[MAXC];
+	int      mcycle = 0;
+	char     ch;
+
+	if( *s == '-' ) {
+		if( prevspeed == -1 )
+			prevspeed = B9600;
+		return( prevspeed );
+	} else if( *s == 'A' ) {
+		if( prevspeed != -1 )
+			return( prevspeed );
+#ifdef TEXAS_AUTOBAUD
+		abflag = 1;
+		if( set_baud_rate() )
+			return( prevspeed = Rmode.sg_ispeed );
+		abflag = 0;
+#endif
+		return( prevspeed = B9600 );
+	}
+
+	do {
+		l = 0l;
+		i = 0;
+		while( *s >= '0' && *s <= '9' )
+			l = l*10 + (*s++-'0');
+		while( l > speeds[i] )
+			i++;
+		Scycle[mcycle++] = i;
+	}  while( *s++ == ',' );
+
+	if( mcycle <= 1 )
+		{ nowait = 1;return( prevspeed = Scycle[0] );}
+
+	/* AUTOBAUD */
+	abflag = 1;
+Loopagain:
+	for( i = 0 ; i < mcycle ; i++ ) {
+		Rmode.sg_ispeed = Rmode.sg_ospeed = Scycle[i];
+		ioctl( 0, TIOCSETA, &Rmode );
+		TOUTflag = 0;
+		signal(SIGALRM, onalrm);
+
+		/* pass 1 */
+		if( Started )
+			alarm(60);
+		read(0, &ch, 1);
+		Started = 1;
+		if( TOUTflag )
+			continue;
+		if( (ch&0177) != 012 && (ch&0177) != 015 &&
+		    (ch&0177) != 003 )  /* Error, loop it again */
+			continue;
+
+		/* pass 2 */
+		if( TOUTflag ) {
+			alarm(2);
+			TOUTflag = 0;
+		}
+		read(0, &ch, 1);
+		if( TOUTflag ) {
+			Started = 0;
+			continue;
+		}
+		if( (ch&0177) != 012 && (ch&0177) != 015 &&
+		    (ch&0177) != 003 )  /* Error, loop it again */
+			continue;
+
+		/* pass 3 */
+		if( TOUTflag ) {
+			alarm(2);
+			TOUTflag = 0;
+		}
+		read(0, &ch, 1);
+		if( TOUTflag ) {
+			Started = 0;
+			continue;
+		}
+		if( (ch&0177) == 012 || (ch&0177) == 015 ||
+		    (ch&0177) == 003 ) { /* OK, speed found */
+			alarm(0);
+			return( prevspeed = Scycle[i] );
+		}
+	}
+	i = 0;
+	goto Loopagain;
+}
+
+#ifdef TEXAS_AUTOBAUD
+
+/* Autobauding tables */
+struct match
+{
+	char  m_char;   /* Битовый образец для поиска */
+	char  m_mask;   /* Игнорируемые биты во входном символе */
+	short m_speed;  /* Селектируемая скорость */
+};
+
+struct match match[] = {        /* cr,int            */
+	{ 0xfc, 0x03, B9600 },  /* 111111xx (cr,int) */
+	{ 0x0d, 0x80, B4800 },  /* x0001101 (cr)     */
+	{ 0x03, 0x80, B4800 },  /* x0000011 (int)    */
+	{ 0xe6, 0x00, B2400 },  /* 11100110 (cr)     */
+	{ 0x1e, 0x00, B2400 },  /* 00011110 (int)    */
+	{ 0x8c, 0x12, B1800 },  /* 100x11x0 (cr)     */
+	{ 0x7c, 0x02, B1800 },  /* 011111x0 (int)    */
+	{ 0x78, 0x80, B1200 },  /* x1111000 (cr,int) */
+	{ 0x80, 0x00, B600  },  /* 10000000 (cr,int) */
+	{ 0x00, 0x00, B300  },  /* 00000000 (cr,int) */
+	{ 0,    0,    0     }
+};
+
+/*
+ * Определяет скорость передачи терминала на линии по
+ * передаваемым им символам CR (возврата каретки) или ^C.
+ * Может определять скорости 300, 600, 1200, 1800, 2400, 4800 и 9600 бод.
+ *
+ * Если новая скорость меньше 2400 бод делается sleep перед ioctl.
+ * Это спасает от прочего мусора, попавшего из мультиплексора во
+ * входную очередь в ядре. После sleep по ioctl эта очередь будет
+ * пропущена.
+ */
+timeout()
+{
+	puts( "\n\r\7CONNECTION TIMED OUT.\n\r" );
+	exit( 1 );
+}
+
+set_baud_rate()
+{
+	register struct match *m;
+	register int i;
+	char c;
+
+	Rmode.sg_ispeed = Rmode.sg_ospeed = B4800;
+	ioctl( 0, TIOCSETA, &Rmode );
+	if(ioctl( 0, TIOCSIMG, 0 ) < 0 )
+		return( 0 ); /* неуспех */
+	alarm( 0 );
+	for (i=0; i < NTRIES; i++) {
+		/* прочитать символ и попытаться найти его */
+		signal( SIGALRM, timeout );
+		alarm( WAITSEC );
+		read( 0, &c, 1 );
+		alarm( 0 );
+		c &= 0377;
+		for ( m = match; m->m_speed != 0; m++ ) {
+			if ((c &~ m->m_mask) == m->m_char) {
+
+				/***** успех  *******/
+
+				Rmode.sg_ispeed = Rmode.sg_ospeed = m->m_speed;
+				if( Rmode.sg_ispeed < B2400 )
+					sleep(1);
+				ioctl( 0, TIOCCIMG, 0 );
+				return( 1 );
+			}
+		}
+	}
+	/* неуспех */
+	sleep( 1 );
+	ioctl( 0, TIOCCIMG, 0 );
+	return( 0 );
+}
+#endif TEXAS_AUTOBAUD
+
+#define NO 0
+#define YES 1
+#define WHITE(c)        (c == ' ' || c == '\t')
+
+int wrtermcap(name, p)
+char *name;
+char *p;
+{
+	char tcbuf[1024];
+	char *bp = tcbuf;
+	register int i;
+	char *tp;
+	int space, empty;
+
+	if (tgetent(bp, name) != 1)
+		return 0;
+	/* discard names with blanks */
+/** May not be desireable ? **/
+	while (*bp && *bp != ':') {
+		if (*bp == '|') {
+			tp = bp+1;
+			space = NO;
+			while (*tp && *tp != '|' && *tp != ':') {
+				space = (space || WHITE(*tp) );
+				tp++;
+			}
+			if (space) {
+				bp = tp;
+				continue;
+			}
+		}
+		*p++ = *bp++;
+	}
+/**/
+
+	while (*bp) {
+		switch (*bp) {
+		case ':':       /* discard empty, cancelled  or dupl fields */
+			/* discard empty, cancelled  or dupl fields */
+			tp = bp+1;
+			empty = YES;
+			while (*tp && *tp != ':') {
+				empty = (empty && WHITE(*tp) );
+				tp++;
+			}
+			if (empty || cancelled(bp+1)) {
+				bp = tp;
+				continue;
+			}
+			break;
+
+		case '\\':
+		case '^':       /* anything following is OK */
+			*p++ = *bp++;
+		}
+		*p++ = *bp++;
+contin:         ;
+	}
+	*p++ = ':';     /* we skipped the last : with the : lookahead hack */
+	*p++ = '\0';
+	return 1;
+}
+
+static  int cancelled(cap)
+char    *cap;
+{
+	static char delcap[128][2];
+	static int ncap = 0;
+	register int i;
+
+	for (i = 0; i < ncap; i++)
+	{
+		if (cap[0] == delcap[i][0] && cap[1] == delcap[i][1])
+			return (YES);
+	}
+	/* delete a second occurrance of the same capability */
+	delcap[ncap][0] = cap[0];
+	delcap[ncap][1] = cap[1];
+	ncap++;
+	return (cap[2] == '@@');
+}
+@
+
+
+22.4
+log
+@Добавлены ключи getty= prompt= и ident=\
+@
+text
+@d7 3
+d95 1
+a95 1
+static char rcsid[] = "$Header: getty.c,v 22.3 89/06/10 12:34:42 avg Exp $";
+d135 1
+a135 1
+char    *Font  = "/usr/lib/fonts/\0                   "; /* av, для загрузки алфавита */
+d258 1
+d260 1
+a260 1
+	Rmode.sg_flags = ANYP | RAW;
+d289 1
+d352 4
+a355 1
+		execle( LOGIN, sp_sess? "s-login": "-login", name, 0, enx);
+d359 2
+d500 3
+a502 1
+	ioctl(0, TIOCSETA, &xmode);
+@
+
+
+22.3
+log
+@Исправлена ошибка в ifdef-ах и в список допустимых символов добавлена '.'.
+@
+text
+@d6 4
+a9 1
+ * $Log:	getty.c,v $
+d13 1
+a13 1
+ * 
+d92 1
+a92 1
+static char rcsid[] = "$Header: getty.c,v 22.2 89/06/10 12:15:17 avg Exp $";
+d174 4
+d182 1
+d211 1
+a211 1
+		if( ltab[0] < '1' || ltab[0] > '9' )
+a237 1
+	SKIP;
+d288 4
+a291 3
+	if( (ttyf = fopen( ((xmode.sg_flags&CYRILL) && !eprompt)? IDENTR:
+								  IDENTE, "r" ))
+								 != NULL ) {
+d296 6
+a301 2
+		while( (ch1 = getc(ttyf)) != EOF )
+			write( 1, &ch, 1 ), ch = ch1;
+d304 1
+d308 5
+d335 12
+a346 1
+	while(getname((lang[0]=='r')? "Имя: ": "login: ")) {
+d460 1
+a460 1
+		    (c & 0300) != 0300  && c != '.' )
+d462 2
+a465 2
+		if( np > &name[15] )
+			goto readit;
+d467 2
+a468 1
+		cs = (*np++ = c | 040);
+d470 2
+a471 1
+		cs = (*np++ = (c > 0300 ? c & ~040 : c | 040));
+d473 1
+d475 7
+a481 2
+		if( xmode.sg_flags & ECHO )
+			write(1, &cs, 1);
+@
+
+
+22.2
+log
+@Правлена работа с GEXCL на lcase-терминалах и уеньшена задержка в
+проверке на exclusive use.
+@
+text
+@d6 5
+a10 1
+ * $Log:        getty.c,v $
+d89 1
+a89 1
+static char rcsid[] = "$Header: getty.c,v 22.1 89/03/25 13:07:33 dvolodin Exp $";
+a336 2
+
+#if defined(TIOCGEXCL) && (defined(IPK_SELECT) || defined(UCB_NET))
+a337 1
+#endif
+d431 1
+a431 1
+		    (c & 0300) != 0300 )
+@
+
+
+22.1
+log
+@Отсюда пойдут правки под Демос 2.2.
+@
+text
+@d6 4
+a9 1
+ * $Log:	getty.c,v $
+d16 1
+a16 1
+ * 
+d85 1
+a85 1
+static char rcsid[] = "$Header: getty.c,v 2.17 88/12/22 12:50:05 avg Exp $";
+d238 1
+a238 1
+		sleep(180);     /* up 3 minutes */
+d257 2
+a258 2
+		ioctl( 0, TIOCSETA, &Rmode );
+		if( !nowait &&  read( 0, &ch, 1 ) <= 0 )
+d273 4
+a276 1
+	ioctl(0, TIOCSETA, &xmode);
+d282 1
+a282 2
+		puts( "\r\r\n\r\r\n" );
+		puts( "\r\r\n" );
+d290 1
+a290 1
+		puts( ")\r\r\n\r\r\n" );
+d353 1
+a353 1
+			sleep(180);
+a364 1
+#if defined(UCB_NET) || defined(IPK_SELECT)
+a370 1
+#endif /* SELECT */
+d375 1
+a375 1
+				sleep(180);
+d426 6
+d436 5
+a444 5
+#ifdef  KOI8
+		*np++ = ( c > 0300 ? c &~ 040 : c | 040 );
+#else   KOI8
+		*np++ = c | 040;
+#endif  KOI8
+@
+
+
+2.17
+log
+@Если на линии установлен EXCL, getty будет каждые 30 сек. проверять это,
+и тоько когда EXCL будет снят, getty закончит ожидание.
+Кроме того, теперь getty производит эхо-печать только первых 15
+вводимых символов - это позволяет двум getty спокойно смотреть друг на друга
+с разных концов линии.
+@
+text
+@d6 8
+a13 1
+ * $Log:        getty.c,v $
+d82 1
+a82 1
+static char rcsid[] = "$Header: getty.c,v 2.16 88/04/02 20:36:57 andrew Exp $";
+@
+
+
+2.16
+log
+@Теперь tgetent'ом получаем описание терминала из /etc/termcap
+и помещаем его в environ TERMCAP для ускорения старта
+экранных программ.
+@
+text
+@d6 6
+a11 1
+ * $Log:	getty.c,v $
+d14 1
+a14 1
+ * 
+d75 1
+a75 1
+static char rcsid[] = "$Header: getty.c,v 2.15 87/10/21 17:25:41 avg Exp $";
+d130 1
+a130 1
+struct sgttyb1 xmode, Rmode;
+d155 1
+d219 14
+a232 1
+	xmode.sg_flags &= ~ECHO;
+d251 3
+a253 1
+	ioctl(0, TIOCSETA, &xmode );
+d263 1
+d299 1
+a299 1
+		ioctl( 0, TIOCHPCL, (struct sgttyb *)0 );
+d305 3
+d318 13
+a330 3
+	int      cs;
+	xmode.sg_flags &= ~ECHO;
+	ioctl( 0, TIOCSETA, &xmode );
+d332 17
+a348 4
+	puts( QMSG );
+	sleep(1);
+	xmode.sg_flags |= ECHO;
+	ioctl( 0, TIOCSETA, &xmode );
+d351 21
+a371 2
+		if (read(0, &cs, 1) <= 0)
+			return(0);
+d374 42
+a415 1
+			continue;
+d417 7
+a423 1
+			return(0);
+d429 3
+a431 3
+		if ( c != '\n' && c != '\r' && c>='\0' && c< '\040')
+			return(0);
+	} while ( c!='\n' && c!='\r' && np <= &name[16] );
+d433 6
+a438 1
+	return(1);
+d639 1
+a639 1
+#define	WHITE(c)	(c == ' ' || c == '\t')
+d674 1
+a674 1
+		case ':':	/* discard empty, cancelled  or dupl fields */
+d689 1
+a689 1
+		case '^':	/* anything following is OK */
+d693 1
+a693 1
+contin:		;
+d695 1
+a695 1
+	*p++ = ':';	/* we skipped the last : with the : lookahead hack */
+d701 1
+a701 1
+char	*cap;
+a717 1
+
+@
+
+
+2.15
+log
+@По eprompt также выдается ident_e (а не _r).
+@
+text
+@d6 4
+a9 1
+ * $Log:        getty.c,v $
+d70 1
+a70 1
+static char rcsid[] = "$Header: getty.c,v 2.14 87/10/21 16:49:58 avg Exp $";
+d111 2
+d166 2
+d169 1
+d268 2
+d517 83
+@
+
+
+2.14
+log
+@Слиты версии 2.12 и 2.13.
+Добавлен флажок eprompt - выдавать диагностики
+на английском языке, даже если терминал имеет
+русские буквы.
+@
+text
+@d7 6
+d67 1
+a67 1
+static char rcsid[] = "$Header: getty.c,v 2.13 87/06/23 14:52:17 alex Exp $";
+d234 2
+a235 1
+	if( (ttyf = fopen( (xmode.sg_flags&CYRILL)? IDENTR: IDENTE, "r" ))
+@
+
+
+2.13
+log
+@Введен ключ "loadfont" для загрузки фонта из /usr/lib/fonts/$TERM
+@
+text
+@d6 12
+a17 1
+ * $Log:	getty.c,v $
+d20 1
+a20 1
+ * 
+d24 1
+a24 1
+ * 
+d30 1
+a30 1
+ * 
+d34 1
+a34 1
+ * 
+d61 1
+a61 1
+static char rcsid[] = "$Header: getty.c,v 2.11 86/11/19 23:12:39 alex Exp $";
+d68 1
+d123 2
+d242 1
+a242 1
+	if( xmode.sg_flags & CYRILL ) {
+d262 1
+a262 1
+	while(getname((lang[0]=='r')? "Имя : ": "Login : ")) {
+d293 3
+d297 1
+@
+
+
+2.12
+log
+@1) Правки А.П.Руднева:
+    а) Сетевое имя машины выдается в скобках;
+    б) Пропускается мусор с линии.
+2) Мои правки:
+    а) Русские имена пользователей обрабатываются нормально;
+    б) Приглашение "login" выдается как во всем цивилизованном мире.
+@
+text
+@d6 1
+a6 1
+ * $Log:        getty.c,v $
+d9 1
+a9 1
+ *
+d13 1
+a13 1
+ *
+d19 1
+a19 1
+ *
+d23 1
+a23 1
+ *
+a56 1
+#include <sys/code.h>
+d89 1
+d110 1
+d205 9
+d248 1
+a248 1
+	while(getname((lang[0]=='r')? "Имя: ": "login: ")) {
+a278 3
+#ifdef  KOI8
+		*np++ = ( c > 0300 ? c &~ 040 : c | 040 );
+#else   KOI8
+a279 1
+#endif  KOI8
+@
+
+
+2.11
+log
+@---
+@
+text
+@d6 4
+a9 1
+ * $Log:	getty.c,v $
+d13 1
+a13 1
+ * 
+d19 1
+a19 1
+ * 
+d23 1
+a23 1
+ * 
+d50 1
+a50 1
+static char rcsid[] = "$Header: getty.c,v 2.10 86/10/15 18:43:05 alex Stab $";
+d57 1
+d101 1
+a101 1
+
+d151 1
+a151 1
+
+d184 1
+a184 1
+
+a189 1
+
+a202 1
+
+d206 1
+d209 4
+a212 2
+		while( (ch = getc(ttyf)) != EOF )
+			write( 1, &ch, 1 );
+d215 3
+a217 1
+	puts( "\r\r\n\r\r\n" );
+a223 5
+
+	/* Пропустить мусор с линии */
+	sleep(1);
+	ioctl( 0, TIOCSETA, &xmode );
+
+d238 2
+a239 2
+	while(getname((lang[0]=='r')? "Имя : ": "Login : ")) {
+		execle( LOGIN, sp_sess? "slogin": "login", name, 0, enx);
+d253 2
+a254 1
+
+d257 3
+d269 3
+d273 1
+@
+
+
+2.10
+log
+@Введена паревыдача приглашения по пустой посылке при запросе имени.
+Иначе при включении терминала вылезает "iMQ:" и все.
+@
+text
+@d4 1
+a4 1
+ * Автор: Антонов В.Г.
+d7 4
+d47 1
+a47 1
+static char rcsid[] = "$Header: getty.c,v 2.9 86/10/08 22:11:38 root Exp $";
+d105 1
+d150 1
+a150 1
+		if( ltab[0] != '1' && ltab[0] != '3' )
+d197 1
+a197 1
+		if( ltab[0] != '1' &&  read( 0, &ch, 1 ) <= 0 )
+d214 1
+a214 1
+			puts( ">>> Только для суперпользователя <<<\n\r\r" );
+d333 1
+a333 1
+		return( prevspeed = Scycle[0] );
+@
+
+
+2.9
+log
+@Введено дополнение : символ '1' означает 'выдать приглашение,
+не дожидаясь ввода', символ '3' - перед выдачей вывески
+ждать ввода какого либо символа. (Имеется в виду первый
+символ в строке ttys). Руднев А.П.
+@
+text
+@d7 6
+d43 1
+a43 1
+static char rcsid[] = "$Header: getty.c,v 2.8 86/09/29 20:36:23 avg Exp $";
+d257 1
+a257 1
+			goto again;
+d259 2
+@
+
+
+2.8
+log
+@Подбор скорости теперь производится по ТРЕМ символам.
+Кроме того, изменены параметры у alarm-ов.
+@
+text
+@d6 5
+a10 1
+ * $Log:        getty.c,v $
+d37 1
+a37 1
+static char rcsid[] = "$Header: getty.c,v 2.7 86/05/20 14:08:15 avg Exp $";
+d186 1
+a186 1
+		if( read( 0, &ch, 1 ) <= 0 )
+@
+
+
+2.7
+log
+@Усовершенствован алгоритм подбора скорости на линии.
+@
+text
+@d7 3
+d33 1
+a33 1
+static char rcsid[] = "$Header: getty.c,v 2.6 86/04/21 22:58:15 avg Exp $";
+d326 2
+d329 1
+a329 1
+			alarm(30);
+d337 2
+d340 1
+a340 1
+			alarm(30);
+d348 14
+d398 1
+a398 1
+ * передаваемым им символам CR возврата каретки или ^C.
+d408 1
+a408 1
+	puts( "\7CONNECTION TIMED OUT.\n\r" );
+@
+
+
+2.6
+log
+@Изменен алгоритм подбора скорости - теперь скорость
+считается найденной при получении символа ^C ^J или ^M.
+@
+text
+@d7 4
+d30 1
+a30 1
+static char rcsid[] = "$Header: getty.c,v 2.5 86/04/18 22:15:18 root Stab $";
+d269 4
+d321 20
+a340 2
+		if( read( 0, &ch, 1 ) <= 0 )
+			exit(0);
+d342 2
+a343 1
+		    (ch&0177) == 003 )  /* OK, speed found */
+d345 1
+d404 1
+a404 1
+		signal( 14, timeout );
+@
+
+
+2.5
+log
+@В отдельный файл (getty1.c) вынесен разбор флагов.
+@
+text
+@d7 3
+d26 1
+a26 1
+static char rcsid[] = "$Header: getty.c,v 2.4 86/04/18 19:52:51 root Exp $";
+d315 2
+a316 1
+		if( (ch&0177) != 0 )      /* OK, speed found */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 2
+a4 1
+ * Установка скорости и флагов терминалов
+d6 14
+a19 1
+ * $Log$
+a20 1
+static char rcsid[] = "$Header$";
+d22 5
+a29 2
+#include <sys/types.h>
+#include <sys/file.h>
+d31 1
+a31 1
+#define IDENT   "/etc/ident"    /* contains login banner for sys */
+d33 1
+a33 2
+#define SP_SESS                 /* "special session"-- root logins only */
+#define DO_CRTBS        /* allow backspace as erase; stty erase if >2400 baud */
+d35 1
+a35 3
+#define DEL     '\177'
+#define CNTL(x) ('x'&037)
+#define UNDEF   '\377'
+d37 21
+a57 6
+#define ERASE   DEL
+#define KILL    CNTL(u)
+
+struct sgttyb tmode;
+struct tchars tchars =
+	{ CNTL(c), CNTL(\\), CNTL(Q), CNTL(S), CNTL(D), UNDEF
+a58 5
+#ifdef UCB_NTTY
+struct  ltchars ltc =
+	{ CNTL(z), CNTL(y), CNTL(r), CNTL(t), CNTL(w), CNTL(v)
+};
+#endif
+d60 2
+a61 9
+struct  tab {
+	char    tname;          /* this table name */
+	char    nname;          /* successor table name */
+	int     iflags;         /* initial flags */
+	int     fflags;         /* final flags */
+	int     ispeed;         /* input speed */
+	int     ospeed;         /* output speed */
+	char    *message;       /* login message */
+} itab[] = {
+d63 4
+a66 1
+/* table '0'-1-2-3 300,1200,150,110 */
+d68 2
+a69 4
+	'0', 1,
+	ANYP+RAW, ANYP+ECHO,
+	B300, B300,
+	"\n\r\033;\007login: ",
+d71 2
+a72 4
+	1, 2,
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD,
+	B1200, B1200,
+	"\n\r\033;login: ",
+d74 7
+a80 4
+	2, 3,
+	ANYP+RAW, EVENP+ECHO,
+	B150, B150,
+	"\n\r\033:\006\006\017login: ",
+d82 1
+a82 4
+	3, '0',
+	ANYP+RAW+LCASE, ANYP+ECHO+CRMOD+XTABS+LCASE,
+	B110, B110,
+	"\n\r:login: ",
+d84 1
+a84 5
+/* table '-' -- Console TTY 110 */
+	'-', '-',
+	ANYP+RAW, ANYP+ECHO+CRMOD+XTABS+LCASE,
+	B110, B110,
+	"\n\r:login: ",
+d86 1
+a86 5
+/* table '1' -- 150 */
+	'1', '1',
+	ANYP+RAW, EVENP+ECHO,
+	B150, B150,
+	"\n\r\033:\006\006\017login: ",
+d88 5
+a92 5
+/* table '2' -- 9600 */
+	'2', '2',
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD,
+	B9600, B9600,
+	"\n\r;login: ",
+d94 1
+a94 5
+/* table '3'-'5' -- 1200,300 */
+	'3', '5',
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD,
+	B1200, B1200,
+	"\n\r:login: ",
+d96 15
+a110 5
+/* table '5'-'3' -- 300,1200 */
+	'5', '3',
+	ANYP+RAW, ANYP+ECHO+XTABS,
+	B300, B300,
+	"\n\r:login: ",
+d112 5
+a116 5
+/* table '4' -- Console Decwriter */
+	'4', '4',
+	ANYP+RAW, ANYP+ECHO+CRMOD+XTABS,
+	B300, B300,
+	"\n\r:login: ",
+d118 2
+a119 5
+/* table '6' -- 1200 */
+	'6', '6',
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD,
+	B1200, B1200,
+	"\n\r;login: ",
+d121 1
+a121 5
+/* table '7' -- 2400 */
+	'7', '7',
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD,
+	B2400, B2400,
+	"\n\r;login: ",
+d123 30
+a152 5
+/* table '8' -- 4800 */
+	'8', '8',
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD,
+	B4800, B4800,
+	"\n\r;login: ",
+d154 1
+a154 5
+/* table '9' -- 9600 */
+	'9', '9',
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD+LCASE,
+	B9600, B9600,
+	"\n\r;login: ",
+d156 5
+a160 5
+/* table 'i' -- Interdata Console */
+	'i', 'i',
+	RAW+CRMOD, CRMOD+ECHO+LCASE,
+	0, 0,
+	"\n\r:login: ",
+d162 13
+a174 62
+#ifdef  TEXAS_AUTOBAUD
+/* table 'B' -- Do autobauding */
+
+#define NTRIES  5
+#define WAITSEC 60
+#define TB_AUTOBAUD     'B'
+	TB_AUTOBAUD, TB_AUTOBAUD,
+	ANYP+RAW,       ANYP+XTABS+ECHO+CRMOD,
+	B9600, B9600,
+	"\n\r;login: ",
+#endif
+
+/* table 'T' -- 9600 tektronix 4014 */
+	'T', 'T',
+	ANYP+RAW, ANYP+XTABS+ECHO+CRMOD,
+	B9600, B9600,
+	"\n\r\033;login: ",
+};
+
+#define NITAB   sizeof itab/sizeof itab[0]
+#define EOT     04              /* EOT char */
+
+char    name[16];
+int     crmod;
+int     upper;
+int     lower;
+#ifdef  DO_CRTBS
+int     can_erase;
+#endif
+#ifdef  SP_SESS
+int     sp_sess = { 0 };        /* flag special session */
+#endif
+
+char partab[] = {
+	0001,0201,0201,0001,0201,0001,0001,0201,
+	0202,0004,0003,0205,0005,0206,0201,0001,
+	0201,0001,0001,0201,0001,0201,0201,0001,
+	0001,0201,0201,0001,0201,0001,0001,0201,
+	0200,0000,0000,0200,0000,0200,0200,0000,
+	0000,0200,0200,0000,0200,0000,0000,0200,
+	0000,0200,0200,0000,0200,0000,0000,0200,
+	0200,0000,0000,0200,0000,0200,0200,0000,
+	0200,0000,0000,0200,0000,0200,0200,0000,
+	0000,0200,0200,0000,0200,0000,0000,0200,
+	0000,0200,0200,0000,0200,0000,0000,0200,
+	0200,0000,0000,0200,0000,0200,0200,0000,
+	0000,0200,0200,0000,0200,0000,0000,0200,
+	0200,0000,0000,0200,0000,0200,0200,0000,
+	0200,0000,0000,0200,0000,0200,0200,0000,
+	0000,0200,0200,0000,0200,0000,0000,0201
+};
+
+main(argc, argv)
+char **argv;
+{
+	register struct tab *tabp;
+	int tname;
+	int ldisc;
+	int bf;
+#ifdef  UCB_NTTY
+	int lmode = 0;
+#endif
+d176 16
+a191 7
+	ldisc = DFLT_LDISC;
+	ioctl(0, TIOCSETD, &ldisc);
+#ifdef UCB_NTTY
+	ioctl(0, TIOCLSET, &lmode);
+	ioctl(0, TIOCSLTC, &ltc);
+#endif
+	ioctl(0, TIOCSETC, &tchars);
+d193 3
+a195 8
+	tname = '0';
+#ifdef  SP_SESS
+	/*
+	 * If we are called with a "+" name, flag special session.
+	 */
+	if(argv[0][0] == '+')
+		sp_sess++;
+#endif
+d197 10
+a206 2
+	if (argc > 1)
+		tname = argv[1][0];
+d208 2
+d211 3
+a213 25
+	switch (tname) {
+
+	/*
+	 *      If hardware has decoded high speed (or line is open),
+	 *      get the line speed.
+	 */
+	case '5':
+		ioctl(0,TIOCGETP, &tmode);
+		if (tmode.sg_ispeed == B1200)
+			tname = '3';
+		break;
+
+#ifdef  DO_CRTBS
+	/*
+	 *      Hard-wired crt ports (2400-9600 baud)
+	 *      allow use of backspace-erase.
+	 */
+	case '7':
+	case '8':
+	case '9':
+		can_erase++;
+		lmode = LCRTERA | LCRTBS;
+		ioctl(0, TIOCLSET, &lmode);
+		break;
+#endif
+a214 75
+	for (;;) {
+		for(tabp = itab; tabp < &itab[NITAB]; tabp++)
+			if(tabp->tname == tname)
+				break;
+		if(tabp >= &itab[NITAB])
+			tabp = itab;
+		tmode.sg_flags = tabp->iflags;
+		tmode.sg_ispeed = tabp->ispeed;
+		tmode.sg_ospeed = tabp->ospeed;
+		ioctl(0, TIOCSETP, &tmode);
+		ioctl(0, TIOCSETC, &tchars);
+#ifdef  TEXAS_AUTOBAUD
+		if ((tabp->tname == TB_AUTOBAUD) && set_baud_rate())
+		{       /* autobaud line */
+			ioctl(0, TIOCGETP, &tmode); /* pick up baud rate */
+			ioctl(0, TIOCSETP, &tmode); /* flush input */
+		}
+#endif
+
+		if(tmode.sg_ospeed > B1200)
+			puts("\n\r");
+		else
+			puts("\n\r\r\r\r\r\n\r\r\r\r\r");
+		if ((bf = open(IDENT, FATT_RDONLY)) > 0) {
+			char buf[81];
+			int i;
+			register char *s;
+			while ((i = read(bf, buf, sizeof (buf) - 1)) > 0) {
+				buf[i] = 0;
+				for (s = buf; *s; s++) {
+					if (*s == '\n')
+						putchr('\r');
+					putchr(*s);
+				}
+			}
+			close(bf);
+		}
+#ifdef  SP_SESS
+		if(sp_sess)
+			puts("\n\r\r\r>>> Unix Maintenance Mode <<<");
+#endif
+		puts(tabp->message);
+		/*
+		 * wait, then flush input to get rid
+		 * of line noise
+		 */
+		sleep(1);
+		ioctl(0, TIOCSETP, &tmode);
+		if(getname()) {
+			if(upper==0 && lower==0)
+				continue;
+#ifdef  DO_CRTBS
+			tmode.sg_erase = can_erase? '\b': ERASE;
+#else
+			tmode.sg_erase = ERASE;
+#endif
+			tmode.sg_kill = KILL;
+			tmode.sg_flags = tabp->fflags;
+			if(crmod)
+				tmode.sg_flags |= CRMOD;
+			if(upper)
+				tmode.sg_flags |= LCASE;
+			if(lower)
+				tmode.sg_flags &= ~LCASE;
+			ioctl(0, TIOCSETP, &tmode);
+			putchr('\n');
+#ifdef  SP_SESS
+			if(sp_sess)
+				execl("/bin/login", "slogin", name, 0);
+#endif
+			execl("/bin/login", "login", name, 0);
+			exit(1);
+		}
+		tname = tabp->nname;
+	}
+d217 5
+a221 1
+getname()
+d225 1
+a225 1
+	char cs;
+d227 2
+a228 3
+	crmod = 0;
+	upper = 0;
+	lower = 0;
+d230 1
+a230 1
+	for (;;) {
+a231 2
+			exit(0);
+		if ((c = cs&0177) == 0)
+d233 2
+a234 19
+		if (c==EOT)
+			exit(1);
+		if (c=='\r' || c=='\n' || np >= &name[16])
+			break;
+#ifdef  DO_CRTBS
+		if (c != '\b')
+#endif
+			putchr(cs);
+		if (c>='a' && c <='z')
+			lower++;
+		else if (c>='A' && c<='Z') {
+			upper++;
+			c += 'a'-'A';
+#ifdef  DO_CRTBS
+		} else if (c=='\b') {
+			if (np > name) {
+				np--;
+				puts("\b \b");
+			}
+d236 5
+a240 17
+#endif
+		} else if (c==ERASE) {
+			if (np > name)
+				np--;
+			continue;
+		} else if (c==KILL) {
+			putchr('\r');
+			putchr('\n');
+			np = name;
+			continue;
+		} else if(c == ' ')
+			c = '_';
+		*np++ = c;
+	}
+	*np = 0;
+	if (c == '\r')
+		crmod++;
+d244 3
+d251 1
+d254 4
+a257 2
+	while (*s)
+		putchr(*s++);
+d260 8
+a267 1
+putchr(cc)
+d269 48
+a316 4
+	char c;
+	c = cc;
+	c |= partab[c&0177] & 0200;
+	write(1, &c, 1);
+d319 1
+a319 1
+#ifdef  TEXAS_AUTOBAUD
+d324 3
+a326 3
+	char  m_char;   /* bit pattern to look for */
+	char  m_mask;   /* bits to ignore in input character */
+	short m_speed;  /* what speed to set if matched */
+d343 4
+a346 2
+/* Determine baud rate of terminal line
+ *     Rich Wales (UCLA), June 1982
+d348 4
+a351 8
+ * Determine the baud rate of a terminal from a single
+ * carriage-return or ^C.  It can identify 300, 600, 1200, 1800, 2400,
+ * 4800, and 9600 baud.
+ *
+ * If the new speed is below 2400 baud, it is advisable to do a "sleep"
+ * before the "ioctl".  This allows any extra garbage from the input to
+ * make it from the multiplexer (DH or DZ) to the kernel input queue,
+ * where the speed change will cause it to be flushed.
+d355 3
+a357 3
+	puts("\7Connection timed out.\n\r");
+	exit(1);
+};
+a362 2
+	int lmode;
+	struct sgttyb sv, st;
+d365 5
+a369 11
+	/* save current TTY mode, set new mode */
+	ioctl(0, TIOCGETP, &sv);
+	st = sv;
+	st.sg_flags  = RAW | ANYP;
+	ioctl(0, TIOCLGET, &lmode);
+	st.sg_ispeed = st.sg_ospeed = B4800;
+	ioctl(0, TIOCSETP, &st);
+	ioctl(0, TIOCLSET, &lmode);
+	if (ioctl(0, TIOCSIMG, 0) < 0)
+		return(0);
+	alarm(0);
+d371 5
+a375 5
+		/* read a character and try to match it */
+		signal(14,timeout);
+		alarm(WAITSEC);
+		read(0,&c,1);
+		alarm(0);
+d377 1
+a377 1
+		for (m = match; m->m_speed != 0; m++) {
+d379 5
+a383 3
+			/* success -- restore old modes, but with new speed */
+				sv.sg_ispeed = sv.sg_ospeed = m->m_speed;
+				if (sv.sg_ispeed < B2400)
+d385 2
+a386 4
+				ioctl(0, TIOCCIMG, 0);
+				ioctl(0, TIOCSETP, &sv);
+				ioctl(0, TIOCLSET, &lmode);
+				return(1);
+d390 4
+a393 6
+	/* no match -- restore old modes */
+	sleep(1);
+	ioctl(0, TIOCCIMG, 0);
+	ioctl(0, TIOCSETP, &sv);
+	ioctl(0, TIOCLSET, &lmode);
+	return(0);
+d395 1
+a395 1
+#endif
+@

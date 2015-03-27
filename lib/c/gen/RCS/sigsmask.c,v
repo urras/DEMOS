@@ -1,0 +1,73 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.20.21.32.20;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header: sigcatch.c,v 1.1 89/07/20 21:12:11 ache Exp $
+ * $Log:	sigcatch.c,v $
+ */
+#include <signal.h>
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+#define BYTESPERVEC	4			/* size of machine language vector */
+extern	char	mvectors[NSIG][BYTESPERVEC];	/* machine language vector */
+
+extern int     (*sigsys())();
+
+extern long    _holdmask;
+extern char    _setflg[NSIG];                   /* flags for using sigset */
+
+long sigsetmask (newmask)
+long newmask;
+{
+	register int sig, lastrel;
+	long oldmask;
+	long differ = _holdmask ^ newmask;
+
+	if (!differ) return _holdmask;
+	oldmask = _holdmask;
+	for (lastrel = 0, sig = 1; sig <= NSIG; sig++)
+		if (sig == SIGKILL || sig == SIGSTOP || sig == SIGCONT)
+			;
+		else if (differ & mask (sig))
+			if (newmask & mask (sig)) {
+				_holdmask |= mask (sig);
+				_setflg[sig] = 1;
+				sigsys (sig, SIG_HOLD);
+			}
+			else {
+				if (lastrel > 0) {
+					_holdmask &= ~mask (lastrel);
+					sigsys (lastrel, SIG_IGN);
+					sigsys (lastrel, DEFERSIG (mvectors[lastrel]));
+				}
+				lastrel = sig;
+			}
+	if (lastrel > 0) {
+		_holdmask &= ~mask (lastrel);
+		sigsys (lastrel, DEFERSIG (mvectors[lastrel]));
+	}
+	return oldmask;
+}
+
+@

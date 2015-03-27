@@ -1,0 +1,58 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.12.54;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Heder$
+ * $Log$
+ */
+# include       <stdio.h>
+
+/*
+ *      This checks and sees if more than "max" users are logged in.
+ * If there are, it prints out a given message and exits.  The string
+ * is printed out as a format string to printf.  If that string includes
+ * ``%d'', the number printed out will be the maximum number of users.
+ * If there are fewer than or max people on, the number logged on is
+ * returned.
+ */
+
+# define        reg     register
+
+static  char    standard[] =
+	"Sorry, there are more than %d people on.\nPlease try again later\n";
+
+maxusers(max, str)
+reg int         max;
+reg char        *str; {
+
+	reg int         on;
+
+	if ((on = ucount()) > max) {
+		if (str == NULL)
+			str = standard;
+		printf(str, max);
+		exit(-1);
+	}
+	return(on);
+}
+@

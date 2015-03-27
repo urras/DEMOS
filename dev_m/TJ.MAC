@@ -1,0 +1,957 @@
+.MCALL  .MODULE
+.MODULE TJ,RELEASE=V05,VERSION=01,COMMENT=<MM MAGTAPE HANDLER>,AUDIT=YES 
+
+;                        COPYRIGHT (C) 1983 BY
+;             DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+;                         ALL RIGHTS RESERVED.
+;
+; THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+; ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+; INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+; COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+; OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+; TRANSFERRED.
+;
+; THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+; AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+; CORPORATION.
+;
+; DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+; SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+\.SBTTL RT-11 MM (TJU16) MAGTAPE HANDLER
+.IIF NDF MM$FSM .FSM = 100000
+.AUDIT  .FSM
+\ELTJ   == 1
+.SBTTL  NOTES ON TJU16 HANDLER
+\\.SBTTL        HARDWARE DEFINITIONS
+.MCALL  .DRDEF
+.IIF NDF MM$UN, MM$UN == 1
+        .DRDEF  MM,20,SPECL$!SPFUN$!HNDLR$,0,172440,224
+MMCS1   =       MM$CSR
+        SC      =       100000
+        TRE     =       40000
+        MCPE    =       20000
+        DVA     =       4000
+        PSEL    =       2000
+        A17     =       1000
+        A16     =       400
+        RDY     =       200
+        IE      =       100
+        FNOOP   =       0
+        FOFF    =       2
+        FREWIND =       6
+        FDRCLR  =       10
+        FERASE  =       24
+        FWRTTM  =       26
+        FSPFOR  =       30
+        FSPBAK  =       32
+        FWRTCF  =       50
+        FWRTCR  =       56
+        FWRITE  =       60
+        FREADF  =       70
+        FREADR  =       76
+        GO      =       1
+MMWC    =       MMCS1+2
+MMBA    =       MMCS1+4
+MMFC    =       MMCS1+6
+MMCS2   =       MMCS1+8.
+        DLT     =       100000
+        WCE     =       40000
+        UPE     =       20000
+        NED     =       10000
+        NEM     =       4000
+        PGE     =       2000
+        MXF     =       1000
+        MDPE    =       400
+        OR      =       200
+        IR      =       100
+        CLR     =       40
+        PAT     =       20
+        BAI     =       10
+        DRIVEBIT=       1
+        DRIVE   =       0
+MMDS    =       MMCS1+10.
+        ATA     =       100000
+        ERR     =       40000
+        PIP     =       20000
+        MOL     =       10000
+        WRL     =       4000
+        EOT     =       2000
+        DPR     =       400
+        DRY     =       200
+        SSC     =       100
+        PES     =       40
+        SDWN    =       20
+        IDB     =       10
+        TM      =       4
+        BOT     =       2
+        SLA     =       1
+MMER    =       MMCS1+12.
+        CORCRC  =       100000
+        UNS     =       40000
+        OPI     =       20000
+        DTE     =       10000
+        NEF     =       4000
+        CSITM   =       2000
+        FCE     =       1000
+        NSG     =       400
+        PEFLRC  =       200
+        INCVPE  =       100
+        DPAR    =       40
+        FMT     =       20
+        CPAR    =       10
+        RMR     =       4
+        ILR     =       2
+        ILF     =       1
+MMAS    =       MMCS1+14.
+MMCC    =       MMCS1+16.
+MMDB    =       MMCS1+18.
+MMMR    =       MMCS1+20.
+MMDT    =       MMCS1+22.
+MMSN    =       MMCS1+24.
+MMTC    =       MMCS1+26.
+        ACCL    =       100000
+        FCS     =       40000
+        TCW     =       20000
+        EAODTE  =       10000
+        D7$200  =       0
+        D7$556  =       400
+        D7$800  =       1000
+        D9$800  =       1400
+        D9$1600 =       2000
+        NORMAL  =       300
+        COREDP  =       320
+        EVPAR   =       10
+        ODDPAR  =       0
+        UNIT    =       7
+\.SBTTL SOFTWARE DEFINITIONS
+        RENAME  =       5
+        ENTER   =       4
+        LOOKUP  =       3
+        DELETE  =       2
+        CLOSE   =       1
+        REDWRT  =       0
+        WRTEOF  =       -1
+        FWDSPC  =       -2
+        BKSPC   =       -3
+        ERASE   =       -4
+        REWIND  =       -5
+        OFFLINE =       -6
+        WRITE   =       -7
+        READF   =       -8.
+        STR100  =       -9.
+        FN      =       8.
+        ILLARG  =       5
+        DEVINUSE=       2
+        CSWHERR =       1
+        CSWEOF  =       20000
+        SPUSR   =       272
+        ERRGAPS =       -100.
+        REDREC  =       -1
+        WRIREC  =       -2
+        NOQUAL  =       0
+        DRIVEGONE =     1
+        POSERR  =       2
+        MEMERR  =       3
+        WRITELOK =      4
+        RECERR  =       5
+        SMLREC  =       6
+        NOQUAL  =       0
+        EOFCODE =       1
+        EOTCODE =       2
+        EOFEOT  =       3
+        BOTCODE =       4
+        Q.CSW   =       -2
+        Q.BLK   =       0
+        Q.FUNC  =       2
+        Q.JNUN  =       3
+        Q.BUF   =       4
+        Q.WCNT  =       6
+        MONLOW  =       54
+        QCOMP   =       270
+        DUMMY   =       0
+        JOBNUM  =       30000
+        PR5     =       5
+        PR7     =       340
+\.SBTTL SET COMMANDS
+.ASECT
+.=400
+        NUMARG  =       100
+        NOARG   =       200
+        .WORD   ^C<DUMMY>
+        .RAD50  /DENSE/
+        .BYTE   <DENS-400>/2
+        .BYTE   NUMARG
+        .WORD   EVPAR
+        .RAD50  /ODDPAR/
+        .BYTE   <PARITY-400>/2
+        .BYTE   NOARG
+        .WORD   ^C<DUMMY>
+        .RAD50  /DEFALT/
+        .BYTE   <DFLT-400>/2
+        .BYTE   NUMARG
+        .WORD   0
+DENS:   CMP     #809.,R0
+        BEQ     1$
+        CMP     #800.,R0
+        BEQ     1$
+        CMP     #1600.,R0
+        BEQ     2$
+        SEC
+        RTS     PC
+1$:     MOV     #D9$800,R3
+        BR      3$
+2$:     MOV     #D9$1600,R3
+        BIC     #EVPAR,DENSE
+3$:     BIC     #3400,DENSE
+        BIS     R3,DENSE
+        CLC
+        RTS     PC
+PARITY: BR      2$
+        NOP
+        MOV     DENSE,R1
+        BIC     #^C<3400>,R1
+        CMP     #D9$1600,R1
+        BNE     1$
+        SEC
+        RTS     PC
+1$:     BIS     R3,DENSE
+        BR      3$
+2$:     BIC     R3,DENSE
+3$:     CLC
+        RTS     PC
+DFLT:   CMP     #9.,R0
+        BNE     1$
+        MOV     #D9$800+NORMAL+ODDPAR,DENSE
+        CLC
+        RTS     PC
+1$:     SEC
+        RTS     PC
+\.SBTTL DISPATCHER
+.IIF NE MMG$T,  .MCALL  .SYNCH
+.IF DF  MM$FSM
+        .GLOBL  FSMDIS,FSMABT,FSMDON,FSMERR,CODE,DVTBL
+        .GLOBL  FSMSIZ,RESTOR
+        .GLOBL  MMCQE
+.IF NE  MMG$T
+        .GLOBL  OLDBA,XBUMP,EXTADR,JOBNM,SYNBLK,TEMP,SINK,ERBSAV
+.ENDC
+.ENDC
+        .DRBEG  MM
+MM:
+.IF NE  MMG$T
+        MOV     MMCQE,R5
+        CMP     (R5)+,(R5)+
+        JSR     PC,@$MPPTR
+        MOV     (SP)+,OLDBA
+        BIT     #1700,@SP
+        BEQ     10$
+        TST     (SP)+
+        MOV     MMCQE,R5
+        BIS     #CSWHERR,@-(R5)
+        JMP     MMDONE
+10$:    ASL     @SP
+        ASL     @SP
+        ASL     @SP
+        ASL     @SP
+        MOV     (SP)+,EXTADR
+        .ENDC
+.IF NDF MM$FSM
+        MOV     MMCQE,R3
+.IFF
+        JMP     FSMDIS
+$MT::   MOV     MTCQ,R3
+.ENDC
+        MOV     #FDRCLR+GO,@#MMCS1
+        TST     (R3)+
+        MOV     @R3,R0
+        MOVB    R0,R4
+        SWAB    R0
+        BIC     #^C<UNIT>,R0
+        MOV     R0,R1
+        BIS     (PC)+,R0
+DENSE:  .WORD   D9$800+NORMAL+ODDPAR
+        MOV     R0,@#MMTC
+        MOV     (PC)+,@(PC)+
+        .WORD   0
+        .WORD   MMCS2
+        CLR     NFSREAD
+        MOV     PC,R0
+        ADD     #RECOVE-.,R0
+        MOV     R1,R5
+        ADD     PC,R5
+        ADD     #$TBL-.,R5
+        MOV     @R3,R2
+        SWAB    R2
+        ASR     R2
+        ASR     R2
+        ASR     R2
+        BIC     #177761,R2
+        CMP     #LOOKUP,R4
+        BNE     7$
+        TST     @2(R3)
+        BNE     10$
+        CMPB    #-1,@R5
+        BEQ     3$
+.IF NDF MM$FSM
+        MOV     #DEVINUSE,R0
+2$:     MOV     @#MONLOW,R1
+        MOV     R0,SPUSR(R1)
+.IFF
+        MOV     @#MONLOW,R1
+        MOV     #DEVINUSE,SPUSR(R1)
+.ENDC
+.IF DF  MM$FSM
+        JSR     PC,RESTOR
+        JMP     $DONE
+.IFF
+        BR      11$
+.ENDC
+3$:     CLR     4(R3)
+        MOVB    R2,@R5
+.IF DF  MM$FSM
+        BR      11$
+.IFF
+4$:     MOV     -2(R3),R1
+        BEQ     6$
+        BGT     5$
+        INC     R1
+        BEQ     11$
+5$:     MOVB    #-1,@R5
+        MOV     #ILLARG,R0
+        BR      2$
+6$:     MOV     #REWIND,R4
+        BR      8$
+.ENDC
+7$:     CMP     #CLOSE,R4
+        BNE     8$
+        MOVB    #-1,@R5
+        BR      11$
+8$:     MOV     (PC)+,(R0)+
+        .BYTE   -1,ERRGAPS
+        MOV     @#MMDS,@R0
+        BIC     #^C<EOT>,(R0)+
+        CMP     #STR100,R4
+        BEQ     11$
+        CMP     #READF,R4
+        BLOS    12$
+        TST     R4
+        BNE     10$
+        MOV     R3,R1
+        CLR     -2(R1)
+        CMP     (R1)+,(R1)+
+        MOV     #READF,R4
+        TST     @R1
+        BPL     9$
+        NEG     @R1
+        INC     R4
+        BR      20$
+9$:     COM     NFSREAD
+20$:
+.IF DF  MM$FSM
+        MOV     R4,CODE
+.ENDC
+        BR      12$
+10$:    TST     -(R3)
+        BIS     #CSWHERR,@-(R3)
+11$:
+.IF DF  MM$FSM
+        JSR     PC,RESTOR
+.ENDC
+        JMP     MMDONE
+12$:    ADD     #FUNTAB-TABLE,R4
+        MOV     R4,(R0)+
+.IF NE  MMG$T
+        MOV     4(R3),R1
+        MOV     R1,4(R0)
+.IFF
+        TST     (R3)+
+        MOV     (R3)+,(R0)+
+        MOV     @R3,@R0
+        MOV     @R3,R1
+.ENDC
+        NEG     R1
+LOADGO: JSR     PC,DISPAT
+TABLE:  .BYTE   <REDEF-TABLE>/2
+        .BYTE   <RIGHT-TABLE>/2
+        .BYTE   <AWFLINE-TABLE>/2
+        .BYTE   <REWHINED-TABLE>/2
+        .BYTE   <ERACE-TABLE>/2
+        .BYTE   <BAKSPA-TABLE>/2
+        .BYTE   <FORSPA-TABLE>/2
+        .BYTE   <RIGHTM-TABLE>/2
+FUNTAB: .BYTE   FREADF+IE+GO
+        .BYTE   FWRITE+IE+GO
+        .BYTE   FOFF+IE+GO
+        .BYTE   FREWIND+IE+GO
+        .BYTE   FERASE+IE+GO
+        .BYTE   FSPBAK+IE+GO
+        .BYTE   FSPFOR+IE+GO
+        .BYTE   FWRTTM+IE+GO
+REDEF:
+RIGHT:
+.IF NE  MMG$T
+        MOV     (R0)+,@#MMBA
+        BIS     @R0,R5
+.IFF
+        MOV     -(R3),@#MMBA
+.ENDC
+        MOV     R1,@#MMWC
+        ASL     R1
+FORSPA:
+BAKSPA:
+        MOV     R1,@#MMFC
+AWFLINE:
+REWHINED:
+ERACE:
+RIGHTM: MOV     R5,@#MMCS1
+.IF DF  MM$FSM
+        JSR     PC,RESTOR
+.ENDC
+        RTS     PC
+\.SBTTL ABORT ENTRY POINT
+MMABRT: MOVB    #-1,$FLG
+        MOV     R3,-(SP)
+        MOV     PC,R5
+        ADD     #$TBL-.,R5
+        MOV     MMCQE,R3
+        BEQ     5$
+        MOVB    Q.JNUN(R3),-(SP);GET JOB NUMBER
+        MOVB    (SP)+,R3
+        ASR     R3
+        ASR     R3
+        ASR     R3
+        BIC     #177761,R3
+        CMP     R3,R4
+        BNE     5$
+        CLRB    $FLG
+        MOV     #CLR,@#MMCS2
+5$:
+.IF DF  MM$FSM
+        MOV     R0,-(SP)
+        MOV     DVTBL,R0
+        BEQ     6$
+        MOV     #-1,(R0)+
+        MOV     #-1,@R0
+6$:     MOV     (SP)+,R0
+.ENDC
+7$:     CMPB    R4,@R5
+        BNE     10$
+        MOVB    #-1,@R5
+10$:    CMPB    #-2,(R5)+
+        BNE     7$
+        MOV     (SP)+,R3
+        JMP     $DONE
+\.SBTTL INTERRUPT ENTRY POINT
+        .DRAST  MM,PR5,MMABRT
+.SBTTL  ERROR-ERROR ROUTINE DISPATCHER
+        TST     MMCQE
+        BNE     114$
+        JMP     $RTS
+114$:   MOV     @#MMCS1,R5
+        BMI     1$
+        JMP     NOERR
+1$:     BIT     #MCPE,R5
+        BNE     NQ1
+        MOV     LASTCOM,R4
+        BIT     #MOL,@#MMDS
+        BNE     2$
+        CMP     #FN+OFFLINE,R4
+        BEQ     2$
+        MOV     #DRIVEGONE,R4
+        BR      AB1
+2$:     JSR     PC,DISPAT
+TABLEE: .BYTE   <ERREAD-TABLEE>/2
+        .BYTE   <ERWRIT-TABLEE>/2
+        .BYTE   <EROFFL-TABLEE>/2
+        .BYTE   <ERREWD-TABLEE>/2
+        .BYTE   <ERERAS-TABLEE>/2
+        .BYTE   <ERBKSP-TABLEE>/2
+        .BYTE   <ERFWSP-TABLEE>/2
+        .BYTE   <ERWRTM-TABLEE>/2
+\.SBTTL ERROR-READ COMMAND WAS ISSUED LAST AND SC BIT WAS SET.
+.ENABL  LSB
+ERREAD: MOV     @#MMDS,R5
+        BPL     ERWRI1
+        BIT     #ERR,R5
+        BEQ     TMEOTC
+        MOV     @#MMER,R4
+        MOV     #FDRCLR+GO,@#MMCS1
+        BIT     #CSITM,R4
+        BEQ     2$
+        BIT     #PES,R5
+        BNE     1$
+        MOV     #POSERR,R4
+        BR      AB1
+1$:     CLR     R4
+        BR      ERWRI1
+2$:     BIT     #INCVPE+PEFLRC+NSG,R4
+        BEQ     4$
+3$:     MOV     #REDREC,R4
+        BR      ERWRI1
+4$:     BIT     #CORCRC,R4
+        BEQ     5$
+        BIT     #PES,R5
+        BNE     1$
+        BR      3$
+5$:     BIT     #FCE,R4
+        BNE     1$
+NQ1:    JMP     NQUAL
+.DSABL  LSB
+\.SBTTL ERROR-WRITE COMMAND WAS ISSUED LAST AND SC BIT WAS SET.
+.ENABL  LSB
+ERWRIT: TST     @#MMFC
+        BEQ     1$
+        MOV     #POSERR,R4
+        BIT     #WRL,@#MMDS
+        BEQ     AB1
+        MOV     #WRITELOK,R4
+        BR      AB1
+1$:     MOV     @#MMDS,R5
+        BPL     5$
+        BIT     #ERR,R5
+        BEQ     TMEOTC
+        MOV     @#MMER,R4
+        MOV     #FDRCLR+GO,@#MMCS1
+        BIT     #NEF,R4
+        BEQ     2$
+        BR      NQ1
+2$:     BIT     #INCVPE+PEFLRC+CORCRC+NSG,R4
+        BEQ     4$
+3$:     MOV     #WRIREC,R4
+        BR      5$
+4$:     BIT     #CSITM,R4
+        BEQ     NQUAL
+        BIT     #PES,R5
+        BEQ     NQUAL
+        BR      3$
+ERWRI1:
+5$:     JSR     PC,TREFND
+        JMP     CONT
+.DSABL  LSB
+.SBTTL  TAPEMARK AND EOT CHECKER
+TMEOTC: BIT     #SSC,R5
+        BNE     DRCLR
+        BIT     #TM+EOT,R5
+        BEQ     NQUAL
+        BR      DRCLR
+\.SBTTL ERROR-ERASE OR WRITE TAPEMARK COMMAND WAS ISSUED LAST AND SC BIT WAS SET.
+.ENABL  LSB
+ERERAS:
+ERWRTM:
+        MOV     @#MMDS,R5
+        BPL     NQUAL
+        BIT     #ERR,R5
+        BEQ     1$
+        BIT     #NEF,@#MMER
+        BEQ     NQUAL
+        BIT     #WRL,R5
+        BEQ     NQUAL
+        MOV     #WRITELOK,R4
+AB1:    BR      ABORT
+1$:     JSR     PC,ONLINE
+        MOV     #FDRCLR+GO,@#MMCS1
+        CMP     #FN+ERASE,LASTCOM
+        BNE     NOERR1
+        MOV     #FN+WRITE,LASTCOM
+        MOV     OLDWC,R4
+        NEG     R4
+        MOV     #MMWC,R5
+        MOV     R4,(R5)+
+        MOV     OLDBA,(R5)+
+        ASL     R4
+        MOV     R4,(R5)+
+.IF NE  MMG$T
+        MOVB    FUNTAB+1,R4
+        BIS     EXTADR,R4
+        MOV     R4,@#MMCS1
+.IFF
+        MOVB    FUNTAB+1,@#MMCS1
+.ENDC
+        RTS     PC
+.DSABL  LSB
+\.SBTTL ERROR-SPACING COMMAND WAS ISSUED LAST AND SC BIT WAS SET.
+.ENABL  LSB
+ERBKSP:
+ERFWSP:
+        MOV     @#MMDS,R5
+        BPL     NQUAL
+        BIT     #ERR,R5
+        BEQ     2$
+        MOV     @#MMER,R4
+        BIT     #NEF,R4
+        BEQ     1$
+        BIT     #BOT,R5
+        BNE     NOERR
+        BR      NQUAL
+1$:     BIT     #FCE,R4
+        BEQ     NQUAL
+NOERR1: BR      NOERR
+2$:     JSR     PC,ONLINE
+        BR      DRCLR
+.DSABL  LSB
+\.SBTTL ERROR-REWIND OR REWIND/OFFLINE COMMAND WAS ISSUED LAST AND SC BIT WAS SET.
+.ENABL  LSB
+ERREWD:
+EROFFL:
+        MOV     @#MMDS,R5
+        BPL     NQUAL
+        BIT     #ERR,R5
+        BEQ     1$
+        BIT     #OPI,@#MMER
+        BEQ     NQUAL
+        BR      3$
+1$:     TSTB    RECOVERY
+        BPL     4$
+        CMP     #FN+OFFLINE,LASTCOM
+        BEQ     NOERR
+        MOVB    LASTCOM,RECOVERY
+        MOV     #DRIVEBIT,@#MMAS
+2$:     MOV     #IE,@#MMCS1
+        BIT     #PIP,@#MMDS
+        BEQ     3$
+        RTS     PC
+DRCLR:
+3$:     MOV     #FDRCLR+GO,@#MMCS1
+        BR      NOERR
+4$:     BIT     #SLA,R5
+        BNE     3$
+        MOV     #CLR,@#MMCS2
+        BR      2$
+.DSABL  LSB
+\.SBTTL ERROR-ABORT OPERATION IN PROGRESS
+NQUAL:  CLR     R4
+ABORT:  MOV     #CLR,@#MMCS2
+        MOV     #CSWHERR,-(SP)
+EXCEP:
+.IF DF  MM$FSM
+        MOV     (SP)+,R5
+        JMP     FSMERR
+.IFF
+        MOV     MMCQE,R5
+        BIS     (SP)+,@Q.CSW(R5)
+        TST     @R5
+        BEQ     MMDONE
+.IF NE  MMG$T
+        COM     SINK
+        MOV     @R5,ERBSAV
+        MOV     R4,TEMP
+        MOVB    Q.JNUN(R5),R5
+        ASR     R5
+        ASR     R5
+        ASR     R5
+        MOV     R5,JOBNM
+.IFF
+        MOV     R4,@(R5)+
+.ENDC
+.IFTF
+MMDONE:
+.IFT
+        JMP     FSMDON
+.ENDC
+$DONE:: TSTB    $FLG
+        BNE     $RTS
+.IF NE  MMG$T
+        MOV     PC,R4
+        ADD     #MMCQE-.,R4
+        MOV     @#MONLOW,R5
+        TST     SINK
+        BNE     1$
+        JMP     @QCOMP(R5)
+1$:     CLR     SINK
+        JSR     PC,@QCOMP(R5)
+        MOV     PC,R4
+        ADD     #SYNBLK-.,R4
+        .SYNCH
+        BR      BADSYN
+        MOV     ERBSAV,R1
+        BIS     #30000,@#177776
+        MOV     R0,-(SP)
+        MTPI    (R1)+
+        MOV     ERRBL2,-(SP)
+        MTPI    (R1)+
+BADSYN: RTS     PC
+.IFF
+        .DRFIN  MM
+.ENDC
+$RTS:   CLRB    $FLG
+        RTS     PC
+\.SBTTL STATUS REPORTING-COME HERE IF NO ABORTS ISSUED
+NOERR:  CLR     R4
+CONT:   MOV     R4,ERRSUM
+        TSTB    RECOVERY
+        BPL     RECOVR
+        TST     ERRSUM
+        BEQ     NEXT1
+        CMP     #FN+READF,LASTCOM
+        BNE     1$
+        MOVB    #5,BACK1
+        MOVB    #8.,BACK5
+        MOV     #FN+READF,R4
+        BR      2$
+1$:     MOV     #FN+ERASE,R4
+2$:     MOVB    R4,RECOVERY
+        BR      REEDF1
+NEXT0:  CMP     #FN+REWIND,R4
+        BNE     NEXT1
+        MOVB    R4,RECOVERY
+NEXT1:  MOV     @#MMFC,R4
+        CMP     #FN+READF,LASTCOM
+        BNE     NEXT2
+        BIT     #TM,@#MMDS
+        BNE     NEXT3
+        MOV     OLDWC,R5
+        ASL     R5
+        SUB     R4,R5
+        BEQ     NEXT3
+        BGT     1$
+        MOV     #RECERR,R4
+        NEG     R5
+        BR      2$
+1$:     MOV     #SMLREC,R4
+2$:     ASR     R5
+.IF NE  MMG$T
+        MOV     R5,ERRBL2
+.IFF
+        MOV     R5,-(SP)
+.IF DF  MM$FSM
+        MOV     @MTCQ,R5
+.IFF
+        MOV     @MMCQE,R5
+.ENDC
+        BEQ     3$
+        MOV     @SP,2(R5)
+3$:     TST     (SP)+
+.ENDC
+.IF NE  MMG$T
+        JMP     ABORT
+.IFF
+        BR      ABORT
+.ENDC
+NEXT2:  CMP     #FN+FWDSPC,LASTCOM
+        BEQ     1$
+        CMP     #FN+BKSPC,LASTCOM
+        BNE     NEXT3
+1$:     NEG     R4
+        BEQ     NEXT3
+.IF NE  MMG$T
+        MOV     R4,ERRBL2
+.IFF
+.IF DF  MM$FSM
+        MOV     @MTCQ,R5
+.IFF
+        MOV     @MMCQE,R5
+.ENDC
+        BEQ     NEXT3
+        MOV     R4,2(R5)
+.ENDC
+.ENABL  LSB
+NEXT3:  MOV     @#MMDS,R5
+        CLR     R4
+        BIT     #BOT,R5
+        BEQ     1$
+        CMP     #FN+REWIND,LASTCOM
+MMD1:   BEQ     MMDONE
+        CMP     #FN+OFFLINE,LASTCOM
+        BEQ     MMDONE
+        MOV     #BOTCODE,R4
+        BR      4$
+1$:     BIT     #TM,R5
+        BEQ     2$
+        CMP     #FN+WRTEOF,LASTCOM
+        BEQ     2$
+        INC     R4
+2$:     BIT     #EOT,R5
+        BEQ     3$
+        TST     NFSREAD
+        BNE     3$
+        CMPB    (R4)+,(R4)+
+3$:     TST     R4
+        BEQ     MMD1
+4$:     MOV     #CSWEOF,-(SP)
+        JMP     EXCEP
+.DSABL  LSB
+\.SBTTL RECOVERY IN PROGRESS DISPATCHER
+RECOVR: MOV     LASTCOM,R4
+        JSR     PC,DISPAT
+TABLER: .BYTE   <REEDF-TABLER>/2
+        .BYTE   <RITE-TABLER>/2
+        .BYTE   DUMMY
+        .BYTE   <REWHYN-TABLER>/2
+        .BYTE   DUMMY
+        .BYTE   <BACH-TABLER>/2
+        .BYTE   <FORE-TABLER>/2
+        .BYTE   DUMMY
+\.SBTTL RECOVERY-READ WAS THE LAST COMMAND ISSUED
+.ENABL  LSB
+REEDF:  TST     ERRSUM
+        BPL     NEXT1
+        DECB    BACK1
+        BEQ     2$
+        BGT     REEDF1
+        MOVB    #5,BACK1
+        DECB    BACK5
+        BEQ     NQ2
+REEDF1: MOV     #-1,R5
+        BR      3$
+2$:     MOV     #-5,R5
+3$:     MOV     R5,@#MMFC
+        BR      BACH2
+.DSABL  LSB
+.SBTTL  RECOVERY-WRITE WAS LAST COMMAND
+RITE:   TST     ERRSUM
+        BEQ     NEXT1
+        INCB    TAPELEN
+        BEQ     NQ2
+        BIT     #EOT,@#MMDS
+        BEQ     REEDF1
+NQ2:    JMP     NQUAL
+.SBTTL  RECOVERY-FORWARD SPACE WAS THE LAST COMMAND
+FORE:   MOV     @#MMFC,R5
+        BNE     BACH1
+FORE1:  MOV     #MMBA,R5
+        MOV     OLDBA,@R5
+        MOV     OLDWC,-(R5)
+        NEG     (R5)
+        MOV     #FN+READF,LASTCOM
+.IF NE  MMG$T
+        MOVB    FUNTAB,R4
+        BIS     EXTADR,R4
+        MOV     R4,-(R5)
+.IFF
+        MOVB    FUNTAB,@#MMCS1
+.ENDC
+        RTS     PC
+.SBTTL  RECOVERY-REWIND WAS THE LAST COMMAND
+REWHYN: JMP     MMDONE
+\.SBTTL RECOVERY-BACKSPACE WAS LAST COMMAND
+.ENABL  LSB
+BACH:   CMPB    #FN+READF,RECOVERY
+        BEQ     1$
+        MOV     #FN+ERASE,R4
+        MOVB    FUNTAB+4,R5
+        BR      4$
+1$:     MOV     @#MMFC,R5
+        BEQ     6$
+        BIT     #BOT,@#MMDS
+        BEQ     5$
+2$:     ADD     #4,R5
+        BEQ     FORE1
+3$:     NEG     R5
+BACH1:  MOV     R5,@#MMFC
+        MOV     #FN+FWDSPC,R4
+        MOVB    FUNTAB+6,R5
+4$:     MOV     R4,LASTCOM
+        MOV     R5,@#MMCS1
+        RTS     PC
+BACH2:
+5$:     MOV     #FN+BKSPC,R4
+        MOVB    FUNTAB+5,R5
+        BR      4$
+6$:     TSTB    BACK1
+        BEQ     2$
+        BR      FORE1
+.DSABL  LSB
+\.SBTTL TRE (TRANSFER ERROR) BIT FOUND SUBROUTINE
+TREFND: MOV     @#MMCS2,R5
+        MOV     #TRE,@#MMCS1
+        BIT     #NEM,R5
+        BEQ     1$
+        MOV     #MEMERR,R4
+        BR      3$
+1$:     BIT     #NED,R5
+        BEQ     2$
+        MOV     #DRIVEGONE,R4
+        BR      3$
+2$:     BIT     #MXF+MDPE+PGE+UPE+WCE,R5
+        BEQ     4$
+        CLR     R4
+3$:     TST     (SP)+
+        JMP     ABORT
+4$:     BIT     #DLT,R5
+        BEQ     5$
+        MOV     #REDREC,R4
+5$:     RTS     PC
+\.IF NE MMG$T
+.SBTTL  XBUMP SUBROUTINE
+XBUMP:  MOV     MMCQE,-(SP)
+        ADD     #Q$PAR,@SP
+        ADD     #10,@(SP)+
+        ADD     #512.,OLDBA
+        ADCB    EXTADR+1
+        RTS     PC
+.ENDC
+.SBTTL  ONLINE SUBROUTINE
+ONLINE: BIT     #SSC,R5
+        BEQ     1$
+        MOV     #DRIVEBIT,@#MMAS
+        TSTB    @#MMDS
+        BMI     1$
+        MOV     #FNOOP+IE+GO,@#MMCS1
+        TST     (SP)+
+1$:     RTS     PC
+\.SBTTL DISPATCH SUBROUTINE
+DISPAT: ADD     @SP,R4
+        MOVB    FUNTAB-TABLE(R4),R5
+        MOVB    @R4,R4
+        BIC     #177400,R4
+        ASL     R4
+        ADD     (SP)+,R4
+        JMP     @R4
+\.SBTTL MAGTAPE DATA AREA
+$TBL:   .REPT   MM$UN
+        .BYTE   -1
+        .ENDR
+        .BYTE   -2
+$FLG:   .BYTE   0
+        .EVEN
+RECOVE: .BYTE   -1
+TAPELE: .BYTE   ERRGAPS
+OLDEOT:
+BACK5:  .BYTE   0
+BACK1:  .BYTE   0
+LASTCO: .WORD   DUMMY
+OLDBA:  .WORD   DUMMY
+.IIF NE MMG$T,  EXTADR: .WORD   DUMMY
+OLDWC:  .WORD   DUMMY
+ERRSUM: .WORD   DUMMY
+NFSREA: .WORD   DUMMY
+        .EVEN
+.IF NE  MMG$T
+SYNBLK: .WORD   DUMMY
+JOBNM:  .WORD   DUMMY
+        .WORD   DUMMY,DUMMY
+TEMP:   .WORD   DUMMY
+        .WORD   -1,0
+SINK:   .WORD   DUMMY
+ERBSAV: .WORD   DUMMY
+ERRBL2: .WORD   DUMMY
+.ENDC
+.IF DF  MM$FSM
+MTCQ::  .WORD   DUMMY
+DRIVEN==MM$UN
+DVINFO::.REPT   DRIVEN
+        .WORD   -1
+        .WORD   -1
+        .WORD   -1
+        .BYTE   DUMMY
+        .BYTE   0
+        .WORD   DUMMY,DUMMY,DUMMY
+        .ENDR
+.ENDC
+.IF NDF MM$FSM
+        .DREND  MM
+.IFF
+        .GLOBL  $FKPTR,$INPTR
+.IIF NE MMG$T,  .GLOBL  $RLPTR,$MPPTR,$GTBYT,$PTBYT,$PTWRD
+.IIF NE ERL$G,  .GLOBL  $ELPTR
+.IIF NE TIM$IT, .GLOBL  $TIMIT
+.ENDC
+SIZE=.
+SIZED=SIZE-MMSTRT/2
+MTDONE==MMDONE
+MTCQE==MMCQE
+MT==MM
+MTLQE==MMLQE
+MTSTRT==MMSTRT
+.END

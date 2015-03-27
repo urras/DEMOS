@@ -1,0 +1,390 @@
+head     1.7;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     89.06.27.20.22.35;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.06.05.21.00.59;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.06.05.18.55.28;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.01.28.20.03.58;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.01.16.17.41.53;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.11.03.12.46.07;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.23.34;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.7
+log
+@выдает еще строку инициализации терминала.
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: clear.c,v 1.6 89/06/05 21:00:59 abs Exp $
+** $Log:        clear.c,v $
+ * Revision 1.6  89/06/05  21:00:59  abs
+ * строка с цифрами выводилась tputs-ом.
+ * и цифры шли в делаы.
+ *
+ * Revision 1.5  89/06/05  18:55:28  abs
+ * *** empty log message ***
+ *
+ * Revision 1.4  89/01/28  20:03:58  abs
+ * добавлено затирание конца строки от координат (x,y).
+ * вызов:       clear -x y
+ *
+ * Revision 1.3  89/01/16  17:41:53  abs
+ * О вух аргументах - просто ставит курсор в указанную позу.
+ *
+ * Revision 1.2  88/11/03  12:46:07  abs
+ * Теперь работает ну на самых кривых терминалахъ.
+ *
+ * Revision 1.1  88/05/03  20:23:34  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: clear.c,v 1.6 89/06/05 21:00:59 abs Exp $";
+/* YESXSTR */
+# endif         lint
+
+/* load me with -ltermlib */
+/*
+ * clear - clear the screen
+ */
+
+#include <stdio.h>
+#include <sgtty.h>
+#include <signal.h>
+
+char    *getenv();
+char    *tgetstr();
+char    PC;
+
+int lcaseflag=0;
+
+/* немобильная часть */
+int     tputchar( c ){
+	if( lcaseflag )
+		c= (c>='A' && c <='Z')?
+			c + 040 :
+		((c>0137 && c < 0177 )?
+			c + 0140 :
+			c
+		);
+	putchar( c );
+}
+
+main(argc,argv)char **argv;
+{
+	char *cp = getenv("TERM");
+	char clbuf[20];
+	char pcbuf[20];
+	char ceolf[20];
+	char cmbf [25];
+	char inibuf[ 200 ];
+
+	char *clbp = clbuf;
+	char *pcbp = pcbuf;
+	char *ceop = ceolf;
+	char *cmop = cmbf;
+	char *inbp = inibuf;
+
+	char *clear;
+	char *ceol;
+	char *cm;
+	char *init;
+
+	char buf[1024];
+	char *pc;
+	struct sgttya ttyold, ttynew;
+	int OKceol=0;
+	int OKbox =0;
+	int OKmove=0;
+	char symbol = ' ';
+	int i,X=0,Y,X1,Y1;
+
+	if( argc == 2 ){
+		X = atoi( argv[1] );
+		OKceol=1;
+	}else if( argc == 3 ){
+		X  = atoi( argv[1] );
+		Y  = atoi( argv[2] );
+		/* возможно с очисткой конца строки */
+		OKmove = 1;
+	}else if( argc == 5 || argc == 6 ){
+		X  = atoi( argv[1] );
+		X1 = atoi( argv[2] );
+		Y  = atoi( argv[3] );
+		Y1 = atoi( argv[4] );
+		if( argc == 6 ) symbol = *argv[5];
+		OKbox = 1;
+	}
+	if (cp == NULL)
+		exit(1);
+	if (tgetent(buf, cp) != 1){
+		printf( "termcap?!!\n");
+		exit(1);
+	}
+	pc = tgetstr("pc", &pcbp);
+	if (pc)
+		PC = *pc;
+
+	for( i=1;i<=NSIG;i++) signal( i, SIG_IGN );
+
+	ioctl(1, TIOCGETA, &ttyold);
+	ttynew = ttyold;
+	if( ttynew.sg_flags & LCASE ){
+		ttynew.sg_flags &= ~(UCASE);
+		ioctl( 1, TIOCSETA, &ttynew );
+		lcaseflag ++;
+	}
+
+	if( X < 0 ) X = -X;
+	if( Y < 0 ) Y = -Y;
+
+	if( OKceol ){
+		 ceol  = tgetstr("ce", &ceop );
+		 cm    = tgetstr("cm", &cmop  );
+		 if( ceol == NULL || cm == NULL )goto ALL;
+		 for( i = 0 ; i < tgetnum("li");i++ ){
+			tputs( tgoto( cm, X, i), 1, tputchar );
+			tputs( ceol            , 1, tputchar );
+		 }
+		 ioctl( 1, TIOCSETA, &ttyold );
+		 exit( ceol == NULL );
+	}else
+	if( OKmove ){
+
+		 cm    = tgetstr("cm", &cmop  );
+		 tputs( tgoto( cm, X, Y), 1, tputchar );
+
+		 if( *argv[1] == '-' ){
+			/* то надо стереть конец строки */
+
+			ceol  = tgetstr("ce", &ceop );
+			if( ceol != NULL ){
+				tputs( ceol, 1, tputchar );
+			}else{
+				for( i=0;i < tgetnum("co")-X;i++ )
+					putchar( ' ' );
+				tputs( tgoto( cm, X, Y), 1, tputchar );
+			}
+		}
+		exit( cm == NULL );
+	}else
+	if( OKbox ){
+		 char eraser[120];
+
+		 for( i=0; i <= abs( X1-X );i++ )
+			eraser[ i] = symbol ;
+		 eraser[ i ] = '\0';
+		 cm    = tgetstr("cm", &cmop  );
+		 if( cm == NULL )goto ALL;
+		 for( i = Y ; i <= Y1 ;i++ ){
+			tputs( tgoto( cm, X, i), 1, tputchar );
+			printf( eraser );
+		 }
+		 ioctl( 1, TIOCSETA, &ttyold );
+		 exit( cm == NULL );
+	}
+
+ALL:
+	clear = tgetstr("cl", &clbp);
+	init  = tgetstr("is", &inbp);
+	if (init)
+		tputs(init, 1, tputchar);
+	if (clear)
+		tputs(clear, 1, tputchar);
+	else for( i = tgetnum( "li" ) ; i>= 0 ; --i )
+		putchar( '\n');
+
+	ioctl( 1, TIOCSETA, &ttyold );
+	exit (clear == NULL);
+}
+@
+
+
+1.6
+log
+@строка с цифрами выводилась tputs-ом.
+и цифры шли в делаы.
+@
+text
+@d6 1
+a6 1
+** $Header: clear.c,v 1.5 89/06/05 18:55:28 abs Exp $
+d8 4
+d32 1
+a32 1
+static char     Rcs_id[] = "$Header: clear.c,v 1.5 89/06/05 18:55:28 abs Exp $";
+d70 1
+d76 1
+d81 1
+d179 3
+d183 4
+a186 1
+		tputs(clear, tgetnum("li"), tputchar);
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d6 1
+a6 1
+** $Header: clear.c,v 1.4 89/01/28 20:03:58 abs Exp $
+d8 3
+d28 1
+a28 1
+static char     Rcs_id[] = "$Header: clear.c,v 1.4 89/01/28 20:03:58 abs Exp $";
+d164 1
+a164 1
+			tputs( eraser          , 1, tputchar );
+@
+
+
+1.4
+log
+@добавлено затирание конца строки от координат (x,y).
+вызов:   	clear -x y
+@
+text
+@d6 1
+a6 1
+** $Header: clear.c,v 1.3 89/01/16 17:41:53 abs Exp $
+d8 4
+d25 1
+a25 1
+static char     Rcs_id[] = "$Header: clear.c,v 1.3 89/01/16 17:41:53 abs Exp $";
+d154 1
+a154 1
+		 for( i=0; i <= abs( X1-X )+1 ;i++ )
+@
+
+
+1.3
+log
+@О вух аргументах - просто ставит курсор в указанную позу.
+@
+text
+@d6 1
+a6 1
+** $Header: clear.c,v 1.2 88/11/03 12:46:07 abs Exp $
+d8 3
+d21 1
+a21 1
+static char     Rcs_id[] = "$Header: clear.c,v 1.2 88/11/03 12:46:07 abs Exp $";
+d84 1
+d114 3
+d129 1
+d132 14
+a145 1
+		 exit( cm == NULL );
+@
+
+
+1.2
+log
+@Теперь работает ну на самых кривых терминалахъ.
+@
+text
+@d6 1
+a6 1
+** $Header: clear.c,v 1.1 88/05/03 20:23:34 root Exp $
+d8 3
+d18 1
+a18 1
+static char     Rcs_id[] = "$Header: clear.c,v 1.1 88/05/03 20:23:34 root Exp $";
+d71 1
+d78 4
+d92 2
+a93 1
+	if (tgetent(buf, cp) != 1)
+d95 1
+d120 5
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d26 1
+a30 3
+short   ospeed;
+#undef  putchar
+int     putchar();
+d32 14
+d65 1
+a65 1
+	struct sgttyb tty;
+a81 2
+	gtty(1, &tty);
+	ospeed = tty.sg_ospeed;
+d90 10
+d105 2
+a106 2
+			tputs( tgoto( cm, X, i), 1, putchar );
+			tputs( ceol            , 1, putchar );
+d108 1
+d120 2
+a121 2
+			tputs( tgoto( cm, X, i), 1, putchar );
+			tputs( eraser          , 1, putchar );
+d123 1
+d130 2
+a131 1
+		tputs(clear, tgetnum("li"), putchar);
+@

@@ -1,0 +1,679 @@
+.ENABL LC
+.DSABL GBL
+
+; This DW handler was altered too much! Be careful! No error logging support;
+; increased time-out for "controller busy" state. Up to 8 heads/16 sectors 
+; format supported. Cylinder number must be set for both types of drives.
+; Only Q=BUS Zelenograd DW - controller supported.
+;           Alternations made by Andrey : 141-44-85 (home).
+
+
+        .SBTTL  PRIMARY DECLARATIONS
+
+
+DWST    = 20
+DW$CSR  = 174000+DWST
+DW$VEC  = 300
+
+PC$PRI  = 4
+DW$ID   = 401
+
+HdRelx  =  1                    ;wait for head relaxation before write 
+                                ;after positioning
+.iif ndf HdRelx HdRelx=0        ;default - write as fast as possible
+
+DW$SEC  = 16.
+DW$SRF  = 4.
+
+DW$C51  = 804.                  ;306. cylinders must be for 10 MB drive
+                                ;668. cylinders for 21 MB (ST250)
+                                ;820. cylinders for 40 MB (ST251-1)
+CYL0DRV = 803.          ; number of cylinders for dw0, the rest is for dw1
+
+SECBIT = 4
+SRFBIT = 3
+SECMSK = ^C<17>
+SRFMSK = ^C<17>
+CYLMSK = ^C<3777>
+
+ASIZ51  = DW$SEC*DW$SRF*<DW$C51-cyl0drv>
+USIZ51  = <DW$SEC*DW$SRF*<DW$C51-cyl0drv-1>>-1
+
+        .SBTTL  PREAMBLE SECTION
+
+        .MCALL  .DRDEF, .ASSUME
+
+        .DRDEF  DW,53,FILST$!SPFUN$!VARSZ$,USIZ51,DW$CSR,DW$VEC
+
+.SBTTL  CONSTANT DEFINITIONS
+
+SYSPTR  = 54
+                P1EXT   = 432
+CMD0    =      1
+CMD1    =      2
+CMD2    =      4
+CMD3    =     10
+CMD4    =     20
+CMD5    =     40
+CMD6    =    100
+CMD7    =    200
+
+PRESEL  = 260.
+
+DWID    = 0-DWST
+DWERR   = 4-DWST
+DWPRE   = 4-DWST
+DWREV   = 6-DWST
+DWSEC   = 6-DWST
+DWBUF   = 10-DWST
+DWCYL   = 12-DWST
+DWHEAD  = 14-DWST
+DWST2   = 16-DWST
+DWCMD   = 16-DWST
+DWSTAT  = 20-DWST
+DWINIT  = 20-DWST
+
+EDWM    = 0400
+ERTR0   = 01000
+ERABO   = 02000
+ERIDNF  = 10000
+ERICRC  = 20000
+EDWCRC  = 40000
+
+S2ERR   = 400
+S2DRQ   = 4000
+S2SEK   = 10000
+S2WRF   = 20000
+S2DWY   = 40000
+CMREST  = 20
+CMREAD  = 40
+CMWRIT  = 60
+CMFORM  = 120
+STOPND  = 1
+STDRQ   = 200
+STDCAP  = 400
+STBUSY  = 100000
+STINIT  = 10
+STINT   = 100
+
+RETRYS  = 2.
+WREQ    = 100000
+RDAWRT  =      1
+
+.SBTTL  INSTALLATION VERIFICATION ROUTINE
+        .ASECT
+        . = 200
+
+        BR      3$
+1$:     MOV     #DW$CSR,R0
+        TST     @R0
+        .ASSUME <STBUSY> EQ 100000
+        BMI     1$
+        CMP     #DW$ID,DWID(R0)
+        BNE     2$
+        TST     (PC)+
+2$:     SEC
+        RETURN
+
+3$:     JSR     R0,4$
+        .ASCIZ  /?FAST_DW-I-Altered: 4surf. 805cyl./
+        .EVEN
+4$:     TST     (SP)+
+        EMT     351
+        BR      1$
+
+.SBTTL  HANDLER SET OPTIONS
+
+        .DRSET  RETRY,  RETRY,  O.RTRY, NUM
+
+.SBTTL  HANDLER MODIFICATION ROUTINES
+
+O.RTRY: CMP     R0,R3
+        BHI     O.BAD
+        MOV     R0,DRETRY
+        BNE     O.GOOD
+        BR      O.BAD
+
+O.GOOD: TST     (PC)+
+O.BAD:  SEC
+        RETURN
+
+ .IIF   GT,<.-1000> .ERROR
+
+.ASECT
+ .      = 1000
+
+.SBTTL  HEADER SECTION
+
+        .DRBEG  DW
+        BR      DWENT
+DRETRY: .WORD   RETRYS
+
+.SBTTL  I/O INITIATION SECTION
+
+DWENT:
+.IF NE  MMG$T
+        MOV     @#SYSPTR,R4
+        MOV     P1EXT(R4),(PC)+
+$P1EXT:  .WORD  P1EXT
+.ENDC
+
+        MOV     #DW$CSR,R4
+
+1$:     MOV     #2000.,R1
+2$:     CLR     R3
+3$:     TST     @R4
+        .ASSUME <STBUSY> EQ 100000
+        BPL     STRT
+        SOB     R3,3$
+        SOB     R1,2$
+        BR      JMPFD1
+
+STRT:
+        ASL     (PC)+
+        .WORD   100000
+        BCC     10$
+        BIT     #STDCAP,@R4
+        BNE     10$
+
+10$:    MOV     DRETRY,RETRY
+        CLR     INREST
+        CLR     FNFLAG
+        MOV     DWCQE,R5
+        clr     addcyl
+        mov     #<DW$SEC*DW$SRF*<cyl0drv-1>>-1,siz1
+        bitb    #7,q$unit(5)
+        beq     101$
+        mov     dwusiz,siz1
+        mov     #cyl0drv,addcyl
+101$:
+        MOV     @R5,R3
+
+        MOVB    Q$FUNC(R5),R0
+        ADD     #FNEG,R0
+        CMP     R0,#FNUM
+        BLO     DISPAT
+
+JMPFU1: JMP     DWFUE
+JMPFD1: JMP     DWFDE
+
+
+addcyl: .word   0
+siz1:   .word   0
+RETRY:  .WORD   0
+INREST: .WORD   0
+FNFLAG: .WORD   0
+WCNT:   .WORD   0
+CRNTCYL:.WORD   0
+CRNTHD: .WORD   0
+CRNTSEC:.WORD   0
+DWASIZ: .WORD   ASIZ51
+DWUSIZ: .WORD   USIZ51
+DW$CYL: .WORD   DW$C51
+.IF EQ  MMG$T
+BUFF:   .WORD   0
+.ENDC
+
+.SBTTL  COMMAND DISPATCH
+
+DISPAT: ASL     R0
+        ADD     PC,R0
+        ADD     #FNTBL-.,R0
+        ADD     @R0,PC
+
+JMPREF:
+FNTBL:
+        .WORD   <DSIZ - JMPREF>
+        .WORD   <DWFUE- JMPREF>
+        .WORD   <DWFUE- JMPREF>
+        .WORD   <DWFUE- JMPREF>
+        .WORD   <DWFUE- JMPREF>
+FTBZER: .WORD   <RW - JMPREF>
+FTBEND:
+FNEG    = <FTBZER - FNTBL>/2
+FNUM    = <FTBEND - FNTBL>/2
+
+.SBTTL  HANDLER FUNCTIONS SECTION
+.SBTTL  - READ(X)/WRIT(X) FUNCTION
+
+RW:     BIT     #1,Q$BUFF(R5)
+        BNE     JMPFUE
+        MOV     #1,FNFLAG
+        TST     Q$WCNT(R5)
+        BMI     1$
+        BNE     RWNEXT
+
+        JMP     DWRQS                   ; to DRFIN
+
+1$:     BIT     #S2WRF,DWST2(R4)        ;Has a write`fault occured?
+        BNE     JMPFDE
+                                        .ASSUME . LE DWSTRT+1000
+10$:
+        MOV     #WREQ,FNFLAG
+        NEG     Q$WCNT(R5)
+
+RWNEXT: MOV     R3,R1
+
+2$:     CMP     R3,DWUSIZ
+        BHIS    JMPFUE
+        INC     R1
+25$:    BIC     #SECMSK,R1
+        .REPT   SECBIT
+          ASR   R3
+        .ENDR
+
+        clr r2
+        div     #dw$srf,r2
+        add     addcyl,r2
+        mov     r2,crntcyl
+        mov     r3,crnthd
+
+        BIC     #CYLMSK,R3
+        tst     addcyl
+        bne     104$
+        cmp     r3,#cyl0drv
+        bhis    jmpfue
+104$:
+        CMP     R3,DW$CYL
+        BHIS    JMPFUE
+
+        MOV     R1,CRNTSEC
+
+RWRTRY:
+;### Relax here...
+.if ne  <hdrelx>                        ;wait for head relaxation
+        cmp     crntcyl,dwcyl(4)
+        beq     91$
+        tst     fnflag
+        bpl     91$
+        mov     crntcyl,dwcyl(4)
+        mov     #0,dwhead(4)
+        mov     #13.,dwsec(4)
+        mov     #cmread,dwcmd(4)
+93$:    tst     @r4
+        bmi     93$                     ;???
+        mov     #256.,r0
+94$:    tst     dwbuf(4)                ;no hurry!
+        sob     r0,94$
+91$:
+.endc                                   ;wait for head relaxation
+
+        MOV     CRNTCYL,DWCYL(R4)
+        MOV     CRNTHD,DWHEAD(R4)
+        MOV     CRNTSEC,DWSEC(R4)
+        TST     FNFLAG
+        BMI     3$
+
+        MOV     #CMREAD,DWCMD(R4)
+        BIS     #STINT,@R4
+        BR      4$
+
+3$:     BIC     #RDAWRT,FNFLAG
+        MOV     #CMWRIT,DWCMD(R4)
+        JSR     R0,MTFILL
+          tst   (pc)+                   ;         MOV   (R2)+,@R4
+          CLR   @R4
+        BIS     #STINT,@R4
+4$:     RETURN
+
+JMPFDE: JMP     DWFDE
+JMPFUE: JMP     DWFUE
+
+FMRTRY: MOV     CRNTCYL,DWCYL(R4)
+        MOV     CRNTHD,DWHEAD(R4)
+        MOV     #CMFORM,DWCMD(R4)
+        JSR     R0,MTFILL
+          tst   (pc)+                   ;         MOV   (R2)+,@R4
+          CLR   @R4
+        BIS     #STINT,@R4
+        RETURN
+
+.SBTTL  DSIZ - Get disk size
+
+DSIZ:
+.IF EQ MMG$T
+        MOV     siz1,@Q$BUFF(R5)
+.IFF
+        MOV     R4,-(SP)
+mov siz1,-(sp)
+        MOV     R5,R4
+        CALL    @$PTWRD
+        MOV     (SP)+,R4
+.ENDC
+        JMP     DWRQS           ; to DRFIN
+
+.SBTTL  EMPTY/FILL THE CONTROLLER'S SECTOR BUFFER SUBROUTINE
+
+        .ENABL  LSB
+
+MTFILL: MOV     R5,-(SP)
+        MOV     R4,-(SP)
+
+        MOV     (R0)+,93$
+        MOV     (R0)+,5$
+
+        MOV     R4,R3
+        ADD     #DWBUF,R4
+        MOV     Q$BUFF(R5),R2
+        MOV     Q$WCNT(R5),R1
+        BEQ     4$
+        MOV     R1,WCNT
+        CMP     R1,#256.
+        BLOS    1$
+        MOV     #256.,R1
+1$:     TST     FNFLAG
+        BPL     100$
+        ASL     (PC)+
+        .WORD   100000
+        BCS     10$
+100$:   SUB     R1,WCNT
+10$:
+
+.IF NE  MMG$T
+        MOV     Q$PAR(R5),PARVAL
+        JSR     R0,@$P1EXT
+        .WORD   PARVAL-.
+.IFF
+        MOV     R2,BUFF
+        TST     FNFLAG
+        BPL     200$
+        ASL     (PC)+
+        .WORD   100000
+        bcs     93$     ;       BCS     2$
+
+200$:   ADD     #512.,BUFF
+.ENDC
+93$:    tst     (pc)+   ; var.cmd.! may be nop for read or tst (pc)+ for wrt.
+        br      270$
+
+        BIT     #7,R1
+        BEQ     202$
+201$:   MOVB    @R3,R5
+        BPL     201$
+3$:     mov     (2)+,@r4        ;         MOV   (R2)+,@R4 for write             
+        SOB     R1,3$
+        BR      203$
+202$:   ASR     R1
+        ASR     R1
+        ASR     R1
+                                ;         MOV   (R2)+,@R4 for write
+                                ;         MOV   @R4,(R2)+ for read
+321$:   mov     (2)+,@r4
+        mov     (2)+,@r4
+        mov     (2)+,@r4
+        mov     (2)+,@r4
+        mov     (2)+,@r4
+        mov     (2)+,@r4
+        mov     (2)+,@r4
+        mov     (2)+,@r4
+        SOB     R1,321$
+        br      203$
+
+270$:   BIT     #7,R1
+        BEQ     272$
+271$:
+        MOVB    @R3,R5
+        BPL     271$
+370$:   mov     @r4,(2)+        ;         MOV   @r4,(R2)+ for write
+                        
+        SOB     R1,370$
+        BR      203$
+272$:   ASR     R1
+        ASR     R1
+        ASR     R1
+                                ;         MOV   (R2)+,@R4 for write
+                                ;         MOV   @R4,(R2)+ for read
+371$:
+        mov     @r4,(2)+
+        mov     @r4,(2)+
+        mov     @r4,(2)+
+        mov     @r4,(2)+
+        mov     @r4,(2)+
+        mov     @r4,(2)+
+        mov     @r4,(2)+
+        mov     @r4,(2)+
+        SOB     R1,371$
+203$:
+
+.IF NE  MMG$T
+PARVAL: .WORD   0
+        TST     FNFLAG
+        BPL     30$
+        ASL     (PC)+
+        .WORD   100000
+        BCS     300$
+30$:    ADD     #<256./32.>,PARVAL
+300$:
+.ENDC
+4$:     MOV     @R3,R5
+        BMI     6$
+        ASR     R5
+        BCS     6$
+        ASLB    R5
+        BPL     4$
+5$:      .WORD  0                       ; VARIABLE COMMAND!!!
+                                ;         CLR   @R4 for write
+                                ;         MOV   @R4,R5 for read
+        BR      4$
+6$:     TSTB    @R3
+        BPL     7$
+        HALT
+7$:     MOV     (SP)+,R4
+        MOV     (SP)+,R5
+        RTS     R0
+
+        .DSABL  LSB
+
+.SBTTL  DUMP THE CONTROLLER'S SECTOR BUFFER SUBROUTINE
+
+DUMP:   MOV     R4,R2
+        MOV     R4,R3
+        ADD     #DWBUF,R3
+1$:     MOV     @R2,R1
+        ASR     R1
+        BCS     2$
+        ASLB    R1
+        BPL     1$
+        MOV     @R3,R1
+        BR      1$
+
+2$:     TSTB    @R2
+        BPL     3$
+        HALT
+3$:     RETURN
+
+.SBTTL  INTERRUPT SERVICE SECTION
+
+INTFDE: JMP     DWFDE
+INTRQS: JMP     DWRQS           ; to DRFIN
+
+        .DRAST  DW,PC$PRI
+
+        MOV     #DW$CSR,R4
+        BIC     #STINT,@R4
+
+        .FORK   DWFBLK
+        MOV     DWCQE,R5
+
+        TST     @R4
+        BMI     INTFDE
+        BIT     #S2ERR,DWST2(R4)        ;Error status?
+        BNE     4$
+        TST     INREST
+        BNE     6$
+80$:    MOV     FNFLAG,R0
+        BEQ     INTRQS
+        BMI     3$
+        JSR     R0,MTFILL
+          nop                           ;         MOV   @R4,(R2)+
+          MOV   @R4,R5
+3$:     MOV     WCNT,Q$WCNT(R5)
+        BEQ     INTRQS
+.IF NE  MMG$T
+        MOV     PARVAL, Q$PAR(R5)
+.IFF
+        MOV     BUFF,Q$BUFF(R5)
+.ENDC
+        TST     FNFLAG
+        BPL     30$
+        ASL     (PC)+
+        .WORD   100000
+        BCS     35$
+30$:    INC     @R5
+35$:    MOV     @R5,R3
+        MOV     DRETRY,RETRY
+        JMP     RWNEXT
+
+4$:     TST     INREST
+        BNE     DWFDE
+        BIT     #<ERTR0!ERABO>,DWERR(R4)
+        BNE     DWFDE
+
+        TSTB    @R4
+        BPL     5$
+        CALL    DUMP
+5$:     BIT     #ERIDNF,DWERR(R4)
+        BEQ     6$
+        MOV     DWST2(R4),R3
+        BIT     #S2WRF,R3
+        BNE     DWFDE
+        BIC     #^C<S2SEK!S2DWY>,R3
+        CMP     #<S2SEK!S2DWY>,R3
+        BNE     DWFDE
+        MOV     #-1,INREST
+
+        MOV     #CMREST,DWCMD(R4)
+        BIS     #STINT,@R4
+
+        RETURN
+
+6$:     DEC     RETRY
+        BEQ     DWFDE
+        CLR     INREST
+        TST     FNFLAG
+        BEQ     8$
+        BPL     7$
+        BIT     #RDAWRT,FNFLAG
+        BNE     9$
+7$:     JMP     RWRTRY
+8$:     JMP     FMRTRY
+
+9$:     MOV     CRNTCYL,DWCYL(R4)
+        MOV     CRNTHD,DWHEAD(R4)
+        MOV     CRNTSEC,DWSEC(R4)
+        MOV     #CMREAD,DWCMD(R4)
+        BIS     #STINT,@R4
+
+        RETURN
+
+.SBTTL  I/O COMPLETION SECTION
+DWFDE:
+
+DWFUE:  BIS     #HDERR$,@Q$CSW(R5)
+DWRQS:
+        .DRFIN  DW
+DWFBLK: .WORD   0,0,0,0
+
+
+
+        .SBTTL  BOOTSTRAP READ ROUTINE
+        .DRBOT  DW,BOOT1,READ,CONTROL=<CBUS>
+        . = DWBOOT + 40
+BOOT1:  JMP     @#<BOOT-DWBOOT>
+.ENABL  LSB
+        . = DWBOOT + 210
+
+
+READ:   MOV     #DW$CSR,R4
+        TST     @R4
+        BMI     40$
+        ASL     (PC)+
+         .WORD  100000
+        BCC     10$
+        BIT     #STDCAP,@R4
+        BNE     10$
+        MOV     #DW$C51,DW$CY1
+10$:    MOV     R0,-(SP)
+        MOV     R1,-(SP)
+20$:    MOV     @SP,R1
+        CMP     R1,#256.
+        BLOS    30$
+        MOV     #256.,R1
+30$:    SUB     R1,@SP
+        MOV     2(SP),R0
+        INC     2(SP)
+        MOV     R0,R5
+        INC     R5
+
+        BIC     #SECMSK,R5
+        MOV     R5,DWSEC(R4)
+
+ .REPT  SECBIT
+        ASR     R0
+ .ENDR
+
+        MOV     R0,R5
+
+;       BIC     #SRFMSK,R5              ; 4 surf.
+
+        clr     (pc)+                   ; Calculate head and cylinder
+101$:   .word   0                       ; numbers. 
+102$:   cmp     r5,#<dw$srf-1>          ; 
+        ble     103$                    ; 
+        inc     101$                    ; 
+        sub     #<dw$srf>,r5            ; 
+        br      102$                    ; 
+103$:                                   ; 
+        MOV     R5,DWHEAD(R4)
+
+
+; .REPT SRFBIT
+;       ASR     R0
+; .ENDR
+        mov     101$,r0
+
+        BIC     #CYLMSK,R0
+        CMP     R0,(PC)+
+DW$CY1:  .WORD  153.
+        BLO     50$
+40$:    JMP     @#<BIOERR-DWBOOT>
+50$:
+        MOV     R0,DWCYL(R4)
+        MOV     #CMREAD,DWCMD(R4)
+        MOV     R4,R0
+        MOV     R4,R5
+        ADD     #DWBUF,R5
+60$:    TST     @R0
+        BMI     60$
+        BIT     #S2ERR,DWST2(R4)
+        BNE     40$
+70$:    TSTB    @R0
+        BPL     70$
+        MOV     @R5,(R2)+
+        SOB     R1,70$
+80$:    BIT     #STOPND,@R0
+        BNE     90$
+        TSTB    @R0
+        BPL     80$
+        TST     @R5
+        BR      80$
+90$:    TST     @SP
+        BNE     20$
+        CMP     (SP)+,(SP)+
+        CLC
+        RETURN
+
+.DSABL  LSB
+
+. = DWBOOT+500
+BOOT:   MOV     #10000,SP
+        MOV     #2,R0
+        MOV     #<4*256.>,R1
+        MOV     #1000,R2
+        JSR     PC,READ
+        MOV     #<READ-DWBOOT>,@#B$READ
+        MOV     #B$DNAM,@#B$DEVN
+        CLR     @#B$DEVU
+        JMP     @#B$BOOT
+        .DREND  DW
+.END

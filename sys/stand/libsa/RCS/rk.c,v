@@ -1,0 +1,141 @@
+head     1.2;
+access   ;
+symbols  Архыз0:1.2.1;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.11.22.21.29.00;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.14.22.00.54;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Драйвер RK диска.
+@
+
+
+1.2
+log
+@rk.c взят из ДЕМОС 1.3
+@
+text
+@/*
+ * standalone IZOT-1370/SM-5400/RK03/RK05 disk driver
+ * @@ АР 24.09.85 - введено 10 повторов обмена при сбое.
+ * $Header$
+ * $Log$
+ */
+
+#include <sys/param.h>
+#include <sys/inode.h>
+#include "../saio.h"
+
+#define	RKADDR	((struct device *)0177400)
+#define	NRK	4
+#define	NRKBLK	4872
+#define NSECT	12
+
+#define	RESET	0
+#define	WCOM	2
+#define	RCOM	4
+#define	GO	01
+#define	DRESET	014
+#define	IENABLE	0100
+#define	DRY	0200
+#define	ARDY	0100
+#define	WLO	020000
+#define	CTLRDY	0200
+
+struct	device
+{
+	int	rkds;
+	int	rker;
+	int	rkcs;
+	int	rkwc;
+	caddr_t	rkba;
+	int	rkda;
+};
+
+rkstrategy(io, func)
+register struct iob *io;
+{
+	register com;
+	daddr_t bn;
+	int dn, cn, sn, nerr=10;
+retop:
+	bn = io->i_bn;
+	dn = io->i_unit;
+	cn = bn/NSECT;
+	sn = bn%NSECT;
+	RKADDR->rkda = (dn<<13) | (cn<<4) | sn;
+	RKADDR->rkba = io->i_ma;
+	RKADDR->rkwc = -(io->i_cc>>1);
+	com = (segflag<<4)|GO;
+	if (func == READ)
+		com |= RCOM; else
+		com |= WCOM;
+	RKADDR->rkcs = com;
+	while ((RKADDR->rkcs&CTLRDY) == 0)
+		;
+	if (RKADDR->rkcs<0) {	/* error bit */
+		printf("disk error: cyl=%d, sector=%d, er=%o, ds=%o\n",
+		    cn, sn, RKADDR->rker, RKADDR->rkds);
+		RKADDR->rkcs = RESET | GO;
+		while ((RKADDR->rkcs&CTLRDY) == 0)
+			;
+		if(nerr--) goto retop;
+		printf("fatal!\n");
+		return(-1);
+	}
+	return(io->i_cc);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 3
+a4 2
+ * RK disk driver
+ *
+d12 4
+a15 3
+#define RKADDR  ((struct device *)0177400)
+#define NRK     4
+#define NRKBLK  4872
+d17 10
+a26 10
+#define RESET   0
+#define WCOM    2
+#define RCOM    4
+#define GO      01
+#define DRESET  014
+#define IENABLE 0100
+#define DRY     0200
+#define ARDY    0100
+#define WLO     020000
+#define CTLRDY  0200
+d28 1
+a28 1
+struct  device
+d43 2
+a44 2
+	int dn, cn, sn;
+
+d47 2
+a48 2
+	cn = bn/12;
+	sn = bn%12;
+d62 5
+@

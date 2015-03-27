@@ -1,0 +1,38 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.13.15;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ * A subroutine version of the macro putchar
+ */
+#include <stdio.h>
+
+#undef putchar
+
+putchar(c)
+register c;
+{
+	putc(c, stdout);
+}
+@

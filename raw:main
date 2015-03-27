@@ -1,0 +1,164 @@
+//
+//  Простейшая программа обеспечения прозрачного режима
+//  между консолью и 3-м каналом МПД К6.
+//
+  .text
+  mov pc,sp; sub $2,sp
+  br _main
+
+ .globl k6init ; .globl k6otst ; .globl k6itst ; .globl k6out
+ .globl ttinit ; .globl ttotst ; .globl ttitst ; .globl ttout
+
+  .data
+
+//Структура буфера
+B_FILL =  0         /Программа использует *r0 для обращений к B_FILL
+B_GETX =  2
+B_PUTX =  4
+B_SIZE =  6
+B_BASE = 10
+B_RES  = 12         /Размер структуры
+
+  .even
+ibuff:  0;0;0;  5;ibody   / k6 -> tt
+obuff:  0;0;0;400;obody   / tt -> k6
+  .bss
+ibody:   .=.+5
+obody:   .=.+400
+  .data
+
+  .text
+_halt:  br _halt
+_rti:   rti
+
+_main:
+  clr r4
+  mov $1000,r5
+  1:
+    mov $_rti,(r4)+ ; mov $340,(r4)+
+  cmp r4,r5 ; blo 1b
+  mov $_halt,r1 ; mov r1,*$0 ; mov r1,*$4 ; mov r1,*$10
+
+  jsr r7,k6init
+  jsr pc,ttinit
+
+  w_1:
+    jsr r7,k6itst
+    bit $0400,r0 ; bne i_1
+      movb r0,r1
+      mov $ibuff,r0
+      jsr r7,putbuff
+    i_1:
+
+    mov $ibuff,r0
+    jsr r7,tstbuff
+    cmp $3,r0
+    beq i_5
+      jsr r7,ttotst ; tst r0 ; beq i_6
+        mov $ibuff,r0
+        jsr r7,getbuff
+        movb r1,r0
+        jsr r7,ttout
+      i_6:
+    i_5:
+
+    jsr r7,ttitst
+    bit $0400,r0 ; bne i_7
+      movb r0,r1
+      mov $obuff,r0
+      jsr r7,putbuff
+    i_7:
+
+    mov $obuff,r0
+    jsr r7,tstbuff
+    cmp $3,r0
+    beq i_8
+      jsr r7,k6otst ; tst r0 ; beq i_9
+        mov $obuff,r0
+        jsr r7,getbuff
+        movb r1,r0
+        jsr r7,k6out
+      i_9:
+    i_8:
+
+  br w_1
+
+// Положить в буфер
+//       r0 - буфер (структура)
+//       r1 - символ
+// -NotYet-- Вых:  r0=0 - OK, r0=1 - Yellow, r1=2 - RED
+putbuff:
+  mov r2,-(sp)
+  cmp *r0,B_SIZE(r0)
+  bhis i_12
+    inc *r0
+    mov B_PUTX(r0),r2
+    add B_BASE(r0),r2
+    movb r1,*r2
+    mov B_PUTX(r0),r2 ; inc r2
+    cmp r2,B_SIZE(r0) ; blo i_13 ;  clr r2 ;  i_13:
+    mov r2,B_PUTX(r0)
+  i_12:
+  mov (sp)+,r2
+  rts r7
+
+// Выбрать из буфера
+//       r0 - буфер
+// Вых:  r1 - символ
+getbuff:
+  mov r2,-(sp)
+  tst *r0 ; beq i_10 ; bmi i_10
+    dec *r0
+    mov B_GETX(r0),r1
+    mov r1,r2 ; inc r2
+    cmp r2,B_SIZE(r0) ; blo i_11 ;  clr r2 ;  i_11:
+    mov r2,B_GETX(r0)
+    add B_BASE(r0),r1
+    movb *r1,r1
+  i_10:
+  mov (sp)+,r2
+  rts r7
+
+// Проверить заполнение буфера
+//       r0 - буфер
+// Вых:  r0=0 - YELLOW, r0=1 - GREEN, r0=2 - RED, r0=3 - EMPTY
+tstbuff:
+  mov r1,-(sp)
+  mov B_SIZE(r0),r1
+  asr r1
+  cmp *r0,r1
+  blo i_3
+    mov $2,r0                 /Больше половины - красная зона
+    br ret_1
+  i_3:
+  asr r1
+  asr r1
+  cmp *r0,r1
+  bhi i_2
+    tst *r0
+    bne i_4
+      mov $3,r0
+      br ret_1
+    i_4:
+    mov $1,r0                 /Меньше, чем 1/8 - зеленая зона
+    br ret_1
+  i_2:
+  clr r0                      /Остальное - желтая
+  ret_1:
+  mov (sp)+,r1
+  rts r7
+
+/ Выдача диагностической строки
+dpc:
+  mov r1,-(sp)
+  mov r0,r1
+  w_3:
+  tstb *r1
+  beq w_2
+    1: jsr pc,ttotst ; tst r0 ; beq 1b
+    movb (r1)+,r0
+    jsr pc,ttout
+    br w_3
+  w_2:
+  mov (sp)+,r1
+  rts pc

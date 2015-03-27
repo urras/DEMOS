@@ -1,0 +1,45 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.40.38;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ error	= creat(name, mode);
+/	  char *name;
+
+.globl	_creat
+.globl	cerror
+
+_creat:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(r5),0f
+	mov	6(r5),0f+2
+	sys	0; 9f
+	bec	1f
+	jmp	cerror
+1:
+	mov	(sp)+,r5
+	rts	pc
+.data
+9:
+	sys	creat; 0:..; ..
+@

@@ -1,0 +1,51 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.14.23;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include        <stdio.h>
+
+_strout(string, count, adjust, file, fillch)
+register char *string;
+register count;
+int adjust;
+register struct _iobuf *file;
+{
+	while (adjust < 0) {
+		if (*string=='-' && fillch=='0') {
+			putc(*string++, file);
+			count--;
+		}
+		putc(fillch, file);
+		adjust++;
+	}
+	while (--count>=0)
+		putc(*string++, file);
+	while (adjust) {
+		putc(fillch, file);
+		adjust--;
+	}
+}
+@

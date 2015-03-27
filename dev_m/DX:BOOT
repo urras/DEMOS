@@ -1,0 +1,79 @@
+% === DX:BOOT === %  06.10.88 VERSION 41
+GLOBAL (LOCATION=0) (START=0)
+%--- РАСПРЕДЕЛЕНИЕ ДИСКА ------------------------------------%
+%-  NEX.ADDRESS  :   -   ...    -     0     1     2    ...  -%
+%-  TRACK/SECTOR :  0/1  ...  0/26   1/1   1/5   1/9   ...  -%
+%-                                  <BOOT> <VL> <STARTER..  -%
+%------------------------------------------------------------%
+LOCALS LDXBOO
+%                   -- АДРЕСА РЕГИСТРОВ КОНТРОЛЛЕРА --
+  EQUALS CSR=&FE78,DBR=&FE7A
+%                -- КОДЫ КОМАНД КОНТРОЛЛЕРА (СДВИНУТЫЕ) --
+  EQUALS RDBUFF=&02           %Чтение буфера в машину
+  EQUALS RDSECT=&06           %Чтение сектора в буфер
+
+  EQUALS ERROR=&8000
+  EQUALS INIT=&4000
+  EQUALS READY=&80
+  EQUALS DONE=&20
+  EQUALS UNIT=&10             %Бит выбора накопителя
+  EQUALS GO=1                 %Стартовый бит
+
+%--- ЯЧЕЙКИ С ФИКСИРОВАННЫМИ АДРЕСАМИ --%
+. CCL                *Наличие этой инструкции проверяет аппаратура
+. MOVB CHUNIT(%0),OPCODE                *Задаем номер дисковода
+. BR  DXBOOT                            *
+  DATA QSECT=&7777                      %Длина чтения в сект-х по 128
+  DATA =WAIT.&00E0                      %BPT-вектор
+  DATA TRC0=&01,SEC0=&09                %Адрес чтения -> дорожка+сектор
+%---------------------------------------%
+
+  BYTES CHUNIT=RDSECT+GO.UNIT+RDSECT+GO
+
+  EQUALS LDADDR=&400
+  REGISTERS TRACK=%1,SECTOR=%2,ADBUFF=%3
+  REGISTERS ACSR=%4,ADBR=%5
+
+  EQUALS CARRY=1                        %Бит ^C в слове состояния
+
+%-- Ожидание конца операции --
+PROGRAM WAIT()
+  REPEAT WHILE (@ACSR=.BIT.'ERROR+DONE+READY')=
+  IF IS NEGATIVE GOTO $                 %Бит 15 -> Ошибка !
+  2[SP]:=@ACSR.ASL..ROL.                %Двигаем бит 7 в бит 0 (^C)
+.DESACT DEF DESACT                      *Для таймера
+  DESACTIVATE
+
+%-- Чтение из DX#: N/4 блоков с адреса 2 --
+% INP: R0    - номер диска (поставляется аппаратурой)
+%      QSECT - число секторов (заносится генератором загрузчиков)
+PROGRAM DXBOOT()
+  ADBUFF='LDADDR' ; SP=ADBUFF
+  TRACK=TRC0 ; SECTOR=SEC0
+  ACSR='CSR'
+  GOTO OVERTI
+
+. DAT DESACT,&00E0            *Вектор прерывания от таймера
+
+LABEL OVERTI
+  ADBR='DBR'
+  (DCYCLE(QSECT) QSECT
+    @ACSR=^PC                 %Передаем команду `чтение сектора'
+.OPCODE DAT 0
+.   BPT                       *Ждем бита 7 (TRANSF. REQ)
+    @ADBR=SECTOR
+.   BPT
+    @ADBR=TRACK
+.   BPT                       *Ждем бита 5 (DONE)
+    @ACSR='RDBUFF+GO'         %Передаем команду `чтение буфера'
+    (WHILE
+.     BPT
+    WHILE IS CARRY            %пока бит 7
+      ^ADBUFF:=@ADBR
+    )WHILE
+    @&FF76:="+"
+    (IF SECTOR(+1)=27
+      SECTOR=1 ; TRACK=+1
+    )IF
+  )DCYCLE
+  PC=SP                       %Запуск программы

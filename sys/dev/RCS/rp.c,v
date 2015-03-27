@@ -1,0 +1,721 @@
+head     22.4;
+access   avg dmitry flerov davidov alex fox andrew korotaev dvolodin;
+symbols  Архыз1:1.4.2 Архыз0:1.4.1;
+locks    ;
+comment  @ * @;
+
+
+22.4
+date     90.11.12.19.13.14;  author root;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.06.19.15.22.43;  author avg;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.52.11;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.33.38;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.32.10;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.01.18.21.48.49;  author dvolodin;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.11.01.20.57.26;  author dvolodin;  state Exp;
+branches 1.4.2.1;
+next     1.3;
+
+1.3
+date     87.10.28.17.57.00;  author andrew;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.02.04.17.34.54;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.55.02;  author avg;  state Stab;
+branches ;
+next     ;
+
+1.4.2.1
+date     88.11.17.16.28.25;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.4
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	rp.c,v $
+ * Revision 22.3  89/06/19  15:22:43  avg
+ * Правлена обработка пропадани прерывания для Э-79.
+ * (by egoshin)
+ * 
+ * Revision 22.2  89/04/27  13:52:11  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ *
+ * Revision 22.1  89/04/12  14:33:38  korotaev
+ * "param.h" ==> <sys/param.h>
+ *
+ * Revision 22.0  89/03/25  12:32:10  korotaev
+ * Отсюда начинается версия 2.2
+ *
+ * Revision 1.5  89/01/18  21:48:49  dvolodin
+ * Правлены рудневские заблуждения.
+ *
+ * Revision 1.4  88/11/01  20:57:26  dvolodin
+ * Кто и что делал - непонятно.
+ *
+ * Revision 1.3  87/10/28  17:57:00  andrew
+ * Введен таймоут.
+ * Если у-во в offline, выдается соответствуюая диагностика
+ * и операция не повторяется.
+ *
+ * Revision 1.2  87/02/04  17:34:54  alex
+ * Вставлен режим XX_SPL - работать на низком приоритете
+ *
+ * Revision 1.1  86/04/19  17:55:02  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Драйвер RP03 ( ЕС 5061 )
+ */
+
+#include "h/rp.h"
+#if     NRP > 0
+#include <sys/param.h>
+#include <sys/systm.h>
+#include "../include/buf.h"
+#include <sys/dir.h>
+#include <sys/conf.h>
+#include <sys/user.h>
+#include "../include/rpreg.h"
+
+
+#ifndef RP_SPL
+#define INTR_ARGS(ps) /* */
+#define SPLL(ps) /* */
+#define SPLM     /* */
+#else
+#ifdef  MENLO_KOV
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_ov, i_nps, i_r0, i_pc, ps
+#else
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_nps, i_r0, i_pc, ps
+#endif
+#include "../include/psw.h"
+#define SPLL(ps) splx(((ps)&PS_IPL)?(ps):PS_BR1)
+#define SPLM _spl5()
+#endif
+
+extern  struct  size rp_sizes[];
+struct  rpdevice *RPADDR;
+
+struct  buf     rptab;
+short   rpwchk;                 /* Флаг для контроля записи */
+#define RP_NTRYS        20      /* Число повторов при сбое */
+#define RPRESETT  25
+
+#ifdef  UCB_DBUFS
+struct  buf     rrpbuf[NRP];
+#else
+struct  buf     rrpbuf;
+#endif
+
+#define RP_NSECT        10
+#define RP_NTRAC        20
+
+#ifdef UCB_DEVERR
+static char rpER_BITS[] = RPER_BITS;
+static char rpDS_BITS[] = RPDS_BITS;
+#endif
+
+#ifdef RP_TIMEOUT               /* Andrew */
+#define RPMAXTIM 3              /* sec */
+static rptimerr;                /* timing error occurs */
+static rptimact;                /* looking up */
+static rptimcnt;                /* 0: device idles */
+				/* 1 - RPMAXTIM: device active */
+void
+rptimout()
+{
+	register struct rpdevice *rpaddr = RPADDR;
+	int ds, er;
+
+	timeout (rptimout, (caddr_t)0, hz+2);
+	if (rptimcnt) {
+		if (++rptimcnt >= RPMAXTIM) {
+			rptimcnt = 1;
+			ds = rpaddr->rpds;
+			er = rpaddr->rper;
+			rptimerr = 1;
+			rpaddr->rpcs.w = RP_IDLE|RP_GO;
+#ifdef UCB_DEVERR
+			harderr (rptab.b_actf, "rp");
+			printf ("lost intr er=%b ds=%b\n",
+				er, rpER_BITS, ds, rpDS_BITS);
+#else
+			deverror(rptab.b_actf, er, ds);
+#endif
+			rpaddr->rpcs.w = RP_HSEEK|RP_GO|RP_IDE;
+		}
+	}
+}
+
+#define TO_ACTIVE if (!rptimcnt) rptimcnt++
+#define TO_DONE   rptimcnt = 0
+#else
+#define TO_ACTIVE
+#define TO_DONE
+#endif RP_TIMEOUT
+
+
+rpattach(addr, unit)
+struct rpdevice *addr;
+{
+	if (unit != 0)
+		return(0);
+	RPADDR = addr;
+	return(1);
+}
+
+rpstrategy(bp)
+register struct buf *bp;
+{
+	register struct buf *dp;
+	register int unit;
+	long    sz;
+
+#ifdef RP_TIMEOUT
+	if (!rptimact) {
+		rptimact++;
+		timeout (rptimout, (caddr_t)0, hz);
+	}
+#endif RP_TIMEOUT
+	unit = minor(bp->b_dev);
+	sz = bp->b_bcount;
+	sz = (sz + 511) >> 9;
+	if (RPADDR == (struct rpdevice *) NULL) {
+		bp->b_error = ENXIO;
+		goto errexit;
+	}
+	if (unit >= (NRP << 3) || bp->b_blkno + sz > rp_sizes[unit & 07].nblocks) {
+		bp->b_error = EINVAL;
+errexit:
+		bp->b_flags |= B_ERROR;
+		iodone(bp);
+		return;
+	}
+#ifdef  UNIBUS_MAP
+	mapalloc(bp);
+#endif
+	bp->av_forw = NULL;
+	bp->b_cylin = bp->b_blkno / (RP_NTRAC*RP_NSECT) +
+		      rp_sizes[unit & 07].cyloff;
+	/* ?? unit >>= 3; ?? */
+	(void) _spl5();
+	dp = &rptab;
+	disksort(dp, bp);
+	if (dp->b_active == NULL)
+		rpstart();
+	(void) _spl0();
+}
+
+rpstart()
+{
+	register struct rpdevice *rpaddr = RPADDR;
+	register struct buf *bp;
+	register int unit;
+	int     com, cn, tn, sn, dn;
+	daddr_t bn;
+	int ctr;
+	if ((bp = rptab.b_actf) == NULL)
+		return;
+	rptab.b_active++;
+			rpaddr->rpcs.w = RP_IDLE | RP_GO;
+	unit = minor(bp->b_dev);
+	dn = unit >> 3;
+	bn = bp->b_blkno;
+	cn = bp->b_cylin;
+	sn = bn % (RP_NTRAC * RP_NSECT);
+	tn = sn / RP_NSECT;
+	sn = sn % RP_NSECT;
+	ctr = 0;
+	while ((rpaddr->rpcs.w & RP_RDY) == 0 && --ctr)
+		;
+	rpaddr->rpcs.w = (dn << 8);
+	rpaddr->rpda = (tn << 8) | sn;
+	rpaddr->rpca = cn;
+	rpaddr->rpba = bp->b_un.b_addr;
+	rpaddr->rpwc = -(bp->b_bcount >> 1);
+	com = ((bp->b_xmem & 3) << 4) | RP_IDE | RP_GO;
+	if (bp->b_flags & B_READ)
+		com |= RP_RCOM;
+	else {
+#ifdef RP_WCHECK
+		if( rpwchk )
+			com |= RP_WCHK;
+		else
+#endif RP_WCHECK
+			com |= RP_WCOM;
+	}
+	rpaddr->rpcs.w |= com;
+#ifdef  RP_DKN
+	dk_busy |= 1 << RP_DKN;
+	dk_numb[RP_DKN]++;
+	dk_wds[RP_DKN] += bp->b_bcount >> 6;
+#endif  RP_DKN
+	TO_ACTIVE;
+}
+
+rpintr(c INTR_ARGS(ps))
+{
+	register struct rpdevice *rpaddr = RPADDR;
+	register struct buf *bp;
+	register int ctr;
+	int ds, dohs;
+
+	TO_DONE;
+	if (rptab.b_active == NULL)
+		return;
+#ifdef  RP_DKN
+	dk_busy &= ~(1 << RP_DKN);
+#endif  RP_DKN
+	rptab.b_active = NULL;
+	ds = rpaddr->rpds;
+#ifdef  RP_TIMEOUT
+	if (rptimerr) {
+		rptimerr = 0;
+		goto retry;
+	}
+#endif  RP_TIMEOUT
+	bp = rptab.b_actf;
+	SPLL(ps);
+	if (rpaddr->rpcs.w & RP_ERR) {
+		dohs = 0;
+		if (rpaddr->rper & (RPER_PROG|RPER_WPV)) {
+			if( rptab.b_errcnt == RP_NTRYS )
+				printf((rpaddr->rper & RPER_PROG) ?
+				       "rp%d: offline\n":
+				       "rp%d: write locked\n",
+				       (minor(bp->b_dev) >> 3) & 07);
+		} else {
+			if(!(rpaddr->rper & RPER_WCE && rptab.b_errcnt == 0)) {
+#ifdef  UCB_DEVERR
+				harderr(bp, "rp");
+				printf("er=%b ds=%b\n", rpaddr->rper, rpER_BITS,
+					rpaddr->rpds, rpDS_BITS);
+#else
+				deverror(bp, rpaddr->rper, rpaddr->rpds);
+#endif
+			}
+			dohs++;
+		}
+#ifdef  RP_TIMEOUT
+retry:
+#endif  RP_TIMEOUT
+		rpwchk = 0;
+		if((rptab.b_errcnt++ & 01) && dohs &&
+		    ds & (RPDS_SUFU | RPDS_SUSI | RPDS_HNF)
+		|| (rptab.b_errcnt & 07) == 07 ) {
+		while ((rpaddr->rpcs.w & RP_RDY) == 0 && --ctr)
+			;
+			rpaddr->rpcs.c[0] = RP_HSEEK | RP_GO;
+			SPLM;
+			timeout(rpstart,(caddr_t)0,RPRESETT);
+			rptab.b_active++;
+			return;
+		}
+		SPLM;
+		if (rptab.b_errcnt <= RP_NTRYS) {
+			rpstart();
+			return;
+		}
+harder:
+		bp->b_flags |= B_ERROR;
+	}
+#ifdef RP_WCHECK
+	if( bp->b_flags & B_READ  ||  bp->b_flags & B_ERROR  ||  rpwchk ) {
+		rpwchk = 0;
+#endif RP_WCHECK
+		rptab.b_errcnt = 0;
+		rptab.b_actf = bp->av_forw;
+		bp->b_resid = -(rpaddr->rpwc << 1);
+		iodone(bp);
+#ifdef RP_WCHECK
+	} else
+		rpwchk++;       /* После записи запустить RP_WCHECK */
+#endif RP_WCHECK
+	SPLM;
+	rpstart();
+}
+
+rpread(dev)
+dev_t   dev;
+{
+#ifdef  UCB_DBUFS
+	register int unit = (minor(dev) >> 3) & 07;
+
+	if (unit >= NRP)
+		u.u_error = ENXIO;
+	else
+		physio(rpstrategy, &rrpbuf[unit], dev, B_READ);
+#else
+	physio(rpstrategy, &rrpbuf, dev, B_READ);
+#endif
+}
+
+rpwrite(dev)
+dev_t   dev;
+{
+#ifdef  UCB_DBUFS
+	register int unit = (minor(dev) >> 3) & 07;
+
+	if (unit >= NRP)
+		u.u_error = ENXIO;
+	else
+		physio(rpstrategy, &rrpbuf[unit], dev, B_WRITE);
+#else
+	physio(rpstrategy, &rrpbuf, dev, B_WRITE);
+#endif
+}
+#endif  NRP
+@
+
+
+22.3
+log
+@Правлена обработка пропадани прерывания для Э-79.
+(by egoshin)
+@
+text
+@d2 5
+a6 1
+ * $Log:        rp.c,v $
+d43 1
+a43 1
+#include <sys/buf.h>
+d47 1
+a47 1
+#include <sys/rpreg.h>
+d60 1
+a60 1
+#include <sys/psw.h>
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d2 4
+a5 1
+ * $Log:	rp.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d14 1
+a14 1
+ * 
+d17 1
+a17 1
+ * 
+d93 1
+d99 4
+d106 1
+a106 1
+			rpaddr->rper, rpER_BITS, rpaddr->rpds, rpDS_BITS);
+d108 1
+a108 1
+			deverror(rptab.b_actf, rpaddr->rper, rpaddr->rpds);
+d110 1
+a110 2
+			rptimerr = 1;
+			rpaddr->rpcs.w = RP_IDLE|RP_GO|RP_IDE;
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d32 1
+a32 1
+#include "rp.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d3 3
+d31 1
+a31 1
+#include "param.h"
+@
+
+
+1.5
+log
+@Правлены рудневские заблуждения.
+@
+text
+@d3 3
+@
+
+
+1.4
+log
+@Кто и что делал - непонятно.
+@
+text
+@d2 4
+a5 1
+ * $Log:        rp.c,v $
+d45 1
+a45 1
+#define SPLL(ps) splx(((ps&PS_IPL)>>5)|01)
+@
+
+
+1.4.2.1
+log
+@Правлены рудневсике заблуждения.
+@
+text
+@d42 1
+a42 1
+#define SPLL(ps) splx(((ps)&PS_IPL)?(ps):PS_BR1)
+@
+
+
+1.3
+log
+@Введен таймоут.
+Если у-во в offline, выдается соответствуюая диагностика
+и операция не повторяется.
+@
+text
+@d2 6
+a7 1
+ * $Log:	rp.c,v $
+d10 1
+a10 1
+ * 
+d36 1
+a36 1
+#ifdef	MENLO_KOV
+d207 1
+a207 1
+	int ds;
+d226 8
+a233 10
+		if (rpaddr->rper & (RPER_PROG|RPER_WPV))
+			/*
+			 * Обругать у-во
+			 * без дальнейшей обработки.
+			 */
+			printf((rpaddr->rper & RPER_PROG) ?
+			     "rp%d: offline\n" :
+			     "rp%d: write locked\n",
+			     (minor(bp->b_dev) >> 3) & 07);
+		else {
+d243 2
+d248 7
+a254 12
+			rpwchk = 0;
+			if((rptab.b_errcnt++ & 01) &&
+			    ds & (RPDS_SUFU | RPDS_SUSI | RPDS_HNF)
+			|| (rptab.b_errcnt & 07) == 07 ) {
+			while ((rpaddr->rpcs.w & RP_RDY) == 0 && --ctr)
+				;
+				rpaddr->rpcs.c[0] = RP_HSEEK | RP_GO;
+				SPLM;
+				timeout(rpstart,(caddr_t)0,RPRESETT);
+				rptab.b_active++;
+				return;
+			}
+d256 3
+a258 4
+			if (rptab.b_errcnt <= RP_NTRYS) {
+				rpstart();
+				return;
+			}
+d260 6
+@
+
+
+1.2
+log
+@Вставлен режим XX_SPL - работать на низком приоритете
+@
+text
+@d2 4
+a5 1
+ * $Log:        rp.c,v $
+d58 41
+d115 6
+d194 1
+d203 2
+d210 8
+a218 1
+	rptab.b_active = NULL;
+d221 1
+a221 2
+		ds = rpaddr->rpds;
+		if (rpaddr->rper & RPER_WPV)
+d223 1
+a223 1
+			 * Обругать защищенныое на запись у-во
+d226 4
+a229 1
+			printf("rp%d: write locked\n", minor(bp->b_dev));
+a230 1
+			rpwchk = 0;
+d234 2
+a235 2
+				printf("er=%b ds=%b\n", rpaddr->rper, RPER_BITS,
+					rpaddr->rpds, RPDS_BITS);
+d240 4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d9 1
+a9 1
+ *      RP03 disk driver
+d22 16
+d42 4
+d89 3
+a91 1
+	unit >>= 3;
+d94 1
+a94 5
+	if (dp->b_actf == NULL)
+		dp->b_actf = bp;
+	else
+		dp->b_actl->av_forw = bp;
+	dp->b_actl = bp;
+d107 1
+a107 2
+
+
+d111 1
+d115 1
+a115 1
+	cn = bn / (RP_NTRAC * RP_NSECT) + rp_sizes[unit & 07].cyloff;
+d119 3
+d130 8
+a137 3
+	else
+		com |= RP_WCOM;
+
+d146 1
+a146 1
+rpintr()
+d151 1
+a151 1
+
+d154 1
+a154 1
+#ifdef	RP_DKN
+d156 1
+a156 1
+#endif	RP_DKN
+d159 1
+d161 1
+a161 2
+		while ((rpaddr->rpcs.w & RP_RDY) == 0)
+			;
+d164 2
+a165 2
+			 *	Give up on write locked devices
+			 *	immediately.
+d168 7
+a174 6
+		else
+			{
+#ifdef	UCB_DEVERR
+			harderr(bp, "rp");
+			printf("er=%b ds=%b\n", rpaddr->rper, RPER_BITS,
+				rpaddr->rpds, RPDS_BITS);
+d176 1
+a176 1
+			deverror(bp, rpaddr->rper, rpaddr->rpds);
+a177 5
+			if(rpaddr->rpds & (RPDS_SUFU | RPDS_SUSI | RPDS_HNF)) {
+				rpaddr->rpcs.c[0] = RP_HSEEK | RP_GO;
+				ctr = 0;
+				while ((rpaddr->rpds & RPDS_SUSU) && --ctr)
+					;
+d179 3
+a181 2
+			rpaddr->rpcs.w = RP_IDLE | RP_GO;
+			ctr = 0;
+d184 8
+a191 1
+			if (++rptab.b_errcnt <= 10) {
+d198 13
+a210 4
+	rptab.b_errcnt = 0;
+	rptab.b_actf = bp->av_forw;
+	bp->b_resid = -(rpaddr->rpwc << 1);
+	iodone(bp);
+d215 1
+a215 1
+dev_t	dev;
+d217 1
+a217 1
+#ifdef	UCB_DBUFS
+d230 1
+a230 1
+dev_t	dev;
+d232 1
+a232 1
+#ifdef	UCB_DBUFS
+d243 1
+a243 1
+#endif	NRP
+@

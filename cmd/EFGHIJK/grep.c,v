@@ -1,0 +1,809 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.02.10.17.17.40;  author tasha;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.19.22.55;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@grep научился говорить по-русски и 
+обрабатывать файлы с длиной строки до 4 Кбайт
+@
+text
+@/*
+ *      Поиск регулярного выражения в файле.
+ *
+ *      grep [ -yhsvblcne ] файл ...
+ *
+ *      Стандартное местоположение в системе:  /bin
+ *
+ *      Метод сборки:  cc -O -n -s
+ *
+ *      $Header: grep.c,v 1.1 88/05/03 19:22:55 root Exp $
+ *      $Log:   grep.c,v $
+ * Revision 1.1  88/05/03  19:22:55  root
+ * Initial revision
+ *
+ * Revision 1.1  86/01/16  20:07:00  fox
+ *
+**
+*/
+
+static char Rcs_id[]
+=           "$Header: grep.c,v 1.1 88/05/03 19:22:55 root Exp $";
+
+#include <stdio.h>
+#include <ctype.h>
+#include <sys/param.h>
+#include <ediag.h>
+
+#define CBRA    1
+#define CCHR    2
+#define CDOT    4
+#define CCL     6
+#define NCCL    8
+#define CDOL    10
+#define CEOF    11
+#define CKET    12
+#define CBACK   18
+
+#define STAR    01
+
+#define LBSIZE  4096
+#define ESIZE   256
+#define NBRA    9
+
+char    expbuf[ESIZE];
+long    lnum;
+char    linebuf[LBSIZE + 1];
+char    ybuf[ESIZE];
+int     bflag;
+int     lflag;
+int     nflag;
+int     cflag;
+int     vflag;
+int     nfile;
+int     hflag = 1;
+int     sflag;
+int     yflag;
+int     circf;
+long    tln;
+int     nsucc;
+char   *braslist[NBRA];
+char   *braelist[NBRA];
+char    bittab[] = {
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+};
+int     ab[] = {
+/*   ю   а   б   ц   д   е   ф   г   х   и   й   к */
+    29, 0, 1, 22, 4, 5, 20, 3, 21, 8, 9, 10,
+/*   л   м   н   о   п   я   р   с   т   у   ж   в */
+    11, 12, 13, 14, 15, 30, 16, 17, 18, 19, 6, 2,
+/*   ь   ы   з   ш   э   щ   ч                     */
+    27, 26, 7, 24, 28, 25, 23, 0,
+/*   ю   а   б   ц   д   е   ф   г   х   и   й   к */
+    60, 31, 32, 53, 35, 36, 51, 34, 52, 39, 40, 41,
+/*   л   м   н   о   п   я   р   с   т   у   ж   в */
+    42, 43, 44, 45, 46, 61, 47, 48, 49, 50, 37, 33,
+/*   ь   ы   з   ш   э   щ   ч                     */
+    58, 57, 38, 55, 59, 56, 54, 0
+};
+char    dk[] = {
+/*   0    1    2    3    4    5    6    7    8    9 */
+    'а', 'б', 'в', 'г', 'д', 'е', 'ж', 'з', 'и', 'й',
+/*  10   11   12   13   14   15   16   17   18   19 */
+    'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у',
+/*  20   21   22   23   24   25   26   27   28   29 */
+    'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ы', 'ь', 'э', 'ю',
+/*  30 */
+    'я',
+/*  31   32   33   34   35   36   37   38   39   40 */
+    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З', 'И', 'Й',
+/*  41   42   43   44   45   46   47   48   49   50 */
+    'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У',
+/*  51   52   53   54   55   56   57   58   59   60 */
+    'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Ы', 'Ь', 'Э', 'Ю',
+/*  61 */
+    'Я'
+};
+main (argc, argv)
+char  **argv;
+{
+    while (--argc > 0 && (++argv)[0][0] == '-')
+	switch (argv[0][1]) {
+
+	    case 'y':
+		yflag++;
+		continue;
+
+	    case 'h':
+		hflag = 0;
+		continue;
+
+	    case 's':
+		sflag++;
+		continue;
+
+	    case 'v':
+		vflag++;
+		continue;
+
+	    case 'b':
+		bflag++;
+		continue;
+
+	    case 'l':
+		lflag++;
+		continue;
+
+	    case 'c':
+		cflag++;
+		continue;
+
+	    case 'n':
+		nflag++;
+		continue;
+
+	    case 'e':
+		--argc;
+		++argv;
+		goto out;
+
+	    default:
+		errexit (ediag("grep: unknown flag %s\n",
+			       "grep: нет такого ключа %s\n"), argv[0]);
+		continue;
+	}
+out:
+    if (argc <= 0)
+	exit (2);
+    if (yflag) {
+	register char  *p,
+		       *s;
+	for (s = ybuf, p = *argv; *p;) {
+	    if (*p == '\\') {
+		*s++ = *p++;
+		if (*p)
+		    *s++ = *p++;
+	    }
+	    else
+		if (*p == '[') {
+		    while (*p != '\0' && *p != ']')
+			*s++ = *p++;
+		}
+		else
+		    if (islower (*p)) {
+			*s++ = '[';
+			*s++ = toupper (*p);
+			*s++ = *p++;
+			*s++ = ']';
+		    }
+		    else
+			*s++ = *p++;
+	    if (s >= ybuf + ESIZE - 5)
+		errexit (ediag("grep: argument too long\n",
+			       "grep: слишком длинный аргумент\n"),
+			(char *) NULL);
+	}
+	*s = '\0';
+	*argv = ybuf;
+    }
+    compile (*argv);
+    nfile = --argc;
+    if (argc <= 0) {
+	if (lflag)
+	    exit (1);
+	execute ((char *) NULL);
+    }
+    else
+	while (--argc >= 0) {
+	    argv++;
+	    execute (*argv);
+	}
+    exit (nsucc == 0);
+}
+
+compile (astr)
+char   *astr;
+{
+    register    c;
+    register char  *ep,
+		   *sp;
+    char   *cstart;
+    char   *lastep;
+    int     cclcnt;
+    char    bracket[NBRA],
+	   *bracketp;
+    int     closed;
+    char    numbra;
+    char    neg;
+    int     dd,
+	    td,
+	    pr;
+    char    cp,
+	    pp;
+    ep = expbuf;
+    sp = astr;
+    lastep = 0;
+    bracketp = bracket;
+    closed = numbra = 0;
+    if (*sp == '^') {
+	circf++;
+	sp++;
+    }
+    for (;;) {
+	pr = 0;
+	if (ep >= &expbuf[ESIZE])
+	    goto cerror;
+	if ((c = *sp++) != '*')
+	    lastep = ep;
+	switch (c) {
+
+	    case '\0':
+		*ep++ = CEOF;
+		return;
+
+	    case '.':
+		*ep++ = CDOT;
+		continue;
+
+	    case '*':
+		if (lastep == 0 ||
+			*lastep == CBRA ||
+			*lastep == CKET)
+		    goto defchar;
+		*lastep |= STAR;
+		continue;
+
+	    case '$':
+		if (*sp != '\0')
+		    goto defchar;
+		*ep++ = CDOL;
+		continue;
+
+	    case '[':
+		if (&ep[27] >= &expbuf[ESIZE])
+		    goto cerror;
+		*ep++ = CCL;
+		neg = 0;
+		if ((c = *sp++) == '^') {
+		    neg = 1;
+		    c = *sp++;
+		}
+		cstart = sp;
+		do {
+		    if (c == '\0')
+			goto cerror;
+		    if (c == '-' && sp > cstart && *sp != ']') {
+			if (*sp & 0200)
+			    if (sp[-2] & 0200)
+				goto rus;
+			    else {
+				pr = 1;
+				pp = *sp;
+				*sp = 0177;
+				goto eng;
+			    }
+			else
+			    if (sp[-2] & 0200);
+			    else
+				goto eng;
+		rus:    dd = ab[*sp & 077];
+			if (pr == 1)
+			    td = 0;
+			else
+			    td = ab[sp[-2] & 077];
+			while (td <= dd) {
+			    cp = dk[td];
+			    td++;
+			    ep[(cp >> 3) & 027]
+				|= bittab[cp & 07];
+			}
+			sp++;
+			goto wyx;
+		eng:    for (c = sp[-2]; c < *sp; c++)
+			    ep[c >> 3] |= bittab[c & 07];
+			if (pr == 1) {
+			    ep[c >> 3] |= bittab[c & 07];
+			    *sp = pp;
+			    goto rus;
+			}
+
+			sp++;
+		    }
+		    ep[((c & 0200) ?
+				(((c & 0377) >> 3) & 027) :
+				(c >> 3))] |= bittab[c & 07];
+	    wyx:    ;
+		} while ((c = *sp++) != ']');
+		if (neg) {
+		    for (cclcnt = 0; cclcnt < 26; cclcnt++)
+			ep[cclcnt] ^= -1;
+		    ep[0] &= 0376;
+		}
+
+		ep += 26;
+
+		continue;
+
+	    case '\\':
+		if ((c = *sp++) == '(') {
+		    if (numbra >= NBRA) {
+			goto cerror;
+		    }
+		    *bracketp++ = numbra;
+		    *ep++ = CBRA;
+		    *ep++ = numbra++;
+		    continue;
+		}
+		if (c == ')') {
+		    if (bracketp <= bracket) {
+			goto cerror;
+		    }
+		    *ep++ = CKET;
+		    *ep++ = *--bracketp;
+		    closed++;
+		    continue;
+		}
+
+		if (c >= '1' && c <= '9') {
+		    if ((c -= '1') >= closed)
+			goto cerror;
+		    *ep++ = CBACK;
+		    *ep++ = c;
+		    continue;
+		}
+
+	defchar:
+	    default:
+		*ep++ = CCHR;
+		*ep++ = c;
+	}
+    }
+cerror:
+    errexit (ediag("grep: RE error\n",
+		   "grep: неверное регулярное выражение\n"),
+	    (char *) NULL);
+}
+
+execute (file)
+char   *file;
+{
+    register char  *p1,
+		   *p2;
+    register    c;
+
+    if (file) {
+	if (freopen (file, "r", stdin) == NULL)
+	    errexit (ediag("grep: can't open %s\n",
+			   "grep: не могу открыть %s\n"), file);
+    }
+    lnum = 0;
+    tln = 0;
+    for (;;) {
+	lnum++;
+	p1 = linebuf;
+	while ((c = getchar ()) != '\n') {
+	    if (c == EOF) {
+		if (cflag) {
+		    if (nfile > 1)
+			printf ("%s:", file);
+		    printf ("%D\n", tln);
+		}
+		return;
+	    }
+	    *p1++ = c;
+	    if (p1 >= &linebuf[LBSIZE - 1])
+		break;
+	}
+	*p1++ = '\0';
+	p1 = linebuf;
+	p2 = expbuf;
+	if (circf) {
+	    if (advance (p1, p2))
+		goto found;
+	    goto nfound;
+	}
+    /* fast check for first character */
+	if (*p2 == CCHR) {
+	    c = p2[1];
+	    do {
+		if (*p1 != c)
+		    continue;
+		if (advance (p1, p2))
+		    goto found;
+	    } while (*p1++);
+	    goto nfound;
+	}
+    /* regular algorithm */
+	do {
+	    if (advance (p1, p2))
+		goto found;
+	} while (*p1++);
+nfound:
+	if (vflag)
+	    succeed (file);
+	continue;
+found:
+	if (vflag == 0)
+	    succeed (file);
+    }
+}
+
+advance (lp, ep)
+register char  *lp,
+	       *ep;
+{
+    register char  *curlp;
+    char    c,
+	    le;
+    char   *bbeg;
+    int     ct;
+
+    for (;;)
+	switch (*ep++) {
+
+	    case CCHR:
+		if (*ep++ == *lp++)
+		    continue;
+		return (0);
+
+	    case CDOT:
+		if (*lp++)
+		    continue;
+		return (0);
+
+	    case CDOL:
+		if (*lp == 0)
+		    continue;
+		return (0);
+
+	    case CEOF:
+		return (1);
+
+	    case CCL:
+		c = *lp++;
+		le = ep[((c & 0200) ?
+			    ((c >> 3) & 027) : (c >> 3))];
+		if (le & bittab[c & 07]) {
+		    ep += 26;
+		    continue;
+		}
+		return (0);
+	    case CBRA:
+		braslist[*ep++] = lp;
+		continue;
+
+	    case CKET:
+		braelist[*ep++] = lp;
+		continue;
+
+	    case CBACK:
+		bbeg = braslist[*ep];
+		if (braelist[*ep] == 0)
+		    return (0);
+		ct = braelist[*ep++] - bbeg;
+		if (ecmp (bbeg, lp, ct)) {
+		    lp += ct;
+		    continue;
+		}
+		return (0);
+
+	    case CBACK | STAR:
+		bbeg = braslist[*ep];
+		if (braelist[*ep] == 0)
+		    return (0);
+		ct = braelist[*ep++] - bbeg;
+		curlp = lp;
+		while (ecmp (bbeg, lp, ct))
+		    lp += ct;
+		while (lp >= curlp) {
+		    if (advance (lp, ep))
+			return (1);
+		    lp -= ct;
+		}
+		return (0);
+
+
+	    case CDOT | STAR:
+		curlp = lp;
+		while (*lp++);
+		goto star;
+
+	    case CCHR | STAR:
+		curlp = lp;
+		while (*lp++ == *ep);
+		ep++;
+		goto star;
+
+	    case CCL | STAR:
+		curlp = lp;
+		do {
+		    c = *lp++;
+		    le = ep[((c & 0200) ?
+				((c >> 3) & 027) : (c >> 3))];
+		} while (le & bittab[c & 07]);
+		ep += 26;
+		goto star;
+
+	star:
+		if (--lp == curlp) {
+		    continue;
+		}
+
+		if (*ep == CCHR) {
+		    c = ep[1];
+		    do {
+			if (*lp != c)
+			    continue;
+			if (advance (lp, ep))
+			    return (1);
+		    } while (lp-- > curlp);
+		    return (0);
+		}
+
+		do {
+		    if (advance (lp, ep))
+			return (1);
+		} while (lp-- > curlp);
+		return (0);
+
+	    default:
+		errexit (ediag("grep RE botch\n",
+			       "grep: плохое регулярное выражение\n"),
+			(char *) NULL);
+	}
+}
+
+succeed (f)
+char   *f;
+{
+    long    ftell ();
+    nsucc = 1;
+    if (sflag)
+	return;
+    if (cflag) {
+	tln++;
+	return;
+    }
+    if (lflag) {
+	printf ("%s\n", f);
+	fseek (stdin, 0l, 2);
+	return;
+    }
+    if (nfile > 1 && hflag)
+	printf ("%s:", f);
+    if (bflag)
+	printf ("%ld:", (ftell (stdin) - 1) / BSIZE);
+    if (nflag)
+	printf ("%ld:", lnum);
+    printf ("%s\n", linebuf);
+}
+
+ecmp (a, b, count)
+char   *a,
+       *b;
+{
+    register    cc = count;
+    while (cc--)
+	if (*a++ != *b++)
+	    return (0);
+    return (1);
+}
+
+errexit (s, f)
+char   *s,
+       *f;
+{
+    fprintf (stderr, s, f);
+    exit (2);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d10 1
+a10 1
+ *      $Header: grep.c,v 1.1 86/01/16 20:07:00 fox Rel $
+d12 3
+d16 1
+a16 1
+ * 
+d21 1
+a21 1
+=           "$Header: grep.c,v 1.1 86/01/16 20:07:00 fox Rel $";
+d26 1
+d28 9
+a36 9
+#define	CBRA	1
+#define	CCHR	2
+#define	CDOT	4
+#define	CCL	6
+#define	NCCL	8
+#define	CDOL	10
+#define	CEOF	11
+#define	CKET	12
+#define	CBACK	18
+d38 1
+a38 1
+#define	STAR	01
+d40 3
+a42 3
+#define	LBSIZE	512
+#define	ESIZE	256
+#define	NBRA	9
+d110 1
+a110 1
+	    case 'y': 
+d114 1
+a114 1
+	    case 'h': 
+d118 1
+a118 1
+	    case 's': 
+d122 1
+a122 1
+	    case 'v': 
+d126 1
+a126 1
+	    case 'b': 
+d130 1
+a130 1
+	    case 'l': 
+d134 1
+a134 1
+	    case 'c': 
+d138 1
+a138 1
+	    case 'n': 
+d142 1
+a142 1
+	    case 'e': 
+d147 3
+a149 2
+	    default: 
+		errexit ("grep: unknown flag\n", (char *) NULL);
+d152 1
+a152 1
+out: 
+d157 1
+a157 1
+	               *s;
+d179 2
+a180 1
+		errexit ("grep: argument too long\n",
+d206 1
+a206 1
+                   *sp;
+d211 1
+a211 1
+           *bracketp;
+d216 2
+a217 2
+            td,
+            pr;
+d219 1
+a219 1
+            pp;
+d237 1
+a237 1
+	    case '\0': 
+d241 1
+a241 1
+	    case '.': 
+d245 1
+a245 1
+	    case '*': 
+d253 1
+a253 1
+	    case '$': 
+d259 1
+a259 1
+	    case '[': 
+d286 1
+a286 1
+		rus: 	dd = ab[*sp & 077];
+d299 1
+a299 1
+		eng: 	for (c = sp[-2]; c < *sp; c++)
+d324 1
+a324 1
+	    case '\\': 
+d352 2
+a353 2
+	defchar: 
+	    default: 
+d358 4
+a361 2
+cerror: 
+    errexit ("grep: RE error\n", (char *) NULL);
+d368 1
+a368 1
+                   *p2;
+d373 2
+a374 1
+	    errexit ("grep: can't open %s\n", file);
+d418 1
+a418 1
+nfound: 
+d422 1
+a422 1
+found: 
+d430 1
+a430 1
+               *ep;
+d434 1
+a434 1
+            le;
+d441 1
+a441 1
+	    case CCHR: 
+d446 1
+a446 1
+	    case CDOT: 
+d451 1
+a451 1
+	    case CDOL: 
+d456 1
+a456 1
+	    case CEOF: 
+d459 1
+a459 1
+	    case CCL: 
+d468 1
+a468 1
+	    case CBRA: 
+d472 1
+a472 1
+	    case CKET: 
+d476 1
+a476 1
+	    case CBACK: 
+d487 1
+a487 1
+	    case CBACK | STAR: 
+d503 1
+a503 1
+	    case CDOT | STAR: 
+d508 1
+a508 1
+	    case CCHR | STAR: 
+d514 1
+a514 1
+	    case CCL | STAR: 
+d524 1
+a524 1
+	star: 
+d546 4
+a549 2
+	    default: 
+		errexit ("grep RE botch\n", (char *) NULL);
+@

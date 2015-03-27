@@ -1,0 +1,394 @@
+head     1.3;
+access   ;
+symbols  Архыз0:1.1.1;
+locks    ;
+comment  @# @;
+
+
+1.3
+date     90.11.12.19.28.36;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.12.26.19.14.26;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.14.17.18.39;  author avg;  state Stab;
+branches 1.1.1.1;
+next     ;
+
+1.1.1.1
+date     88.11.02.21.36.18;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Общий Makefile для автономных программ.
+@
+
+
+1.3
+log
+@Дополнено под СМ 1425.
+@
+text
+@#
+#       Makefile  для автономных программ
+#
+# $Log:	Makefile,v $
+# Revision 1.2  88/12/26  19:14:26  korotaev
+# Исправил RCSSRC.
+# 
+# Revision 1.1  86/07/14  17:18:39  avg
+# Initial revision
+#
+#
+#  ###  Автономные программы должны занимать менее
+#       48K байтов оперативной памяти для того, чтобы
+#       они могли использовать все драйверы устройств.
+#       Это особая проблема для restor.
+#
+#
+# Для версии исх. текстов без архивов RCS установите R=X
+R=
+RCS=RCS
+COFLAGS=
+
+SRC=c.c mtboot.s saio.h srt0.s tsboot.s maketape.c cat.c bcopy.c vcopy.c
+DIRS=bootstrap libsa tapes
+
+LIBSA = libsa
+SRCRCS  = /usr/src/cmd/etc/RCS
+INCLUDES=
+BOOT = bootstrap
+
+CFLAGS = -O -DSTANDALONE ${INCLUDES}
+
+ALL=    restor cat mkfs mtboot tsboot maketape boot vcopy
+
+all:    $(ALL) size
+
+libsa.a: ${LIBSA} saio.h
+	(cd libsa; make INCLUDES="${INCLUDES}" COFLAGS="${COFLAGS}" ../libsa.a)
+
+restor: libsa.a srt0.o restor.c c.o dummyfont.o
+	cc -c ${CFLAGS} restor.c
+	ld -o restor srt0.o restor.o c.o dummyfont.o libsa.a -lc
+	rm restor.o
+
+vcopy: libsa.a srt0.o vcopy.c c.o
+	cc -c ${CFLAGS} vcopy.c
+	ld -o vcopy srt0.o vcopy.o c.o libsa.a -lc
+	rm vcopy.o
+
+cat:    libsa.a srt0.o c.o cat.c
+	cc -c ${CFLAGS} cat.c
+	ld -s -o cat srt0.o cat.o c.o libsa.a -lc
+	chmod a-x cat
+	rm cat.o
+
+mkfs:   libsa.a srt0.o mkfs.c c.o
+	cc -c ${CFLAGS} mkfs.c
+	ld  -o mkfs srt0.o mkfs.o c.o libsa.a -lc
+	rm mkfs.o
+
+mtboot: mtboot.s
+	as -o mtboot mtboot.s
+	strip mtboot
+
+tsboot: tsboot.s
+	as -o tsboot.o tsboot.s
+	strip tsboot.o
+	dd if=tsboot.o of=tsboot bs=8w skip=1
+
+maketape: maketape.c
+	cc -o maketape maketape.c
+
+boot:   ${BOOT} libsa.a c.o saio.h
+	cd bootstrap;make INCLUDES="${INCLUDES}" COFLAGS="${COFLAGS}" ../boot
+
+tape: tape0 tape1 tape2 tape3 tape4
+tape0:
+	maketape $$TAPE tapes/tapedir;
+
+tape1:
+	dump 0 /mnt/root
+
+tape2:
+	s=`cat tapes/usrtar2`;cd /usr;tar cb 32  $$s
+tape3:
+	-mv boot tmboot tsboot mkfs restor cat vcopy ../standout
+	s=`cat tapes/usrtar3`;cd /usr;tar cb 32  $$s
+	-cd ../standout;mv * ../stand
+tape4:
+	s=`cat tapes/usrtar4`;cd /usr;tar cvb 32  $$s
+
+tapeII:
+	cd /usr/man/cat1;
+	cd /mnt/sys/doc;        # Проверка - есть на месте
+	cd /usr;tar cibS 32 10000 \
+		  man -C /mnt/sys doc -C /mnt/src src/cmd \
+		  src/lib src/compl src/roff src/rcs \
+		  src/unused src/games src/[A-Z]* -C /mnt/sys src/RCS_sys \
+		  man  local
+tapeIII:
+	cd /mnt/avg/RUBIN;
+	cd /mnt/avg;tar cb 32 RUBIN/R*  RUBIN/doc  RUBIN/bin RUBIN/files\
+			RUBIN/lib/libq.a  RUBIN/demo RUBIN/source
+
+size:
+	size ${ALL}
+
+clean clear:
+	for i in $(DIRS) ; do cd $$i; make clear; cd .. ; done
+	rm -f $(ALL) libsa.a
+	rm -f *.[ob] *.bak
+
+CLRSRC:
+	for i in $(DIRS) ; do cd $$i; make CLRSRC; cd .. ; done
+	rm -f $(ALL) $(SRC)
+	rm -f *.[ob]   *.bak
+
+source: $(SRC) Makefile
+	for i in $(DIRS) ; do cd $$i; \
+	make COFLAGS="${COFLAGS}" source; cd .. ; done
+
+$(R)c.c:       ; co $(COFLAGS) c.c
+$(R)mtboot.s:  ; co $(COFLAGS) mtboot.s
+$(R)saio.h:    ; co $(COFLAGS) saio.h
+$(R)srt0.s:    ; co $(COFLAGS) srt0.s
+$(R)tsboot.s:  ; co $(COFLAGS) tsboot.s
+$(R)maketape.c:; co $(COFLAGS) maketape.c
+$(R)vcopy.c:   ; co $(COFLAGS) vcopy.c
+$(R)cat.c:     ; co $(COFLAGS) cat.c
+$(R)bcopy.c:   ; co $(COFLAGS) bcopy.c
+$(R)Makefile:  ; co $(COFLAGS) Makefile
+$(R)mkfs.c:    ; co $(COFLAGS) $(SRCRCS)/mkfs.c,v
+$(R)restor.c:  ; co $(COFLAGS) $(SRCRCS)/restor.c,v
+@
+
+
+1.2
+log
+@Исправил RCSSRC.
+@
+text
+@d4 4
+a7 1
+# $Log: Makefile,v $
+d66 3
+a68 2
+	as -o tsboot tsboot.s
+	strip tsboot
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 3
+a6 1
+# $Log$
+d8 1
+d14 1
+a14 1
+
+d20 1
+a20 1
+SRC=c.c mtboot.s saio.h srt0.s tsboot.s maketape.c cat.c bcopy.c
+d23 2
+a24 2
+LIBSA = libsa/*.c
+SRCDIR  = /usr/src/cmd
+d26 1
+a26 1
+BOOT = bootstrap/*.[sc]
+d30 1
+a30 1
+ALL=    restor cat icheck mkfs mtboot tsboot maketape boot
+d34 1
+a34 1
+libsa.a: ${LIBSA}
+d37 3
+a39 3
+restor: libsa.a srt0.o ${SRCDIR}/restor.c c.o
+	cc -c ${CFLAGS} ${SRCDIR}/restor.c
+	ld -o restor srt0.o restor.o c.o libsa.a -lnonfpc
+d42 5
+d49 2
+a50 1
+	ld -s -o cat srt0.o cat.o c.o libsa.a -lnonfpc
+d53 3
+a55 3
+mkfs:   libsa.a srt0.o ${SRCDIR}/mkfs.c c.o
+	cc -c ${CFLAGS} ${SRCDIR}/mkfs.c
+	ld  -o mkfs srt0.o mkfs.o c.o libsa.a -lnonfpc
+a57 5
+icheck: libsa.a srt0.o ${SRCDIR}/icheck.c c.o
+	cc -c ${CFLAGS} ${SRCDIR}/icheck.c
+	ld  -o icheck srt0.o icheck.o c.o libsa.a -lnonfpc
+	rm icheck.o
+
+d69 1
+a69 1
+boot:   ${BOOT} libsa.a c.o
+d72 29
+d105 1
+a105 1
+	for i in $(DIRS) ; do cd $i; make clear; cd .. ; done
+d107 1
+a107 1
+	rm -f *.[ob]
+d110 1
+a110 1
+	for i in $(DIRS) ; do cd $i; make CLRSRC; cd .. ; done
+d112 1
+a112 1
+	rm -f *.[ob]
+d115 1
+a115 1
+	for i in $(DIRS) ; do cd $i; \
+d118 12
+a129 9
+$(R)c.c:       $(RCS)/c.c,v         ; co $(COFLAGS) c.c
+$(R)mtboot.s:  $(RCS)/mtboot.s,v    ; co $(COFLAGS) mtboot.s
+$(R)saio.h:    $(RCS)/saio.h,v      ; co $(COFLAGS) saio.h
+$(R)srt0.s:    $(RCS)/srt0.s,v      ; co $(COFLAGS) srt0.s
+$(R)tsboot.s:  $(RCS)/tsboot.s,v    ; co $(COFLAGS) tsboot.s
+$(R)maketape.c:$(RCS)/maketape.c,v  ; co $(COFLAGS) maketape.c
+$(R)cat.c:     $(RCS)/cat.c,v       ; co $(COFLAGS) cat.c
+$(R)bcopy.c:   $(RCS)/bcopy.c,v     ; co $(COFLAGS) bcopy.c
+$(R)Makefile:  $(RCS)/Makefile,v    ; co $(COFLAGS) Makefile
+@
+
+
+1.1.1.1
+log
+@Правки из САО для 1630.
+@
+text
+@d4 1
+a4 9
+# $Log:	Makefile,v $
+# Revision 1.2  88/08/04  15:13:47  sys
+# *** empty log message ***
+# 
+# Revision 1.2  88/08/04  14:38:20  sys
+# 1630
+# 
+# Revision 1.1  86/07/14  17:18:39  avg
+# Initial revision
+a5 1
+#
+d11 1
+a11 1
+#
+d17 1
+a17 1
+SRC=c.c mtboot.s saio.h srt0.s tsboot.s maketape.c cat.c bcopy.c vcopy.c
+d20 2
+a21 2
+LIBSA = libsa
+SRCRCS  = RCS
+d23 1
+a23 1
+BOOT = bootstrap
+d27 1
+a27 1
+ALL=    restor cat mkfs mtboot tsboot maketape boot vcopy
+d31 2
+a32 2
+libsa.a: ${LIBSA} saio.h
+	(cd libsa; make INCLUDES="${INCLUDES}" R=$(R) COFLAGS="${COFLAGS}" ../libsa.a)
+d34 3
+a36 3
+restor: libsa.a srt0.o restor.c c.o
+	cc -c ${CFLAGS} restor.c
+	ld -o restor srt0.o restor.o c.o libsa.a -lc
+a38 5
+vcopy: libsa.a srt0.o vcopy.c c.o
+	cc -c ${CFLAGS} vcopy.c
+	ld -o vcopy srt0.o vcopy.o c.o libsa.a -lc
+	rm vcopy.o
+
+d41 1
+a41 2
+	ld -s -o cat srt0.o cat.o c.o libsa.a -lc
+	chmod a-x cat
+d44 3
+a46 3
+mkfs:   libsa.a srt0.o mkfs.c c.o
+	cc -c ${CFLAGS} mkfs.c
+	ld  -o mkfs srt0.o mkfs.o c.o libsa.a -lc
+d49 5
+d65 2
+a66 2
+boot:   ${BOOT} libsa.a c.o saio.h
+	cd bootstrap;make R=$(R) INCLUDES="${INCLUDES}" COFLAGS="${COFLAGS}" ../boot
+a67 29
+tape: tape0 tape1 tape2 tape3 tape4
+tape0:
+	maketape $$TAPE tapes/tapedir;
+
+tape1:
+	dump 0 /mnt/root
+
+tape2:
+	s=`cat tapes/usrtar2`;cd /usr;tar cb 32  $$s
+tape3:
+	-mv boot tmboot tsboot mkfs restor cat vcopy ../standout
+	s=`cat tapes/usrtar3`;cd /usr;tar cb 32  $$s
+	-cd ../standout;mv * ../stand
+tape4:
+	s=`cat tapes/usrtar4`;cd /usr;tar cvb 32  $$s
+
+tapeII:
+	cd /usr/man/cat1;
+	cd /mnt/sys/doc;        # Проверка - есть на месте
+	cd /usr;tar cibS 32 10000 \
+		  man -C /mnt/sys doc -C /mnt/src src/cmd \
+		  src/lib src/compl src/roff src/rcs \
+		  src/unused src/games src/[A-Z]* -C /mnt/sys src/RCS_sys \
+		  man  local
+tapeIII:
+	cd /mnt/avg/RUBIN;
+	cd /mnt/avg;tar cb 32 RUBIN/R*  RUBIN/doc  RUBIN/bin RUBIN/files\
+			RUBIN/lib/libq.a  RUBIN/demo RUBIN/source
+
+d72 1
+a72 1
+	for i in $(DIRS) ; do cd $$i; make clear; cd .. ; done
+d74 1
+a74 1
+	rm -f *.[ob] *.bak
+d77 1
+a77 1
+	for i in $(DIRS) ; do cd $$i; make CLRSRC; cd .. ; done
+d79 1
+a79 1
+	rm -f *.[ob]   *.bak
+d82 1
+a82 1
+	for i in $(DIRS) ; do cd $$i; \
+d85 9
+a93 12
+$(R)c.c:       ; co $(COFLAGS) c.c
+$(R)mtboot.s:  ; co $(COFLAGS) mtboot.s
+$(R)saio.h:    ; co $(COFLAGS) saio.h
+$(R)srt0.s:    ; co $(COFLAGS) srt0.s
+$(R)tsboot.s:  ; co $(COFLAGS) tsboot.s
+$(R)maketape.c:; co $(COFLAGS) maketape.c
+$(R)vcopy.c:   ; co $(COFLAGS) vcopy.c
+$(R)cat.c:     ; co $(COFLAGS) cat.c
+$(R)bcopy.c:   ; co $(COFLAGS) bcopy.c
+$(R)Makefile:  ; co $(COFLAGS) Makefile
+$(R)mkfs.c:    ; co $(COFLAGS) $(SRCRCS)/mkfs.c,v
+$(R)restor.c:  ; co $(COFLAGS) $(SRCRCS)/restor.c,v
+@

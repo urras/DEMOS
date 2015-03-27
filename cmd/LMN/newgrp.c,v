@@ -1,0 +1,145 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.30.50;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+#include <stdio.h>
+#include <grp.h>
+#include <pwd.h>
+
+struct	group	*getgrnam(), *grp;
+struct	passwd	*getpwuid(), *pwd;
+char	*getpass(), *crypt();
+
+#ifdef MENLO
+char **environ;
+char *shell ={ "/bin/sh" };
+#endif
+
+main(argc,argv)
+int	argc;
+char	**argv;
+{
+	register i;
+	if(argc != 2) {
+		printf("usage: newgrp groupname\n");
+		done();
+	}
+	if((grp=getgrnam(argv[1])) == NULL) {
+		printf("%s: no such group\n", argv[1]);
+		done();
+	}
+	if((pwd=getpwuid(getuid())) == NULL) {
+		printf("You do not exist!\n");
+		done();
+	}
+	for(i=0;grp->gr_mem[i];i++) 
+		if(strcmp(grp->gr_mem[i], pwd->pw_name) == 0)
+			break;
+	if(grp->gr_mem[i] == 0 && strcmp(grp->gr_name,"other")) {
+		printf("Sorry\n");
+		done();
+	}
+
+	if(grp->gr_passwd[0] != '\0' && pwd->pw_passwd[0] == '\0') {
+		if(strcmp(grp->gr_passwd, crypt(getpass("Password:"),grp->gr_passwd)) != 0) {
+			printf("Sorry\n");
+			done();
+		}
+	}
+	if(setgid(grp->gr_gid) < 0)
+		perror("setgid");
+	done();
+}
+
+done()
+{
+	register i;
+
+#ifdef MENLO
+	register char *cp;
+	register char *cp2;
+	register char **p;
+	char hometmp[50];
+#endif
+	setuid(getuid());
+	for (i=3; i<15; i++)
+		close(i);
+#ifndef MENLO
+	execl("/bin/sh","sh",0);
+#else
+/*
+ * to enable users to specify which shell they want in the environment
+ * (as opposed to the default shell), search for a "SHELL" variable
+ *		pag -- 11/11/79
+ */
+	for(p=environ; *p; p++)
+		if (strncmp("SHELL=", *p, 6) == 0)
+		{
+		    for(cp = *p;*cp++ != '=';)
+			;
+		    shell = cp;
+		}
+/*
+ * the C shell is very fussy about 'sourcing' in .login
+ * and .cshrc files if they are not owned by the invoker
+ * therefore, set HOME beforehand so that the old HOME
+ * won't be used.
+ *		pag -- 1/10/80
+ */
+	    if (strncmp("HOME=", *p, 5) == 0)
+	    {
+		for(cp = *p,cp2=hometmp;*cp != '=';)
+		    *cp2++ = *cp++;
+		*cp2++ = '=';
+		strcpy(cp2,pwd->pw_dir);
+		*p = calloc(1,strlen(hometmp)+1);
+		strcat(*p,hometmp);
+	    }
+/*
+ * slight kludge here:  csh strips off the first letter of argv[1]
+ * when it is "newgrp", so add a dummy first letter! -- pag
+ */
+	if(strcmp(shell,"/bin/csh") != 0)
+	execl(shell, "newgrp", 0);
+	else
+	    execl(shell, "_newgrp", 0);
+#endif
+	printf("No shell\n");
+	exit(3);
+}
+@

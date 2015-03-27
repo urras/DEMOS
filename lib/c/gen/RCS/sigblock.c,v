@@ -1,0 +1,56 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.20.21.12.06;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+#include <signal.h>
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+extern int     (*sigsys())();
+
+extern long    _holdmask;
+extern char    _setflg[NSIG];                   /* flags for using sigset */
+
+long sigblock (newmask)
+long newmask;
+{
+	register int sig;
+	long oldmask;
+
+	if (!newmask) return _holdmask;
+	oldmask = _holdmask;
+	for (sig = 1; sig <= NSIG; sig++)
+		if (sig == SIGKILL || sig == SIGSTOP || sig == SIGCONT)
+			;
+		else if ((newmask & mask (sig)) && !(_holdmask & mask (sig))) {
+			_holdmask |= mask (sig);
+			_setflg[sig] = 1;
+			sigsys (sig, SIG_HOLD);
+		}
+	return oldmask;
+}
+
+@

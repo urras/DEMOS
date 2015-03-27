@@ -1,0 +1,1854 @@
+head     2.5;
+access   ;
+symbols  v7:1.1 DEMOS2:2 bsd29:1.2 MNOS:1.1.2 DEMOS1:1.1.1;
+locks    ;
+comment  @ *	@;
+
+
+2.5
+date     88.09.28.21.28.38;  author dvolodin;  state Exp;
+branches ;
+next     2.4;
+
+2.4
+date     87.03.04.12.44.08;  author alex;  state Exp;
+branches ;
+next     2.3;
+
+2.3
+date     86.12.26.21.21.56;  author alex;  state Exp;
+branches ;
+next     2.2;
+
+2.2
+date     86.11.26.17.25.56;  author dmitry;  state Exp;
+branches ;
+next     2.1;
+
+2.1
+date     86.11.26.16.34.09;  author dmitry;  state Exp;
+branches ;
+next     2.0;
+
+2.0
+date     86.11.25.20.39.14;  author dmitry;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.11.25.10.41.11;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.25.09.54.11;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.24.21.02.36;  author dmitry;  state Rel;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.24.18.16.25;  author dmitry;  state Rel;
+branches 1.1.1.1 1.1.2.1;
+next     ;
+
+1.1.1.1
+date     86.11.24.18.28.45;  author dmitry;  state Rel;
+branches ;
+next     ;
+
+1.1.2.1
+date     86.11.24.19.33.34;  author dmitry;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Си-компилятор Д.М.Ритчи
+Первый проход.
+@
+
+
+2.5
+log
+@Добавлена конструкция #line
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static char rcsid[] = "$Header: c00.c,v 2.4 87/03/04 12:44:08 alex Exp $" ;
+/*YESXSTR*/
+#endif  lint
+
+/* C compiler
+ *
+ *
+ *
+ * Called from cc:
+ *   c0 source temp1 temp2 [ profileflag ] [ ovlyflag ]
+ * temp1 gets most of the intermediate code;
+ * strings are put on temp2, which c1 reads after temp1.
+ *
+ *      $Log:	c00.c,v $
+ *	Revision 2.4  87/03/04  12:44:08  alex
+ *	Сделаны одинаковыми смешение автоматических переменных
+ *	с оверлеем и без. См. новый csv.s без оверлея.
+ *	
+ *	Revision 2.3  86/12/26  21:21:56  alex
+ *	Убрали "void".
+ *	
+ *	Revision 2.2  86/11/26  17:25:56  dmitry
+ *	Исправлена ошибка -
+ *	Headerы не должны обрабатываться xstrом.
+ *	
+ *      Revision 2.1  86/11/26  16:34:09  dmitry
+ *      Оформлено под Manifest avg.
+ *
+ *      Последнее изменение: 06.05.86 by MV
+ *          Декабрь 1985 / FLEXNAME (Паремский М.В.)
+ *
+ *          1 проход C-комилятора 3-АПР-84
+ *          ИПК Минавтопрома, Антонов В.Г.,Леонтьев С.Е.
+ */
+
+#include "c0.h"
+#include <ediag.h>
+
+int     lineexpr = -1;
+int     isn     =  1;
+int     peeksym = -1;
+int     line    = 1;
+struct  tnode    funcblk = { NAME, 0, NULL, NULL, NULL, NULL };
+
+struct kwtab {
+	char    *kwname;
+	int     kwval;
+} kwtab[] = {
+	"int",          INT,
+	"char",         CHAR,
+	"float",        FLOAT,
+	"double",       DOUBLE,
+	"struct",       STRUCT,
+	"long",         LONG,
+	"unsigned",     UNSIGN,
+	"union",        UNION,
+	"short",        INT,
+	"auto",         AUTO,
+	"extern",       EXTERN,
+	"static",       STATIC,
+	"register",     REG,
+	"goto",         GOTO,
+	"return",       RETURN,
+	"if",           IF,
+	"while",        WHILE,
+	"else",         ELSE,
+	"switch",       SWITCH,
+	"case",         CASE,
+	"break",        BREAK,
+	"continue",     CONTIN,
+	"do",           DO,
+	"default",      DEFAULT,
+	"for",          FOR,
+	"sizeof",       SIZEOF,
+	"typedef",      TYPEDEF,
+	"enum",         ENUM,
+/*      "void",         INT,            */
+	0,              0,
+};
+
+main(argc, argv)
+char *argv[];
+{
+	register char *sp;
+	register i;
+	register struct kwtab *ip;
+
+	if(argc<4) {
+		error(ediag("c0: Arg count",
+			    "c0: плохое число аргументов"));
+		exit(1);
+	}
+	if (freopen(argv[1], "r", stdin)==NULL) {
+		error(ediag("Can't find %s",
+			    "%s не найден"), argv[1]);
+		exit(1);
+	}
+	close(creat(argv[2],0660));
+	if (freopen(argv[2], "w", stdout)==NULL ||
+	   (sbufp=fopen(argv[3],"w"))==NULL) {
+		error(ediag("Can't create temp",
+			    "нельзя создать временные файлы"));
+		exit(1);
+	}
+	setbuf(sbufp, sbuf);
+	STAUTO = -8;    /* Для совместимости - см. новый csv.s */
+	while (argc>4) {
+		switch (argv[4][1]) {
+		case 'A':
+			ciflg++;
+			break;
+		case 'P':
+			proflg++;
+			break;
+		case 'Y':       strucflg = 1;   break;
+		case 'y':       strucflg = -1;  break;
+		case 'V':
+			/*
+			 * Overlays: allow an extra word on the stack for
+			 * each stack frame to store the overlay number.
+			 * Внимание - теперь всегда равно -8
+			 */
+			STAUTO = -8;
+			break;
+		}
+		argc--; argv++;
+	}
+	/*
+	 * The hash table locations of the keywords
+	 * are marked; if an identifier hashes to one of
+	 * these locations, it is looked up in in the keyword
+	 * table first.
+	 */
+	for (ip=kwtab; (sp = ip->kwname); ip++) {
+		i = 0;
+		while (*sp)
+			i =+ *sp++;
+		hshtab[i%HSHSIZ].hflag = FKEYW;
+	}
+	symbuf = malloc(NCPS);
+	coremax = funcbase = curbase = sbrk(0);
+	while(!eof)
+		extdef();
+	outcode("B", EOFC);
+	strflg++;
+	outcode("B", EOFC);
+	exit(nerror!=0);
+}
+
+/*
+ * Return is a ptr to the symbol table entry.
+ */
+
+struct hshtab *
+hash(sp, length)
+register length;
+register char *sp;
+{
+	register ihash;
+
+	ihash = 0;
+	while (length--) {
+		ihash =+ *sp++&0377;
+	}
+	return(&hshtab[ihash%HSHSIZ]);
+}
+
+/*
+ * Look up the identifier in symbuf in the symbol table.
+ * If it hashes to the same spot as a keyword, try the keyword table
+ * first.  An initial "." is ignored in the hash.
+ * Return is a ptr to the symbol table entry.
+ */
+
+lookup(length, rp)
+register struct hshtab *rp;
+
+{
+	register i;
+	register char *sp, *np;
+
+	if (rp->hflag&FKEYW)
+		if (findkw())
+			return(KEYW);
+	while ((np = rp->name)) {
+		if(length != rp->hnlen)
+			goto no;
+		sp=symbuf;
+		for (i = length; i-- ;) {
+			if (*np++ != *sp++)
+				goto no;
+		}
+		if (mossym != (rp->hflag&FMOS))
+			goto no;
+		csym = rp;
+		return(NAME);
+	no:
+		if (++rp >= &hshtab[HSHSIZ])
+			rp = hshtab;
+	}
+	if(++hshused >= HSHSIZ) {
+		error(ediag("Symbol table overflow",
+			    "переполнение таблицы символов"));
+		exit(1);
+	}
+	rp->hclass = 0;
+	rp->htype = 0;
+	rp->hoffset = 0;
+	rp->hsubsp = NULL;
+	rp->hstrp = NULL;
+	rp->hpdown = NULL;
+	rp->hblklev = blklev;
+	rp->hnlen = length;
+	rp->hflag =| mossym;
+	rp->name = realloc(symbuf, length+1);
+	symbuf = malloc(NCPS);
+	csym = rp;
+	return(NAME);
+}
+
+/*
+ * Search the keyword table.
+ * Ignore initial "." to avoid member-of-structure
+ * problems.
+ */
+findkw()
+{
+	register struct kwtab *kp;
+	register char *p1, *p2;
+	char *wp;
+	int firstc;
+
+	wp = symbuf;
+	firstc = *wp;
+	for (kp=kwtab; (p2 = kp->kwname); kp++) {
+		p1 = wp;
+		while (*p1 == *p2++)
+			if (*p1++ == '\0') {
+				cval = kp->kwval;
+				return(1);
+			}
+	}
+	*wp = firstc;
+	return(0);
+}
+
+
+/*
+ * Return the next symbol from the input.
+ * peeksym is a pushed-back symbol, peekc is a pushed-back
+ * character (after peeksym).
+ * mosflg means that the next symbol, if an identifier,
+ * is a member of structure or a structure tag, and it
+ * gets a "." prepended to it to distinguish
+ * it from other identifiers.
+ */
+
+static int sharpseen = 0 ;      /* #line hack */
+
+symbol() {
+	register c;
+	register char *sp;
+	register ihash;
+	register length;
+	int tline;
+
+	if (peeksym>=0) {
+		c = peeksym;
+		peeksym = -1;
+		if (c==NAME)
+			mosflg = 0;
+		return(c);
+	}
+	if (peekc) {
+		c = peekc;
+		peekc = 0;
+	} else
+		if (eof)
+			return(EOFC);
+		else
+			c = getchar();
+loop:
+	if (c==EOF) {
+		eof++;
+		return(EOFC);
+	}
+	c &= CMASK;
+	switch(ctab[c]) {
+	case NEWLN:
+		if (!inhdr)
+			line++;
+		inhdr = 0;
+
+	case SPACE:
+		c = getchar();
+		goto loop;
+
+	case LETTER:
+		sp = symbuf;
+		length = ihash = 0;
+		while(ctab[c]==LETTER || ctab[c]==DIGIT) {
+			if (sp<symbuf+NCPS-1) {
+				*sp++ = c;
+				length++;
+				ihash += c;
+			}
+			c = getchar();
+		}
+		if(sp<symbuf+NCPS-1)
+			*sp++ = '\0';
+		if( sharpseen ) return NAME ;
+		mossym = 0;
+		if (mosflg) {
+			mossym = FMOS;
+			mosflg = 0;
+		}
+		peekc = c;
+		if ((c=lookup(length, &hshtab[ihash%HSHSIZ]))==KEYW
+		     && cval==SIZEOF)
+			c = SIZEOF;
+		return(c);
+
+	case PERIOD:
+	case DIGIT:
+		peekc = c;
+		return(getnum());
+
+	case SHARP:
+		sharpseen++ ;
+		if ( (c=symbol())!=NAME||strcmp("line",symbuf)!=0 ) {
+conseen:
+		    if( c!=CON ) {
+			error(ediag("Illegal #",
+				    "неизвестный # оператор"));
+			sharpseen = 0 ;
+			return(c);
+		    }
+		} else {
+		    c=symbol();
+		    goto conseen ;
+		}
+		tline = cval;
+		while (ctab[peekc&CMASK]==SPACE)
+			peekc = getchar();
+		if (peekc=='"') {
+			sp = filename;
+			while ((c = mapch('"')) >= 0)
+				*sp++ = c;
+			*sp++ = 0;
+			peekc = getchar();
+		}
+		if (peekc != '\n') {
+			error(ediag("Illegal #",
+				    "неизвестный # оператор"));
+			while (getchar()!='\n' && eof==0)
+				;
+		}
+		peekc = 0;
+		line = tline;
+		sharpseen = 0 ;
+		return(symbol());
+
+	case INSERT:            /* ignore newlines */
+		inhdr = 1;
+		c = getchar();
+		goto loop;
+
+	case PLUS:
+		return(subseq(c,PLUS,INCBEF));
+
+	case MINUS:
+		return(subseq(c,subseq('>',MINUS,ARROW),DECBEF));
+
+	case ASSIGN:
+		c = spnextchar();
+		peekc = 0;
+		if (c=='=')
+			return(EQUAL);
+		if (c==' ')
+			return(ASSIGN);
+		if (c=='<' || c=='>') {
+			if (spnextchar() != c) {
+				peeksym = ctab[c&CMASK];
+				return(ASSIGN);
+			}
+			peekc = 0;
+			return(c=='<'? ASLSH: ASRSH);
+		}
+		if (ctab[c&CMASK]>=PLUS && ctab[c&CMASK]<=EXOR) {
+			if (spnextchar() != ' '
+			 && (c=='-' || c=='&' || c=='*')) {
+				error(ediag("Warning: %c= operator assumed",
+					    "предупреждение: подразумевается %c="), c);
+				nerror--;
+			}
+			c = ctab[c&CMASK];
+			return(c+ASPLUS-PLUS);
+		}
+		peekc = c;
+		return(ASSIGN);
+
+	case LESS:
+		if (subseq(c,0,1)) return(LSHIFT);
+		return(subseq('=',LESS,LESSEQ));
+
+	case GREAT:
+		if (subseq(c,0,1)) return(RSHIFT);
+		return(subseq('=',GREAT,GREATEQ));
+
+	case EXCLA:
+		return(subseq('=',EXCLA,NEQUAL));
+
+	case BSLASH:
+		if (subseq('/', 0, 1))
+			return(MAX);
+		goto unkn;
+
+	case DIVIDE:
+		if (subseq('\\', 0, 1))
+			return(MIN);
+		if (subseq('*',1,0))
+			return(DIVIDE);
+		while ((c = spnextchar()) != EOFC) {
+			peekc = 0;
+			if (c=='*') {
+				if (spnextchar() == '/') {
+					peekc = 0;
+					c = getchar();
+					goto loop;
+				}
+			}
+		}
+		eof++;
+		error(ediag("Nonterminated comment",
+			    "неоконченный комментарий"));
+		return(0);
+
+	case DQUOTE:
+		cval = isn++;
+		return(STRING);
+
+	case SQUOTE:
+		return(getcc());
+
+	case AND:
+		return(subseq('&', AND, LOGAND));
+
+	case OR:
+		return(subseq('|', OR, LOGOR));
+
+	case UNKN:
+	unkn:
+		error(ediag("Unknown charachter",
+			    "неизвестный символ"));
+		c = getchar();
+		goto loop;
+
+	}
+	return(ctab[c&CMASK]);
+}
+
+/*
+ * Read a number.  Return kind.
+ */
+getnum()
+{
+	register char *np;
+	register c, base;
+	int expseen, sym, ndigit;
+	char *nsyn;
+	int maxdigit;
+
+	nsyn = ediag("Number syntax",
+		     "синтаксическая ошибка в числе");
+	lcval = 0;
+	base = 10;
+	maxdigit = 0;
+	np = numbuf;
+	ndigit = 0;
+	sym = CON;
+	expseen = 0;
+	if ((c=spnextchar()) == '0')
+		base = 8;
+	for (;; c = getchar()) {
+		*np++ = c;
+		if (ctab[c&CMASK]==DIGIT || (base==16) &&
+			  ('a'<=c&&c<='f'||'A'<=c&&c<='F')) {
+			if (base==8)
+				lcval =<< 3;
+			else if (base==10)
+				lcval = ((lcval<<2) + lcval)<<1;
+			else
+				lcval =<< 4;
+			if (ctab[c&CMASK]==DIGIT)
+				c =- '0';
+			else if (c>='a')
+				c =- 'a'-10;
+			else
+				c =- 'A'-10;
+			lcval =+ c;
+			ndigit++;
+			if (c>maxdigit)
+				maxdigit = c;
+			continue;
+		}
+		if (c=='.') {
+			if (base==16 || sym==FCON)
+				error(nsyn);
+			sym = FCON;
+			base = 10;
+			continue;
+		}
+		if (ndigit==0) {
+			sym = DOT;
+			break;
+		}
+		if ((c=='e'||c=='E'||c=='е'||c=='Е') && expseen==0) {
+			expseen++;
+			sym = FCON;
+			if (base==16 || maxdigit>=10)
+				error(nsyn);
+			base = 10;
+			*np++ = c = getchar();
+			if (c!='+' && c!='-' && ctab[c&CMASK]!=DIGIT)
+				break;
+		} else if(c=='x' || c=='X' || c=='х' || c=='Х' ) {
+			if (base!=8 || lcval!=0 || sym!=CON)
+				error(nsyn);
+			base = 16;
+		} else if ((c=='l' || c=='L') && sym==CON) {
+			c = getchar();
+			sym = LCON;
+			break;
+		} else
+			break;
+	}
+	peekc = c;
+	if (maxdigit >= base)
+		error(nsyn);
+	if (sym==FCON) {
+		np[-1] = 0;
+		cval = np-numbuf;
+		return(FCON);
+	}
+	if (sym==CON && (lcval<0 || lcval>MAXINT&&base==10 || (lcval>>1)>MAXINT)) {
+		sym = LCON;
+	}
+	cval = lcval;
+	return(sym);
+}
+
+/*
+ * If the next input character is c, return b and advance.
+ * Otherwise push back the character and return a.
+ */
+subseq(c,a,b)
+{
+	if (spnextchar() != c)
+		return(a);
+	peekc = 0;
+	return(b);
+}
+
+/*
+ * Write out a string, either in-line
+ * or in the string temp file labelled by
+ * lab.
+ */
+putstr(lab, amax)
+{
+	register int c, max;
+
+	nchstr = 0;
+	max = amax;
+	if (lab) {
+		strflg++;
+		outcode("BNB", LABEL, lab, BDATA);
+		max = 10000;
+	} else
+		outcode("B", BDATA);
+	while ((c = mapch('"')) >= 0) {
+		if (nchstr < max) {
+			nchstr++;
+			if (nchstr%15 == 0)
+				outcode("0B", BDATA);
+			outcode("1N", c & 0377);
+		}
+	}
+	if (nchstr < max) {
+		nchstr++;
+		outcode("10");
+	}
+	outcode("0");
+	strflg = 0;
+}
+
+/*
+ * read a single-quoted character constant.
+ * The routine is sensitive to the layout of
+ * characters in a word.
+ */
+getcc()
+{
+	register int c, cc;
+	register char *ccp;
+	char realc;
+
+	cval = 0;
+	ccp = &cval;
+	cc = 0;
+	while((c=mapch('\'')) >= 0)
+		if(cc++ < LNCPW)
+			*ccp++ = c;
+	if (cc>LNCPW)
+		error(ediag("Long character constant",
+			    "слишком длинная символьная константа"));
+	if (cc==1) {
+		realc = cval;
+		cval = realc /* & 0377 */ ; /* @@VG: 31.03.85 */
+	}
+	return(CON);
+}
+
+/*
+ * Read a character in a string or character constant,
+ * detecting the end of the string.
+ * It implements the escape sequences.
+ */
+mapch(ac)
+{
+	register int a, c, n;
+	static mpeek;
+
+	c = ac;
+	if (a = mpeek)
+		mpeek = 0;
+	else
+		a = getchar();
+loop:
+	if (a==c)
+		return(-1);
+	switch(a) {
+
+	case '\n':
+	case '\0':
+		error(ediag("Nonterminated string",
+			    "неоконченная строка"));
+		peekc = a;
+		return(-1);
+
+	case '\\':
+		switch (a=getchar()) {
+
+		case 't':
+			return('\t');
+
+		case 'n':
+			return('\n');
+
+		case 'b':
+			return('\b');
+
+		case 'f':
+			return('\014');
+
+		case 'v':
+			return('\013');
+
+		case '0': case '1': case '2': case '3':
+		case '4': case '5': case '6': case '7':
+			n = 0;
+			c = 0;
+			while (++c<=3 && '0'<=a && a<='7') {
+				n =<< 3;
+				n =+ a-'0';
+				a = getchar();
+			}
+			mpeek = a;
+			return(n);
+
+		case 'r':
+			return('\r');
+
+		case '\n':
+			if (!inhdr)
+				line++;
+			inhdr = 0;
+			a = getchar();
+			goto loop;
+		}
+	}
+	return(a);
+}
+
+/*
+ * Read an expression and return a pointer to its tree.
+ * It's the classical bottom-up, priority-driven scheme.
+ * The initflg prevents the parse from going past
+ * "," or ":" because those delimiters are special
+ * in initializer (and some other) expressions.
+ */
+struct tnode *
+tree()
+{
+	int *op, opst[SSIZE], *pp, prst[SSIZE];
+	register int andflg, o;
+	register struct hshtab *cs;
+	int p, ps, os;
+	struct tnode *cmst[CMSIZ];
+	struct lnode *lcp;
+	lineexpr = line;
+	curbase = funcbase;
+	op = opst;
+	pp = prst;
+	cp = cmst;
+	*op = SEOF;
+	*pp = 06;
+	andflg = 0;
+
+advanc:
+	switch (o=symbol()) {
+
+	case NAME:
+		cs = csym;
+		if (cs->hclass==TYPEDEF)
+			goto atype;
+		if (cs->hclass==ENUMCON) {
+			*cp++ = cblock(cs->hoffset);
+			goto tand;
+		}
+		if (cs->hclass==0 && cs->htype==0)
+			if(nextchar()=='(') {
+				/* set function */
+				cs->hclass = EXTERN;
+				cs->htype = FUNC;
+			} else {
+				cs->hclass = STATIC;
+				error(ediag("%s undefined; func. %s%s",
+					    "имя %s не определено; функ. %s%s"),
+					       cs->name, funcsym->name,
+					       initflg?ediag(" (Warning only)",
+							     " (только предупреждение)")
+						      : "" );
+				if (initflg) {
+					cs->hclass = EXTERN;
+					nerror--;
+				}
+			}
+		*cp++ = nblock(cs);
+		goto tand;
+
+	case FCON:
+		*cp++ = fblock(DOUBLE, copnum(cval));
+		goto tand;
+
+	case LCON:
+		cs = gblock(sizeof(*lcp));
+		cs->op = LCON;
+		cs->type = LONG;
+		cs->lvalue = lcval;
+		*cp++ = cs;
+		goto tand;
+
+	case CON:
+		*cp++ = cblock(cval);
+		goto tand;
+
+	/* fake a static char array */
+	case STRING:
+		putstr(cval, 0);
+		cs = gblock(sizeof(*cs));
+		cs->hclass = STATIC;
+		cs->hoffset = cval;
+		*cp++ = block(NAME, ARRAY+CHAR, &nchstr, NULL, cs);
+
+	tand:
+		if(cp>=cmst+CMSIZ) {
+			error(ediag("Expression overflow",
+				    "слишком сложное выражение"));
+			exit(1);
+		}
+		if (andflg)
+			goto syntax;
+		andflg = 1;
+		goto advanc;
+
+	case KEYW:
+	atype:
+		if (*op != LPARN || andflg)
+			goto syntax;
+		peeksym = o;
+		*cp++ = xprtype(gblock(sizeof(*xprtype())));
+		if ((o=symbol()) != RPARN)
+			goto syntax;
+		o = CAST;
+		--op;
+		--pp;
+		if (*op == SIZEOF) {
+			andflg = 1;
+			*pp = 100;
+			goto advanc;
+		}
+		goto oponst;
+
+	case INCBEF:
+	case DECBEF:
+		if (andflg)
+			o =+ 2;
+		goto oponst;
+
+	case COMPL:
+	case EXCLA:
+	case SIZEOF:
+		if (andflg)
+			goto syntax;
+		goto oponst;
+
+	case MINUS:
+		if (!andflg)
+			o = NEG;
+		andflg = 0;
+		goto oponst;
+
+	case AND:
+	case TIMES:
+		if (andflg)
+			andflg = 0;
+		else if (o==AND)
+			o = AMPER;
+		else
+			o = STAR;
+		goto oponst;
+
+	case LPARN:
+		if (andflg) {
+			o = symbol();
+			if (o==RPARN)
+				o = MCALL;
+			else {
+				peeksym = o;
+				o = CALL;
+				andflg = 0;
+			}
+		}
+		goto oponst;
+
+	case RBRACK:
+	case RPARN:
+		if (!andflg)
+			goto syntax;
+		goto oponst;
+
+	case DOT:
+	case ARROW:
+		mosflg++;
+		break;
+
+	case ASSIGN:
+		if (andflg==0 && PLUS<=*op && *op<=EXOR) {
+			o = *op-- + ASPLUS - PLUS;
+			pp--;
+			goto oponst;
+		}
+		break;
+
+	}
+	/* binaries */
+	if (andflg==0)
+		goto syntax;
+	andflg = 0;
+
+oponst:
+	p = (opdope[o]>>9) & 077;
+opon1:
+	ps = *pp;
+	if (p>ps || p==ps && (opdope[o]&RASSOC)!=0) {
+		switch (o) {
+
+		case INCAFT:
+		case DECAFT:
+			p = 37;
+			break;
+		case LPARN:
+		case LBRACK:
+		case CALL:
+			p = 04;
+		}
+		if (initflg) {
+			if ((o==COMMA && *op!=LPARN && *op!=CALL)
+			 || (o==COLON && *op!=QUEST)) {
+				p = 00;
+				goto opon1;
+			}
+		}
+		if (op >= &opst[SSIZE-1]) {
+			error(ediag("Expression overflow",
+				    "слишком сложное выражение"));
+			exit(1);
+		}
+		*++op = o;
+		*++pp = p;
+		goto advanc;
+	}
+	--pp;
+	switch (os = *op--) {
+
+	case SEOF:
+		peeksym = o;
+		build(0);               /* flush conversions */
+		return(*--cp);
+
+	case COMMA:
+		if (*op != CALL)
+			os = SEQNC;
+		break;
+
+	case CALL:
+		if (o!=RPARN)
+			goto syntax;
+		build(os);
+		goto advanc;
+
+	case MCALL:
+		*cp++ = NULL;   /* empty arglist */
+		os = CALL;
+		break;
+
+	case INCBEF:
+	case INCAFT:
+	case DECBEF:
+	case DECAFT:
+		*cp++ = cblock(1);
+		break;
+
+	case LPARN:
+		if (o!=RPARN)
+			goto syntax;
+		goto advanc;
+
+	case LBRACK:
+		if (o!=RBRACK)
+			goto syntax;
+		build(LBRACK);
+		goto advanc;
+	}
+	build(os);
+	goto opon1;
+
+syntax:
+	error(ediag("Expression syntax",
+		    "синтаксическая ошибка в выражении"));
+	errflush(o);
+	return(0);
+}
+
+struct hshtab *
+xprtype(atyb)
+struct hshtab *atyb;
+{
+	register struct hshtab *tyb;
+	struct hshtab typer;
+	int sc;
+	register char *md, *fb;
+	struct tnode *scp;
+
+	tyb = atyb;
+	fb = funcbase;
+	md = maxdecl;
+	scp = cp;
+	funcbase = curbase;
+	sc = DEFXTRN;           /* will cause error if class mentioned */
+	getkeywords(&sc, &typer);
+	tyb->hclass = 0;
+	tyb->hblklev = 0;
+	decl1(&sc, &typer, 0, tyb);
+	funcbase = fb;
+	maxdecl = md;
+	cp = scp;
+	tyb->op = ETYPE;
+	return(tyb);
+}
+
+char *
+copnum(len)
+{
+	register char *s1, *s2, *s3;
+
+	s1 = s2 = gblock((len+LNCPW-1) & ~(LNCPW-1));
+	s3 = numbuf;
+	while (*s2++ = *s3++);
+	return(s1);
+}
+@
+
+
+2.4
+log
+@Сделаны одинаковыми смешение автоматических переменных
+с оверлеем и без. См. новый csv.s без оверлея.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: c00.c,v 2.3 86/12/26 21:21:56 alex Exp $" ;
+d17 4
+d259 3
+d313 1
+d331 4
+a334 1
+		if ((c=symbol())!=CON) {
+d337 1
+d339 4
+d362 1
+@
+
+
+2.3
+log
+@Убрали "void".
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: c00.c,v 2.2 86/11/26 17:25:56 dmitry Exp $" ;
+d17 3
+d104 1
+a104 1
+	STAUTO = -6;    /* default */
+d119 1
+@
+
+
+2.2
+log
+@Исправлена ошибка -
+Headerы не должны обрабатываться xstrом.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: c00.c,v 2.1 86/11/26 16:34:09 dmitry Exp $" ;
+d16 5
+a20 1
+ *      $Log:   c00.c,v $
+d72 1
+a72 1
+	"void",         INT,
+@
+
+
+2.1
+log
+@Оформлено под Manifest avg.
+@
+text
+@d2 3
+a4 1
+static char rcsid[] = "$Header$" ;
+d16 4
+a19 1
+ *      $Log$
+@
+
+
+2.0
+log
+@Исправлены диагностики
+@
+text
+@d1 4
+d14 4
+a19 3
+ *
+ *      Последнее изменение: 06.05.86 by MV
+ *          Декабрь 1985 / FLEXNAME (Паремский М.В.)
+@
+
+
+1.4
+log
+@Сливки с версией из МНОС РЛ 1.2
+@
+text
+@d70 1
+a70 1
+		error(ediag("c0: arg count",
+d75 1
+a75 1
+		error(ediag("%s not found",
+d82 1
+a82 1
+		error(ediag("can't create temp files",
+d182 1
+a182 1
+		error(ediag("symbol table overflow",
+a200 1
+
+d306 2
+a307 2
+			error(ediag("bad #",
+				    "плохой #"));
+d321 2
+a322 2
+			error(ediag("bad #",
+				    "плохой #"));
+d359 1
+a359 1
+				error(ediag("warning: %c= imply",
+d401 1
+a401 1
+		error(ediag("nonterminated comment",
+d420 1
+a420 1
+		error(ediag("unknown charachter",
+d440 1
+a440 1
+	nsyn = ediag("syntax error in number",
+d582 1
+a582 1
+		error(ediag("charachter constant too long",
+d613 1
+a613 1
+		error(ediag("nonterminated string",
+d705 2
+a706 2
+				error(ediag("%s undefined; func %s%s",
+					    "%s неопределено; функ. %s%s"),
+d708 1
+a708 1
+					       initflg?ediag(" (warning only)",
+d745 2
+a746 2
+			error(ediag("expression too long",
+				    "слишком большое выражение"));
+d863 2
+a864 2
+			error(ediag("expression too long",
+				    "слишком большое выражение"));
+d917 1
+a917 1
+	error(ediag("syntax error in expression",
+@
+
+
+1.3
+log
+@Сливки с версией из Демос 1.3
+@
+text
+@a0 1
+#
+d13 1
+d19 1
+a67 1
+	_setediag();
+d96 2
+d189 2
+a190 2
+	rp->subsp = NULL;
+	rp->strp = NULL;
+d587 1
+a587 1
+		cval = realc;
+@
+
+
+1.2
+log
+@Версия из bsd 2.9
+@
+text
+@a0 1
+static  char    sccsid[] = "@@(#)c00.c   2.3";   /*      SCCS id keyword */
+d10 5
+d18 6
+a24 5
+int     isn     1;
+int     peeksym -1;
+int     line    1;
+struct  tnode   funcblk { NAME, 0, NULL, NULL, NULL, NULL };
+
+d28 1
+a28 2
+} kwtab[]
+{
+d57 1
+d67 1
+d70 2
+a71 1
+		error("Arg count");
+d75 2
+a76 1
+		error("Can't find %s", argv[1]);
+d79 5
+a83 2
+	if (freopen(argv[2], "w", stdout)==NULL || (sbufp=fopen(argv[3],"w"))==NULL) {
+		error("Can't create temp");
+a88 1
+#ifdef MENLO_OVLY
+d90 3
+a93 1
+#endif MENLO_OVLY
+a94 1
+#ifdef MENLO_OVLY
+a103 1
+#endif MENLO_OVLY
+d118 1
+d129 18
+d152 4
+a155 1
+lookup()
+d157 1
+a157 2
+	int ihash;
+	register struct hshtab *rp;
+a159 5
+	ihash = 0;
+	sp = symbuf;
+	while (sp<symbuf+NCPS)
+		ihash =+ *sp++&0177;
+	rp = &hshtab[ihash%HSHSIZ];
+d163 5
+a167 2
+	while (*(np = rp->name)) {
+		for (sp=symbuf; sp<symbuf+NCPS;)
+d170 1
+d180 2
+a181 1
+		error("Symbol table overflow");
+d191 1
+d193 2
+a194 3
+	sp = symbuf;
+	for (np=rp->name; sp<symbuf+NCPS;)
+		*np++ = *sp++;
+d199 1
+d239 3
+a241 1
+	register tline;
+d263 1
+d265 4
+d270 33
+d305 2
+a306 1
+			error("Illegal #");
+d310 1
+a310 1
+		while (ctab[peekc]==SPACE)
+d320 2
+a321 1
+			error("Illegal #");
+a333 9
+	case NEWLN:
+		if (!inhdr)
+			line++;
+		inhdr = 0;
+
+	case SPACE:
+		c = getchar();
+		goto loop;
+
+d349 1
+a349 1
+				peeksym = ctab[c];
+d355 1
+a355 1
+		if (ctab[c]>=PLUS && ctab[c]<=EXOR) {
+d358 2
+a359 1
+				error("Warning: %c= operator assumed", c);
+d362 1
+a362 1
+			c = ctab[c];
+d400 2
+a401 1
+		error("Nonterminated comment");
+a403 5
+	case PERIOD:
+	case DIGIT:
+		peekc = c;
+		return(getnum());
+
+a410 19
+	case LETTER:
+		sp = symbuf;
+		while(ctab[c]==LETTER || ctab[c]==DIGIT) {
+			if (sp<symbuf+NCPS)
+				*sp++ = c;
+			c = getchar();
+		}
+		while(sp<symbuf+NCPS)
+			*sp++ = '\0';
+		mossym = 0;
+		if (mosflg) {
+			mossym = FMOS;
+			mosflg = 0;
+		}
+		peekc = c;
+		if ((c=lookup())==KEYW && cval==SIZEOF)
+			c = SIZEOF;
+		return(c);
+
+d419 2
+a420 1
+		error("Unknown character");
+d425 1
+a425 1
+	return(ctab[c]);
+d439 2
+a440 1
+	nsyn = "Number syntax";
+d452 2
+a453 1
+		if (ctab[c]==DIGIT || (base==16) && ('a'<=c&&c<='f'||'A'<=c&&c<='F')) {
+d460 1
+a460 1
+			if (ctab[c]==DIGIT)
+d483 1
+a483 1
+		if ((c=='e'||c=='E') && expseen==0) {
+d490 1
+a490 1
+			if (c!='+' && c!='-' && ctab[c]!=DIGIT)
+d492 1
+a492 1
+		} else if (c=='x' || c=='X') {
+d581 2
+a582 1
+		error("Long character constant");
+d612 2
+a613 1
+		error("Nonterminated string");
+d677 1
+a677 1
+
+d704 6
+a709 1
+				error("%.8s undefined; func. %.8s", cs->name, funcsym->name);
+d712 1
+a712 2
+					error("(Warning only)");
+					nerror =- 2;
+d744 2
+a745 1
+			error("Expression overflow");
+d862 2
+a863 1
+			error("expression overflow");
+d916 2
+a917 1
+	error("Expression syntax");
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+d8 1
+a8 1
+ *   c0 source temp1 temp2 [ profileflag ]
+d76 20
+a95 2
+	if (argc>4)
+		proflg++;
+@
+
+
+1.1.2.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d1 1
+a9 5
+ *
+ *          1 проход C-комилятора 3-АПР-84
+ *          ИПК Минавтопрома, Антонов В.Г.,Леонтьев С.Е.
+ *
+ *      Последнее изменение: 06.05.86 by MV
+a12 1
+#include <ediag.h>
+d14 4
+a17 4
+int     isn     =  1;
+int     peeksym = -1;
+int     line    = 1;
+struct  tnode    funcblk = { NAME, 0, NULL, NULL, NULL, NULL };
+d22 2
+a23 1
+} kwtab[] = {
+d63 1
+a63 2
+		error(ediag("c0: arg count",
+			    "c0: плохое число аргументов"));
+d67 1
+a67 2
+		error(ediag("%s not found",
+			    "%s не найден"), argv[1]);
+d70 2
+a71 4
+	if (freopen(argv[2], "w", stdout)==NULL ||
+	   (sbufp=fopen(argv[3],"w"))==NULL) {
+		error(ediag("can't create temp files",
+			    "нельзя создать временные файлы"));
+d75 2
+a76 11
+
+	while( argc > 4 ){
+		switch( argv[4][1] ) {
+			case 'A':       ciflg++;        break;
+			case 'P':       proflg++;       break;
+			case 'Y':       strucflg = 1;   break;
+			case 'y':       strucflg = -1;  break;
+		}
+		--argc;  ++argv;
+	}
+
+d113 1
+a113 1
+		ihash =+ *sp++&CMASK;
+d131 1
+a131 2
+		error(ediag("symbol table overflow",
+			    "переполнение таблицы символов"));
+d137 2
+a138 2
+	rp->hsubsp = NULL;
+	rp->hstrp = NULL;
+d210 1
+a210 1
+	switch(ctab[c&CMASK]) {
+d214 1
+a214 2
+			error(ediag("bad #",
+				    "плохой #"));
+d218 1
+a218 1
+		while (ctab[peekc&CMASK]==SPACE)
+d228 1
+a228 2
+			error(ediag("bad #",
+				    "плохой #"));
+d265 1
+a265 1
+				peeksym = ctab[c&CMASK];
+d271 1
+a271 1
+		if (ctab[c&CMASK]>=PLUS && ctab[c&CMASK]<=EXOR) {
+d274 1
+a274 2
+				error(ediag("warning: %c= imply",
+					    "предупреждение: подразумевается %c="), c);
+d277 1
+a277 1
+			c = ctab[c&CMASK];
+d315 1
+a315 2
+		error(ediag("nonterminated comment",
+			    "неоконченный комментарий"));
+d332 1
+a332 1
+		while(ctab[c&CMASK]==LETTER || ctab[c&CMASK]==DIGIT) {
+d357 1
+a357 2
+		error(ediag("unknown charachter",
+			    "неизвестный символ"));
+d362 1
+a362 1
+	return(ctab[c&CMASK]);
+d376 1
+a376 2
+	nsyn = ediag("syntax error in number",
+		     "синтаксическая ошибка в числе");
+d388 1
+a388 2
+		if (ctab[c&CMASK]==DIGIT || (base==16) &&
+			  ('a'<=c&&c<='f'||'A'<=c&&c<='F')) {
+d395 1
+a395 1
+			if (ctab[c&CMASK]==DIGIT)
+d418 1
+a418 1
+		if ((c=='e'||c=='E'||c=='е'||c=='Е') && expseen==0) {
+d425 1
+a425 1
+			if (c!='+' && c!='-' && ctab[c&CMASK]!=DIGIT)
+d427 1
+a427 1
+		} else if(c=='x' || c=='X' || c=='х' || c=='Х' ) {
+d516 1
+a516 2
+		error(ediag("charachter constant too long",
+			    "слишком длинная символьная константа"));
+d519 1
+a519 1
+		cval = realc /* & 0377 */ ; /* @@VG: 31.03.85 */
+d546 1
+a546 2
+		error(ediag("nonterminated string",
+			    "неоконченная строка"));
+d637 1
+a637 6
+				error(ediag("%.8s undefined; func %.8s%s",
+					    "%.8s неопределено; функ. %.8s%s"),
+					       cs->name, funcsym->name,
+					       initflg?ediag(" (warning only)",
+							     " (только предупреждение)")
+						      : "" );
+d640 2
+a641 1
+					nerror--;
+d673 1
+a673 2
+			error(ediag("expression too long",
+				    "слишком большое выражение"));
+d790 1
+a790 2
+			error(ediag("expression too long",
+				    "слишком большое выражение"));
+d843 1
+a843 2
+	error(ediag("syntax error in expression",
+		    "синтаксическая ошибка в выражении"));
+@
+
+
+1.1.1.1
+log
+@Версия из Демос 1.3
+@
+text
+@a9 5
+ *
+ *          1 проход C-комилятора 3-АПР-84
+ *          ИПК Минавтопрома, Антонов В.Г.,Леонтьев С.Е.
+ *
+ *          Декабрь 1985 / FLEXNAME (Паремский М.В.)
+a12 6
+#include <ediag.h>
+int     lineexpr = -1;
+int     isn     =  1;
+int     peeksym = -1;
+int     line    = 1;
+struct  tnode    funcblk = { NAME, 0, NULL, NULL, NULL, NULL };
+d14 5
+d22 2
+a23 1
+} kwtab[] = {
+a51 1
+	"void",         INT,
+a60 1
+	_setediag();
+d63 1
+a63 2
+		error(ediag("c0: arg count",
+			    "c0: плохое число аргументов"));
+d67 1
+a67 2
+		error(ediag("%s not found",
+			    "%s не найден"), argv[1]);
+d70 2
+a71 5
+	close(creat(argv[2],0660));
+	if (freopen(argv[2], "w", stdout)==NULL ||
+	   (sbufp=fopen(argv[3],"w"))==NULL) {
+		error(ediag("can't create temp files",
+			    "нельзя создать временные файлы"));
+d75 2
+a76 10
+	if( argc > 4 ){
+		if( argv[4][1] == 'A' ){
+			ciflg++;
+			if( argc > 5 ){
+				proflg++;
+			}
+		}else{
+			proflg++;
+		}
+	}
+a88 1
+	symbuf = malloc(NCPS);
+a98 18
+ * Return is a ptr to the symbol table entry.
+ */
+
+struct hshtab *
+hash(sp, length)
+register length;
+register char *sp;
+{
+	register ihash;
+
+	ihash = 0;
+	while (length--) {
+		ihash =+ *sp++&0377;
+	}
+	return(&hshtab[ihash%HSHSIZ]);
+}
+
+/*
+d104 1
+a104 4
+
+lookup(length, rp)
+register struct hshtab *rp;
+
+d106 2
+a107 1
+	register i;
+d110 5
+d118 2
+a119 5
+	while ((np = rp->name)) {
+		if(length != rp->hnlen)
+			goto no;
+		sp=symbuf;
+		for (i = length; i-- ;) {
+a121 1
+		}
+d131 1
+a131 2
+		error(ediag("symbol table overflow",
+			    "переполнение таблицы символов"));
+a140 1
+	rp->hnlen = length;
+d142 3
+a144 2
+	rp->name = realloc(symbuf, length+1);
+	symbuf = malloc(NCPS);
+a148 1
+
+d188 1
+a188 3
+	register ihash;
+	register length;
+	int tline;
+a209 1
+	c &= CMASK;
+a210 4
+	case NEWLN:
+		if (!inhdr)
+			line++;
+		inhdr = 0;
+a211 33
+	case SPACE:
+		c = getchar();
+		goto loop;
+
+	case LETTER:
+		sp = symbuf;
+		length = ihash = 0;
+		while(ctab[c]==LETTER || ctab[c]==DIGIT) {
+			if (sp<symbuf+NCPS-1) {
+				*sp++ = c;
+				length++;
+				ihash += c;
+			}
+			c = getchar();
+		}
+		if(sp<symbuf+NCPS-1)
+			*sp++ = '\0';
+		mossym = 0;
+		if (mosflg) {
+			mossym = FMOS;
+			mosflg = 0;
+		}
+		peekc = c;
+		if ((c=lookup(length, &hshtab[ihash%HSHSIZ]))==KEYW
+		     && cval==SIZEOF)
+			c = SIZEOF;
+		return(c);
+
+	case PERIOD:
+	case DIGIT:
+		peekc = c;
+		return(getnum());
+
+d214 1
+a214 2
+			error(ediag("bad #",
+				    "плохой #"));
+d218 1
+a218 1
+		while (ctab[peekc&CMASK]==SPACE)
+d228 1
+a228 2
+			error(ediag("bad #",
+				    "плохой #"));
+d241 9
+d265 1
+a265 1
+				peeksym = ctab[c&CMASK];
+d271 1
+a271 1
+		if (ctab[c&CMASK]>=PLUS && ctab[c&CMASK]<=EXOR) {
+d274 1
+a274 2
+				error(ediag("warning: %c= imply",
+					    "предупреждение: подразумевается %c="), c);
+d277 1
+a277 1
+			c = ctab[c&CMASK];
+d315 1
+a315 2
+		error(ediag("nonterminated comment",
+			    "неоконченный комментарий"));
+d318 5
+d330 19
+d357 1
+a357 2
+		error(ediag("unknown charachter",
+			    "неизвестный символ"));
+d362 1
+a362 1
+	return(ctab[c&CMASK]);
+d376 1
+a376 2
+	nsyn = ediag("syntax error in number",
+		     "синтаксическая ошибка в числе");
+d388 1
+a388 2
+		if (ctab[c&CMASK]==DIGIT || (base==16) &&
+			  ('a'<=c&&c<='f'||'A'<=c&&c<='F')) {
+d395 1
+a395 1
+			if (ctab[c&CMASK]==DIGIT)
+d418 1
+a418 1
+		if ((c=='e'||c=='E'||c=='е'||c=='Е') && expseen==0) {
+d425 1
+a425 1
+			if (c!='+' && c!='-' && ctab[c&CMASK]!=DIGIT)
+d427 1
+a427 1
+		} else if(c=='x' || c=='X' || c=='х' || c=='Х' ) {
+d516 1
+a516 2
+		error(ediag("charachter constant too long",
+			    "слишком длинная символьная константа"));
+d546 1
+a546 2
+		error(ediag("nonterminated string",
+			    "неоконченная строка"));
+d610 1
+a610 1
+	lineexpr = line;
+d637 1
+a637 6
+				error(ediag("%s undefined; func %s%s",
+					    "%s неопределено; функ. %s%s"),
+					       cs->name, funcsym->name,
+					       initflg?ediag(" (warning only)",
+							     " (только предупреждение)")
+						      : "" );
+d640 2
+a641 1
+					nerror--;
+d673 1
+a673 2
+			error(ediag("expression too long",
+				    "слишком большое выражение"));
+d790 1
+a790 2
+			error(ediag("expression too long",
+				    "слишком большое выражение"));
+d843 1
+a843 2
+	error(ediag("syntax error in expression",
+		    "синтаксическая ошибка в выражении"));
+@

@@ -1,0 +1,220 @@
+head     1.3;
+access   ;
+symbols  Архыз0:1.3.1;
+locks    ;
+comment  @/ @;
+
+
+1.3
+date     87.03.03.22.29.44;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.22.22.12.01;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.09.01.21.45.44;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Копирование блоков в ОЗУ.
+@
+
+
+1.3
+log
+@Восстановлены потерянные правки для Электроники-85.
+@
+text
+@/
+/ $Log: pcopy.s,v $
+/ Revision 1.2  86/11/22  22:12:01  alex
+/ ???
+/
+/ Revision 1.1  86/09/01  21:45:44  avg
+/ Initial revision
+/
+/
+/
+/ Копирование блока памяти из тек. адресного пр-ва в другое
+/
+/ Интерфейс C:
+/
+/       cop_to(   haddr, laddr, wcnt, myaddr )      <haddr,laddr> <== myaddr
+/       cop_from( haddr, laddr, wcnt, myaddr )      myaddr <== <haddr,laddr>
+/
+/ Attention !!! It works only if psw accessable by mov.
+/
+
+mtpi=6600^tst
+mfpi=6500^tst
+
+.globl  _cop_to, _cop_from, csv, cret
+
+_cop_to:
+	jsr     r5,csv
+	mov     10(r5),r4       / wcnt
+	mov     12(r5),r3       / myaddr
+
+	/ Запомнить регистры сегментов
+	mov     *$KISA0, kisa0
+	mov     *$KISD0, kisd0
+	mov     *$PSW, psw
+
+	/ Установить сегменты
+	mov     $140340, *$PSW
+	mov     $77406, *$KISD0
+	mov     4(r5),r0
+	ash     $12,r0
+	bic     $1777,r0
+	mov     6(r5),r1
+	ash     $-6,r1
+	bic     $176000,r1
+	bis     r1,r0
+	mov     r0,*$KISA0
+	mov     6(r5),r2
+	bic     $177700,r2          / addr of user I
+	br      1f
+
+	/ Копируем ....
+2:
+	mov     (r3)+, -(sp)
+	mtpi    (r2)+
+
+1:      mov     r4,r0
+	dec     r4
+	tst     r0
+	bne     2b
+
+	/ Восстанавливаем состояние
+	mov     kisa0, *$KISA0
+	mov     kisd0, *$KISD0
+	mov     psw, *$PSW
+	jmp     cret
+
+_cop_from:
+	jsr     r5,csv
+	mov     10(r5),r4       / wcnt
+	mov     12(r5),r3       / myaddr
+
+	/ Запомнить регистры сегментов
+	mov     *$KISA0, kisa0
+	mov     *$KISD0, kisd0
+	mov     *$PSW, psw
+
+	/ Установить сегменты
+	mov     $140340, *$PSW
+	mov     $77406, *$KISD0
+	mov     4(r5),r0
+	ash     $12,r0
+	bic     $1777,r0
+	mov     6(r5),r1
+	ash     $-6,r1
+	bic     $176000,r1
+	bis     r1,r0
+	mov     r0,*$KISA0
+	mov     6(r5),r2
+	bic     $177700,r2          / addr of user I
+	br      1f
+
+	/ Копируем ....
+2:
+	mfpi    (r2)+
+	mov     (sp)+, (r3)+
+
+1:      mov     r4,r0
+	dec     r4
+	tst     r0
+	bne     2b
+
+	/ Восстанавливаем состояние
+	mov     kisa0, *$KISA0
+	mov     kisd0, *$KISD0
+	mov     psw, *$PSW
+	jmp     cret
+
+
+kisa0:  .=.+2
+kisd0:  .=.+2
+psw:    .=.+2
+
+PSW=177776
+KISA0=172340
+KISD0=172300
+@
+
+
+1.2
+log
+@???
+@
+text
+@d3 3
+d32 3
+a34 3
+	mov     UISA0, uisa0
+	mov     UISD0, uisd0
+	mov     PSW, psw
+d37 2
+a38 2
+	mov     $30340, PSW
+	mov     $77406, UISD0
+d46 1
+a46 1
+	mov     r0,UISA0
+d62 3
+a64 3
+	mov     uisa0, UISA0
+	mov     uisd0, UISD0
+	mov     psw,   PSW
+d73 3
+a75 3
+	mov     UISA0, uisa0
+	mov     UISD0, uisd0
+	mov     PSW, psw
+d78 2
+a79 2
+	mov     $30340, PSW
+	mov     $77406, UISD0
+d87 1
+a87 1
+	mov     r0,UISA0
+d103 3
+a105 3
+	mov     uisa0, UISA0
+	mov     uisd0, UISD0
+	mov     psw,   PSW
+d109 2
+a110 2
+uisa0:  .=.+2
+uisd0:  .=.+2
+d114 2
+a115 2
+UISA0=177640
+UISD0=177600
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 3
+a4 1
+/ $Log$
+d7 1
+d18 3
+d45 1
+a45 1
+	bic     $77,r2          / addr of user I
+d86 1
+a86 1
+	bic     $77,r2          / addr of user I
+@

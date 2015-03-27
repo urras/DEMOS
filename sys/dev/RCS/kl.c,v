@@ -1,0 +1,1041 @@
+head     22.4;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз1:1.7.2 Архыз0:1.7.1;
+locks    ;
+comment  @ * @;
+
+
+22.4
+date     90.12.12.16.43.57;  author korotaev;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     90.11.12.19.09.49;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.46.50;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.27.16;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.28.38;  author korotaev;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.03.24.22.05.52;  author korotaev;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.03.24.15.49.53;  author korotaev;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.12.22.16.08.53;  author root;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.01.21.11.48.12;  author korotaev;  state Exp;
+branches 1.7.1.1 1.7.2.1;
+next     1.6;
+
+1.6
+date     87.03.05.14.06.18;  author alex;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.02.08.22.41.48;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.12.30.14.43.12;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.10.29.03.13.41;  author alex;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.10.08.21.53.57;  author root;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.54.33;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.7.1.1
+date     88.11.01.20.33.13;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+1.7.2.1
+date     88.11.17.15.35.46;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.4
+log
+@Правки для ДВК
+@
+text
+@/*
+ *   KL/DL-11 driver
+ *
+ * $Log:	kl.c,v $
+ * Revision 22.3  90/11/12  19:09:49  root
+ * Новые вещи для СМ1425 и перемещение include.
+ * 
+ * Revision 22.2  89/04/27  13:46:50  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  14:27:16  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:28:38  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.10  89/03/24  22:05:52  korotaev
+ * После unifdef'a.
+ * 
+ * Revision 1.9  89/03/24  15:49:53  korotaev
+ * ???
+ * 
+ * Revision 1.8  88/12/22  16:08:53  root
+ * Внесены правки для работы с 8-битным режимом.
+ * (@@VG).
+ * 
+ * Revision 1.7  88/01/21  11:48:12  korotaev
+ * Изменения с Э-85.
+ * 
+ * Revision 1.6  87/03/05  14:06:18  alex
+ * Введен алгоритм быстрого считывания символов и их
+ * обработки на низком приоритете для предотвращения
+ * длительного цикла в закрытых прерываниях.
+ * Включается параметроm KL_ROUND
+ * 
+ * Revision 1.5  87/02/06  21:41:22  alex
+ * Исправлена ошибка в attach.
+ * 
+ * Revision 1.4  86/12/30  14:43:12  alex
+ * При открытии теперь ставим "RAW" для того, чтобы предотвратить
+ * срубание того, кто открывает, по сигналам от случайных символов из линии
+ * Руднев.
+ * 
+ * Revision 1.3  86/10/29  03:13:41  alex
+ * 1. Введено выключение прерываний при закрытии терминала
+ *    (для борьбы с зависаниями машины по плохой линии).
+ * 2. Введен контроль на переполнение при вводе. 
+ *    В этом случае символ< принятый с переполнением, не вводится
+ *    (для предотвращения плохих escape-последовательностей)>
+ * 	Руднев А.П.
+ * 
+ * Revision 1.2  86/10/08  21:53:57  root
+ * Сделаны правки под АДС.
+ * 
+ * Revision 1.1  86/04/19  17:54:33  avg
+ * Initial revision
+ * 
+ */
+
+#include "h/kl.h"
+#include <sys/param.h>
+#include <sys/conf.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/systm.h>
+#include <sys/file.h>
+#include "../include/klreg.h"
+#include "h/video.h"
+
+#if NKL > 0
+
+extern  struct  dldevice *KLADDR;
+/*
+ * Normal addressing:
+ * minor 0 addresses KLADDR
+ * minor 1 thru n-1 address from KLBASE (0176600),
+ *    where n is the number of additional KL11's
+ * minor n on address from DLBASE (0176500)
+ */
+
+struct  tty kl11[NKL];
+int     nkl11   = NKL;          /* for pstat */
+int     klstart();
+int     ttrstrt();
+extern  char    partab[];
+
+klattach(addr, unit)
+struct dldevice *addr;
+{
+	if ((unsigned) unit < NKL) {
+		kl11[unit].t_addr = addr;
+		return(1);
+	}
+	return(0);
+}
+
+/*ARGSUSED*/
+klopen(dev, flag)
+dev_t   dev;
+{
+	register struct dldevice *addr;
+	register struct tty *tp;
+	register d;
+
+	d = klminor(dev);
+	tp = &kl11[d];
+	if ((d == 0) && (tp->t_addr == 0))
+		tp->t_addr = KLADDR;
+	if ((d >= NKL) || ((addr = tp->t_addr) == 0)) {
+		u.u_error = ENXIO;
+		return;
+	}
+	tp->t_oproc = klstart;
+	if ((tp->t_state & ISOPEN) == 0) {
+		tp->t_flags = ANYP | RAW /* ECHO | LCASE | CRMOD */;
+		tp->t_line = DFLT_LDISC;
+		ttychars(tp);
+	} else if(tp->t_state & XCLUDE && u.u_uid != 0) {
+		u.u_error = EBUSY;
+		return;
+	}
+#ifdef KL_MODEM
+	if( MODEM(dev) && (tp->t_state & CARR_ON)==0 ){
+		addr->dlrcsr |= DL_DTR | DL_DIE;
+		while ((tp->t_state & CARR_ON)==0)
+			sleep((caddr_t) &tp->t_rawq, TTIPRI);
+	}
+#endif KL_MODEM
+	tp->t_state |= CARR_ON;
+	addr->dlrcsr |= DL_RIE | DL_DTR | DL_RTS;
+	addr->dlxcsr |= DLXCSR_TIE;
+	ttyopen(dev, tp);
+}
+
+/*ARGSUSED*/
+klclose(dev, flag)
+dev_t   dev;
+int     flag;
+{
+	register struct dldevice *addr;
+	register struct tty *tp;
+	tp = &kl11[klminor(dev)];
+	addr = (struct dldevice *) tp->t_addr;
+	ttyclose(&kl11[klminor(dev)]);
+	addr->dlrcsr = addr->dlxcsr = 0;
+}
+
+klread(dev)
+dev_t   dev;
+{
+	register struct tty *tp;
+
+	tp = &kl11[klminor(dev)];
+	(*linesw[tp->t_line].l_read)(tp);
+}
+
+klwrite(dev)
+dev_t   dev;
+{
+	register struct tty *tp;
+
+	tp = &kl11[klminor(dev)];
+	(*linesw[tp->t_line].l_write)(tp);
+}
+
+klxint(dev)
+dev_t   dev;
+{
+	register struct tty *tp;
+
+	tp = &kl11[klminor(dev)];
+	ttstart(tp);
+	if (tp->t_state & ASLEEP && tp->t_outq.c_cc <= TTLOWAT(tp))
+			wakeup((caddr_t) &tp->t_outq);
+}
+
+#ifndef KL_ROUND
+klrint(dev)
+dev_t   dev;
+{
+	register int c;
+	register struct dldevice *addr;
+	register struct tty *tp;
+#ifdef KL_MODEM
+	int c1;
+#endif KL_MODEM
+
+	tp = &kl11[klminor(dev)];
+	addr = (struct dldevice *) tp->t_addr;
+#ifdef KL_MODEM
+	c1 = addr->dlrcsr;
+#endif KL_MODEM
+	c = addr->dlrbuf;
+	addr->dlrcsr |= DL_RE;
+#ifdef KL_MODEM
+	if( c1 & DL_DSC && tp->t_dev & 0200 )
+		klmodem(c1,tp);
+#endif KL_MODEM
+	if ( (c&(0177400))!=(DLRBUF_OVR|DLRBUF_ERR))
+	{
+		(*linesw[tp->t_line].l_input)(c&0377, tp);
+	}/* else printf("kl overflow %o\n", c);  */
+}
+#else
+
+#ifdef	MENLO_KOV
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_ov, i_nps, i_r0, i_pc, ps
+#else
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_nps, i_r0, i_pc, ps
+#endif
+
+struct clist kl_inq[NKL];
+int kl_ichars;
+klrint(dev INTR_ARGS(ps))
+dev_t   dev;
+{
+	register int c;
+	register struct tty *tp;
+	dev = klminor(dev);
+	{
+		register struct dldevice *addr;
+#ifdef KL_MODEM
+		int     c1;
+#endif KL_MODEM
+
+		tp = &kl11[dev];
+		addr = (struct dldevice *) tp->t_addr;
+#ifdef KL_MODEM
+		c1 = addr->dlrcsr;
+#endif KL_MODEM
+		c = addr->dlrbuf;
+		addr->dlrcsr |= DL_RE;
+#ifdef KL_MODEM
+		if( MODEM(tp->t_dev) && (c1 & DL_DSC) )
+			klmodem(c1,tp);
+#endif KL_MODEM
+		if ( (c&(0177400))==(DLRBUF_OVR|DLRBUF_ERR)) return;
+		c &= 0377;
+		if( kl_ichars++ ) {
+			if( putc(c, &kl_inq[dev])) kl_ichars--;
+			return;
+		}
+	}
+	{
+		register int i;
+		int s, chars=0;
+		i = dev;
+		s = spl1();
+		goto c_input;
+next:
+		for(chars=0,i=0;i<NKL && kl_ichars; i++)
+			if(kl_inq[i].c_cc) {
+				s=spl1();
+				tp = &kl11[i];
+				c = getc(&kl_inq[i]);
+c_input:
+				(*linesw[tp->t_line].l_input)(c, tp);
+				chars++;
+				splx(s);
+				kl_ichars--;
+			}
+		if( kl_ichars && chars) goto next;
+		kl_ichars=0;
+	}
+	return;
+}
+#endif
+
+#ifdef KL_MODEM
+/*
+ * if modem and interrapt by change modem status
+ */
+klmodem(c,tp)
+register struct tty *tp;
+register c;
+{
+	register s;
+
+	s = spl1();
+	wakeup((caddr_t)&tp->t_rawq);
+	if( c & DL_CD)         /* carrier detect ON */
+		tp->t_state |= CARR_ON;
+	else {                  /* carrier detect OFF */
+		if( (tp->t_local & LNOHANG)==0 && (tp->t_pgrp > 2 ) ){
+			gsignal(tp->t_pgrp, SIGHUP);
+			flushtty(tp, FREAD|FWRITE);
+		}
+		tp->t_state &= ~CARR_ON;
+	}
+	splx(s);
+}
+#endif KL_MODEM
+
+klioctl(dev, cmd, addr, flag)
+caddr_t addr;
+dev_t   dev;
+{
+	register struct tty *tp;
+	register struct dldevice *addr1;
+
+	tp = &kl11[klminor(dev)];
+	addr1 = (struct dldevice *) tp->t_addr;
+	switch (ttioctl(&kl11[klminor(dev)], cmd, addr, flag)) {
+		case TIOCSETN:
+		case TIOCSETP:
+		case TIOCSETA:
+		case TIOCSETB:
+		    break;
+#ifdef KL_MODEM
+		case TIOCSBRK:
+		    if( MODEM(tp->t_dev) )
+			    addr1->dlxcsr |= DLXCSR_BRK;
+		    break;
+		case TIOCCBRK:
+		    if( MODEM(tp->t_dev) )
+			    addr1->dlxcsr &= ~DLXCSR_BRK;
+		    break;
+		case TIOCSDTR:
+		    if( MODEM(tp->t_dev) )
+			    addr1->dlrcsr |= DL_DTR | DL_DIE;
+		    break;
+		case TIOCCDTR:
+		    if( MODEM(tp->t_dev) )
+			    addr1->dlrcsr &= ~(DL_DTR | DL_DIE);
+		    break;
+#endif KL_MODEM
+		case 0:
+			break;
+		default:
+			u.u_error = ENOTTY;
+	}
+}
+
+klstart(tp)
+register struct tty *tp;
+{
+	register c;
+	register struct dldevice *addr;
+
+	addr = (struct dldevice *) tp->t_addr;
+	if ((addr->dlxcsr & DLXCSR_TRDY) == 0)
+		return;
+#ifdef KL_MODEM
+	if( MODEM( tp->t_dev ) )
+		while( (addr->dlrcsr & DL_CTS) == 0 )
+			sleep((caddr_t) &tp->t_rawq, TTIPRI);
+#endif KL_MODEM
+	if ((c=getc(&tp->t_outq)) >= 0) {
+		if ((tp->t_lstate&L8BITS))
+			addr->dlxbuf = c;
+		else if (c<=0177)
+			addr->dlxbuf = c | (partab[c] & 0200);
+		else {
+			timeout(ttrstrt, (caddr_t)tp, (c & 0177) + DLDELAY);
+			tp->t_state |= TIMEOUT;
+		}
+	}
+}
+
+#endif NKL
+
+char *msgbufp = msgbuf;         /* Next saved printf character */
+/*
+ * Print a character on console (or users terminal if touser).
+ * Attempts to save and restore device
+ * status.
+ * If the last character input from the console was a break
+ * (null or del), all printing is inhibited.
+ *
+ * Whether or not printing is inhibited,
+ * the last MSGBUFS characters
+ * are saved in msgbuf for inspection later.
+ */
+
+#ifdef  UCB_UPRINTF
+putchar(c, touser)
+#else
+putchar(c)
+#endif
+register c;
+{
+	register s;
+#if NKL > 0
+	register struct dldevice *kladdr = KLADDR;
+#endif
+	long    timo;
+	extern  char *panicstr;
+
+#ifdef  UCB_UPRINTF
+	if (touser) {
+		register struct tty *tp = u.u_ttyp;
+		if (tp && (tp->t_state & CARR_ON)) {
+			register s = spl6();
+
+			if (c == '\n')
+				(*linesw[tp->t_line].l_output)('\r', tp);
+			if ((tp->t_flags & LCASE) && 'a'<=c && c<='z')
+				c -= 040;
+			(*linesw[tp->t_line].l_output)(c, tp);
+			ttstart(tp);
+			splx(s);
+		}
+		return;
+	}
+#endif
+	if (c != '\0' && c != '\r' && c != 0177) {
+		*msgbufp++ = c;
+		if (msgbufp >= &msgbuf[MSGBUFS])
+			msgbufp = msgbuf;
+	}
+
+#if NKL > 0
+	/* Map lower case to upper on console */
+	if ('a'<=c && c<='z')
+		c -= 040;
+	/*
+	 *  If last char was a break or null, don't print
+	 */
+	if (panicstr == (char *) 0)
+		if ((kladdr->dlrbuf & 0177) == 0)
+			return;
+	timo = 60000L;
+
+	/*
+	 * Try waiting for the console tty to come ready,
+	 * otherwise give up after a reasonable time.
+	 */
+	while((kladdr->dlxcsr & DLXCSR_TRDY) == 0)
+		if (--timo == 0L)
+			break;
+	if (c == 0)
+		return;
+	s = kladdr->dlxcsr;
+	kladdr->dlxcsr = 0;
+	kladdr->dlxbuf = c;
+	if (c == '\n') {
+#ifdef  UCB_UPRINTF
+		putchar('\r', 0);
+#ifndef DVK4
+		putchar(0177, 0);
+		putchar(0177, 0);
+#endif DVK4
+#else
+		putchar('\r');
+#ifndef DVK4
+		putchar(0177);
+		putchar(0177);
+#endif DVK4
+#endif
+	}
+#ifdef  UCB_UPRINTF
+	putchar(0, 0);
+#else
+	putchar(0);
+#endif
+	kladdr->dlxcsr = s;
+#endif NKL
+#if NVI > 0
+	viputchar(c);
+#endif
+}
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@d5 3
+d440 1
+d443 1
+d446 1
+d449 1
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d5 3
+d64 2
+a65 1
+#include <sys/klreg.h>
+d103 1
+a103 1
+	d = minor(dev);
+a112 1
+		tp->t_state = ISOPEN | CARR_ON;
+d116 1
+a116 1
+	} else if (tp->t_state & XCLUDE && u.u_uid != 0) {
+d120 8
+d140 1
+a140 1
+	tp = &kl11[minor(dev)];
+d142 1
+a142 1
+	ttyclose(&kl11[minor(dev)]);
+d151 1
+a151 1
+	tp = &kl11[minor(dev)];
+d160 1
+a160 1
+	tp = &kl11[minor(dev)];
+d169 1
+a169 1
+	tp = &kl11[minor(dev)];
+d182 5
+a186 1
+	tp = &kl11[minor(dev)];
+d188 3
+d193 4
+d217 1
+a217 1
+	dev = minor(dev);
+d220 4
+d226 3
+d231 4
+d267 25
+d296 6
+a301 1
+	switch (ttioctl(&kl11[minor(dev)], cmd, addr, flag)) {
+d306 19
+d341 5
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d5 3
+d54 1
+a54 1
+#include "kl.h"
+d62 1
+a62 1
+#include "video.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d5 3
+d52 1
+a52 1
+#include "param.h"
+@
+
+
+1.10
+log
+@После unifdef'a.
+@
+text
+@d5 3
+@
+
+
+1.9
+log
+@???
+@
+text
+@d5 3
+a151 5
+#ifdef  MPX_FILS
+		if (tp->t_chan)
+			mcstart(tp->t_chan, (caddr_t) &tp->t_outq);
+		else
+#endif
+a250 1
+#ifdef  UCB_NTTY
+a251 3
+#else
+		if (tp->t_flags & RAW)
+#endif
+@
+
+
+1.8
+log
+@Внесены правки для работы с 8-битным режимом.
+(@@VG).
+@
+text
+@d5 4
+a179 2
+#include <sys/psw.h>
+#define PLL(ps) (((ps&PS_IPL)>>5)|01)
+a187 1
+	int minspl = PLL(ps);
+d206 1
+a206 1
+		s = splx(minspl);
+d211 1
+a211 1
+				s=splx(minspl);
+@
+
+
+1.7
+log
+@Изменения с Э-85.
+@
+text
+@d5 3
+d252 3
+d256 1
+@
+
+
+1.7.2.1
+log
+@Штучки для работы с концентратором через DL Ki Si.
+@
+text
+@a4 7
+ * Revision 1.?  88/10/05  00:00:00  vsh
+ * Попытка хакерски подцепить локальную машину через DL-Ki/Si линию
+ * как концентратор терминалов.
+ *
+ * Revision 1.7  88/01/21  11:48:12  korotaev
+ * Изменения с Э-85.
+ * 
+a39 1
+#include <sys/file.h>
+d42 1
+a42 1
+#include "klreg.h"
+d56 2
+a57 9
+#ifdef NDL
+#       define NLIN NKL+NDL-1
+	int ndlopen=0, dlsingle=0;
+#else
+#       define NLIN NKL
+#endif
+
+struct  tty kl11[NLIN];
+int     nkl11   = NLIN;         /* for pstat */
+a66 5
+#ifdef NDL
+		if ( unit == NKL-1)
+			while( ++unit < NLIN )
+				kl11[unit].t_addr = addr;
+#endif
+d84 1
+a84 1
+	if ((d >= NLIN) || ((addr = tp->t_addr) == 0)) {
+a100 6
+#ifdef NDL
+	if( d == NKL-1 )
+	       ndlopen |= 01;
+	else if( d > NKL-1 )
+	       ndlopen |= 01<<(d-NKL+1);
+#endif
+d110 1
+a110 3
+	register d;
+
+	tp = &kl11[d=minor(dev)];
+d112 1
+a112 11
+	ttyclose(tp);
+#ifdef NDL
+	if( d >= NKL-1 ) {
+		if( d == NKL-1 )
+		       ndlopen &= ~01;
+		else
+		       ndlopen &= ~(01<<(d-NKL+1));
+		if( ndlopen != 0 )
+			return;
+	}
+#endif
+a137 1
+	register d = minor(dev);
+d139 2
+a140 9
+	tp = &kl11[d];
+#ifdef NDL
+	if(d == NKL-1)
+		for( ; d<NLIN-1; d++,tp++)
+			if( tp->t_outq.c_cc )
+				break;
+#endif
+	if ((tp->t_state & ISOPEN) != 0)
+		ttstart(tp);
+d161 1
+a161 10
+#ifdef NDL
+	if( minor(dev) == NKL-1 ) {
+	    if( (major(c) < NDL) && (dlsingle == 0) )
+		tp = &kl11[major(c)+NKL-1];
+	    else
+		dlsingle = 01;
+	    goto c_input;
+	} else
+#endif
+	if( (c&(0177400))!=(DLRBUF_OVR|DLRBUF_ERR))
+d163 1
+a163 1
+c_input:        (*linesw[tp->t_line].l_input)(c&0377, tp);
+d174 1
+a174 1
+#define PLL(ps) (((ps)&PS_IPL)?(ps):PS_BR1)
+a190 10
+#ifdef NDL
+		if( dev == NKL-1 ) {
+		    if( (major(c) < NDL) && (dlsingle == 0) )
+			tp = &kl11[major(c)+NKL-1];
+		    else
+			dlsingle = 01;
+		    (*linesw[tp->t_line].l_input)(c&0377, tp);
+		    return;
+		} else
+#endif
+a233 15
+#ifdef NDL
+		case DLMCHANS:
+			if( minor(dev) == NKL-1) dlsingle = 0;
+			break;
+		case DLSINGLE:
+		{   register struct dldevice *addr;
+		    if( minor(dev) == NKL-1) {
+			addr = (struct dldevice *)kl11[NKL-1].t_addr;
+			dlsingle = 1;
+			addr->dlxcsr |= DL_RES;
+			addr->dlrcsr |= DL_CLR;
+		    }
+		    break;
+		}
+#endif
+d243 1
+a243 4
+	register struct dldevice *addr = (struct dldevice *) tp->t_addr;
+#ifdef NDL
+	int d = tp-kl11;
+	extern int hz;
+d245 1
+a245 10
+	if ( ((d-=NKL-1) > 0) && (dlsingle || (addr->dlxcsr & DL_CON)) ) {
+		for(c=NKL; c<NLIN; c++)
+		       flushtty(&kl11[c], FWRITE);
+		return;
+	}
+	if( (d == 0) && (addr->dlxcsr & DL_CON) ) {
+		c = hz-DLDELAY;
+		goto kltout;
+	}
+#endif
+d249 1
+a249 6
+		if (tp->t_flags & RAW) {
+#ifdef NDL
+		    if(d>=0)
+			addr->dlxbuf = c | (d<<8);
+		    else
+#endif
+d251 1
+a251 6
+		} else if (c<=0177) {
+#ifdef NDL
+		    if(d>=0)
+			addr->dlxbuf = c | (d<<8);
+		    else
+#endif
+d253 2
+a254 2
+		} else {
+kltout:                 timeout(ttrstrt, (caddr_t)tp, (c & 0177) + DLDELAY);
+@
+
+
+1.7.1.1
+log
+@Правки из САО (под 1630).
+@
+text
+@a4 3
+ * Revision 1.7  88/01/21  11:48:12  korotaev
+ * Изменения с Э-85.
+ * 
+a43 1
+#include "ais.h"
+a248 3
+#ifdef  UCB_NTTY
+		if ((tp->t_lstate&L8BITS))
+#else
+a249 1
+#endif
+a353 3
+#ifdef AISCONS
+	aisputchar(c);
+#endif
+@
+
+
+1.6
+log
+@Введен алгоритм быстрого считывания символов и их
+обработки на низком приоритете для предотвращения
+длительного цикла в закрытых прерываниях.
+Включается параметроm KL_ROUND
+@
+text
+@d5 6
+d43 1
+d45 2
+d260 2
+d283 1
+d285 1
+a305 3
+	/* Map lower case to upper on console */
+	if ('a'<=c && c<='z')
+		c -= 040;
+d312 4
+d353 4
+@
+
+
+1.5
+log
+@Исправлена ошибка в klattach.
+@
+text
+@d5 3
+d141 1
+a141 1
+#ifndef KL_BLOXA
+d158 1
+a158 2
+int ck_n;
+int ck_intr;
+d160 1
+a160 2
+struct {int ck_i,ck_ov,ck_pc,ck_ps} ck_buf[8];
+klrint(dev, sp, r1, ov, nps, r0, pc, ps)
+d162 1
+a162 2
+struct {int ck_i,ck_pc,ck_ps} ck_buf[8];
+klrint(dev, sp, r1, nps, r0, pc, ps)
+d164 6
+a172 1
+	register struct dldevice *addr;
+d174 2
+a175 5
+	tp = &kl11[minor(dev)];
+	addr = (struct dldevice *) tp->t_addr;
+	c = addr->dlrbuf;
+	addr->dlrcsr |= DL_RE;
+	if ( (c&(0177400))!=(DLRBUF_OVR|DLRBUF_ERR))
+d177 11
+a187 9
+		(*linesw[tp->t_line].l_input)(c&0377, tp);
+	} else {
+	 ck_buf[ck_n].ck_pc = pc;
+	 ck_buf[ck_n].ck_ps = ps;
+	 ck_buf[ck_n].ck_i  = ck_intr;
+#ifdef	MENLO_KOV
+	 ck_buf[ck_n].ck_ov = ov;
+#endif
+	 ck_n = (ck_n+1)&07;
+d189 22
+a211 1
+
+@
+
+
+1.4
+log
+@При открытии теперь ставим "RAW" для того, чтобы предотвратить
+срубание того, кто открывает, по сигналам от случайных символов из линии
+Руднев.
+@
+text
+@d5 5
+d53 1
+a53 1
+	if ((unsigned) unit <= NKL) {
+d138 1
+d154 34
+@
+
+
+1.3
+log
+@1. Введено выключение прерываний при закрытии терминала
+   (для борьбы с зависаниями машины по плохой линии).
+2. Введен контроль на переполнение при вводе. 
+   В этом случае символ< принятый с переполнением, не вводится
+   (для предотвращения плохих escape-последовательностей)>
+	Руднев А.П.
+@
+text
+@d5 8
+d74 1
+a74 1
+		tp->t_flags = ANYP | ECHO | CRMOD | LCASE;
+@
+
+
+1.2
+log
+@Сделаны правки под АДС.
+@
+text
+@d5 3
+d83 4
+d88 1
+a130 1
+
+d135 4
+a138 1
+	(*linesw[tp->t_line].l_input)(c, tp);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d70 1
+a70 1
+	addr->dlrcsr |= DL_RIE | DL_DTR | DL_RE;
+@

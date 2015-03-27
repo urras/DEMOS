@@ -1,0 +1,444 @@
+head     1.7;
+access   ;
+symbols  Архыз0:1.6.1;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     88.11.02.22.39.55;  author dvolodin;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.03.28.11.56.34;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.05.17.18.34.18;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.04.24.09.37.03;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.22.22.10.09;  author alex;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.20.21.00.01;  author alex;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.14.22.00.52;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Процедуры печати на консоль/ввода с консоли.
+@
+
+
+1.7
+log
+@*** empty log message ***
+@
+text
+@/*
+ * Процедуры ввода и вывода на консоль
+ *
+ * $Log:        prf.c,v $
+ * Revision 1.6  88/03/28  11:56:34  korotaev
+ * После слияния с AZLK.
+ *
+ * Revision 1.5  87/05/17  18:34:18  avg
+ * Интервал задержки увеличен в 10 раз: на Э79 это порядка 30 сек.
+ *
+ * Revision 1.4  87/04/24  09:37:03  dmitry
+ * При установленном флажке boottmout в getchar будет
+ * выдерживаться интервал порядка 10 сек (на 1420 с большой памятью).
+ * По истечении этого времени, getchar возвратит '\n'.
+ *
+ * Revision 1.3  86/11/22  22:10:09  alex
+ * Добавлен режим работы с русскими буквами и
+ * работа на терминалах с LCASE (см. флаг LCASECO).
+ *
+ * Revision 1.1  86/07/14  22:00:52  avg
+ * Initial revision
+ *
+ */
+
+#define LCASECO
+/*
+ * Упрощенная версия printf.
+ * Реализованы только форматы %s %u %d (==%u) %o %x и %D.
+ * Т.к. прерывания не обслуживаются,
+ * процессор будет ждать завершения В/В.
+ */
+printf(fmt, x1)
+register char *fmt;
+unsigned x1;
+{
+	register c;
+	register unsigned int *adx;
+	char *s;
+
+	adx = &x1;
+loop:
+	while((c = *fmt++) != '%') {
+		if(c == '\0')
+			return;
+		putchar(c);
+	}
+	c = *fmt++;
+	if(c == 'd' || c == 'u' || c == 'o' || c == 'x')
+		printn((long)*adx, c=='o'? 8: (c=='x'? 16:10));
+	else if(c == 's') {
+		s = (char *)*adx;
+		while(c = *s++)
+			putchar(c);
+	} else if (c == 'D' || c == 'O') {
+		printn(*(long *)adx, c == 'D' ?  10 : 8);
+		adx += (sizeof(long) / sizeof(int)) - 1;
+	} else if (c == 'c')
+		putchar((char *)*adx);
+	adx++;
+	goto loop;
+}
+
+/*
+ * Печатать беззнаковое число в системе счисления b.
+ */
+printn(n, b)
+long n;
+{
+	register long a;
+
+	if (n<0) {      /* не бывает */
+		putchar('-');
+		n = -n;
+	}
+	if(a = n/b)
+		printn(a, b);
+	putchar("0123456789ABCDEF"[(int)(n%b)]);
+}
+
+struct  device  {
+	int     rcsr,rbuf;
+	int     tcsr,tbuf;
+};
+struct  device  *KLADDR {0177560};
+int outrus;
+#define isalpha(c) (c>='a' && c<='z' || c>='A' && c<='Z' || (unsigned)c>=0300&&(unsigned)c<=0376)
+#define islat(c) (c>='a' && c<='z' || c>='A' && c<='Z' )
+#define iscirill(c) ((unsigned)c>=0340&&(unsigned)c<=0376)
+#define islower(c) (c>='a' && c<='z' || (unsigned)c>=0300&&(unsigned)c<=0337)
+#define toupper(c) ((c)^040)
+
+#define CLAT 017
+#define CRUS 016
+putchar(c)
+register c;
+{
+	register s;
+	register unsigned timo;
+	extern int video;
+
+	c &= 0377;
+	if( video ) {
+		v_putchar(c);
+		if( c == '\n' )
+			v_putchar( '\r' );
+		return;
+	}
+	timo = 60000;
+	/*
+	 * Ждать готовности консоли (но в течение разумного  времени)
+	 */
+	while((KLADDR->tcsr&0200) == 0)
+		if(--timo == 0)
+			break;
+	if(c == 0)
+		return;
+/* Обработка регистров вывода (lcase, cyrill) */
+#ifdef LCASECO
+	if(islower(c)) c = toupper(c);
+#endif
+	if(iscirill(c)&&!outrus) {putchar(CRUS); }
+	if(islat(c)&&outrus) {putchar(CLAT); }
+	if(c==CLAT) outrus=0;
+	if(c==CRUS) outrus=1;   c &= 0177;
+	s = KLADDR->tcsr;
+	KLADDR->tcsr = 0;
+	KLADDR->tbuf = c;
+	if(c == '\n') {
+		putchar('\r');
+		putchar(0200);
+		putchar(0200);
+		putchar(0200);
+		putchar(0200);
+	}
+	putchar(0);
+	KLADDR->tcsr = s;
+}
+
+int boottmout = 0 ;
+
+getchar()
+{
+	register c;
+	extern int video;
+	if(outrus) putchar(CLAT);
+	if( video ) {
+		c = v_getchar();
+	} else {
+		KLADDR->rcsr = 1;
+		if( boottmout ) {
+			int i = 10;
+			long l;
+			while( --i ) {
+				l = 1500000 ;
+				while((KLADDR->rcsr&0200)==0 && --l );
+				if( l != 0l ) break;
+			}
+			if( l == 0l ) c = '\n' ;
+			else boottmout = 0, c = KLADDR->rbuf&0177;
+		} else {
+			while((KLADDR->rcsr&0200)==0);
+			c = KLADDR->rbuf&0177;
+		}
+	}
+	if (c=='\r')
+		c = '\n';
+	if( c != 0177 )
+	putchar(c);
+	return(c);
+}
+
+gets(buf)
+char    *buf;
+{
+register char *lp;
+register c;
+
+	lp = buf;
+	for (;;) {
+		c = getchar() & 0177;
+		if (c>='A' && c<='Z')
+			c -= 'A' - 'a';
+		if (lp != buf && *(lp-1) == '\\') {
+			lp--;
+			if (c>='a' && c<='z') {
+				c += 'A' - 'a';
+				goto store;
+			}
+			switch ( c ) {
+			case '(':
+				c = '{';
+				break;
+			case ')':
+				c = '}';
+				break;
+			case '!':
+				c = '|';
+				break;
+			case '^':
+				c = '~';
+				break;
+			case '\'':
+				c = '`';
+				break;
+			}
+		}
+	store:
+		switch(c) {
+		case '\n':
+		case '\r':
+			c = '\n';
+			*lp++ = '\0';
+			return;
+		case 0177:
+			printf( "\10 \10" );
+		case '\b':
+		case '#':
+			lp--;
+			if (lp < buf)
+				lp = buf;
+			continue;
+		case '@@':
+		case 025:
+			lp = buf;
+			putchar('\n');
+			continue;
+		default:
+			*lp++ = c;
+		}
+	}
+}
+
+@
+
+
+1.6
+log
+@После слияния с AZLK.
+@
+text
+@d4 4
+a7 1
+ * $Log:	prf.c,v $
+d10 1
+a10 1
+ * 
+d24 2
+a25 1
+/* #define LCASECO
+@
+
+
+1.5
+log
+@Интервал задержки увеличен в 10 раз: на Э79 это порядка 30 сек.
+@
+text
+@d4 4
+a7 1
+ * $Log:        prf.c,v $
+d21 1
+a21 1
+#define LCASECO
+@
+
+
+1.4
+log
+@При установленном флажке boottmout в getchar будет
+выдерживаться интервал порядка 10 сек (на 1420 с большой памятью).
+По истечении этого времени, getchar возвратит '\n'.
+@
+text
+@d4 6
+a9 1
+ * $Log:	prf.c,v $
+d13 1
+a13 1
+ * 
+d73 3
+a75 3
+struct	device	{
+	int	rcsr,rbuf;
+	int	tcsr,tbuf;
+d77 1
+a77 1
+struct	device	*KLADDR	{0177560};
+d144 8
+a151 3
+			long l = 300000 ;
+			while((KLADDR->rcsr&0200)==0 && --l );
+			if( l == 0 ) c = '\n' ;
+d166 1
+a166 1
+char	*buf;
+d225 1
+@
+
+
+1.3
+log
+@Добавлен режим работы с русскими буквами и
+работа на терминалах с LCASE (см. флаг LCASECO).
+@
+text
+@d5 4
+d127 2
+d137 10
+a146 3
+	KLADDR->rcsr = 1;
+	while((KLADDR->rcsr&0200)==0);
+	c = KLADDR->rbuf&0177;
+@
+
+
+1.2
+log
+@???
+@
+text
+@d4 1
+a4 1
+ * $Log:        prf.c,v $
+d9 1
+a9 1
+
+d64 3
+a66 3
+struct  device  {
+	int     rcsr,rbuf;
+	int     tcsr,tbuf;
+d68 7
+d76 2
+a77 2
+struct  device  *KLADDR {0177560};
+
+a91 2
+	if( c >= 'a' && c <= 'z' )
+		c -= 'a'-'A';
+d101 8
+d114 4
+a117 5
+		putchar(0177);
+		putchar(0177);
+		putchar(0177);
+		putchar(0177);
+		putchar(0177);
+d127 1
+a127 1
+
+d131 3
+a133 3
+		KLADDR->rcsr = 1;
+		while((KLADDR->rcsr&0200)==0);
+		c = KLADDR->rbuf&0177;
+d138 1
+a138 1
+		putchar(c);
+d143 1
+a143 1
+char    *buf;
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d76 1
+d78 9
+d114 1
+d116 7
+a122 3
+	KLADDR->rcsr = 1;
+	while((KLADDR->rcsr&0200)==0);
+	c = KLADDR->rbuf&0177;
+d125 2
+a126 1
+	putchar(c);
+d147 1
+a147 1
+			switch ( c) {
+d172 2
+a175 1
+		case 0177:
+@

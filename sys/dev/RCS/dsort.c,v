@@ -1,0 +1,128 @@
+head     22.2;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз0:1.1.1;
+locks    ;
+comment  @ * @;
+
+
+22.2
+date     90.11.12.19.06.08;  author root;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.20.11;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.23.21;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.54.06;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.2
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	dsort.c,v $
+ * Revision 22.1  89/04/12  14:20:11  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:23:21  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.1  86/04/19  17:54:06  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * generalized seek sort for disk
+ */
+
+#include <sys/param.h>
+#include <sys/systm.h>
+#include "../include/buf.h"
+
+disksort(dp, bp)
+register struct buf *dp, *bp;
+{
+	register struct buf *ap;
+	struct buf *tp;
+
+	ap = dp->b_actf;
+	if(ap == NULL) {
+		dp->b_actf = bp;
+		dp->b_actl = bp;
+		bp->av_forw = NULL;
+		return;
+	}
+	tp = NULL;
+	for(; ap != NULL; ap = ap->av_forw) {
+		if ((bp->b_flags&B_READ) && (ap->b_flags&B_READ) == 0) {
+			if (tp == NULL)
+				tp = ap;
+			break;
+		}
+		if ((bp->b_flags&B_READ) == 0 && (ap->b_flags&B_READ))
+			continue;
+		if(ap->b_cylin <= bp->b_cylin)
+			if(tp == NULL || ap->b_cylin >= tp->b_cylin)
+				tp = ap;
+	}
+	if(tp == NULL)
+		tp = dp->b_actl;
+	bp->av_forw = tp->av_forw;
+	tp->av_forw = bp;
+	if(tp == dp->b_actl)
+		dp->b_actl = bp;
+}
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d20 1
+a20 1
+#include <sys/buf.h>
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d3 3
+d15 1
+a15 1
+#include "param.h"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+@

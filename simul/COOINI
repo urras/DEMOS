@@ -1,0 +1,63 @@
+%- - - - - - - - - - - - - -% 15.08.87 VERSION 63
+%-    üMץלסTOP BשBOהA      -%
+%- - - - - - - - - - - - - -%
+LOCALS LCONSL
+  EQUALS DINI=0,DRD=1,DWR=2,DTST=3,DITA=4,DTXT=6,DTICK=8
+  DATA DV:BEG=&FF74,DV:END=&FF76
+  DATA COOST,COOBUF                     %HAגOP PEחיCTPOB
+  DATA DELAY
+  DATA BUSY=0
+  DATA ATICK,AITREQ                     %CCשלKי HA CBOי TיK י תבנעןף
+
+  EQUALS READY=&80,ITPOSS=&40
+  DATA ADDR,BDATA
+  DATA MARK
+  BYTES BYT[1]
+
+PROGRAM COOINI(AITREQ,ATICK)
+  COOST='READY'
+  RETURN ,
+
+PROGRAM COO:RD(,MARK)
+  (IF =DV:BEG
+    =COOST                              %  COCTOסHיE BשBOהA
+  ELSE IF =DV:END
+    =COOBUF                             %  גץזEP BשBOהA
+  ELSE
+    RETURN ,,2
+  IF)
+  (IF ,MARK<>
+    BYT:= ; =BYT[
+  IF)
+  RETURN ,,0
+
+PROGRAM COO:WR(,MARK)
+  (IF =DV:BEG                           %COCTOסHיE BשBOהA
+    IF ^X,,MARK<> THEN =.XAA.
+    (IF ((BDATA=.AND.'ITPOSS'))<>
+      (IF COOST.AND.'READY'<>           %םןצמן ףעבתץ תבנעןףיפר IT ?
+        @ATICK=1 ; #TICKFL=1
+      IF)
+    IF)
+    COOST=COOST.AND.'&FF-ITPOSS'.IOR.BDATA
+  ELSE IF =DV:END                       %גץזEP BשBOהA
+    COOBUF=((IF ^X,,MARK<> THEN =.XAA.)).AND.&7F
+    IF COOST.AND.'READY'<> THEN DPO COOBUF
+    COOST=COOST.AND.'&FF-READY'
+    @ATICK=40 ; #TICKFL=1               %תAKAת תבהועצכי מב קשקןה
+  ELSE
+    RETURN ,,2
+  IF)
+  RETURN ,,0
+
+%-- נעיûול פיכ --
+PROGRAM COOINF()
+  COOST=COOST.IOR.'READY'
+  (IF COOST.AND.'ITPOSS'<>
+    @AITREQ=4 ; #ITWORD=#ITWORD.IOR.'D:BIT'
+    @ATICK=10 ; #TICKFL=1               %"CשנAלKA" נPי PAתPEûEHיי IT
+  IF)
+  RETURN ,
+
+PROGRAM COO:IT()
+  RETURN 'COOUT'

@@ -1,0 +1,38 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.04.21.20.07.12;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+/*
+ * return offset in file.
+ */
+
+long    lseek();
+
+long tell(f)
+{
+	return(lseek(f, 0L, 1));
+}
+@

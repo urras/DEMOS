@@ -1,0 +1,86 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.07.20.21.12.36;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+#include <signal.h>
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+#define BYTESPERVEC	4			/* size of machine language vector */
+extern	char	mvectors[NSIG][BYTESPERVEC];	/* machine language vector */
+
+extern int     (*sigsys())();
+
+extern char    _setflg[NSIG];                   /* flags for using sigset */
+extern long    _holdmask;
+extern long    _oldhmask;
+extern int     _pauseactive;
+
+/* atomically release the signal and pause (if none pending) */
+/* if no other signal has occurred, the signal will be held upon return */
+sigpause (newmask)
+long newmask;
+{
+	register int sig, lastrel;
+	long differ = _holdmask ^ newmask;
+
+	_pauseactive = 0;
+	if (!differ) goto Waited;
+	_oldhmask = _holdmask;
+	for (lastrel = 0, sig = 1; sig <= NSIG; sig++)
+		if (sig == SIGKILL || sig == SIGSTOP || sig == SIGCONT)
+			;
+		else if (differ & mask (sig))
+			if (newmask & mask (sig)) {
+				_holdmask |= mask (sig);
+				_pauseactive = 1;
+				_setflg[sig] = 1;
+				sigsys (sig, SIG_HOLD);
+			}
+			else {
+				if (lastrel > 0) {
+					_holdmask &= ~mask (lastrel);
+					_pauseactive = 1;
+					sigsys (lastrel, SIG_IGN);
+					sigsys (lastrel, DEFERSIG (mvectors[lastrel]));
+				}
+				lastrel = sig;
+			}
+	if (lastrel > 0) {
+		_holdmask &= ~mask (lastrel);
+		_pauseactive = 1;
+		sigsys ((lastrel | SIGDOPAUSE), DEFERSIG (mvectors[lastrel]));
+		goto Ret;
+	}
+Waited:
+	pause ();
+Ret:
+	if (_pauseactive) {
+		_pauseactive = 0;
+		sigsetmask (_oldhmask);
+	}
+}
+@

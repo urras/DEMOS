@@ -1,0 +1,663 @@
+head     1.13;
+access   avg dmitry flerov davidov alex fox andrew korotaev ache dvolodin abs;
+symbols  Архыз0:1.8.1;
+locks    ;
+comment  @ * @;
+
+
+1.13
+date     90.11.12.18.52.41;  author root;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.12.13.17.31.55;  author root;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.09.30.21.02.06;  author root;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.09.30.17.28.23;  author root;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.09.01.14.45.33;  author korotaev;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.06.26.19.17.47;  author korotaev;  state Exp;
+branches 1.8.1.1;
+next     1.7;
+
+1.7
+date     88.06.23.21.48.41;  author ache;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.06.13.16.09.03;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.04.02.17.29.37;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.12.09.16.49.03;  author andrew;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.12.08.12.01.04;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.09.23.12.05.32;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.02.28;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.8.1.1
+date     88.11.01.18.23.15;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Локальные параметры системы.
+@
+
+
+1.13
+log
+@Новые вещи для СМ 1425 и перемещение некоторых include'ов.
+@
+text
+@#ifndef _sys_localopts_h_
+#       define  _sys_localopts_h_
+/*
+ * Локальные параметры системы ( подключаются через whoami.h).
+ * Приняты следующие обозначения в комментариях:
+ *      *+ - обычно включены
+ *      *- - обычно выключены
+ *      *++ - выключать не рекомендуется
+ *      *-- - включать не рекомендуется
+ *      *++? - включены, выключение не работает
+ *      *--? - выключены, включение не работает
+ *      *+? - включены, выключение не проверялось
+ *      *-? - выключены, включение не проверялось
+ */
+
+/*
+ * Нижеследующие параметры менять не рекомендуется
+ */
+/* #define UCB_LOGIN            /*- есть системный вызов "login" */
+/* #define UCB_QUOTAS           /*- включено квотирование дисков */
+/* #define TEXAS_AUTOBAUD       /*- автоматический подбор скорости tty */
+/* #define UCB_VHANGUP          /*- При выходе user-a посылается HANGUP */
+#define UCB_RENICE              /*++ renice system call */
+#define IPK_XOVLY               /*++ включен 31 пользовательский оверлей
+				 * требует включения MENLO_OVLY (см. ниже) */
+/* #define VIRTUAL_SYSTEM       /*- @@VG hacked VS facility. This is only @@VG
+				 *  debugging tool for DEMOS 3 project.
+				 * Using for other needs aren't allowed. */
+/* #define NOKA5                /*-? система меньше чем 0120000 - KA5 не используется при доступе к таблицам */
+/* #define UCB_FRCSWAP          /*-- Force swap on expand/fork */
+/* #define UCB_CLIST            /*-  Clists выносится из адресов ядра */
+/* #define BADSECT              /*-? Bad-sector forwarding */
+/* #define DIAGNOSTIC           /*- дополнительные проверки внутри системы */
+/* #define UCB_PGRP             /*-- Учитывать процессы по группам */
+#define UCB_SCRIPT              /*++ При запуске ком.файлов понимается #!shell */
+/* #define UCB_SUBM             /*--? "submit", не имеет смысла при UCB_JCL */
+#define UCB_SYMLINKS            /*++ "Символьные" связи файлов */
+#define UCB_AUTOBOOT            /*++ Системный вызов "reboot" */
+/* #define OLDTTY               /*--? старый стиль работы с терминалом */
+#define UCB_NTTY                /*++? работа с терминалами по новому   */
+#define MENLO_JCL               /*++? Job Control (не выключать!!!) */
+#define MENLO_OVLY              /*++ Пользовательские оверлеи */
+#define VIRUS_VFORK             /*++ vfork system call */
+#define UCB_NKB         1       /*++ "n" KB размер листа на диске (если /*, то 512)*/
+/* #define DISPLAY              /*-? 11/70 or 45 display routine */
+/* #define MPX_FILS             /*--? Мультиплексные файлы */
+
+/*
+ * Режимы, Зависящие от ЭВМ (как правило)
+ *      ТИП ЭВМ type set in whoami.h
+ */
+#define  MENLO_KOV
+#if     PDP11 == GENERIC
+#       define  KERN_NONSEP             /* kernel is not separate I/D */
+#else
+#   if  PDP11 <= 40 || PDP11 == 60
+#       define  NONSEPARATE
+#       define  KERN_NONSEP             /* kernel is not separate I/D */
+#   endif
+#endif
+
+#if PDP11 == 40
+#       define NONFP                /* if no floating point unit */
+#endif
+
+#if ((((PDP11)==(44))||((PDP11)==(70)))||((PDP11)==(24)))||((PDP11)==(GENERIC))
+#       define  UNIBUS_MAP
+#endif
+
+/*
+ *      Профилирование возможно только  на старших моделях.
+ *      Для профилирования :splfix script нужно изменить так, чтобы
+ *      вместо spl6 использовать spl7 (см. conf/:splfix.profile).
+ */
+/* #define PROFILE       /*-? Профилирование системы */
+
+/*
+ *  UCB_NET - требует подключения ряда файлов, которых здесь нет
+ *  Режим экспериментальный, не включать!!!
+ */
+/* #define UCB_NET              /* TCP/IP Kernel */
+
+/*
+ *        Следующие параметры можно изменять:
+ */
+@
+
+
+1.12
+log
+@новая структура каталога.
+@
+text
+@a0 40
+/*
+ * Локальные параметры системы ( подключаются через whoami.h).
+ *
+ * $Log:        localopts.h,v $
+ * Revision 1.11  88/09/30  21:02:06  root
+ * SMALL за-ifdef-но KERNEL-ом
+ *
+ * Revision 1.10  88/09/30  17:28:23  root
+ * EXMOUNT по-умолчанию теперь включается.
+ *
+ * Revision 1.9  88/09/01  14:45:33  korotaev
+ * Перенесен один define из whoami.h (NONFP).
+ * Изменены умолчания в GENERIC'е (отключена обработка все статистики).
+ *
+ * Revision 1.8  88/06/26  19:17:47  korotaev
+ * Изменены некоторые умолчания.
+ *
+ * Revision 1.7  88/06/23  21:48:41  ache
+ * Добавлен 31 оверлей в ядре (IPK_XKOV)
+ *
+ * Revision 1.6  88/06/13  16:09:03  korotaev
+ * Вставлен IPK_SELECT (from TCP/IP).
+ *
+ * Revision 1.5  88/04/02  17:29:37  korotaev
+ * Включен новый планировщик и изменены некоторые умолчания.
+ *
+ * Revision 1.4  87/12/09  16:49:03  andrew
+ * при желании теперь можно иметь 31 оверлей, а не только 7
+ *
+ * Revision 1.3  87/12/08  12:01:04  root
+ * Вставлена возможнотсь подключать IPK_FLOCK.
+ *
+ * Revision 1.2  87/09/23  12:05:32  root
+ * Вставлен IPK_TRUNCATE.
+ *
+ * Revision 1.1  86/04/19  15:02:28  avg
+ * Initial revision
+ *
+ */
+
+a2 1
+
+d4 2
+a5 1
+ *      Приняты следующие обозначения в комментариях:
+d17 1
+a17 2
+ * Настройка системы. Режимы, открывающие новые возможности
+ * для пользователя
+a18 4
+
+/* #define CGL_RTP              /*- Возможен 1 суперприоритетный процесс */
+/* #define DISKMON              /*- собирать статистику по буферам для iostat */
+/* #define UCB_GRPMAST          /*- поддерживается "администратор группы" */
+a21 1
+#define UCB_UPRINTF             /*+ сообщения об ошибках посылаются user-у */
+d23 1
+a23 6
+#define UCB_LOAD                /*+ статистика по загрузке системы */
+/* #define UCB_METER            /*- статистика по подкачке */
+/* #define  FXMETER             /*- статистика по вторичному использ. text */
+#define UCB_RENICE              /*+ renice system call */
+#define IPK_TRUNCATE            /*++ включен системный вызов [f]truncate */
+#define IPK_FLOCK               /*++ включен системный вызов flock */
+a25 1
+/* #define IPK_SELECT           /*- системный вызов select без UCB_NET'а */
+a28 6
+#define IPK_DIRECTORY           /*+  новая структура каталогов */
+
+/*
+ * Внутренние флаги системы
+ */
+
+a30 1
+#define UCB_BHASH               /*+  хэш при доступе к буферам */
+a31 2
+#define UCB_DEVERR              /*+ развернутуе сообщения об ошибках устройств */
+#define UCB_ECC                 /*+ Коррекция исправимых ошибок на дисках */
+a32 12
+#define UCB_FSFIX               /*+ Улучшенный порядок сброса буферов на диск*/
+#define UCB_IHASH               /*+? hashed inode table */
+#define UCB_ISRCH               /*+? circular inode search */
+#define EXMOUNT                 /*+ таблица mount вынесена из памяти ядра */
+/* #define UNFAST               /*++? Использовать функции вместо макро (для экономии места) */
+#ifdef KERNEL
+#define SMALL                   /*+ малая система (малые хэш-таблицы) */
+#endif KERNEL
+#define IPK_SDADDR              /*+ 2-byte адрес на диске для малых систем */
+/* #define NOACCI               /*- не записывать время обращения к файлу */
+/* #define ACCT                 /*- статистика по командам */
+/* #define INSECURE             /*- не чистить setuid, setgid биты при записи в файл */
+d34 13
+a46 3
+/* #define SCHED                /*- новый планировщик реального времени (для памяти порядка >= 1Mб) */
+/* #define IPK_XKOV             /*- включен 31 оверлей в ядре
+				* требует включения MENLO_KOV (см. ниже) */
+d52 1
+a53 1
+#       define  MENLO_KOV
+a56 1
+#       define  MENLO_KOV
+d66 1
+a66 1
+#if     PDP11 == 44 || PDP11 == 70 || PDP11 == 24 || PDP11 == GENERIC || defined(ENABLE34)
+a76 18
+/* Параметры, изменение которых не рекомендуется,
+ * так как потребует перетрансляцию ряда программ
+ * или приведет к непредсказуемым эффектам
+ */
+
+/* #define UCB_PGRP             /*-- Учитывать процессы по группам */
+#define UCB_SCRIPT              /*++ При запуске ком.файлов понимается #!shell */
+/* #define UCB_SUBM             /*--? "submit", не имеет смысла при UCB_JCL */
+#define UCB_SYMLINKS            /*++ "Символьные" связи файлов */
+#define UCB_AUTOBOOT            /*++ Системный вызов "reboot" */
+/* #define OLDTTY               /*--? старый стиль работы с терминалом */
+#define UCB_NTTY                /*++? работа с терминалами по новому   */
+#define MENLO_JCL               /*++? Job Control (не выключать!!!) */
+#define MENLO_OVLY              /*++ Пользовательские оверлеи */
+#define VIRUS_VFORK             /*++ vfork system call */
+#define UCB_NKB         1       /*++ "n" KB размер листа на диске (если /*, то 512)*/
+/* #define DISPLAY              /*-? 11/70 or 45 display routine */
+/* #define MPX_FILS             /*--? Мультиплексные файлы */
+d83 3
+a85 20
+#ifdef SCHED
+#       undef   CGL_RTP
+#endif SCHED
+
+#ifdef UCB_NET
+#       define  IPK_SELECT
+#endif UCB_NET
+
+#ifdef KERNEL
+#   include "pty.h"
+#   if NPTY > 0 && !defined(IPK_SELECT)
+#       define  IPK_SELECT
+#   endif
+#endif KERNEL
+
+#if defined(IPK_XKOV) && !defined(IPK_XOVLY)
+#       define MENLO_OVLY
+#endif
+
+#endif  _sys_localopts_h_
+@
+
+
+1.11
+log
+@SMALL за-ifdef-но KERNEL-ом
+@
+text
+@d4 4
+a7 1
+ * $Log:	localopts.h,v $
+d10 1
+a10 1
+ * 
+d14 1
+a14 1
+ * 
+d17 1
+a17 1
+ * 
+d20 1
+a20 1
+ * 
+d23 1
+a23 1
+ * 
+d26 1
+a26 1
+ * 
+d29 1
+a29 1
+ * 
+d32 1
+a32 1
+ * 
+d81 1
+@
+
+
+1.10
+log
+@EXMOUNT по-умолчанию теперь включается.
+@
+text
+@d5 3
+d95 1
+d97 1
+@
+
+
+1.9
+log
+@Перенесен один define из whoami.h (NONFP).
+Изменены умолчания в GENERIC'е (отключена обработка все статистики).
+@
+text
+@d5 4
+d85 1
+a85 1
+#define UCB_ECC                 /*+ Коррекция исправимых оибок на дисках */
+d90 1
+a90 1
+/* #define EXMOUNT              /*- таблица mount вынесена из памяти ядра */
+d171 1
+a171 1
+#if defined(IPK_XKOV) && !defined(MENLO_OVLY)
+@
+
+
+1.8
+log
+@Изменены некоторые умолчания.
+@
+text
+@d5 3
+d67 1
+a67 2
+/* #define IPK_XKOV             /*- включен 31 оверлей в ядре
+				 * требует включения MENLO_KOV (см. ниже) */
+d86 1
+a86 1
+#define EXMOUNT                 /*+ таблица mount вынесена из памяти ядра */
+d90 1
+a90 1
+#define NOACCI                  /*+ не записывать время обращения к файлу */
+d95 2
+a96 1
+/* #define IPK_SELECT           /*- системный вызов select без UCB_NET'а */
+d113 4
+d166 4
+@
+
+
+1.8.1.1
+log
+@Правки из САО (про 1630).
+@
+text
+@a4 3
+ * Revision 1.8  88/06/26  19:17:47  korotaev
+ * Изменены некоторые умолчания.
+ * 
+d64 2
+a65 1
+/* #define IPK_SELECT           /*- системный вызов select без UCB_NET'а */
+d93 1
+a93 2
+/* #define IPK_XKOV             /*- включен 31 оверлей в ядре
+				 * требует включения MENLO_KOV (см. ниже) */
+a158 4
+
+#if defined(IPK_XKOV) && !defined(MENLO_OVLY)
+#       define MENLO_OVLY
+#endif
+@
+
+
+1.7
+log
+@Добавлен 31 оверлей в ядре (IPK_XKOV)
+@
+text
+@d5 3
+d56 1
+a56 1
+#define UCB_LOAD                /*+ статистика по загрузке системы      */
+d60 3
+a62 3
+#define IPK_TRUNCATE            /*+ включен системный вызов [f]truncate */
+/* #define IPK_FLOCK            /*- включен системный вызов flock */
+/* #define IPK_XOVLY            /*- включен 31 пользовательский оверлей
+d84 1
+a84 1
+/* #define EXMOUNT              /*- таблица mount вынесена из памяти ядра */
+d93 1
+a93 1
+#define IPK_SELECT              /*+ системный вызов select без UCB_NET'а */
+d130 1
+a130 1
+#define UCB_AUTOBOOT            /*+  Системный вызов "reboot" */
+@
+
+
+1.6
+log
+@Вставлен IPK_SELECT (from TCP/IP).
+@
+text
+@d5 3
+d59 4
+a62 1
+/* #define IPK_XOVLY            /*- включен 31 оверлей */
+@
+
+
+1.5
+log
+@Включен новый планировщик и изменены некоторые умолчания.
+@
+text
+@d5 3
+d83 2
+a84 1
+/* #define SCHED                /*- новый планировщик (для памяти порядка >= 1Mб) */
+d137 1
+a137 2
+#undef UCB_METER
+#undef CGL_RTP
+d139 11
+@
+
+
+1.4
+log
+@при желании теперь можно иметь 31 оверлей, а не только 7
+@
+text
+@d5 3
+a44 1
+
+d47 1
+a47 1
+/* #define UCB_LOAD             /*+ статистика по загрузке системы      */
+d51 6
+d64 1
+a64 1
+/* #define UCB_BHASH            /*+  хэш при доступе к буферам */
+d72 6
+a77 6
+#define EXMOUNT                 /* таблица mount вынесена из памяти ядра */
+#define UNFAST                  /*+ Использовать функции вместо макро (для экономии места) */
+#define SMALL                   /*- малая система (малые хэш-таблицы) */
+#define IPK_SDADDR              /*- 2-byte адрес на диске для малых систем */
+#define NOACCI                  /*-+ не записывать время обращения к файлу */
+/* #define ACCT                 /*+ статистика по командам */
+d80 1
+a80 3
+#define IPK_TRUNCATE            /*+ включен системный вызов [f]truncate */
+#define IPK_FLOCK               /*+ включен системный вызов flock */
+#define IPK_XOVLY               /*+ включен 31 оверлей */
+d115 1
+a115 1
+/* #define UCB_SUBM             /*-- "submit", не имеет смысла при UCB_JCL */
+d119 2
+a120 2
+#define UCB_NTTY                /*++ работа с терминалами по новому   */
+#define MENLO_JCL               /*++ Job Control */
+d132 4
+@
+
+
+1.3
+log
+@Вставлена возможнотсь подключать IPK_FLOCK.
+@
+text
+@d4 4
+a7 1
+ * $Log:        localopts.h,v $
+d74 1
+@
+
+
+1.2
+log
+@Вставлен IPK_TRUNCATE.
+@
+text
+@d5 3
+d70 1
+a70 1
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+ * local system options - included by whoami.h
+d4 4
+a7 1
+ * $Log$
+d10 2
+a11 2
+#ifndef _localopts_
+#define _localopts_
+d14 9
+a22 1
+ *      System Changes Which May Have User Visible Effects
+d25 4
+a28 10
+/* #define CGL_RTP              /* Allow one real time process */
+/* #define DISKMON              /* Iostat disk monitoring */
+/* #define UCB_GRPMAST          /* Group master accounts */
+/* #define UCB_LOGIN            /* login sys call is available */
+/* #define UCB_PGRP             /* Count process limit by process group */
+/* #define UCB_QUOTAS           /* Dynamic file system quotas */
+/* #define UCB_SCRIPT           /* Shell scripts can specify interpreter */
+/* #define UCB_SUBM             /* "submit" processing */
+/* #define UCB_SYMLINKS         /* Symbolic links */
+/* #define TEXAS_AUTOBAUD       /* tty image mode to support autobauding */
+d30 6
+a35 11
+/* #define UCB_AUTOBOOT         /* System is able to reboot itself */
+#define UCB_UPRINTF             /* Send error messages to user */
+#define UCB_VHANGUP             /* Revoke control tty access when user leaves */
+#define UCB_LOAD                /* load average and uptime */
+#define UCB_METER               /* vmstat performance metering */
+/* #define OLDTTY               /* old line discipline */
+#define UCB_NTTY                /* new tty driver */
+#define MENLO_JCL               /* Job Control */
+#define MENLO_OVLY              /* process text overlays */
+#define VIRUS_VFORK             /* vfork system call */
+#define UCB_RENICE              /* renice system call */
+d37 7
+d45 1
+a45 7
+ * Internal changes
+ * It should not be necessary to use these in user products.
+ * Note: The UCB_NKB flag requires changes to UNIX boot pgms
+ *       as well as changes to dump, restore, icheck, dcheck, ncheck, mkfs.
+ *       It includes the options previously known as UCB_SMINO (smaller
+ *       inodes, NADDR = 7) and UCB_MOUNT (multiple superblocks per internal
+ *       buffer).
+d48 19
+d68 1
+a68 14
+/* #define NOKA5                /* KA5 not used except for buffers and clists */
+				/* (_end must be before 0120000) */
+/* #define UCB_FRCSWAP          /* Force swap on expand/fork */
+#define UCB_BHASH               /* hashed buffer accessing */
+/* #define UCB_CLIST            /* Clists moved out of kernel data space */
+#define UCB_DEVERR              /* Print device errors in mnemonics */
+#define UCB_ECC                 /* Disk drivers should do ECC if possible */
+/* #define BADSECT              /* Bad-sector forwarding */
+#define UCB_FSFIX               /* Crash resistant filesystems */
+#define UCB_IHASH               /* hashed inode table */
+#define UCB_ISRCH               /* circular inode search */
+#define UCB_NKB         1       /* "n" KB byte system buffers (not just bool) */
+#define UNFAST                  /* Don't use inline.h macro expansion speedups*/
+/* #define SMALL                /* for small sys: smaller hash queues, etc. */
+d70 2
+a71 2
+ * Options determined by machine type:
+ *      machine type set in whoami.h
+d89 3
+a91 2
+ * Standard Bell V7 features you may or may not want
+ *
+d93 5
+a97 8
+/* #define MPX_FILS             /* hooks for multiplexed files */
+#define ACCT                    /* process accounting */
+#define INSECURE                /* don't clear setuid, setgid bits on write */
+#define DIAGNOSTIC              /* misc. diagnostic loops and checks */
+/* #define DISPLAY              /* 11/70 or 45 display routine */
+/*
+ *      Note: to enable profiling, the :splfix script must be changed
+ *      to use spl6 instead of spl7 (see conf/:splfix.profile).
+a98 1
+/* #define PROFILE              /* System profiling w/KW11P clock */
+d100 13
+d114 2
+a115 2
+ *  UCB_NET requires that the additional files in /usr/net/sys
+ *  be merged in here-- only the hooks are installed on this ifdef.
+d117 4
+a120 2
+/* #define UCB_NET              /* UCB TCP/IP Kernel */
+#endif _localopts_
+@

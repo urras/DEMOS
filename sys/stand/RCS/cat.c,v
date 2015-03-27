@@ -1,0 +1,123 @@
+head     1.2;
+access   ;
+symbols  Архыз0:1.2.1;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.03.28.10.27.48;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.14.19.14.23;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Автономная программа cat.
+@
+
+
+1.2
+log
+@Состояние файла перед слиянием с AZLK.
+@
+text
+@/*
+ * Автономный cat
+ *
+ * $Log:	cat.c,v $
+ * Revision 1.1  86/07/14  19:14:23  avg
+ * Initial revision
+ * 
+ */
+#define FILE_DFL "tm(0,2)"
+#define MAXLINES 16
+#define MAXLLINES 66
+char module[] = "cat";          /* имя модуля -- для trap */
+
+int lpout;
+main()
+{
+	int c, i;
+	char *buf,buffer[50];
+	int line=0;
+	buf = buffer;
+	printf("%s: просмотр и печать файлов\n",module);
+	do {
+		buf = buffer;
+		printf("Файл (%s по умолчанию):\17 ",FILE_DFL);
+		buffer[0] = 0;
+		gets(buffer);
+		if(*buf == 0 || *buf == '\n') buf = FILE_DFL;
+		printf("\n\n Файл %s\n", buf);
+		i = open(buf, 0);
+	} 
+	while (i <= 0);
+	printf("Вывод: (lp - АЦПУ, tty - терминал) (tty): \17");
+	gets(buffer);
+	if(buffer[0] == 'l') {
+		lpout=1;
+		printf("Включите АЦПУ и нажмите <ВК>\n");
+		gets(buffer);
+	}
+	while ((c = getc(i)) > 0)
+	{
+		if(lpout) {
+		lputchar(c);
+			if ( c == '\n' && ++line > MAXLLINES )
+			{
+				line = 0;
+				lputchar('\f');
+			}
+		}
+		else {
+			putchar(c);
+			if ( c == '\n' && ++line > MAXLINES )
+			{
+				line = 0;
+				printf("cont?"); 
+				if(getchar()=='n') exit(1);
+				printf("\b\b\b\b\b\b      \b\b\b\b\b\b");
+			}
+		}
+	}
+	if(lpout) lputchar('\f');
+	exit(0);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d9 3
+a11 1
+
+d14 1
+d18 4
+a21 3
+	char buf[50];
+
+	printf("%s\n",module);
+d23 6
+a28 2
+		printf("File: ");
+		gets(buf);
+d30 9
+a38 2
+	} while (i <= 0);
+
+d40 21
+a60 1
+		putchar(c);
+@

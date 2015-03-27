@@ -1,0 +1,194 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.01.16.15.19.02;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.03.06.20.41.17;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Разослать сообщение всем пользователям.
+@
+
+
+1.2
+log
+@Если запущена не с терминала, имя берем из /etc/passwd.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: wall.c,v 1.1 87/03/06 20:41:17 dmitry Exp $" ;
+#endif  lint
+
+/*
+ * Разослать сообщение всем пользователям.
+ *
+ * $Log:	wall.c,v $
+ * Revision 1.1  87/03/06  20:41:17  dmitry
+ * Initial revision
+ * 
+ */
+
+#include <stdio.h>
+#include <utmp.h>
+#include <time.h>
+#include <signal.h>
+#include <ediag.h>
+#include <pwd.h>
+
+struct  passwd  *pwent, *getpwuid();
+
+#define USERS   128
+#define IGNOREUSER      "sleeper"
+
+char    mesg[3000];
+int     msize,sline;
+struct  utmp utmp[USERS];
+char    *strcpy();
+char    *strcat();
+char who[9] = "???";
+long    clock, time();
+struct tm *localtime();
+struct tm *localclock;
+
+main(argc, argv)
+char *argv[];
+{
+	register i;
+	register char c;
+	register struct utmp *p;
+	FILE *f;
+	FILE *mf;
+
+	if((f = fopen("/etc/utmp", "r")) == NULL) {
+		fprintf(stderr, ediag("Cannot open /etc/utmp\n",
+				      "Не могу открыть /etc/utmp\n"));
+		exit(1);
+	}
+	clock = time( 0 );
+	localclock = localtime( &clock );
+	mf = stdin;
+	if(argc >= 2) {
+		/* take message from unix file instead of standard input */
+		if((mf = fopen(argv[1], "r")) == NULL) {
+			fprintf(stderr,ediag("Cannot open %s\n",
+					     "Не могу открыть %s\n"),argv[1]);
+			exit(1);
+		}
+	}
+	while((i = getc(mf)) != EOF) {
+		if (msize >= sizeof mesg) {
+			fprintf(stderr, ediag("Message too long\n",
+					      "Сликом длинное сообщение\n"));
+			exit(1);
+		}
+		mesg[msize++] = i;
+	}
+	fclose(mf);
+	sline = ttyslot(2); /* 'utmp' slot no. of sender */
+	fread((char *)utmp, sizeof(struct utmp), USERS, f);
+	fclose(f);
+	if (sline)
+		strncpy(who, utmp[sline].ut_name, sizeof(utmp[sline].ut_name));
+	else {
+		pwent = getpwuid(getuid());
+		if (pwent != (struct passwd *) NULL)
+			strncpy (who, pwent->pw_name, sizeof(utmp[sline].ut_name));
+	}
+	for(i=0; i<USERS; i++) {
+		p = &utmp[i];
+		if ((p->ut_name[0] == 0) ||
+		    (strncmp (p->ut_name, IGNOREUSER, sizeof(p->ut_name)) == 0))
+			continue;
+		sendmes(p->ut_line);
+	}
+	exit(0);
+}
+
+sendmes(tty)
+char *tty;
+{
+	register i;
+	char t[50], buf[BUFSIZ];
+	register char *cp;
+	register int c, ch;
+	FILE *f;
+
+	while ((i = fork()) == -1)
+		if (wait((int *)0) == -1) {
+			fprintf(stderr, ediag("Try again\n",
+					      "Попробуйте еще раз\n"));
+			return;
+		}
+	if(i)
+		return;
+	strcpy(t, "/dev/");
+	strcat(t, tty);
+
+	signal(SIGALRM, SIG_DFL);       /* blow away if open hangs */
+	alarm(10);
+
+	if((f = fopen(t, "w")) == NULL) {
+		fprintf(stderr,ediag("cannot open %s\n",
+				     "Не могу открыть %s\n"), t);
+		exit(1);
+	}
+	setbuf(f, buf);
+	{
+#               include <sgtty.h>
+		struct sgttyb tt;
+
+		gtty(fileno(f), &tt);
+		fprintf(f, (tt.sg_flags & CYRILL)?
+		    "\r\nСообщение оператора %s (%.*s) от %d:%02d ...\r\n\n":
+		    "\r\nBroadcast Message from %s (%.*s) at %d:%02d ...\r\n\n"
+			, who
+			, sizeof(utmp[sline].ut_line)
+			, utmp[sline].ut_line
+			, localclock -> tm_hour
+			, localclock -> tm_min
+		);
+	}
+	/* fwrite(mesg, msize, 1, f); */
+	for (cp = mesg, c = msize; c-- > 0; cp++) {
+		ch = *cp;
+		if (ch == '\n')
+			putc('\r', f);
+		putc(ch, f);
+	}
+
+	/*
+	 * Bitchin'.
+	 */
+
+	exit(0);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$" ;
+d8 4
+a11 1
+ * $Log$
+d19 1
+d21 2
+d75 5
+@

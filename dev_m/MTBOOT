@@ -1,0 +1,82 @@
+** = = = = = = = = = = = = ** 10.11.86 VERSION 48
+**  αβσομΰτξωκ ϊαηςυϊώιλ   **
+**    σ ναηξιτξοκ μεξτω    **
+** = = = = = = = = = = = = **
+GLOBAL (START=&0) (LOCATION=&0)
+. MOV  #MTBOOT,%7
+  EQUALS MTBUFF=0,ADLOAD=0
+  EQUALS NEWBAS=&7000                             %ξα 'νεςε' βομψϋε ξετ
+  REGISTERS NCOPY=%1,COUNT=%3,CHECK=%2
+
+  EQUALS IMISS=0,BLOCKS=4,COPIES=6                %στςυλτυςα λαταμοηα
+
+  EQUALS MTOFF=&1,MTREAD=&3,MTWRIT=&5             %λοναξδω υστςοκστχα
+  EQUALS MTMARK=&7,MTFORW=&9
+  EQUALS MTBACK=&B,MTLGAP=&D,MTREV=&F
+
+  EQUALS ADDR=0,LNREAD=&200                       %υπς. βμολ ναηξιτοζοξα
+  DATA   READ=MTBUFF.0-LNREAD.&6000+MTREAD
+  DATA REVIND=MTBUFF.0-LNREAD.&6000+MTREV
+
+  BYTES TSEAR=RN.LF,"CATALOGUE SEARCH",0
+  BYTES TLOAD=RN.LF,"PROGRAM LOAD",0
+  BYTES  TERR=RN.LF,"TAPE ERROR",0
+  BYTES TJUMP=RN.LF,"PROGRAM START",0
+  BYTES /
+
+
+LOCALS LBOOT
+
+PROGRAM MTBOOT()
+  RESET
+  SP='NEWBAS'
+  R4=&200                               %σδχιη ϊαηςυϊώιλα χ λοξεγ πανρτι
+  (WHILE R4(-2)>=                 % - ξετ DCYCLE σ ϋαηον
+    NEWBAS[R4]=@R4
+  )WHILE
+  PC=+'NEWBAS'
+  (WHILE
+    (WHILE
+      CALL MDPC 'TSEAR+NEWBAS'
+      (WHILE                            %ποισλ λαταμοηα
+         CALL MTHAN 'READ+NEWBAS'
+      )WHILE @'MTBUFF'<>"IM" OR @'MTBUFF+2'<>"SS"
+      READ='ADLOAD'                     %AδPEC ϊAηPυϊKι -> χ υπς. βμολ
+      NCOPY=@'MTBUFF+COPIES'            % ξ ο ν ε ς  λοπιι
+      CALL MDPC 'TLOAD+NEWBAS'
+      CHECK=0
+      COUNT=@'MTBUFF+BLOCKS'            %λομιώεστχο βμολοχ
+      (DCYCLE(COUNT) COUNT
+        CALL MTHAN 'READ+NEWBAS'
+        IF IS CARRY THEN CHECK=+1       %οϋιβλα !
+        READ=+'LNREAD'                  %ξα αδςεσ CμEδυΰύεηο βμOKα
+      )DCYCLE
+    )WHILE CHECK<>0 AND NCOPY<>0
+  WHILE CHECK<>0
+    CALL MDPC 'TERR+NEWBAS'             %χσε λοπιι βωμι σ οϋιβλανι
+    CALL MTHAN 'REVIND+NEWBAS'
+  )WHILE
+  CALL MDPC 'TJUMP+NEWBAS'
+  PC='ADLOAD'
+
+*== θαξδμεςα υστςοκστχ =====
+LOCALS LHANDL
+  EQUALS MTADDR=&F558
+PROGRAM MTHAN()
+  R5='MTADDR'
+  _R5=^R0 ; _R5=^R0 ; _R5=^R0
+  REPEAT WHILE @R5:>=0
+. CCL C
+  (IF @R5<0
+.    CST C
+  )IF
+  RETURN
+
+LOCALS LDP
+  EQUALS COIST=&FF70,COOST=&FF74
+PROGRAM MDPC()
+  (WHILE @R0:<>0
+    REPEAT WHILE @'COOST':>=0
+    @'COOST+2':=^R0
+  )WHILE
+  RETURN

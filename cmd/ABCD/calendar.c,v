@@ -1,0 +1,217 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     89.01.03.17.46.02;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.09.18.25.35;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.09.17.33.08;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.21.53;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@Если в начале номера месяца стояли незначащие нули, calendar их не просекал.
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: calendar.c,v 1.3 88/09/09 18:25:35 avg Exp $
+** $Log:        calendar.c,v $
+ * Revision 1.3  88/09/09  18:25:35  avg
+ * Сделано так, что повторяющиеся строки убираются.
+ *
+ * Revision 1.2  88/09/09  17:33:08  avg
+ * Сделана правка: теперь calendar понимает русские названия
+ * месяцев; кроме того используется sed а не egrep для поиска по файлу.
+ *
+ * Revision 1.1  88/05/03  20:21:53  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: calendar.c,v 1.3 88/09/09 18:25:35 avg Exp $";
+/* YESXSTR */
+# endif         lint
+
+/* /usr/lib/calendar produces an egrep -f file
+   that will select today's and tomorrow's
+   calendar entries, with special weekend provisions
+
+   used by calendar command
+*/
+#include <time.h>
+#include <stdio.h>
+#include <ediag.h>
+
+#define DAY (3600*24L)
+
+char *emonth[] = {
+	"[Jj]an",
+	"[Ff]eb",
+	"[Mm]ar",
+	"[Aa]pr",
+	"[Mm]ay",
+	"[Jj]un",
+	"[Jj]ul",
+	"[Aa]ug",
+	"[Ss]ep",
+	"[Oo]ct",
+	"[Nn]ov",
+	"[Dd]ec"
+};
+char *rmonth[] = {
+	"[Яя]нв",
+	"[Фф]ев",
+	"[Мм]ар",
+	"[Аа]пр",
+	"[Мм]ай",
+	"[Ии]юн",
+	"[Ии]юл",
+	"[Аа]вг",
+	"[Сс]ен",
+	"[Оо]кт",
+	"[Нн]оя",
+	"[Дд]ек"
+};
+struct tm *localtime();
+
+tprint(t)
+long t;
+{
+	int i;
+	struct tm *tm;
+
+	tm = localtime(&t);
+
+	for( i = 0 ; i < 14 ; i++ ) {
+		printf((i&1)? "s/^": "s/[ \t(,;]");
+		if(i&8)
+			printf("0*%d\\/", tm->tm_mon+1);
+		else
+			printf("%s%s*[ \t,.]*", ((i&4)?rmonth[tm->tm_mon]
+						       :emonth[tm->tm_mon]),
+						 ((i&4)?"[а-я]": "[a-z]"));
+
+		printf((i&2)? "0*%d$/&/\n": "0*%d[^0-9]/&/\n", tm->tm_mday);
+	}
+}
+
+main()
+{
+	long t;
+	time(&t);
+	tprint(t);
+	switch(localtime(&t)->tm_wday) {
+	case 5:
+		t += DAY;
+		tprint(t);
+	case 6:
+		t += DAY;
+		tprint(t);
+	default:
+		t += DAY;
+		tprint(t);
+	}
+	printf("tx\nd\n:x\n");
+}
+@
+
+
+1.3
+log
+@Сделано так, что повторяющиеся строки убираются.
+@
+text
+@d6 1
+a6 1
+** $Header: calendar.c,v 1.2 88/09/09 17:33:08 avg Exp $
+d8 3
+d22 1
+a22 1
+static char     Rcs_id[] = "$Header: calendar.c,v 1.2 88/09/09 17:33:08 avg Exp $";
+d79 1
+a79 1
+			printf("%d\\/", tm->tm_mon+1);
+@
+
+
+1.2
+log
+@Сделана правка: теперь calendar понимает русские названия
+месяцев; кроме того используется sed а не egrep для поиска по файлу.
+@
+text
+@d6 1
+a6 1
+** $Header: calendar.c,v 1.1 88/05/03 20:21:53 root Exp $
+d8 4
+d19 1
+a19 1
+static char     Rcs_id[] = "$Header: calendar.c,v 1.1 88/05/03 20:21:53 root Exp $";
+d74 1
+a74 1
+		printf((i&1)? "/^": "/[ \\t(,;]");
+d78 1
+a78 1
+			printf("%s%s*[ \\t,.]*", ((i&4)?rmonth[tm->tm_mon]
+d82 1
+a82 1
+		printf((i&2)? "0*%d$/p\n": "0*%d[^0-9]/p\n", tm->tm_mday);
+d102 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d57 1
+a57 1
+	"[Де]ек"
+d64 1
+d66 1
+d68 12
+a79 3
+	printf("(^|[ (,;])((%s[^ ]* *|%d/)0*%d)([^0123456789]|$)\n",
+		ediag(emonth[tm->tm_mon],rmonth[tm->tm_mon]),
+		tm->tm_mon + 1, tm->tm_mday);
+@

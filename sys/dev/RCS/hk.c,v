@@ -1,0 +1,1313 @@
+head     22.3;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз1:1.7.2 Архыз0:1.7.1;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.08.08;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.44.45;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.23.47;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.26.45;  author korotaev;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.01.18.23.38.52;  author dvolodin;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.02.23.19.00.55;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.01.05.19.05.37;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.01.05.18.46.19;  author alex;  state Stab;
+branches ;
+next     1.2;
+
+1.2
+date     86.10.29.03.15.37;  author alex;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.54.17;  author avg;  state Stab;
+branches 1.1.1.1;
+next     ;
+
+1.1.1.1
+date     87.01.05.18.48.31;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:        hk.c,v $
+ * Revision 22.2  89/04/27  13:44:45  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ *
+ * Revision 22.1  89/04/12  14:23:47  korotaev
+ * "param.h" ==> <sys/param.h>
+ *
+ * Revision 22.0  89/03/25  12:26:45  korotaev
+ * Отсюда начинается версия 2.2
+ *
+ * Revision 1.9  89/01/18  23:38:52  dvolodin
+ * К чертовой маме переделана схема таймаута -
+ * таймаут теперь выставляется ТОЛЬКО на seek.
+ * Может быть менее надежно, но по наблюдениям зависания
+ * происходят именно из-за пропадания att после выполнения seek.
+ *
+ * Revision 1.5  87/02/23  19:00:55  alex
+ * Исправлен режим статистики - теперь она ведется по всем
+ * дискам вместе, а не по отдельности, так что NDISK может
+ * быть >=1, если HK_DKN равно 0.
+ *
+ * Revision 1.4  87/01/05  19:05:37  alex
+ * Вставлена правка, сделанная С.Кашириным.
+ *
+ * Revision 1.3  87/01/05  18:46:19  alex
+ * Введен макропараметр "HKSEEK" для включения параллельного
+ * подвода на нескольких дисках
+ *
+ * Revision 1.2  86/10/29  03:15:37  alex
+ * Добавлена еще одна проверка при hk not ready.
+ *
+ * Revision 1.1  86/04/19  17:54:17  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * RK611/RK0[67] disk driver == СМ 5408
+ *
+ * This driver does overlapped seeks, ECC, and bad block handling.
+ *
+ */
+
+#include "h/hk.h"
+#if     NHK > 0
+#include <sys/param.h>
+#include <sys/systm.h>
+#include "../include/buf.h"
+#include <sys/conf.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include "../include/uba.h"
+#ifndef INTRLVE
+#include "../include/inline.h"
+#endif
+#include "../include/hkreg.h"
+#include "../include/dkbad.h"
+
+#ifndef HK_SPL
+#define INTR_ARGS(ps) /* */
+#define SPLL(ps) /* */
+#define SPLM     /* */
+#else
+#ifdef  MENLO_KOV
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_ov, i_nps, i_r0, i_pc, ps
+#else
+#define INTR_ARGS(ps)  ,i_sp, i_r1, i_nps, i_r0, i_pc, ps
+#endif
+#include "../include/psw.h"
+#define SPLL(ps) splx(((ps)&PS_IPL)?(ps):PS_BR1)
+#define SPLM _spl5()
+#endif
+
+#define NHK7CYL 815
+#define NHK6CYL 411
+#define HK_NSECT        22
+#define HK_NTRAC        3
+#define HK_NSPC         (HK_NTRAC*HK_NSECT)
+
+extern  struct size hk_sizes[];
+extern  struct hkdevice *HKADDR;
+
+int     hkpip;          /* DEBUG */
+int     hknosval;       /* DEBUG */
+#ifdef HKDEBUG
+int     hkdebug;
+#endif
+
+int     hk_offset[] =
+{
+	HKAS_P400,      HKAS_M400,      HKAS_P400,      HKAS_M400,
+	HKAS_P800,      HKAS_M800,      HKAS_P800,      HKAS_M800,
+	HKAS_P1200,     HKAS_M1200,     HKAS_P1200,     HKAS_M1200,
+	0,              0,              0,              0,
+};
+
+int     hk_type[NHK];
+int     hk_cyl[NHK];
+char    hk_mntflg[NHK];
+char    hk_pack[NHK];
+
+struct hk_softc {
+	int     sc_softas;
+	int     sc_recal;
+} hk;
+
+struct  buf     hktab;
+struct  buf     hkutab[NHK];
+#ifdef  UCB_DBUFS
+struct  buf     rhkbuf[NHK];
+#else
+struct  buf     rhkbuf;
+#endif
+#ifdef BADSECT
+struct  dkbad   hkbad[NHK];
+struct  buf     bhkbuf[NHK];
+#endif
+
+/* #define hkwait(hkaddr)          { _spl3();while ((hkaddr->hkcs1 & HK_CRDY) == 0);_spl5();}   */
+#define hkwait(hkaddr)          while ((hkaddr->hkcs1 & HK_CRDY) == 0)
+#define hkncyl(unit)            (hk_type[unit] ? NHK7CYL : NHK6CYL)
+
+#ifdef  INTRLVE
+extern  daddr_t dkblock();
+#endif
+
+#ifdef HK_TIMOUT
+#define HKTIMEOUT 3
+char hktimecnt[NHK] ;
+char hktio[NHK] ;       /* Таймаут по I/O */
+
+void hktimeout( arg )
+{
+	register unit, tout = 0 ;
+
+	timeout( hktimeout, 0, hz );
+	for( unit = 0 ; unit < NHK ; unit++ ) {
+		if( hktimecnt[unit] && ++hktimecnt[unit] > HKTIMEOUT ) {
+			static char *diag[] = { "seek", "i/o", "recal" };
+
+			printf( "hktimeout (unit %d, %s)\n", unit, diag[hktio[unit]] );
+			hktimecnt[unit] = 0 ;
+			if( hktio[unit] == 0 ) {
+				tout++ ;
+				hkutab[unit].b_active = 0 ;
+				hk.sc_softas |= 1<<unit ;
+			} else if( hktab.b_active ) {
+				hktab.b_active = 0;
+				/* Repeat last I/O */
+				hkustart(unit);
+				hkstart();
+			}
+		}
+	}
+	if( tout && hktab.b_active == 0 ) {
+		HKADDR->hkcs1 = HK_IE | HK_GO;
+	}
+}
+#endif /* HK_TIMOUT */
+
+void
+hkroot()
+{
+	hkattach(HKADDR, 0);
+}
+
+hkattach(addr, unit)
+struct hkdevice *addr;
+{
+	static hktimeact = 0 ;
+
+	if (unit == 0) {
+		HKADDR = addr;
+#ifdef HK_TIMOUT
+		if( !hktimeact ) {
+			timeout( hktimeout, 0, hz );
+			hktimeact++ ;
+		}
+#endif /* HK_TIMOUT */
+		return(1);
+	}
+	return(0);
+}
+
+char hkCS2_BITS[] = HKCS2_BITS;
+char hkDS_BITS[]  = HKDS_BITS;
+char hkER_BITS[]  = HKER_BITS;
+
+static hkdsel(unit)
+register unit;
+{
+	register struct hkdevice *hkaddr = HKADDR;
+
+	hk_type[unit] = 0;
+	hkaddr->hkcs1 = HK_CCLR;
+	hkaddr->hkcs2 = unit;
+	hkaddr->hkcs1 = HK_DCLR | HK_GO;
+	hkwait(hkaddr);
+	if((hkaddr->hkcs2&HKCS2_NED) || (hkaddr->hkds&HKDS_SVAL) == 0) {
+		hkaddr->hkcs1 = HK_CCLR;
+		hkwait(hkaddr);
+		return(-1);
+	}
+	if((hkaddr->hkcs1&HK_CERR) && (hkaddr->hker&HKER_DTYE)) {
+		hk_type[unit] = HK_CDT;
+		hkaddr->hkcs1 = HK_CCLR;
+		hkwait(hkaddr);
+	}
+
+	hk_mntflg[unit] = 1;
+	hk_cyl[unit] = -1;
+	return(0);
+}
+
+hkstrategy(bp)
+register struct buf *bp;
+{
+	register struct buf *dp;
+	register unit;
+	int s;
+	long bn;
+	long sz;
+
+	unit = minor(bp->b_dev) & 077;
+	sz = (bp->b_bcount + 511) >> 9;
+	if ((unit >= (NHK << 3)) || (HKADDR == (struct hkdevice *) NULL)) {
+		bp->b_error = ENXIO;
+		goto bad;
+	}
+	if (bp->b_blkno < 0 || (bn = dkblock(bp))+sz > hk_sizes[unit & 07].nblocks) {
+		bp->b_error = EINVAL;
+		goto bad;
+	}
+	bp->b_cylin = bn / HK_NSPC + hk_sizes[unit & 07].cyloff;
+	unit = dkunit(bp);
+	if (hk_mntflg[unit] == 0) {
+		/* SHOULD BE DONE AT BOOT TIME */
+		s = spl5();
+		if (hkdsel(unit) < 0)
+			{ splx(s);goto bad;}
+		splx(s);
+	}
+#ifdef UNIBUS_MAP
+	mapalloc(bp);
+#endif
+	dp = &hkutab[unit];
+	s = spl5();
+	disksort(dp, bp);
+	if (dp->b_active == 0) {
+		hkustart(unit);
+		if (hktab.b_active == 0)
+			hkstart();
+	}
+	splx(s);
+	return;
+bad:
+	bp->b_flags |= B_ERROR;
+	iodone(bp);
+}
+
+static hkustart(unit)
+	int unit;
+{
+	register struct hkdevice *hkaddr = HKADDR;
+	register struct buf *bp, *dp;
+	int didie = 0;
+
+	if (unit >= NHK || hk_mntflg[unit] == 0)
+		return(0);
+
+#ifdef HK_TIMOUT
+	hktimecnt[unit] = 0 ;
+#endif /* HK_TIMOUT */
+#ifdef  HK_DKN
+	dk_busy &= ~(1<<(HK_DKN));
+#endif
+	if (hktab.b_active) {
+		hk.sc_softas |= (1 << unit);
+		return(0);
+	}
+
+	hkaddr->hkcs1 = HK_CCLR;
+	hkaddr->hkcs2 = unit;
+	hkaddr->hkcs1 = hk_type[unit] | HK_DCLR | HK_GO;
+	hkwait(hkaddr);
+
+	dp = &hkutab[unit];
+	if ((bp = dp->b_actf) == NULL)
+		return(0);
+	if (dp->b_active)
+		goto done;
+	dp->b_active = 1;
+	if ((hkaddr->hkds & HKDS_VV) == 0 || hk_pack[unit] == 0) {
+		/* SHOULD WARN SYSTEM THAT THIS HAPPENED */
+#ifdef BADSECT
+		struct buf *bbp = &bhkbuf[unit];
+#endif
+
+		hkaddr->hkcs1 = hk_type[unit]|HK_PACK|HK_GO;
+		hk_pack[unit]++;
+#ifdef BADSECT
+		bbp->b_flags = B_READ|B_BUSY|B_PHYS;
+		bbp->b_dev = bp->b_dev;
+		bbp->b_bcount = sizeof(struct dkbad);
+		bbp->b_un.b_addr = (caddr_t)&hkbad[unit];
+		bbp->b_blkno = (long)hkncyl(unit)*HK_NSPC - HK_NSECT;
+		bbp->b_cylin = hkncyl(unit) - 1;
+#ifdef UNIBUS_MAP
+		mapalloc(bbp);
+#endif
+		dp->b_actf = bbp;
+		bbp->av_forw = bp;
+		bp = bbp;
+#endif
+		hkwait(hkaddr);
+	}
+#ifdef  HKSEEK
+	if ((hkaddr->hkds & HKDS_DREADY) != HKDS_DREADY)
+		goto done;
+	if (bp->b_cylin == hk_cyl[unit])
+		goto done;
+	hkaddr->hkcyl = bp->b_cylin;
+	hk_cyl[unit] = bp->b_cylin;
+	hkaddr->hkcs1 = hk_type[unit] | HK_IE | HK_SEEK | HK_GO;
+#ifdef HK_TIMOUT
+	hktimecnt[unit] = 1 ;
+	hktio[unit] = 0;
+#endif /* HK_TIMOUT */
+	didie = 1;
+#ifdef  HK_DKN
+	dk_busy |= 1 << HK_DKN;
+	dk_numb[HK_DKN] += 1;
+#endif /* HK_DKN */
+	return (didie);
+#endif /* HKSEEK */
+
+done:
+	if (dp->b_active != 2) {
+		dp->b_forw = NULL;
+		if (hktab.b_actf == NULL)
+			hktab.b_actf = dp;
+		else
+			hktab.b_actl->b_forw = dp;
+		hktab.b_actl = dp;
+		dp->b_active = 2;
+	}
+	return (didie);
+}
+
+static hkstart()
+{
+	register struct buf *bp, *dp;
+	register struct hkdevice *hkaddr = HKADDR;
+	daddr_t bn;
+	int sn, tn, cmd, unit;
+
+loop:
+	if ((dp = hktab.b_actf) == NULL)
+		return(0);
+	if ((bp = dp->b_actf) == NULL) {
+		hktab.b_actf = dp->b_forw;
+		goto loop;
+	}
+	hktab.b_active++;
+	unit = dkunit(bp);
+
+#ifdef HK_TIMOUT
+	hktimecnt[unit] = 0 ;
+#endif /* HK_TIMOUT */
+	bn = dkblock(bp);
+
+	sn = bn % HK_NSPC;
+	tn = sn / HK_NSECT;
+	sn %= HK_NSECT;
+retry:
+	hkaddr->hkcs1 = HK_CCLR;
+	hkaddr->hkcs2 = unit;
+	hkaddr->hkcs1 = hk_type[unit] | HK_DCLR | HK_GO;
+	hkwait(hkaddr);
+
+	if ((hkaddr->hkds & HKDS_SVAL) == 0) {
+		hknosval++;
+		goto nosval;
+	}
+	if (hkaddr->hkds & HKDS_PIP) {
+		hkpip++;
+		goto retry;
+	}
+	if ((hkaddr->hkds&HKDS_DREADY) != HKDS_DREADY) {
+		printf("hk%d: not ready", unit);
+		hkaddr->hkcs1 = HK_CCLR;
+		hkaddr->hkcs2 = unit;
+		hkaddr->hkcs1 = hk_type[unit] | HK_DCLR | HK_GO;
+		hkwait(hkaddr);
+		hkaddr->hkcs1 = hk_type[unit] | HK_PACK | HK_GO;
+		hkwait(hkaddr);
+		if ((hkaddr->hkds&HKDS_DREADY) != HKDS_DREADY) {
+			printf("\n");
+			hkaddr->hkcs1 = HK_CCLR;
+			hktab.b_active = 0;
+			hktab.b_errcnt = 0;
+			dp->b_actf = bp->av_forw;
+			dp->b_active = 0;
+			bp->b_flags |= B_ERROR;
+			iodone(bp);
+			goto loop;
+		}
+		else
+			printf(" (came back!)\n");
+	}
+nosval:
+	hkaddr->hkcyl = bp->b_cylin;
+	hk_cyl[unit] = bp->b_cylin;
+	hkaddr->hkda = (tn << 8) + sn;
+	hkaddr->hkwc = -(bp->b_bcount >> 1);
+	hkaddr->hkba = bp->b_un.b_addr;
+	cmd = hk_type[unit] | ((bp->b_xmem & 3) << 8) | HK_IE | HK_GO;
+	if (bp->b_flags & B_READ)
+		cmd |= HK_READ;
+	else
+		cmd |= HK_WRITE;
+	hkaddr->hkcs1 = cmd;
+#ifdef HK_TIMOUT
+	hktimecnt[unit] = 1 ;
+	hktio[unit] = 1;
+#endif /* HK_TIMOUT */
+#ifdef  HK_DKN
+	dk_busy |= 1 << (HK_DKN);
+	dk_numb[HK_DKN] += 1;
+	dk_wds[HK_DKN] += bp->b_bcount >> 6;
+#endif
+	return(1);
+}
+
+hkintr(ccc INTR_ARGS(ps))
+{
+	register struct hkdevice *hkaddr = HKADDR;
+	register struct buf *bp, *dp;
+	int unit;
+	int as = (hkaddr->hkatt >> 8) | hk.sc_softas;
+	int needie = 1;
+
+	hk.sc_softas = 0;
+	if (hktab.b_active) {
+		dp = hktab.b_actf;
+		bp = dp->b_actf;
+		unit = dkunit(bp);
+#ifdef HK_TIMOUT
+		if( hktio[unit] )
+			hktimecnt[unit] = 0 ;
+#endif /* HK_TIMOUT */
+#ifdef  HK_DKN
+		dk_busy &= ~(1 << (HK_DKN));
+#endif
+#ifdef BADSECT
+		if (bp->b_flags&B_BAD)
+			if (hkecc(bp, CONT))
+				return;
+#endif
+		if (hkaddr->hkcs1 & HK_CERR) {
+			int recal;
+			u_short ds = hkaddr->hkds;
+			u_short cs2 = hkaddr->hkcs2;
+			u_short er = hkaddr->hker;
+#ifdef HKDEBUG
+			if (hkdebug) {
+				printf("cs2=%b ds=%b er=%b\n",
+				    cs2, hkCS2_BITS, ds,
+				    hkDS_BITS, er, hkER_BITS);
+			}
+#endif
+			if (er & HKER_WLE) {
+				printf("hk%d: write locked\n", unit);
+				bp->b_flags |= B_ERROR;
+			} else if (++hktab.b_errcnt > 28 ||
+			    ds&HKDS_HARD || er&HKER_HARD || cs2&HKCS2_HARD) {
+hard:
+#ifdef  UCB_DEVERR
+				harderr(bp, "hk");
+				printf("cs2=%b ds=%b er=%b\n",
+				    cs2, hkCS2_BITS, ds,
+				    hkDS_BITS, er, hkER_BITS);
+#else
+				deverror(bp, cs2, er);
+#endif
+				bp->b_flags |= B_ERROR;
+				hk.sc_recal = 0;
+			} else if (er & HKER_BSE) {
+#ifdef BADSECT
+				if (hkecc(bp, BSE))
+					return;
+				else
+#endif
+					goto hard;
+			} else
+				hktab.b_active = 0;
+			if (cs2&HKCS2_MDS) {
+				hkaddr->hkcs2 = HKCS2_SCLR;
+				goto retry;
+			}
+			recal = 0;
+			if ((ds&HKDS_DROT) ||
+			    (er&(HKER_OPI|HKER_SKI|HKER_UNS)) ||
+			    (hktab.b_errcnt&07) == 4)
+				recal = 1;
+#ifdef  UCB_ECC
+			if ((er & (HKER_DCK|HKER_ECH)) == HKER_DCK)
+				if (hkecc(bp, ECC))
+					return;
+#endif
+			hkaddr->hkcs1 = HK_CCLR;
+			SPLL(ps);
+			hkaddr->hkcs2 = unit;
+			hkaddr->hkcs1 = hk_type[unit]|HK_DCLR|HK_GO;
+			hkwait(hkaddr);
+			SPLM;
+			if (recal && hktab.b_active == 0) {
+				hkaddr->hkcs1 = hk_type[unit]|HK_IE|HK_RECAL|HK_GO;
+				hk_cyl[unit] = -1;
+				hk.sc_recal = 0;
+				goto nextrecal;
+			}
+		}
+retry:
+		switch (hk.sc_recal) {
+
+		case 1:
+			hkaddr->hkcyl = bp->b_cylin;
+			hk_cyl[unit] = bp->b_cylin;
+			hkaddr->hkcs1 = hk_type[unit]|HK_IE|HK_SEEK|HK_GO;
+			goto nextrecal;
+		case 2:
+			if (hktab.b_errcnt < 16 ||
+			    (bp->b_flags&B_READ) == 0)
+				goto donerecal;
+			hkaddr->hkatt = hk_offset[hktab.b_errcnt & 017];
+			hkaddr->hkcs1 = hk_type[unit]|HK_IE|HK_OFFSET|HK_GO;
+			/* fall into ... */
+		nextrecal:
+			hk.sc_recal++;
+			hkwait(hkaddr);
+			hktab.b_active = 1;
+#ifdef HK_TIMOUT
+			hktimecnt[unit] = 1 ;
+			hktio[unit] = 2;
+#endif /* HK_TIMOUT */
+			return;
+		donerecal:
+		case 3:
+			hk.sc_recal = 0;
+			hktab.b_active = 0;
+			break;
+		}
+		if (hktab.b_active) {
+			hktab.b_active = 0;
+#ifdef HK_SPL
+			hkaddr->hkcs1 = HK_CCLR;
+			SPLL(ps);
+#endif
+			hktab.b_errcnt = 0;
+			hktab.b_actf = dp->b_forw;
+			dp->b_active = 0;
+			dp->b_errcnt = 0;
+			dp->b_actf = bp->av_forw;
+			bp->b_resid = -(hkaddr->hkwc << 1);
+			iodone(bp);
+			SPLM;
+			if (dp->b_actf)
+				if (hkustart(unit))
+					needie = 0;
+		}
+		as &= ~(1<<unit);
+	}
+	for (unit = 0; as; as >>= 1, unit++)
+		if (as & 1) {
+			if (unit < NHK && hk_mntflg[unit]) {
+				if (hkustart(unit))
+					needie = 0;
+			} else {
+				hkaddr->hkcs1 = HK_CCLR;
+				SPLL(ps);
+				hkaddr->hkcs2 = unit;
+				hkaddr->hkcs1 = HK_DCLR | HK_GO;
+				hkwait(hkaddr);
+				hkaddr->hkcs1 = HK_CCLR;
+				SPLM;
+			}
+		}
+	if (hktab.b_actf && hktab.b_active == 0)
+		if (hkstart())
+			needie = 0;
+	if (needie)
+		hkaddr->hkcs1 = HK_IE;
+}
+
+hkread(dev)
+dev_t   dev;
+{
+#ifdef  UCB_DBUFS
+	register int unit = (minor(dev) >> 3) & 07;
+
+	if (unit >= NHK)
+		u.u_error = ENXIO;
+	else
+		physio(hkstrategy, &rhkbuf[unit], dev, B_READ);
+#else
+	physio(hkstrategy, &rhkbuf, dev, B_READ);
+#endif
+}
+
+hkwrite(dev)
+dev_t   dev;
+{
+#ifdef  UCB_DBUFS
+	register int unit = (minor(dev) >> 3) & 07;
+
+	if (unit >= NHK)
+		u.u_error = ENXIO;
+	else
+		physio(hkstrategy, &rhkbuf[unit], dev, B_WRITE);
+#else
+	physio(hkstrategy, &rhkbuf, dev, B_WRITE);
+#endif
+}
+
+#ifdef  HK_DUMP
+/*
+ *  Dump routine for RK06/07
+ *  Dumps from dumplo to end of memory/end of disk section for minor(dev).
+ *  It uses the UNIBUS map to dump all of memory if there is a UNIBUS map.
+ */
+#ifdef  UNIBUS_MAP
+#define DBSIZE  (UBPAGE/PGSIZE)         /* unit of transfer, one UBPAGE */
+#else
+#define DBSIZE  16                      /* unit of transfer, same number */
+#endif
+
+hkdump(dev)
+	dev_t dev;
+{
+	register struct hkdevice *hkaddr = HKADDR;
+	daddr_t	bn, dumpsize;
+	long paddr;
+	register count;
+#ifdef	UNIBUS_MAP
+	extern bool_t ubmap;
+	register struct ubmap *ubp;
+#endif
+	int com, cn, tn, sn, unit;
+
+	unit = minor(dev) >> 3;
+	if ((bdevsw[major(dev)].d_strategy != hkstrategy)	/* paranoia */
+	    || unit >= NHK)
+		return(EINVAL);
+	dumpsize = hk_sizes[minor(dev)&07].nblocks;
+	if ((dumplo < 0) || (dumplo >= dumpsize))
+		return(EINVAL);
+	dumpsize -= dumplo;
+
+	hkaddr->hkcs1 = HK_CCLR;
+	hkwait(hkaddr);
+	hkaddr->hkcs2 = unit;
+	hkaddr->hkcs1 = hk_type[unit] | HK_DCLR | HK_GO;
+	hkwait(hkaddr);
+	if ((hkaddr->hkds & HKDS_VV) == 0) {
+		hkaddr->hkcs1 = hk_type[unit]|HK_IE|HK_PACK|HK_GO;
+		hkwait(hkaddr);
+	}
+#ifdef	UNIBUS_MAP
+	ubp = &UBMAP[0];
+#endif
+	for (paddr = 0L; dumpsize > 0; dumpsize -= count) {
+		count = dumpsize>DBSIZE? DBSIZE: dumpsize;
+		bn = dumplo + (paddr >> PGSHIFT);
+		cn = (bn/HK_NSPC) + hk_sizes[minor(dev)&07].cyloff;
+		sn = bn%HK_NSPC;
+		tn = sn/HK_NSECT;
+		sn = sn%HK_NSECT;
+		hkaddr->hkcyl = cn;
+		hkaddr->hkda = (tn << 8) | sn;
+		hkaddr->hkwc = -(count << (PGSHIFT-1));
+		com = hk_type[unit]|HK_GO|HK_WRITE;
+#ifdef	UNIBUS_MAP
+		/*
+		 *  If UNIBUS_MAP exists, use the map.
+		 */
+		if (ubmap) {
+			ubp->ub_lo = loint(paddr);
+			ubp->ub_hi = hiint(paddr);
+			hkaddr->hkba = 0;
+		} else {
+#endif
+			/* non UNIBUS map */
+			hkaddr->hkba = loint(paddr);
+			com |= ((paddr >> 8) & (03 << 8));
+#ifdef	UNIBUS_MAP
+		}
+#endif
+		hkaddr->hkcs2 = unit;
+		hkaddr->hkcs1 = com;
+		hkwait(hkaddr);
+		if (hkaddr->hkcs1 & HK_CERR) {
+			if (hkaddr->hkcs2 & HKCS2_NEM)
+				return(0);	/* made it to end of memory */
+			return(EIO);
+		}
+		paddr += (DBSIZE << PGSHIFT);
+	}
+	return(0);		/* filled disk minor dev */
+}
+#endif /* HK_DUMP */
+
+#ifdef	UCB_ECC
+#define	exadr(x,y)	(((long)(x) << 16) | (unsigned)(y))
+
+/*
+ * Correct an ECC error and restart the i/o to complete
+ * the transfer if necessary.  This is quite complicated because
+ * the transfer may be going to an odd memory address base
+ * and/or across a page boundary.
+ */
+static hkecc(bp, flag)
+register struct	buf *bp;
+{
+	register struct	hkdevice *hkaddr = HKADDR;
+	ubadr_t	addr;
+	int npx, wc;
+	int cn, tn, sn;
+	daddr_t	bn;
+	unsigned ndone;
+	int cmd;
+	int unit;
+
+#ifdef BADSECT
+	if (flag == CONT) {
+		npx = bp->b_error;
+		ndone = npx * PGSIZE;
+		wc = ((int)(ndone - bp->b_bcount)) / NBPW;
+	} else
+#endif
+		{
+		wc = hkaddr->hkwc;
+		ndone = (wc * NBPW) + bp->b_bcount;
+		ndone &= ~0777; /* вставил С. Каширин */
+		npx = ndone / PGSIZE;
+		}
+	unit = dkunit(bp);
+	bn = dkblock(bp);
+	cn = bp->b_cylin - bn / HK_NSPC;
+	bn += npx;
+	cn += bn / HK_NSPC;
+	sn = bn % HK_NSPC;
+	tn = sn / HK_NSECT;
+	sn %= HK_NSECT;
+	hktab.b_active++;
+
+	switch (flag) {
+	case ECC:
+		{
+		register byte;
+		int bit;
+		long mask;
+		ubadr_t bb;
+		unsigned o;
+#ifdef	UNIBUS_MAP
+		struct ubmap *ubp;
+#endif
+		printf("hk%d%c: soft ecc sn %D\n",
+			unit, 'a' + (minor(bp->b_dev) & 07),
+			bp->b_blkno + npx - 1);
+
+		mask = hkaddr->hkecpt;
+		byte = hkaddr->hkecps - 1;
+		bit = byte & 07;
+		byte >>= 3;
+		mask <<= bit;
+		o = (ndone - PGSIZE) + byte;
+		bb = exadr(bp->b_xmem, bp->b_un.b_addr);
+		bb += o;
+#ifdef	UNIBUS_MAP
+		if (bp->b_flags & (B_MAP|B_UBAREMAP))	{
+			ubp = UBMAP + ((bb >> 13) & 037);
+			bb = exadr(ubp->ub_hi, ubp->ub_lo) + (bb & 017777);
+		}
+#endif
+		/*
+		 * Correct until mask is zero or until end of
+		 * sector or transfer, whichever comes first.
+		 */
+		while (byte < PGSIZE && o < bp->b_bcount && mask != 0) {
+			putmemc(bb, getmemc(bb) ^ (int)mask);
+			byte++;
+			o++;
+			bb++;
+			mask >>= 8;
+		}
+		if (wc == 0)
+			return(0);
+		break;
+	}
+
+#ifdef BADSECT
+	case BSE:
+#ifdef HKDEBUG
+		if (hkdebug)
+			printf("hkecc, BSE: bn %D cn %d tn %d sn %d\n",
+				bn, cn, tn, sn);
+#endif
+		if ((bn = isbad(&hkbad[unit], cn, tn, sn)) < 0)
+			return(0);
+		bp->b_flags |= B_BAD;
+		bp->b_error = npx + 1;
+		bn = (long)hkncyl(unit)*HK_NSPC - HK_NSECT - 1 - bn;
+		cn = bn/HK_NSPC;
+		sn = bn%HK_NSPC;
+		tn = sn/HK_NSECT;
+		sn %= HK_NSECT;
+#ifdef HKDEBUG
+		if (hkdebug)
+			printf("revector to cn %d tn %d sn %d\n", cn, tn, sn);
+#endif
+		wc = -(512 / NBPW);
+		break;
+
+	case CONT:
+		bp->b_flags &= ~B_BAD;
+		if (wc == 0)
+			return(0);
+#ifdef HKDEBUG
+		if (hkdebug)
+			printf("hkecc, CONT: bn %D cn %d tn %d sn %d\n",
+				bn, cn, tn, sn);
+#endif
+		break;
+#endif /* BADSECT */
+	}
+	/*
+	 * Have to continue the transfer.  Clear the drive
+	 * and compute the position where the transfer is to continue.
+	 * We have completed npx sectors of the transfer already.
+	 */
+	hkaddr->hkcs1 = HK_CCLR;
+	hkwait(hkaddr);
+	hkaddr->hkcs2 = unit;
+	hkaddr->hkcs1 = hk_type[unit] | HK_DCLR | HK_GO;
+	hkwait(hkaddr);
+
+	addr = exadr(bp->b_xmem, bp->b_un.b_addr);
+	addr += ndone;
+	hkaddr->hkcyl = cn;
+	hkaddr->hkda = (tn << 8) + sn;
+	hkaddr->hkwc = wc;
+	hkaddr->hkba = (int)addr;
+	cmd = hk_type[unit] | ((hiint(addr) & 3) << 8) | HK_IE | HK_GO;
+	if (bp->b_flags & B_READ)
+		cmd |= HK_READ;
+	else
+		cmd |= HK_WRITE;
+	hkaddr->hkcs1 = cmd;
+	hktab.b_errcnt = 0;	/* error has been corrected */
+	return (1);
+}
+#endif /* UCB_ECC */
+#endif /* NHK > 0 */
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d2 4
+a5 1
+ * $Log:	hk.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d17 1
+a17 1
+ * 
+d22 1
+a22 1
+ * 
+d25 1
+a25 1
+ * 
+d29 1
+a29 1
+ * 
+d32 1
+a32 1
+ * 
+d35 1
+a35 1
+ * 
+d49 1
+a49 1
+#include <sys/buf.h>
+d53 1
+a53 1
+#include <sys/uba.h>
+d55 1
+a55 1
+#include <sys/inline.h>
+d57 2
+a58 2
+#include <sys/hkreg.h>
+#include <sys/dkbad.h>
+d65 1
+a65 1
+#ifdef	MENLO_KOV
+d70 1
+a70 1
+#include <sys/psw.h>
+d75 5
+a79 5
+#define	NHK7CYL	815
+#define	NHK6CYL	411
+#define	HK_NSECT	22
+#define	HK_NTRAC	3
+#define	HK_NSPC		(HK_NTRAC*HK_NSECT)
+d81 2
+a82 2
+extern	struct size hk_sizes[];
+extern	struct hkdevice *HKADDR;
+d84 2
+a85 2
+int	hkpip;		/* DEBUG */
+int	hknosval;	/* DEBUG */
+d87 1
+a87 1
+int	hkdebug;
+d90 1
+a90 1
+int	hk_offset[] =
+d92 4
+a95 4
+	HKAS_P400,	HKAS_M400,	HKAS_P400,	HKAS_M400,
+	HKAS_P800,	HKAS_M800,	HKAS_P800,	HKAS_M800,
+	HKAS_P1200,	HKAS_M1200,	HKAS_P1200,	HKAS_M1200,
+	0,		0,		0,		0,
+d98 4
+a101 4
+int	hk_type[NHK];
+int	hk_cyl[NHK];
+char	hk_mntflg[NHK];
+char	hk_pack[NHK];
+d104 2
+a105 2
+	int	sc_softas;
+	int	sc_recal;
+d108 4
+a111 4
+struct	buf	hktab;
+struct	buf	hkutab[NHK];
+#ifdef	UCB_DBUFS
+struct	buf	rhkbuf[NHK];
+d113 1
+a113 1
+struct	buf	rhkbuf;
+d116 2
+a117 2
+struct	dkbad	hkbad[NHK];
+struct	buf	bhkbuf[NHK];
+d122 1
+a122 1
+#define	hkncyl(unit)		(hk_type[unit] ? NHK7CYL : NHK6CYL)
+d124 2
+a125 2
+#ifdef	INTRLVE
+extern	daddr_t	dkblock();
+d131 1
+d140 3
+a142 2
+			printf( "hktimeout (unit %d)\n", unit );
+			tout++ ;
+d144 10
+a153 2
+			hkutab[unit].b_active = 0 ;
+			hk.sc_softas |= 1<<unit ;
+d275 1
+a275 1
+#ifdef	HK_DKN
+d328 1
+d331 1
+a331 1
+#ifdef	HK_DKN
+d424 5
+a428 1
+#ifdef	HK_DKN
+d449 5
+a453 1
+#ifdef	HK_DKN
+d479 1
+a479 1
+#ifdef	UCB_DEVERR
+d507 1
+a507 1
+#ifdef	UCB_ECC
+d544 4
+d598 1
+a598 1
+dev_t	dev;
+d600 1
+a600 1
+#ifdef	UCB_DBUFS
+d613 1
+a613 1
+dev_t	dev;
+d615 1
+a615 1
+#ifdef	UCB_DBUFS
+d627 1
+a627 1
+#ifdef	HK_DUMP
+d633 2
+a634 2
+#ifdef	UNIBUS_MAP
+#define	DBSIZE	(UBPAGE/PGSIZE)		/* unit of transfer, one UBPAGE */
+d636 1
+a636 1
+#define DBSIZE	16			/* unit of transfer, same number */
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d42 1
+a42 1
+#include "hk.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d3 3
+d41 1
+a41 1
+#include "param.h"
+d133 1
+a133 1
+			printf( "hktimeout at unit %d.\n", unit );
+d740 1
+a740 1
+		printf("hk%d%c:  soft ecc sn %D\n",
+@
+
+
+1.9
+log
+@К чертовой маме переделана схема таймаута -
+таймаут теперь выставляется ТОЛЬКО на seek.
+Может быть менее надежно, но по наблюдениям зависания
+происходят именно из-за пропадания att после выполнения seek.
+@
+text
+@d3 6
+@
+
+
+1.5
+log
+@Исправлен режим статистики - теперь она ведется по всем
+дискам вместе, а не по отдельности, так что NDISK может
+быть >=1, если HK_DKN равно 0.
+@
+text
+@d3 5
+d56 1
+a56 1
+#define SPLL(ps) splx(((ps&PS_IPL)>>5)|01)
+d113 24
+d146 2
+d150 6
+d161 4
+d246 4
+d301 3
+d306 1
+a306 2
+	unit += HK_DKN;
+	dk_busy |= 1 << unit;
+d308 1
+a308 1
+#endif	HK_DKN
+d310 1
+a310 1
+#endif  HKSEEK
+d341 4
+d435 2
+a436 2
+				    cs2, HKCS2_BITS, ds, 
+				    HKDS_BITS, er, HKER_BITS);
+d448 2
+a449 2
+				    cs2, HKCS2_BITS, ds, 
+				    HKDS_BITS, er, HKER_BITS);
+d470 1
+a470 1
+			    (er&(/* HKER_OPI| */ HKER_SKI|HKER_UNS)) ||
+d674 1
+a674 1
+#endif	HK_DUMP
+d798 1
+a798 1
+#endif	BADSECT
+d826 2
+a827 2
+#endif	UCB_ECC
+#endif	NHK > 0
+@
+
+
+1.4
+log
+@Вставлена правка, сделанная С.Кашириным.
+@
+text
+@d3 3
+d40 15
+d206 1
+a206 1
+	dk_busy &= ~(1<<(unit + HK_DKN));
+d260 1
+a260 1
+	dk_numb[unit] += 1;
+d348 3
+a350 3
+	dk_busy |= 1 << (HK_DKN + NHK);
+	dk_numb[HK_DKN + NHK] += 1;
+	dk_wds[HK_DKN + NHK] += bp->b_bcount >> 6;
+d355 1
+a355 1
+hkintr()
+d369 1
+a369 1
+		dk_busy &= ~(1 << (HK_DKN + NHK));
+d428 1
+d432 1
+d468 4
+d479 1
+d493 1
+d498 1
+@
+
+
+1.3
+log
+@Введен макропараметр "HKSEEK" для включения параллельного
+подвода на нескольких дисках
+@
+text
+@d3 4
+d629 1
+@
+
+
+1.2
+log
+@Добавлена еще одна проверка при hk not ready.
+@
+text
+@d3 3
+d78 2
+a79 1
+#define	hkwait(hkaddr)		while ((hkaddr->hkcs1 & HK_CRDY) == 0)
+d102 1
+a102 1
+hkdsel(unit)
+d151 1
+d153 2
+a154 1
+			goto bad;
+d174 1
+a174 1
+hkustart(unit)
+d226 1
+a228 1
+#ifdef	NHK > 1
+d241 1
+a241 1
+#endif	NHK > 1
+d256 1
+a256 1
+hkstart()
+d294 1
+a301 1
+			hkwait(hkaddr);
+d396 2
+a397 1
+			if (ds&HKDS_DROT || er&(HKER_OPI|HKER_SKI|HKER_UNS) ||
+d603 1
+a603 1
+hkecc(bp, flag)
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d9 1
+a9 1
+ * RK611/RK0[67] disk driver
+d287 5
+a293 2
+			hkaddr->hkcs1 = hk_type[unit] | HK_DCLR | HK_GO;
+			hkwait(hkaddr);
+@
+
+
+1.1.1.1
+log
+@Версия, исправленная С.Кашириным (по поводу BAD144).
+@
+text
+@d2 1
+a2 4
+ * $Log:	hk.c,v $
+ * Revision 1.1  86/04/19  17:54:17  avg
+ * Initial revision
+ * 
+a611 1
+		ndone &= ~0777;
+@

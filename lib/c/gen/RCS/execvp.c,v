@@ -1,0 +1,231 @@
+head     1.2;
+access   avg dmitry alex abs;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.05.04.14.59.26;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.21.20.05.24;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.2
+log
+@распознавать, надо звать sh или csh
+@
+text
+@/*
+ * $Log:        execvp.c,v $
+ * Revision 1.1  86/04/21  20:05:24  root
+ * Initial revision
+ *
+ */
+
+/*
+ *      execlp(name, arg,...,0) (like execl, but does path search)
+ *      execvp(name, argv)      (like execv, but does path search)
+ */
+#include <errno.h>
+#define NULL    0
+
+char   *execat (), *getenv ();
+extern  errno;
+
+execlp (name, argv)
+char   *name,
+       *argv;
+{
+    return (execvp (name, &argv));
+}
+
+execvp (name, argv)
+char   *name,
+      **argv;
+{
+    char   *pathstr;
+    register char  *cp;
+    char    fname[128];
+    char   *newargs[256];
+    int     i;
+    register unsigned   etxtbsy = 1;
+    register    eacces = 0;
+    int     fd;
+    char    head = '\0';
+    char   *shell = "/bin/sh";
+
+    if ((pathstr = getenv ("PATH")) == NULL)
+	pathstr = ":/bin:/usr/bin";
+    cp = index (name, '/') ? "" : pathstr;
+
+    do {
+	cp = execat (cp, name, fname);
+retry:
+	execv (fname, argv);
+
+	switch (errno) {
+
+	    case ENOEXEC:       /* командный файл */
+		if ((fd = open (fname, 0)) >= 0) {
+		    read (fd, &head, 1);
+		    if (head == '#')
+			shell = "/bin/csh";
+		    close (fd);
+		}
+		newargs[0] = shell;
+		newargs[1] = fname;
+		for (i = 1; newargs[i + 1] = argv[i]; i++) {
+		    if (i >= 254) {
+			errno = E2BIG;
+			return (-1);
+		    }
+		}
+		execv (shell, newargs);
+		return (-1);
+
+	    case ETXTBSY:
+		if (++etxtbsy > 5)
+		    return (-1);
+		sleep (etxtbsy);
+		goto retry;
+
+	    case EACCES:
+		eacces++;
+		break;
+
+	    case ENOMEM:
+	    case E2BIG:
+		return (-1);
+	}
+
+    } while (cp);
+
+    if (eacces)
+	errno = EACCES;
+    return (-1);
+}
+
+static char *
+	    execat (s1, s2, si)
+register char  *s1,
+	       *s2;
+char   *si;
+{
+    register char  *s;
+
+    s = si;
+    while (*s1 && *s1 != ':' && *s1 != '-')
+	*s++ = *s1++;
+    if (si != s)
+	*s++ = '/';
+    while (*s2)
+	*s++ = *s2++;
+    *s = '\0';
+    return (*s1 ? ++s1 : 0);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d15 1
+a15 2
+static  char shell[] =  "/bin/sh";
+char    *execat(), *getenv();
+d18 3
+a20 2
+execlp(name, argv)
+char *name, *argv;
+d22 1
+a22 1
+	return(execvp(name, &argv));
+d25 3
+a27 2
+execvp(name, argv)
+char *name, **argv;
+d29 10
+a38 7
+	char *pathstr;
+	register char *cp;
+	char fname[128];
+	char *newargs[256];
+	int i;
+	register unsigned etxtbsy = 1;
+	register eacces = 0;
+d40 3
+a42 3
+	if ((pathstr = getenv("PATH")) == NULL)
+		pathstr = ":/bin:/usr/bin";
+	cp = index(name, '/')? "": pathstr;
+d44 13
+a56 27
+	do {
+		cp = execat(cp, name, fname);
+	retry:
+		execv(fname, argv);
+		switch(errno) {
+		case ENOEXEC:
+			newargs[0] = "sh";
+			newargs[1] = fname;
+			for (i=1; newargs[i+1]=argv[i]; i++) {
+				if (i>=254) {
+					errno = E2BIG;
+					return(-1);
+				}
+			}
+			execv(shell, newargs);
+			return(-1);
+		case ETXTBSY:
+			if (++etxtbsy > 5)
+				return(-1);
+			sleep(etxtbsy);
+			goto retry;
+		case EACCES:
+			eacces++;
+			break;
+		case ENOMEM:
+		case E2BIG:
+			return(-1);
+d58 31
+a88 4
+	} while (cp);
+	if (eacces)
+		errno = EACCES;
+	return(-1);
+d92 4
+a95 3
+execat(s1, s2, si)
+register char *s1, *s2;
+char *si;
+d97 1
+a97 1
+	register char *s;
+d99 9
+a107 9
+	s = si;
+	while (*s1 && *s1 != ':' && *s1 != '-')
+		*s++ = *s1++;
+	if (si != s)
+		*s++ = '/';
+	while (*s2)
+		*s++ = *s2++;
+	*s = '\0';
+	return(*s1? ++s1: 0);
+@

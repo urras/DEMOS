@@ -1,0 +1,40 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.01.16.10.33;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#include <stdio.h>
+
+FILE *
+freopen(file, mode, iop)
+	char *file, *mode;
+	register FILE *iop;
+{
+	FILE *_endopen();
+
+	fclose(iop);
+	return(_endopen(file, mode, iop));
+}
+@

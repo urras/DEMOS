@@ -1,0 +1,31 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     90.11.12.18.56.39;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Это от Тимура.
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Драйвер графопостроителя АП 7251
+ */
+
+#define NXY %NXY%
+@

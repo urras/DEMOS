@@ -1,0 +1,345 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     89.06.05.21.37.15;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.06.05.20.31.14;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.06.05.20.26.50;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.06.05.20.19.29;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.23.20;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.5
+log
+@буржуйская опечатка.
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: ckdir.c,v 1.4 89/06/05 20:31:14 abs Exp $
+** $Log:        ckdir.c,v $
+ * Revision 1.4  89/06/05  20:31:14  abs
+ * *** empty log message ***
+ *
+ * Revision 1.3  89/06/05  20:26:50  abs
+ * про то же
+ *
+ * Revision 1.2  89/06/05  20:19:29  abs
+ * буржуй толстый написал fopen( "", ... )
+ *   вместо человеческого fopen( ".", .... )
+ *
+ * Revision 1.1  88/05/03  20:23:20  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: ckdir.c,v 1.4 89/06/05 20:31:14 abs Exp $";
+/* YESXSTR */
+# endif         lint
+
+#include <retrofit.h>
+#include <sys/types.h>
+#include <sys/dir.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <ediag.h>
+
+/*
+ * Checksum the indicated directory, creating the file "check.sum"
+ * with names and int sums stored inside, one per line.  The -c
+ * option causes the directory checksums to be verified.
+ */
+
+#define equal(a, b)     (strcmp(a, b) == 0)
+
+int     cflag = 1;                      /* Flag to verify */
+char    cname[] = "check.sum";          /* Name of checksum files */
+int     errs;                           /* Error count */
+
+main(argc, argv)
+	char **argv;
+{
+	register char *cp;
+
+	if (argc == 2 && equal(argv[1], "-c")) {
+		cflag = 0;
+		argc--, argv++;
+	}
+	if (argc < 2) {
+		checkout(".");
+		exit(errs);
+	}
+	while (--argc) {
+		cp = *++argv;
+		if (equal(cp, "-c")) {
+			cflag = 0;
+			continue;
+		}
+		checkout(cp);
+	}
+	exit(errs);
+}
+
+/*
+ * Checkout a directory.
+ * The fork is necessary to preserve the current directory.
+ */
+
+checkout(dir)
+	char *dir;
+{
+	int s, pid;
+	char ename[DIRSIZ+1], linebuf[BUFSIZ];
+	FILE *cf, *df, *ef;
+	register int sum, c;
+	struct direct dirent;
+	register char *cp, *cp2;
+
+	if( dir == NULL || !*dir ) dir = ".";
+
+	pid = fork();
+	if (pid == -1) {
+		perror("fork");
+		errs++;
+		return;
+	}
+	if (pid > 0) {
+		while (wait(&s) != pid)
+			;
+		if (s != 0)
+			errs++;
+		return;
+	}
+	errs = 0;
+	fprintf(stderr, "%s:\n", dir);
+	if (chdir(dir) < 0) {
+		perror(dir);
+		exit(1);
+	}
+	if (cflag) {
+		if ((cf = fopen(cname, "r")) == NULL) {
+			perror(cname);
+			exit(1);
+		}
+		while (fgets(linebuf, BUFSIZ, cf) != NULL) {
+			for (cp = linebuf, cp2 = ename; *cp != ' ';
+			    *cp2++ = *cp++)
+				;
+			*cp2 = '\0';
+			if (equal(ename, cname))
+				continue;
+			if ((ef = fopen(ename, "r")) == NULL) {
+				perror(ename);
+				errs++;
+				continue;
+			}
+			c = cksum(ef);
+			fclose(ef);
+			sum = atoi(cp);
+			if (sum != c) {
+				printf(ediag("Checksum error: \"%s\" is %d not %d\n",
+					     "Ошибка контрольной суммы: \"%s\" есть %d но не %d\n"),
+					ename, c, sum);
+				errs++;
+			}
+		}
+		exit(errs);
+	}
+	if ((cf = fopen(cname, "w")) == NULL) {
+		perror(cname);
+		exit(1);
+	}
+	if ((df = fopen(".", "r")) == NULL) {
+		perror(dir);
+		exit(1);
+	}
+	while (fread((char *) &dirent, sizeof dirent, 1, df) == 1) {
+		struct stat stb;
+		if (dirent.d_ino == 0)
+			continue;
+		for (cp = dirent.d_name, cp2 = ename; *cp &&
+		    cp-dirent.d_name < DIRSIZ; *cp2++ = *cp++)
+			;
+		*cp2 = '\0';
+		if (equal(ename, cname))
+			continue;
+		if ((ef = fopen(ename, "r")) == NULL) {
+			perror(ename);
+			errs++;
+			continue;
+		}
+		fstat(fileno(ef), &stb);
+		if ((stb.st_mode & S_IFMT) != S_IFREG) {
+			fclose(ef);
+			continue;
+		}
+		sum = cksum(ef);
+		fclose(ef);
+		fprintf(cf, "%s %d\n", ename, sum);
+	}
+	exit(errs);
+}
+
+/*
+ * Checksum the passed file.  Return the sum of all of its bytes.
+ */
+
+cksum(f)
+	FILE *f;
+{
+	register int sum, c;
+
+	sum = 0;
+	while ((c = getc(f)) != EOF)
+		sum += c;
+	if (sum < 0)
+		sum = -sum;
+	if (sum < 0)
+		sum = 0;
+	return(sum);
+}
+
+/*
+ * Convert the passed string to decimal.
+ */
+
+atoi(cp)
+	register char *cp;
+{
+	register int sum, sign;
+
+	while (any(*cp, " \t"))
+		cp++;
+	if (*cp == '-')
+		sign = -1;
+	else
+		sign = 1;
+	sum = 0;
+	while (any(*cp, "0123456789"))
+		sum = sum*10 + *cp++ - '0';
+	return(sign*sum);
+}
+
+/*
+ * Is c any of *cp ?
+ */
+
+any(c, cp)
+	register int c;
+	register char *cp;
+{
+	while (*cp)
+		if (c == *cp++)
+			return(1);
+	return(0);
+}
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d6 1
+a6 1
+** $Header: ckdir.c,v 1.3 89/06/05 20:26:50 abs Exp $
+d8 3
+d25 1
+a25 1
+static char     Rcs_id[] = "$Header: ckdir.c,v 1.3 89/06/05 20:26:50 abs Exp $";
+d64 1
+a64 1
+			cflag++;
+@
+
+
+1.3
+log
+@про то же
+@
+text
+@d6 1
+a6 1
+** $Header: ckdir.c,v 1.2 89/06/05 20:19:29 abs Exp $
+d8 3
+d13 1
+a13 1
+ *              вместо человеческого fopen( ".", .... )
+d22 1
+a22 1
+static char     Rcs_id[] = "$Header: ckdir.c,v 1.2 89/06/05 20:19:29 abs Exp $";
+d75 1
+a75 1
+	char dir[];
+@
+
+
+1.2
+log
+@буржуй толстый написал fopen( "", ... )
+		вместо человеческого fopen( ".", .... )
+@
+text
+@d6 1
+a6 1
+** $Header: ckdir.c,v 1.1 88/05/03 20:23:20 root Exp $
+d8 4
+d19 1
+a19 1
+static char     Rcs_id[] = "$Header: ckdir.c,v 1.1 88/05/03 20:23:20 root Exp $";
+d80 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d129 1
+a129 1
+	if ((df = fopen("", "r")) == NULL) {
+@

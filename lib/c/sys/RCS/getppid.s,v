@@ -1,0 +1,36 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.41.38;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ pid	= getppid();
+
+.globl _getppid
+
+_getppid:
+	mov	r5,-(sp)
+	mov	sp,r5
+	sys	getpid
+	mov	r1,r0
+	mov	(sp)+,r5
+	rts	pc
+@

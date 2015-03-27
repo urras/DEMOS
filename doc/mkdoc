@@ -1,0 +1,4 @@
+case $* in
+"") cat Readme;exit 1;;
+*) exec print -2 -t -w140 $*;;
+esac

@@ -1,0 +1,269 @@
+head     2.11;
+access   ;
+symbols  DEMOS21:3 DEMOS20:2.10 DEMOS1:1.1.1 MNOS:1.1.2 bsd29:1.2 DEMOS2:2 v7:1.1;
+locks    ;
+comment  @ * @;
+
+
+2.11
+date     88.06.10.20.47.31;  author dvolodin;  state Exp;
+branches ;
+next     2.10;
+
+2.10
+date     88.06.10.20.30.54;  author dvolodin;  state Stab;
+branches ;
+next     2.1;
+
+2.1
+date     86.12.12.20.36.01;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.12.11.18.35.55;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.11.05.22.05;  author dmitry;  state Rel;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.11.04.32.32;  author dmitry;  state Rel;
+branches 1.1.2.1;
+next     ;
+
+1.1.2.1
+date     86.12.11.18.10.55;  author dmitry;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Оптимизатор для Си-компилятора Д.М.Ритчи.
+@
+
+
+2.11
+log
+@Кое-какие добавления для красивой жизни.
+@
+text
+@/*      $Header: c2.h,v 2.10 88/06/10 20:30:54 dvolodin Stab $      */
+/*
+ * Header for object code improver
+ */
+
+#ifndef CHECK
+#define CHECK(x)
+#endif
+
+#ifndef SUPER
+# include <stdio.h>
+#else
+int stderr;
+#define NULL ((char *)0)
+#endif
+
+#define JBR     1
+#define CBR     2
+#define JMP     3
+#define LABEL   4
+#define DLABEL  5
+#define EROU    7
+#define JSW     9
+#define MOV     10
+#define CLR     11
+#define COM     12
+#define INC     13
+#define DEC     14
+#define NEG     15
+#define TST     16
+#define ASR     17
+#define ASL     18
+#define SXT     19
+#define CMP     20
+#define ADD     21
+#define SUB     22
+#define BIT     23
+#define BIC     24
+#define BIS     25
+#define MUL     26
+#define DIV     27
+#define ASH     28
+#define XOR     29
+#define TEXT    30
+#define DATA    31
+#define BSS     32
+#define EVEN    33
+#define MOVF    34
+#define MOVOF   35
+#define MOVFO   36
+#define ADDF    37
+#define SUBF    38
+#define DIVF    39
+#define MULF    40
+#define CLRF    41
+#define CMPF    42
+#define NEGF    43
+#define TSTF    44
+#define CFCC    45
+#define SOB     46
+#define JSR     47
+#define END     48
+
+#define JEQ     0
+#define JNE     1
+#define JLE     2
+#define JGE     3
+#define JLT     4
+#define JGT     5
+#define JLO     6
+#define JHI     7
+#define JLOS    8
+#define JHIS    9
+
+#define BYTE    100
+#define LSIZE   512
+
+struct node {
+	char    op;
+	char    subop;
+	struct  node    *forw;
+	struct  node    *back;
+	struct  node    *ref;
+	int     labno;
+	char    *code;
+	int     refc;
+};
+
+struct optab {
+	char    *opstring;
+	int     opcode;
+} optab[];
+
+char    line[LSIZE];
+struct  node    first;
+char    *curlp;
+int     nbrbr;
+int     nsaddr;
+int     redunm;
+int     iaftbr;
+int     njp1;
+int     nrlab;
+int     nxjump;
+int     ncmot;
+int     nrevbr;
+int     loopiv;
+int     nredunj;
+int     nskip;
+int     ncomj;
+int     nsob;
+int     nrtst;
+int     nlit;
+
+int     nchange;
+int     isn;
+int     debug;
+int     lastseg;
+char    *lasta;
+char    *lastr;
+char    *alasta;
+char    *alastr;
+char    *firstr;
+char    revbr[];
+char    regs[12][20];
+char    conloc[20];
+char    conval[20];
+char    ccloc[20];
+
+#define RT1     10
+#define RT2     11
+#define FREG    5
+#define NREG    5
+#define LABHS   127
+#define OPHS    57
+
+struct optab *ophash[OPHS];
+struct  node *nonlab();
+char    *copy();
+char    *sbrk();
+char    *findcon();
+struct  node *insertl();
+struct  node *codemove();
+char    *sbrk();
+char    *alloc();
+@
+
+
+2.10
+log
+@Стабильная версия Демос 2.0
+@
+text
+@d1 1
+a1 1
+/*      $Header: c2.h,v 2.1 86/12/12 20:36:01 dmitry Exp $      */
+d6 4
+d120 2
+@
+
+
+2.1
+log
+@Первая рабочая версия для Демос2
+@
+text
+@d1 1
+a1 1
+/*      $Header$      */
+@
+
+
+1.3
+log
+@Сливки с версией из МНОС РЛ 1.2
+@
+text
+@d1 1
+a1 1
+/*      @@(#)c2.h        2.1     SCCS id keyword */
+@
+
+
+1.2
+log
+@Версия из BSD 2.9
+@
+text
+@d6 6
+a11 1
+#include <stdio.h>
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+@
+
+
+1.1.2.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d5 1
+a5 6
+#ifndef SUPER
+# include <stdio.h>
+#else
+int stderr;
+#define NULL ((char *)0)
+#endif
+@

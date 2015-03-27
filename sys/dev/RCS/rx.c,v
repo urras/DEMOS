@@ -1,0 +1,1115 @@
+head     22.3;
+access   dmitry avg alex fox korotaev dvolodin;
+symbols  Архыз0:1.4.2;
+locks    dmitry:1.4.1.1;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.14.02;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.53.21;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.34.49;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.32.57;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.02.24.16.00.47;  author dmitry;  state Exp;
+branches 1.4.1.1;
+next     1.3;
+
+1.3
+date     87.01.17.19.15.32;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.30.14.50.16;  author alex;  state Stab;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.26.20.07.00;  author dmitry;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.09.20.16.56.51;  author dmitry;  state Stab;
+branches ;
+next     ;
+
+1.4.1.1
+date     87.10.30.19.34.30;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Драйвер флоппи-дисков RX11.
+Имитируется DMA.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Header: rx.c,v 22.2 89/04/27 13:53:21 korotaev Exp $
+ *
+ * RX11 floppy disk driver
+ * $Log:	rx.c,v $
+ * Revision 22.2  89/04/27  13:53:21  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  14:34:49  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:32:57  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.4  87/02/24  16:00:47  dmitry
+ * Приоритеты срублены окончательно.
+ * 
+ * Revision 1.3  87/01/17  19:15:32  dmitry
+ *      Срублены приоритеты на циклах чтения и записи
+ * буфера сектора.
+ *      Вызовы функций установки приоритета заменены на inline.
+ *      Добавлена установка b_resid.
+ *      Работа с припиской сделана в соответствии с протоколом
+ *               ДЕМОС 2.
+ * 
+ * Revision 1.2  86/12/30  14:50:16  alex
+ * Переставлены интерливинги так, чтобы 0 был совместим с "RT".
+ * 
+ * Revision 1.1  86/12/26  20:07:00  dmitry
+ * Первая рабочая версия для Демос 2.0
+ * 
+ */
+
+#include "h/rx.h"
+#if     NRX > 0
+#include <sys/param.h>
+#include "../include/buf.h"
+#include <sys/conf.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include "../include/rxreg.h"
+#include <sys/seg.h>
+
+extern  struct rxdevice *RXADDR;
+
+/* #define DEBUG        1 */
+#define MAXRETRY  10
+#define TTIME   60      /* Timeout time in HZ */
+#define RRATE   6       /* Recall rate for rxreset */
+#define RESETMAX 10     /* Max. num. of reset recalls before timeout */
+			/* RESETMAX*RRATE/60 = time in second */
+
+#define RXWAIT  while((rxaddr->rxcs & (RX_TREQ | RX_DONE)) == 0) ;
+
+struct  rxtype {
+	int     secsize;                /* size (bytes) one sector */
+	int     secpertrk;              /* sectors/track */
+	int     secperblk;              /* sectors/unix block */
+	int     numsec;                 /* total sectors on device */
+	int     numblks;                /* number of blocks on device */
+	int     secincr;                /* increment to get next sector of block */
+	int     intrlv;                 /* interleaving factor */
+	int     skew;                   /* sector skew across tracks */
+	int     trkoffset;              /* offset num of 1st sec */
+} rxtypes[] = {
+		128, 26, 4, 76*26, 494, 2, 13, 6, 1,    /* Terak or RT11 format */
+		128, 26, 4, 77*26, 500, 2, 13, 6, 0,    /* our "standard" format */
+		128, 26, 4, 77*26, 500, 1, 26, 0, 0,    /* IBM format */
+		128, 26, 4, 76*26, 494, 6, 13, 0, 2     /* CP/M format */
+};
+
+int NRXTYP = sizeof rxtypes / sizeof (struct rxtype) ;
+
+struct  rxstat {
+	int     fminor;                 /* present request device number */
+	struct  rxtype *ftype;          /* present request floppy type */
+	int     bytect;                 /* remaining bytes (neg) */
+	int     sector;                 /* absolute sector (0..numsec-1) */
+	int     toutact;                /* timeout active */
+	int     reqnum;                 /* floppy request number for timeout */
+	caddr_t coreaddr;               /* current core address for transfer */
+	unsigned coreblk;               /* block no. to put in seg. register */
+} rxstat;
+
+struct  buf     rxtab;
+struct  buf     rrxbuf;
+
+rxattach(addr, unit)
+struct rxdevice *addr;
+{
+	if (unit != 0 )
+		return(0);
+	RXADDR = addr;
+	return(1);
+}
+
+rxstrategy(abp)
+struct buf *abp;
+{
+	register struct buf *bp;
+	extern int rxtimeout();
+
+#ifdef DEBUG
+	if(minor(abp->b_dev) == 127) {
+		rxdebug();
+		iodone(abp);
+		_spl0();
+		return;
+	}
+#endif
+	bp = abp;
+	/*
+	 * test for valid request
+	 */
+	if(rxok(bp) == 0) {
+		bp->b_flags |= B_ERROR;
+		iodone(bp);
+		return;
+	}
+	/*
+	 * link buffer into device queue
+	 */
+	bp->av_forw = NULL;
+	_spl5();
+	if(rxtab.b_actf == NULL)
+		rxtab.b_actf = bp;
+	else
+		rxtab.b_actl->av_forw = bp;
+	rxtab.b_actl = bp;
+	/*
+	 * start rxtimeout if inactive
+	 */
+	if(rxstat.toutact == 0) {
+		rxstat.toutact++;
+		timeout(rxtimeout, (caddr_t)0, TTIME);
+	}
+	_spl0();
+	/*
+	 * start device if there is no current request
+	 */
+	if(rxtab.b_active == NULL)
+		rxstart();
+}
+
+rxstart()
+{
+	register struct buf *bp;
+	register struct rxdevice *rxaddr;
+	register int dminor;
+
+	rxaddr = RXADDR;
+	/*
+	 * if there is no request in queue...return
+	 */
+loop:   if((bp = rxtab.b_actf) == NULL)
+		return;
+	/*
+	 * check if drive ready
+	 */
+	dminor = (minor(bp->b_dev) & 1) << 4;
+	rxaddr->rxcs = dminor | RX_RDSTAT ;
+	RXWAIT
+	if((rxaddr->rxdb & RXES_READY) == 0) {
+		printf("rx%d: Floppy not ready\n", minor(bp->b_dev));
+		rxabtbuf();
+		goto loop;
+	}
+	/*
+	 * set active request flag
+	 */
+	rxtab.b_active++;
+	rxsetup(bp);
+	rxregs(bp);
+}
+
+rxintr()
+{
+	register struct buf *bp;
+	register struct rxtype *rxt;
+	register struct rxdevice *rxaddr;
+
+	/*
+	 * if there is no active request, false alarm.
+	 */
+	if( !( rxaddr = RXADDR ) || rxtab.b_active == NULL)
+		return;
+	rxtab.b_active = NULL;
+	/*
+	 * pointer to the buffer
+	 */
+	bp = rxtab.b_actf;
+	/*
+	 * pointer to a data structure describing
+	 *  the type of device (i.e. interleaving)
+	 */
+	rxt = rxstat.ftype;
+	/*
+	 * check error bit
+	 */
+	if(rxaddr->rxcs & RX_ERR) {
+		/*
+		 * send read error register command
+		 */
+		short cssave = rxaddr->rxcs ;
+
+		rxaddr->rxcs = RX_RDERR ;
+		_spl1();
+		RXWAIT
+#ifndef UCB_DEVERR
+		deverror(bp, rxaddr->rxcs, rxaddr->rxdb);
+#else
+		harderr(bp, "rx");
+		printf("cs=%b, es=%b\n", cssave, RXCS_BITS,
+			rxaddr->rxdb, RXES_BITS);
+#endif
+		/*
+		 * make MAXRETRY retries on an error
+		 */
+		if(++rxtab.b_errcnt <= MAXRETRY) {
+			rxreset(0);
+			return;
+		}
+		/*
+		 * return an i/o error
+		 */
+		bp->b_flags |= B_ERROR;
+	} else {
+		_spl1();
+		/*
+		 * if we just read a sector, we need to
+		 *  empty the device buffer
+		 */
+		if(bp->b_flags & B_READ)
+			rxempty();
+		/*
+		 * see if there is more data to read for
+		 * this request.
+		 */
+		bp->b_resid = -( rxstat.bytect += rxt->secsize );
+		rxstat.sector++;
+		if(rxstat.bytect < 0 && rxstat.sector < rxt->numsec) {
+			rxtab.b_active++;
+			rxregs(bp);
+			return;
+		}
+	}
+	rxtab.b_errcnt = 0;
+	/*
+	 * unlink block from queue
+	 */
+	rxtab.b_actf = bp->av_forw;
+	iodone(bp);
+	/*
+	 * start i/o on next buffer in queue
+	 */
+	rxstart();
+}
+
+rxreset(flag)
+{
+	register struct rxdevice *rxaddr;
+
+	rxaddr = RXADDR;
+	/*
+	 * Check to see if this is a call from rxintr or
+	 * a recall from timeout.
+	 */
+	if(flag) {
+		if(rxaddr->rxcs & RX_DONE) {
+			rxtab.b_active = 0;
+			_spl1();
+			rxstart();
+		} else
+			if(flag > RESETMAX) {
+				printf("rx%d: Reset timeout\n", minor(rxtab.b_actf->b_dev));
+				rxabtbuf();
+				_spl1();
+				rxstart();
+			} else {
+				timeout(rxreset, (caddr_t)flag+1, RRATE);
+				/*
+				 * Keep rxtimeout from timing out.
+				 */
+				rxstat.reqnum++;
+			}
+	} else {
+		rxaddr->rxcs = RX_INIT;
+		rxtab.b_active++;
+		rxstat.reqnum++;
+		timeout(rxreset, (caddr_t)1, 1);
+	}
+}
+
+rxregs(abp)
+struct buf *abp;
+{
+	register struct buf *bp;
+	register struct rxtype *rxt;
+	register struct rxdevice *rxaddr;
+	int     dminor, cursec, curtrk;
+
+	rxaddr = RXADDR;
+	/*
+	 * set device bit into proper position for command
+	 */
+	dminor = rxstat.fminor << 4;
+	bp = abp;
+	rxt = rxstat.ftype;
+	/*
+	 * increment interrupt request number
+	 */
+	rxstat.reqnum++;
+	/*
+	 * if command is read, initiate the command
+	 */
+	if(bp->b_flags & B_READ){
+		RXWAIT
+		rxaddr->rxcs = dminor | RX_INTR | RX_READ;
+	} else {
+		/*
+		 * if command is write, fill the device buffer,
+		 *   then initiate the write
+		 */
+		rxfill();
+		RXWAIT
+		rxaddr->rxcs = dminor | RX_INTR | RX_WRITE;
+	}
+	/*
+	 * set track number
+	 */
+	curtrk = rxstat.sector / rxt->secpertrk;
+	/*
+	 * set sector number
+	 */
+	dminor = rxstat.sector % rxt->secpertrk;
+	cursec = (dminor % rxt->intrlv) * rxt->secincr +
+		(dminor / rxt->intrlv);
+	/*
+	 * add skew to sector
+	 */
+	cursec = (cursec + curtrk * rxt->skew)
+		% rxt->secpertrk;
+	/*
+	 * massage registers
+	 */
+	RXWAIT
+	rxaddr->rxdb = cursec + 1;
+	RXWAIT
+	rxaddr->rxdb = curtrk + rxt->trkoffset;
+}
+
+rxok(abp)
+struct buf *abp;
+{
+	register struct buf *bp;
+	register int type;
+	register int dminor;
+
+	/*
+	 * get sub-device number and type from dminor device number
+	 */
+	dminor = minor((bp = abp)->b_dev);
+	type = dminor >> 3;
+	/*
+	 * check for valid type
+	 *
+	 * check for block number within range of device
+	 */
+	if(!RXADDR || type >= NRXTYP ||
+		bp->b_blkno >= (daddr_t)rxtypes[type].numblks)
+		return(0);
+	return(1);
+}
+
+rxsetup(abp)
+struct buf *abp;
+{
+	register struct buf *bp;
+	register int dminor;
+	register struct rxtype *rxt;
+
+	/*
+	 * get dminor device number from buffer
+	 */
+	dminor = minor((bp = abp)->b_dev);
+	/*
+	 * get sub-device number from dminor device number
+	 */
+	rxt = rxstat.ftype = &rxtypes[dminor >> 3];
+	/*
+	 * make sure device number is only 0 or 1
+	 */
+	rxstat.fminor = dminor & 1;
+	/*
+	 * get byte count to read from buffer (negative number)
+	 */
+	rxstat.bytect = -bp->b_bcount;
+	/*
+	 * transform block number into the first
+	 * sector to read on the floppy
+	 */
+	rxstat.sector = (int)bp->b_blkno * rxt->secperblk;
+	/*
+	 * set the core address to get or put bytes.
+	 */
+	rxstat.coreaddr = (caddr_t)(((unsigned int)bp->b_un.b_addr & 077) + 0120000);
+	rxstat.coreblk = (unsigned int)((((unsigned int)bp->b_un.b_addr >> 6) & 01777) |
+		(bp->b_xmem << 10));
+}
+
+rxempty()
+{
+	register int i;
+	register char *cp;
+	register int wc;
+	segm    save5;
+	struct rxdevice *rxaddr;
+
+	rxaddr = RXADDR;
+	/*
+	 * start empty buffer command
+	 */
+	rxaddr->rxcs = RX_EMPTY ;
+	/*
+	 * get core address and byte count
+	 */
+	cp = rxstat.coreaddr;
+	wc = ((rxstat.bytect <= -128)? 128 : -rxstat.bytect);
+	/*
+	 * save and set segmentation register.
+	 */
+	saveseg5( save5 );
+	mapseg5( rxstat.coreblk, 01006 );
+	/*
+	 * move wc bytes from the device buffer
+	 *   into the in core buffer
+	 */
+	for(i=wc; i>0; --i) {
+		RXWAIT
+		*cp++ = rxaddr->rxdb;
+	}
+	/*
+	 * sluff excess bytes
+	 */
+	for(i=128-wc; i>0; --i) {
+		RXWAIT
+		cp = (char *)rxaddr->rxdb;
+	}
+	restorseg5( save5 );
+	rxstat.coreblk += 2;
+}
+
+rxfill()
+{
+	register int i;
+	register char *cp;
+	register int wc;
+	segm    save5;
+	struct rxdevice *rxaddr;
+
+	rxaddr = RXADDR;
+	/*
+	 * initiate the fill buffer command
+	 */
+	rxaddr->rxcs = RX_FILL ;
+	/*
+	 * get core address and byte count
+	 */
+	cp = rxstat.coreaddr;
+	wc = ((rxstat.bytect <= -128)? 128 : -rxstat.bytect);
+	/*
+	 * save and set segmentation register.
+	 */
+	saveseg5( save5 );
+	mapseg5( rxstat.coreblk, 01006 );
+	/*
+	 * move wc bytes from the in-core buffer to
+	 *   the device buffer
+	 */
+	for(i=wc;  i>0; --i) {
+		RXWAIT
+		rxaddr->rxdb = *cp++;
+	}
+	/*
+	 * sluff excess bytes
+	 */
+	for(i=128-wc; i>0; --i) {
+		RXWAIT
+		rxaddr->rxdb = 0;
+	}
+	restorseg5(save5);
+	rxstat.coreblk += 2;
+}
+
+/*ARGSUSED*/
+rxtimeout(dummy)
+{
+	static int prevreq;
+	register struct buf *bp;
+
+	bp = rxtab.b_actf;
+	/*
+	 * if the queue isn't empty and the current request number is the
+	 * same as last time, abort the buffer and restart i/o.
+	 */
+	if(bp) {
+		if(prevreq == rxstat.reqnum) {
+			printf("rx%d: Floppy timeout\n", minor(bp->b_dev));
+			rxabtbuf();
+			_spl1();
+			rxstart();
+		}
+		prevreq = rxstat.reqnum;
+		timeout(rxtimeout, (caddr_t)0, TTIME);
+	} else {
+		/*
+		 * if queue is empty, just quit and rxstrategy will
+		 * restart us.
+		 */
+		rxstat.toutact = 0;
+	}
+}
+
+rxabtbuf()
+{
+	register struct buf *bp;
+
+	/*
+	 * abort the current buffer with an error and unlink it.
+	 */
+	bp = rxtab.b_actf;
+	bp->b_flags |= B_ERROR;
+	rxtab.b_actf = bp->av_forw;
+	rxtab.b_errcnt = 0;
+	rxtab.b_active = NULL;
+	iodone(bp);
+}
+
+rxread(dev)
+dev_t	dev;
+{
+	bphysio(rxstrategy, &rrxbuf, dev, B_READ);
+}
+
+rxwrite(dev)
+dev_t	dev;
+{
+	bphysio(rxstrategy, &rrxbuf, dev, B_WRITE);
+}
+
+#ifdef DEBUG
+rxdebug() {
+	register struct buf *bp;
+
+	_spl5();
+	printf("Debug:  &rxtab=%o, &rxstat=%o\n", &rxtab, &rxstat);
+	printf(" rxstat:  fminor=%l, bytect=%l, sec=%l\n",
+		rxstat.fminor, -rxstat.bytect, rxstat.sector);
+	printf("   reqnum=%l\n", rxstat.reqnum);
+	printf(" rxtab:  d_active=%l, buffers:\n", rxtab.b_active);
+	for(bp=rxtab.b_actf; bp; bp=bp->av_forw)
+		printf(" dev=%l/%l, blkno=%l, bcnt=%l, flags=%o.\n", major(bp->b_dev),
+			minor(bp->b_dev), bp->b_blkno, -bp->b_bcount, bp->b_flags);
+	putchar('\n');
+}
+#endif  DEBUG
+
+#endif  NRX
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d2 1
+a2 1
+ * $Header: rx.c,v 22.1 89/04/12 14:34:49 korotaev Exp $
+d6 3
+d37 1
+a37 1
+#include <sys/buf.h>
+d41 1
+a41 1
+#include <sys/rxreg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d2 1
+a2 1
+ * $Header: rx.c,v 22.0 89/03/25 12:32:57 korotaev Exp $
+d6 3
+d31 1
+a31 1
+#include "rx.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d2 1
+a2 1
+ * $Header: rx.c,v 1.4 87/02/24 16:00:47 dmitry Exp $
+d6 3
+d30 1
+a30 1
+#include "param.h"
+@
+
+
+1.4
+log
+@Приоритеты срублены окончательно.
+@
+text
+@d2 1
+a2 1
+ * $Header: rx.c,v 1.3 87/01/17 19:15:32 dmitry Exp $
+d6 3
+@
+
+
+1.4.1.1
+log
+@ВЕРСИЯ СУГУБО ОТЛАДОЧНАЯ !!!!
+@
+text
+@d2 1
+a2 1
+ * $Header: rx.c,v 1.4 87/02/24 16:00:47 dmitry Exp $
+d5 1
+a5 4
+ * $Log:        rx.c,v $
+ * Revision 1.4  87/02/24  16:00:47  dmitry
+ * Приоритеты срублены окончательно.
+ *
+d13 1
+a13 1
+ *
+d16 1
+a16 1
+ *
+d19 1
+a19 1
+ *
+d41 1
+a41 2
+long   rxdelay ;
+#define RXWAIT  rxdelay = 60000L; while((rxaddr->rxcs & (RX_TREQ | RX_DONE)) == 0 && rxdelay-- );
+d152 1
+a152 2
+printf("RXNOTREADY. delay=%D\n", rxdelay );
+		printf("rx%d: not ready\n", minor(bp->b_dev));
+d263 1
+a263 1
+				printf("rx%d: reset timeout\n", minor(rxtab.b_actf->b_dev));
+d496 1
+a496 1
+			printf("rx%d: timeout\n", minor(bp->b_dev));
+a519 3
+
+printf("abtbuf %o\n", bp );
+
+d528 1
+a528 1
+dev_t   dev;
+d534 1
+a534 1
+dev_t   dev;
+@
+
+
+1.3
+log
+@     Срублены приоритеты на циклах чтения и записи
+буфера сектора.
+     Вызовы функций установки приоритета заменены на inline.
+     Добавлена установка b_resid.
+     Работа с припиской сделана в соответствии с протоколом
+              ДЕМОС 2.
+@
+text
+@d2 1
+a2 1
+ * $Header: rx.c,v 1.2 86/12/30 14:50:16 alex Stab $
+d6 8
+d125 1
+a130 1
+	_spl0();
+d195 1
+d216 1
+d259 1
+d265 1
+a421 1
+	_spl1();
+a437 1
+	_spl5();
+a463 1
+	_spl1();
+a479 1
+	_spl5();
+d498 1
+@
+
+
+1.2
+log
+@Переставлены интерливинги так, чтобы 0 был совместим с "RT".
+@
+text
+@d2 1
+a2 1
+ * $Header: rx.c,v 1.1 86/12/26 20:07:00 dmitry Exp $
+d6 3
+d22 2
+a33 2
+#define KISA    0172340
+#define KISD    0172300
+d62 1
+a62 1
+	char    *coreblk;               /* block no. to put in seg. register */
+d87 1
+a87 1
+		spl0();
+d104 1
+a104 1
+	spl5();
+d122 1
+a122 1
+	spl0();
+a161 1
+	rxaddr = RXADDR;
+d165 1
+a165 1
+	if(rxtab.b_active == NULL)
+d184 2
+d192 1
+a192 1
+		printf("cs=%b, es=%b\n", rxaddr->rxcs, RXCS_BITS,
+d212 1
+a212 1
+			rxempty(bp);
+d217 1
+a217 1
+		rxstat.bytect += rxt->secsize;
+d300 1
+a300 1
+		rxfill(bp);
+d345 1
+a345 1
+	if(type >= NRXTYP ||
+d382 3
+a384 3
+	rxstat.coreaddr = (bp->b_un.b_addr & 077) + 0120000;
+	rxstat.coreblk = ((bp->b_un.b_addr >> 6) & 01777) |
+		(bp->b_xmem << 10);
+a386 15
+
+	/*
+	 * This copy of the fill and empty routines emulate a dma
+	 * floppy controller.  It adds the feature of being able
+	 * to write anywhere in physical memory, just like an rk
+	 * disk.  To do this, we borrow a segmentation register
+	 * to do the transfer.  While the segmentation register
+	 * is pointing to the proper place, we need to run at spl7.
+	 * This is harder on the system, so the non-dma driver should
+	 * be used if you only intend to do buffer requests (i.e.
+	 * no swapping or raw i/o).
+	 */
+
+struct { int r[]; };
+
+d392 1
+a392 1
+	int a,d;
+d408 3
+a410 5
+	a = KISA->r[5];
+	d = KISD->r[5];
+	spl7();
+	KISA->r[5] = rxstat.coreblk;
+	KISD->r[5] = 01006;
+d424 1
+a424 1
+		cp = rxaddr->rxdb;
+d426 2
+a427 3
+	KISA->r[5] = a;
+	KISD->r[5] = d;
+	spl5();
+d436 1
+a436 1
+	int a,d;
+d452 3
+a454 5
+	a = KISA->r[5];
+	d = KISD->r[5];
+	spl7();
+	KISA->r[5] = rxstat.coreblk;
+	KISD->r[5] = 01006;
+d470 2
+a471 3
+	KISA->r[5] = a;
+	KISD->r[5] = d;
+	spl5();
+d475 1
+a475 1
+/*ARGUSED*/
+d521 1
+a521 1
+	physio(rxstrategy, &rrxbuf, dev, B_READ);
+d527 1
+a527 1
+	physio(rxstrategy, &rrxbuf, dev, B_WRITE);
+d534 1
+a534 1
+	spl5();
+@
+
+
+1.1
+log
+@Первая рабочая версия для Демос 2.0
+@
+text
+@d2 1
+a2 1
+ * $Header$
+d5 4
+a8 1
+ * $Log$
+d64 9
+@
+
+
+1.0
+log
+@Initial revision
+@
+text
+@d2 2
+d5 1
+a5 10
+ * Modified 2/1/78, Brad Blasing, to emulate DMA operations
+ *
+ * Modified 15 DEC 77 by SSB,DWD,BEB, University of Minnesota
+ * for RX11 floppy drive.
+ * Modified 6/16/78, Brad Blasing, to provide better error recovery
+ *  (we don't loop at spl5 waiting for INIT to finish any more).
+ * Modified 10/19/79, Scott Bertilson, to run with slow floppy interfaces.
+ * Modified 4/5/80, Scott Bertilson, added CP/M interleaving to table.
+ * Modified 2/1/81, Scott Bertilson, to run on Version 7.
+ * Modified at Tek to "sort of" run under 2.9bsd; 5/83; dgc
+d19 1
+a19 4
+#define DMA     1
+/* #define RXADDR       ((struct rxdevice *)0177170)    /* MAE - 3/29/83 */
+#define NRXTYP  4
+#define MAXRETRY  5
+d25 1
+a25 1
+#define RXWAIT  while((rxaddr->rxcs & (TR | DONE)) == 0) ;
+d39 2
+a40 1
+} rxtypes[NRXTYP] {
+a42 1
+		128, 26, 4, 76*26, 494, 2, 13, 6, 1,    /* Terak or RT11 format */
+d46 2
+a55 1
+#ifdef DMA
+a56 1
+#endif
+d60 1
+d81 1
+a81 1
+		bp->b_flags =| B_ERROR;
+d126 1
+a126 1
+	rxaddr->rxcs = dminor | RDSTAT | GO;
+d128 1
+a128 1
+	if((rxaddr->rxdb & DR) == 0) {
+d166 1
+a166 1
+	if(rxaddr->rxcs & ERROR) {
+d170 1
+a170 1
+		rxaddr->rxcs = RDERR | GO;
+d189 1
+a189 1
+		bp->b_flags =| B_ERROR;
+d201 1
+a201 1
+		rxstat.bytect =+ rxt->secsize;
+d231 1
+a231 1
+		if(rxaddr->rxcs & DONE) {
+d247 1
+a247 1
+		rxaddr->rxcs = INIT;
+d278 1
+a278 1
+		rxaddr->rxcs = dminor | IENABLE | GO | READ;
+d286 1
+a286 1
+		rxaddr->rxcs = dminor | IENABLE | GO | WRITE;
+a331 6
+#ifndef DMA
+	if(bp->b_xmem != 0) {           /* No buffers outside kernel space */
+		prdev("Buffer outside kernel space", bp->b_dev);
+		return(0);
+	}
+#endif
+a365 4
+#ifndef DMA
+	rxstat.coreaddr = bp->b_un.b_addr;
+#endif
+#ifdef DMA
+d368 1
+a368 2
+		((bp->b_xmem & 03) << 10);
+#endif
+a370 8
+#ifndef DMA
+rxempty(abp)
+struct buf *abp;
+{
+	register struct rxdevice *rxaddr;
+	register int i;
+	register char *cp;
+	int wc;
+a371 1
+	rxaddr = RXADDR;
+a372 71
+	 * start empty buffer command
+	 */
+	RXWAIT
+	rxaddr->rxcs = EMPTY | GO;
+	spl1();
+	/*
+	 * get core address and byte count
+	 */
+	cp = rxstat.coreaddr;
+	rxstat.coreaddr =+ 128;
+	wc = ((rxstat.bytect <= -128)? 128 : -rxstat.bytect);
+	/*
+	 * move wc bytes from the device buffer
+	 *   into the in core buffer
+	 */
+	for(i=wc; i>0; --i) {
+		RXWAIT
+		*cp++ = rxaddr->rxdb;
+	}
+	/*
+	 * sluff excess bytes
+	 */
+	for(i=128-wc; i>0; --i) {
+		RXWAIT
+		cp = rxaddr->rxdb;
+	}
+	spl5();
+}
+
+rxfill(abp)
+struct buf *abp;
+{
+	register struct rxdevice *rxaddr;
+	register int i;
+	register char *cp;
+	int wc;
+
+	rxaddr = RXADDR;
+	/*
+	 * initiate the fill buffer command
+	 */
+	RXWAIT
+	rxaddr->rxcs = FILL | GO;
+	spl1();
+	/*
+	 * get core address and byte count
+	 */
+	cp = rxstat.coreaddr;
+	rxstat.coreaddr =+ 128;
+	wc = ((rxstat.bytect <= -128)? 128 : -rxstat.bytect);
+	/*
+	 * move wc bytes from the in-core buffer to
+	 *   the device buffer
+	 */
+	for(i=wc;  i>0; --i) {
+		RXWAIT
+		rxaddr->rxdb = *cp++;
+	}
+	/*
+	 * sluff excess bytes
+	 */
+	for(i=128-wc; i>0; --i) {
+		RXWAIT
+		rxaddr->rxdb = 0;
+	}
+	spl5();
+}
+#endif
+
+#ifdef DMA
+	/*
+d386 1
+a386 2
+rxempty(abp)
+struct buf *abp;
+d398 1
+a398 1
+	rxaddr->rxcs = EMPTY | GO;
+d430 1
+a430 1
+	rxstat.coreblk =+ 2;
+d433 1
+a433 2
+rxfill(abp)
+struct buf *abp;
+d445 1
+a445 1
+	rxaddr->rxcs = FILL | GO;
+d477 1
+a477 1
+	rxstat.coreblk =+ 2;
+a478 1
+#endif
+d480 1
+d516 1
+a516 1
+	bp->b_flags =| B_ERROR;
+d523 12
+d550 3
+a552 1
+#endif
+@

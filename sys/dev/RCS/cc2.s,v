@@ -1,0 +1,567 @@
+head     22.1;
+access   avg;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+22.1
+date     89.04.27.13.33.44;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.21.25;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.11.17.16.42.17;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Камак-драйвер имени Егошина. Часть 2.
+@
+
+
+22.1
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@/*
+ * КАМАК-драйвер Егошина  (асемблерная часть)
+ */
+#include        "h/cc.h"
+#if   NCC > 0
+mfpd    =       6500^tst        / mfpi for 11/40
+mtpd    =       6600^tst        / mtpi for 11/40
+
+.globl   csv, _sleep
+
+CCPRI   =       32      /       PZERO+1 = 26. for interrupting sleep
+HIPRI   =       340
+ps      =       177776
+dmr     =       2
+dhr     =       4
+
+SETCSR  =       100000
+UNBIT   =       100
+DENB    =       100
+
+
+arg1    =       4
+arg2    =       6
+arg3    =       10
+
+pr      =       arg1
+
+dflag   =       0
+func    =       2
+array   =       4
+cna     =       6
+counter =       10
+glam    =       12
+qr      =       14
+nqr     =       16
+p1      =       20
+p2      =       22
+p3      =       24
+spsave  =       26
+
+
+
+
+/*
+.globl  _csrdo
+ */
+.text
+
+_csrdo:
+        jsr     r5,csv
+	mov	arg2(r5),r0
+	bic	$1776,r0
+	mov	arg1(r5),r3
+	mov	arg3(r5),r4
+	mov	r5,-(sp)
+        mov     ps,-(sp)
+        bis     $HIPRI,ps
+        mov     sp,r5
+        mov     nofault,fltsave
+        mov     $errcrt,nofault
+
+        mov     (r0),r1
+        mov     dmr(r0),r2
+
+        cmp     $SETCSR,r4
+        beq     1f
+
+        mov     r1,-(sp)
+        mtpd    (r3)+
+        mov     r2,-(sp)
+        mtpd    (r3)
+        br      2f
+
+1:
+        mfpd    (r3)+
+        mfpd    (r3)
+
+        bic     $UNBIT,2(sp)
+        bic     $UNBIT,(sp)
+
+        bic     2(sp),(r0)
+        bis     (sp),(r0)
+
+2:
+        clr     r0
+3:
+        mov     fltsave,nofault
+        mov     r5,sp
+        mov     (sp)+,ps
+	mov	(sp)+,r5
+       rts    pc
+
+
+errcrt:
+        mov     $-1,r0
+        br      3b
+
+/*
+.globl  _iofunct
+ */
+_iofunct:
+        jsr     r5,csv
+        mov     r5,-(sp)
+        mov     pr(r5),r5
+        mov     ps,-(sp)
+        mov     sp,spsave(r5)
+
+        bis     $HIPRI,ps
+        mov     nofault,fltsave
+        mov     $erret,nofault
+
+        mov     glam(r5),r1
+        bne     1f
+        sub     $4,sp           /       for _qma(_nqma) correctness
+        br      lambps
+
+1:
+        add     $4,r1
+        mfpd    (r1)+
+        jsr     pc,_cnacheck
+        tst     r0
+        beq     erret
+
+        mov     (sp)+,r2
+        bic     $1777,r2
+        mov     $CCPRI,-(sp)
+        mfpd    (r1)
+        mov     (sp),r0
+        bis     r0,dmr(r2)
+        bis     $DENB,(r2)
+
+        add     r2,r0
+        mov     r0,(sp)
+
+lamwait:
+        mov     fltsave,nofault
+        jsr     pc,_sleep
+
+
+        mov     nofault,fltsave
+        mov     $erret,nofault
+lambps:
+
+        mov     cna(r5),r1
+        mov     array(r5),r3
+        mov     counter(r5),r4
+
+        mov     r1,r2
+        bic     $1777,r2
+
+        mov     func(r5),r0
+
+mastart:
+        bic     $!37,r0
+        bic     $37,(r2)
+        bis     r0,(r2)
+
+	ash	$-2,r0
+        bic     $!6,r0
+        add     dflag(r5),r0
+
+        mov     $erret4,nofault
+        jsr     pc,*(r0)
+        tst     r0
+        bne     lamwait
+
+erret:
+        mov     fltsave,nofault
+        mov     spsave(r5),sp
+        mov     (sp)+,ps
+        mov     (sp)+,r5
+       rts    pc
+
+erret4:
+        inc     r4
+        mov     r4,counter(r5)
+        br      erret
+
+
+/       ***     This 2 routines is very non-structured !,
+/       ***     and essentualy depend to _iofunct
+/*
+.globl	_nqxma,_qxma
+ */
+_nqxma:
+_qxma:
+	mov	(r2),(sp)
+	bic	$37777,(sp)
+	br	1f
+/*
+.globl  _nqma,_qma
+ */
+_nqma:
+        clr     (sp)
+_qma:
+1:
+        mtpd    *p3(r5)
+        add     $2,p3(r5)
+        tst     r4
+        beq     2f
+
+        mov     $erret,nofault
+        mfpd    *p2(r5)
+        add     $2,p2(r5)
+        jsr     pc,_cnacheck
+        tst     r0
+        beq     2f
+
+        mov     (sp)+,r1
+        mov     r1,r2
+        bic     $1777,r2
+
+        mfpd    *p1(r5)
+        add     $2,p1(r5)
+
+        mov     (sp)+,r0
+
+        mov     spsave(r5),sp   /       special return (automat cycling)
+        sub     $4,sp
+        jmp     mastart
+
+2:
+        clr     r0
+        mov     spsave(r5),sp   /       special return (full return)
+        sub     $6,sp
+        mov     r4,counter(r5)
+       rts    pc
+
+/       ***     End of abnormal routines
+
+.data
+/*
+.globl _dtable,_stable
+ */
+_dtable:
+        rd
+        cd
+        wd
+        cd
+
+_stable:
+        rs
+        cs
+        ws
+        cs
+.bss
+
+.globl	nofault
+
+fltsave =       .
+.text
+/*
+.globl  _cnacheck
+ */
+_cnachec:
+_cnacheck:
+        mov     2(sp),r0
+        bic     $7776,r0
+        cmp     $160000,r0
+        bne     2f
+
+        mov     2(sp),r0
+        bic     $!1776,r0
+        cmp     r0,$40
+        blt     2f
+        cmp     r0,$1400
+        bge    2f
+       rts    pc
+
+2:
+        clr     r0
+       rts    pc
+
+/*
+.globl  _qmad,_nqmad
+ */
+_qmad:
+        add     $2,r1
+
+1:
+        cmp     r1,p1(r5)
+        bgt     3f
+
+        mov     r1,r0
+        bic     $!1740,r0
+        cmp     r0,$1400
+        bne     2f
+
+        add     $2000,r2
+        cmp     $170000,r2
+        beq     3f
+        mov     r2,r1
+        bis     $40,r1
+
+2:
+        clc
+       rts    pc
+
+3:
+        clr     r0
+        sec
+       rts    pc
+
+_nqmad:
+        add     $40,r1
+        bic     $37,r1
+        br      1b
+
+/*
+.globl _qubl,_nqubl
+ */
+_qubl:
+	mov	r3,array(r5)
+        tst     r4
+        bne     1f
+_nqubl:
+        clr     r0
+1:
+        sec
+       rts    pc
+
+/*
+.globl  _qubr,_nqubr,_qubc,_nqubc
+ */
+_qubr:
+        mov     $10000,p1(r5)
+       rts    pc
+
+_nqubr:
+        dec     p1(r5)
+        bne     1f
+_nqubc:
+        clr     r0
+        sec
+1:
+_qubc:
+       rts    pc
+
+cs:
+1:
+        dec     r4
+        blt     retpc4
+
+        add     $2,r3
+
+        tst     (r1)
+        bpl     2f
+
+        jsr     pc,*qr(r5)
+        bcc     1b
+
+        br      retpc
+
+2:
+        jsr     pc,*nqr(r5)
+        bcc     1b
+
+        br      retpc40
+
+cd:
+1:
+        dec     r4
+        blt     retpc4
+
+        add     $4,r3
+
+        tst     (r1)
+        bpl     2f
+
+        jsr     pc,*qr(r5)
+        bcc     1b
+
+        br      retpc
+
+2:
+        jsr     pc,*nqr(r5)
+        bcc     1b
+
+        br      retpc40
+
+
+rs:
+1:
+        dec     r4
+        blt     retpc4
+
+        mov     (r1),-(sp)
+
+	mtpd	(r3)+
+
+        tst     (r2)
+        bmi     3f
+
+2:
+        jsr     pc,*nqr(r5)
+        bcs     retst
+
+        mov     (r1),(sp)
+
+        tst     (r2)
+        bpl     2b
+
+	mtpd	-2(r3)
+3:
+        jsr     pc,*qr(r5)
+        bcc     1b
+
+        br      retpc
+
+
+retpc4:
+	clr	r0
+retpc40:
+        inc     r4
+retpc:
+        mov     r4,counter(r5)
+       rts    pc
+retst:
+        tst     (sp)+
+        br      retpc40
+
+
+
+rd:
+1:
+        dec     r4
+        blt     retpc4
+
+        mov     (r1),-(sp)
+
+	mov	dhr(r2),-(sp)
+	mtpd	(r3)+
+	mtpd	(r3)+
+
+        tst     (r2)
+        bmi     3f
+
+2:
+        jsr     pc,*nqr(r5)
+        bcs     retst
+
+        mov     (r1),(sp)
+
+        tst     (r2)
+        bpl     2b
+
+        mov     dhr(r2),-(sp)
+        mtpd    -4(r3)
+        mtpd    -2(r3)
+
+3:
+        jsr     pc,*qr(r5)
+        bcc     1b
+
+        br      retpc
+
+
+ws:
+1:
+        dec     r4
+        blt     retpc4
+
+        mfpd    (r3)+
+
+2:
+        mov     (sp),(r1)
+
+        tst     (r2)
+        bmi     3f
+
+        jsr     pc,*nqr(r5)
+        bcc     2b
+
+        br      retst
+
+3:
+        tst     (sp)+
+
+        jsr     pc,*qr(r5)
+        bcc     1b
+
+        br      retpc
+
+
+
+wd:
+1:
+        dec     r4
+        blt     retpc4
+
+        mfpd    (r3)+
+        mov     (sp)+,dhr(r2)
+        mfpd    (r3)+
+
+2:
+        mov     (sp),(r1)
+
+        tst     (r2)
+        bmi     3f
+
+        jsr     pc,*nqr(r5)
+        bcc     2b
+
+        br      retst
+
+3:
+        tst     (sp)+
+
+        jsr     pc,*qr(r5)
+        bcc     1b
+
+        br      retpc
+#endif NCC
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d4 1
+a4 1
+#include        "cc.h"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@@

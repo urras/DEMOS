@@ -1,0 +1,65 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.57.02;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/*	@@(#)vfork.s	0.0	SCCS id keyword	*/
+/ C library -- vfork
+
+/ pid = vfork();
+/
+/ pid == 0 in child process; pid == -1 means error return
+/ in child, parents id is in par_uid if needed
+/
+/ Since the parent and child share the stack, the return
+/ address for the parent would be overwritten by the child.
+/ Therefore, save the return address in r1 and "return"
+/ by a jump indirect.
+
+.globl	_vfork, _par_uid
+.globl	__ovno
+.comm	_errno,2
+
+_vfork:
+	mov	(sp)+,r1		/ save return address
+	mov	__ovno,savov		/ save __ovno for parent
+	sys	vfork
+		br 1f			/ child returns here; if no vfork 
+					/    syscall, parent returns here also.
+
+	bec	2f			/ parent returns here
+0:	mov	r0,_errno		/ vfork failed; can't use cerror
+	mov	$-1,r0
+	jmp	(r1)			/ "return" to saved location
+
+1:	/ child:
+	bes	0b			/ check error here also
+					/    (in case no vfork syscall)
+	mov	r0,_par_uid
+	clr	r0
+2:
+	mov	savov,__ovno		/ restore ovno in case child switched
+	jmp	(r1)			/ "return" to saved location
+
+.bss
+savov:	.=.+2
+@

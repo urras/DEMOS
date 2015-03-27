@@ -1,0 +1,56 @@
+%PDP:11    % 19.01.88 VERSION 69
+GLOBAL EMULTR
+  USE SYS:PARAMS
+  USE ACR:STRUCT,FIL:STRUCT,LIB:PARAMS
+  EQUALS CARRY=&01 ,OVER=&02 ,ZERO=&04 ,NEG=&08 ,TRACE=&10
+*             - BEKTOPA נPEPשBAHיך -
+  EQUALS CHANER=&4 ,RESCOM=&8 ,BPT=&C
+  EQUALS IOT=&10   ,POWER=&14 ,EMT=&18   ,TRAP=&1C
+  EQUALS COINP=&30 ,COOUT=&34 ,PTINP=&38 ,PTOUT=&3C
+  EQUALS TIMER=&40
+  EQUALS FLOAT=&A4
+  DATA IT:RET=ITRST-2                   %BOתBPAT ‏EPEת RTS
+
+  DATA REG=R0                           %Oג‎יE PEחיCTPש
+  DATA R0=0,R1=0,R2=0,R3,R4,R5,SP,PC
+  DATA CPREGS=CPUERR                    %PEחיCTPש CPU
+  DATA CPUERR,UBREAK,PIRQ,SREG,PSW
+  DATA CMD                              %PEחיCTP KOMAHהש
+  DATA INPSYM                           %PEתץלרTAT DPM
+  DATA STRSYM
+
+  DATA TICKFL
+  DATA ITWORD                           %חPEגEHKA OTלOצEHHשX נPEPשBAHיך
+  EQUALS T:BIT=1                         %"תAהEPצAHHשך" T-גיT
+  EQUALS SL:BIT=2                        %"צEלTAס" תOHA CTEKA
+  EQUALS D:BIT=4                         %ץףפעןךףפקב
+
+  DATA W4 ,W6 ,W8 ,W10 ,W12 ,W14
+  DATA WBUF(&100)
+
+  DATA DISLAB
+  DATA VSCR,HSCR  ,VPOS,HPOS
+  DATA TIPCOM                           %גAךTOBAס ילי HET
+  BYTES TRACFL=0 ,DEBFL=0
+
+LOCALS *LMAIN
+
+PROGRAM EMULTR()
+  CALL START ^A                         %INI זAךלA C MACCיBOM
+%START םומסופ STRSYM, וףלי קשתקבמן כבכ ימפוענעופבפןע
+  CALL DEVINI ((IF ^A='RN' THEN =1 ELSE =0))  %RESET
+  (#VSCR+1)[(#HSCR+1):=((DPTYPE))
+  CALL INIDPP
+  CALL DEBINI                           %HACTPOךKA HA üKPAH
+
+%%CALL PROFIL 0
+  (WHILE
+   <<ITRST>> =
+    #INPSYM=((DPM))
+    (IF .AND.&7F=2            %%   'DBSYMB'
+      #INPSYM=#MIN1 ; #DEBFL:=#DEBFL:.IOR.&80
+    IF)
+    IF #DEBFL:<> THEN CALL DEBUG
+    CALL STEP                           %BשגOPKA י BשנOלHEיE KOMAHהש
+    CALL DEVTST                         %OנPOC ץCTOPךCTB
+  WHILE)

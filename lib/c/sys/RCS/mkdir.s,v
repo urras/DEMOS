@@ -1,0 +1,77 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @/@;
+
+
+1.2
+date     89.01.31.14.36.34;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.01.27.14.16.02;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+создание каталога.
+@
+
+
+1.2
+log
+@у лок. сисвызовов должно быть
+sys local; 
+а не 	sys 0;
+@
+text
+@/ $Header: mkdir.s,v 1.1 89/01/27 14:16:02 abs Exp $
+/ $Log: mkdir.s,v $
+/Revision 1.1  89/01/27  14:16:02  abs
+/Initial revision
+/
+/ Revision 1.1  89/01/27  14:06:32  abs
+/ Initial revision
+/
+/
+/ error = mkdir(name, mode);
+/         char *name;
+
+.globl  _mkdir
+.globl  cerror
+
+_mkdir:
+	mov     r5,-(sp)
+	mov     sp,r5
+	mov     4(r5),0f
+	mov     6(r5),0f+2
+	sys     local; 9f
+	bec     1f
+	jmp     cerror
+1:
+	clr     r0
+	mov     (sp)+,r5
+	rts     pc
+.data
+9:
+	sys     mkdir; 0:..; ..
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+/ $Header: mkdir.s,v 1.1 89/01/27 14:06:32 abs Exp $
+d3 3
+d21 1
+a21 1
+	sys     0; 9f
+@

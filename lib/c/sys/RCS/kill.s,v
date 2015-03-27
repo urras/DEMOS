@@ -1,0 +1,45 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.17.41.53;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ error	= kill(pid, sig);
+
+.globl	_kill, cerror
+
+_kill:
+	mov	r5,-(sp)
+	mov	sp,r5
+	mov	4(sp),r0
+	mov	6(sp),8f
+	sys	0; 9f
+	bec	1f
+	jmp	cerror
+1:
+	clr	r0
+	mov	(sp)+,r5
+	rts	pc
+
+.data
+9:
+	sys	kill; 8:..
+@

@@ -1,0 +1,243 @@
+
+_1 = !
+f1 = !
+% _ ,sync;bar="---------------------------------------------------------------------" ; echo "\n\t\tCurrent Disk Usage\n\n$$bar\n\n\n`dfspace `\n\n\n$$bar"
+5 = %
+/  _ _c/
+? = /
+\. _ _c$~
+> = .
+pu _ _e
+9 _ _e
+lf _ _e
+#  _ _d
+_d _ ,ps -ale
+
+<\_ + Просмотр конца файла
+ . ns4_ ,tail $@
+ . n___*.Z ,zcat $@ | tail
+ . n___*.z ,gunzip -c $@ | tail
+ . _ _z
+)
+
+\) _ rm -f *.b .*.b *.bak .*.bak core
+
+\\ _ _c$~/.jobs
+\| = \\
+
+<ta запуск
+. _n _z
+ (c _c5 +
+ . na6 :ranlib $@
+ . n___*.Z uncompress $@
+ . n___*.z gunzip $@
+ . _ :$@ $*
+ )
+)
+
+<& запуск в параллель
+ (c _c5 +
+ . na6 :ranlib $@&
+ . n_4_*.Z :uncompress $@&
+ . n_4_*.z :unpak $@&
+ . __1 :$@ $*&
+ . ns4 :make $n.o&
+ )
+)
+6 = &
+
+<$ модификация в кодах
+ . nn _z
+ (c _c5 +
+ . n_4 modify $@
+ )
+)
+4 = $
+
+<_e копирование файла
+ (c _c5 в каталог
+  (c y___?* в том же каталоге
+   (F _c +
+   . _ (cd $F && tar cpf - .)|(mkdir $g && cd $g && tar xvf -)
+   )
+   (f _c +
+   . _ (cd $f && tar cpf - .)|(mkdir $g && cd $g && tar xvf -)
+   )
+  )
+  (C ya библиотека->каталог
+  . _ ar x $C /tmp/$f; cp /tmp/$f $g; rm /tmp/$f
+  )
+ )
+ (c _a4 в библиотеку
+  (C yc каталог->библиотека
+   (F y___?*/* Из каталога ?
+   . _ ar r $a $F
+   +
+   . _ ar x $a /tmp/$f && mv /tmp/$f /tmp/$g && ar r $a /tmp/$g && rm /tmp/$g
+   )
+  )
+  (C ya библиотека->библиотека
+  . _ ar x $C /tmp/$f; ar r $a /tmp/$f; rm /tmp/$f
+  )
+ )
+)
+
+<_f перенос файла
+ (c _c5 в каталог
+  (C ya библиотека->каталог
+  . _ ar x $C /tmp/$f && mv /tmp/$f $g && ar d $C $f
+  )
+  (F y___?*/* в из другого каталога
+  . _ mv $F $g
+  +
+  . _ mv $f $g
+  )
+ )
+ (c _a4 в библиотеку
+  (C yc каталог->библиотека
+   (F y___?*/* из каталога, иначе - из той же библиотеки
+   . _ ar r $a $F && rm $F
+   +
+   . _ ar x $a /tmp/$f && mv /tmp/$f /tmp/$g && ar r $a /tmp/$g && ar d $a $f ; rm /tmp/$g
+   )
+  )
+  (C ya библиотека->библиотека
+  . _ ar x $C /tmp/$f && ar r $a /tmp/$f; rm /tmp/$f; ar d $C $f
+  )
+ )
+)
+
+<\' информация об объекте
+. _n _z
+ (c _c5 в каталоге
+  (@ _c объект-каталог
+   . n ,du -s $@
+   . y ,ls -ald $*
+  +
+   . n _a$@
+   . y ,ls -ald $*
+  )
+ )
+ (c _a4 в библиотеке
+ . n___*.o ,ar x $a /tmp/$@; size /tmp/$@; ls -l /tmp$@; rm /tmp/$@
+ . n ,ar x $a /tmp/$@; ls -l /tmp/$@; rm /tmp/$@
+ . y ,ar x $a $*; ls -l $*; rm $*
+ )
+)
+7 = \'
+
+<- пометка для стирания
+ (c _c7 в каталоге
+ . ____. _z
+ . ____.. _z
+ . _c _id
+ . _ _h
+ )
+ (c _a6 в библиотеке
+ . _ _h
+ )
+. _ _z
+)
+
+<= переименование, сравнение
+ (c _c7 в каталоге
+ . 2 diff $*&
+ . nn _z
+ . n___. _z
+ . n___.. _z
+ )
+)
+
+<ic создание объекта
+ (c _a4 +
+ . n _jv new file (in library)
+ )
+ (c _c7 +
+ . n _jx new file
+ )
+)
+_x _ touch $@; re $@
+_v _ touch /tmp/$@;DIR=`pwd`;cd /tmp;re $@;cd $$DIR;ar r $a /tmp/$@;rm /tmp/$@
+
+<il создание объекта
+ (c _a4 +
+ . n _zInpossible\ to_create\ directory\ inside\ of\ library
+ )
+ (c _c7 +
+ . n _jy new catalogue
+ )
+)
+_y _ mkdir $@
+
+<_a переименование
+ (c _c7 в каталоге
+ . _c mv $@ $f
+ )
+ (c _a6 в библиотеке
+ . _ ar x $a /tmp/$@; mv /tmp/$@ /tmp/$f; ar d $a /tmp/$@; ar r $a /tmp/$f && rm /tmp/$f
+ )
+)
+
+<_b удаление
+ (a _a6 из библиотеки
+ . _ ar d $a $-
+ )
+ (c _c7 из каталога
+ . _c7 rm -rf $-
+ )
+)
+
+<\  вход в объект
+ (c _c5 +
+ . _c__. _z
+ . _c__.. _e
+ . _c5 _c$@
+ . ns4 re $@
+ . _a4 _far t $@
+ . _l_ _zссылка\ $@\ никуда\ не\ указывает
+ . n_4_*.Z D=`pwd`;zcat $@>/tmp/$n&&cd /tmp&&re $n&&cd $$D&&compress</tmp/$n>$$D/$@
+ . n_4_*.z D=`pwd`;gunzip -c $@>/tmp/$n&&cd /tmp&&re $n&&cd $$D&&gzip</tmp/$n>$$D/$@
+ . ____xenix _c/usr
+ . ____boot  _c/bin
+ . n_4 modify $@
+ )
+ (c _a4 в библиотеке
+ . ns ar x $a /tmp/$@; re /tmp/$@; ar r $a /tmp/$@; rm -f /tmp/$@ /tmp/$@.b
+ . n___*.f ar x $a /tmp/$@; re /tmp/$@; ar r $a /tmp/$@; rm -f /tmp/$@ /tmp/$@.b
+ . n___*.c ar x $a /tmp/$@; re /tmp/$@; ar r $a /tmp/$@; rm -f /tmp/$@ /tmp/$@.b
+ . n___*.Z ar p $a $@|zcat>/tmp/$@; re /tmp/$@; compress /tmp/$@; ar r $a /tmp/$@; rm -f /tmp/$@ /tmp/$@.b
+ . n___*.z ar p $a $@|gunzip -c>/tmp/$@; re /tmp/$@; gzip /tmp/$@; ar r $a /tmp/$@; rm -f /tmp/$@ /tmp/$@.b
+ . n_ ar x $a /tmp/$@; modify /tmp/$@; ar r $a /tmp/$@; rm -f /tmp/$@
+ )
+)
+
+<" просмотр объекта
+. _n _z
+ (c _c5 в каталоге
+ . y _ dog $*
+ . nc4 ,ls -alx $@
+ . no4 ,nm -ng $@
+ . na4 ,nm -n $@
+ . n_4_*.Z ,/usr/local/lib/comint/xrzbrowse $@
+ . n_4_*.z ,gunzip -c $@ | more
+ . ns4 ,more $@
+ )
+ (c _a4 в библиотеке
+ . n___*.o ,ar x $a /tmp/$@; nm -n /tmp/$@; rm /tmp/$@
+ . ns ,echo ar p $a $@ | more
+ . n___*.f ,ar p $a $@ | more
+ . n___*.c ,ar p $a $@ | more
+ . n_ ,ar p $a $@ | od -s | more
+ )
+)
+
+2 _ _z
+3 _ _z
+4 _ _z
+~ _ _z
+
+\^ _ ,ps -ef
+
+
+
+rn = \  ;

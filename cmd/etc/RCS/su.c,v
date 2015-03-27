@@ -1,0 +1,351 @@
+head     1.6;
+access   avg dmitry alex ache korotaev;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.6
+date     88.09.14.14.35.32;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.06.23.17.21.36;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.10.15.20.02.14;  author alex;  state Stab;
+branches ;
+next     1.3;
+
+1.3
+date     86.04.22.17.48.49;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.04.22.17.46.40;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.22.17.39.44;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Вызвать shell с новым ид. пользователя.
+@
+
+
+1.6
+log
+@Вставлен новый PATH.
+@
+text
+@/*
+ * $Log:	su.c,v $
+ * Revision 1.5  88/06/23  17:21:36  ache
+ * flock + общий файл регистрации неверных входов для login и su +
+ * мелкие правки
+ * 
+ * Revision 1.4  86/10/15  20:02:14  alex
+ * При входе в su остаемся в текущем окружении,
+ * даже если нет пароля. Только для не su по умолчанию
+ * ставим флаг "-".
+ * 
+ * Revision 1.3  86/04/22  17:48:49  avg
+ * Добавлен rcsid.
+ * 
+ * Revision 1.2  86/04/22  17:46:40  avg
+ * Введены двуязычные диагностики.
+ *
+ */
+#ifndef lint
+static char rcsid[] = "$Header: su.c,v 1.5 88/06/23 17:21:36 ache Exp $";
+#endif lint
+
+#include <whoami.h>
+#include <stdio.h>
+#include <pwd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/file.h>
+#include <ediag.h>
+
+#define DFLT_SHELL      "/bin/sh"
+#define PATH "PATH=:/bin:/usr/local/bin:/usr/bin:/usr/ucb/bin:/usr/new/bin"
+#define SULOGFILE       "/usr/adm/sulog"
+
+struct  passwd *pwd,*getpwnam();
+char    *crypt();
+char    *getpass();
+char    *getenv();
+char    **environ;
+int     ruid, rgid;
+char    homedir[64] = "HOME=";
+char    term[64] = "TERM=unknown";
+char    shell[64] = "SHELL=";
+char    user[64] = "USER=";
+char    lang[16] = "MSG=";
+
+char    *envinit[8] = {homedir, PATH, term, shell, user, lang, 0, 0};
+#define E_TERMCAP       6               /* where to put termcap in envinit */
+
+main(argc,argv)
+int     argc;
+char    **argv;
+{
+	register char **p;
+	char *nptr;
+	char *password;
+	register char *cp;
+	register char *cp2;
+	char *sh = DFLT_SHELL;
+	int minusflag = 0;
+	int new_uid, new_gid;
+
+	if (argc > 1 && argv[1][0]=='-') {
+		minusflag++;
+		argc--;
+		argv++;
+	}
+	if(argc > 1)
+		nptr = argv[1];
+	else
+		nptr = "root";
+	if((pwd=getpwnam(nptr)) == NULL) {
+		printf(ediag("Unknown id: %s\n",
+			     "Неизвестный пользователь: %s\n"),nptr);
+		exit(1);
+	}
+	ruid = getuid();
+	rgid = getgid();
+	/*
+	 * If the new user has no password, force the use
+	 * of his shell.
+	 */
+	if (pwd->pw_passwd[0] == '\0' && pwd->pw_uid != 0 )
+		minusflag++;
+	if(pwd->pw_passwd[0] == '\0' || ruid == 0)
+		goto ok;
+#ifdef  UCB_GRPMAST
+	if ((ruid == rgid) && (rgid == pwd->pw_gid))
+		goto ok;
+#endif
+	password = getpass(ediag("Password:  ", "Пароль : "));
+	if(strcmp(pwd->pw_passwd, crypt(password, pwd->pw_passwd)) != 0) {
+		if (pwd->pw_uid == 0)
+			sulog(ruid, nptr, password);
+		printf(ediag("Sorry\n","Облом\n"));
+		exit(2);
+	}
+
+ok:
+	endpwent();
+
+	/*
+	 * ``All information is contained in a static area so it must  be
+	 * copied if it is to be saved.'' - getpwent(3)
+	 */
+	new_uid = pwd->pw_uid;
+	new_gid = pwd->pw_gid;
+
+	if (pwd->pw_uid == 0)
+		sulog(ruid, nptr, (char *) NULL);
+	setgid(new_gid);
+	setuid(new_uid);
+	if (minusflag) {
+		if (pwd->pw_shell && *pwd->pw_shell)
+			sh = pwd->pw_shell;
+		strncat(homedir, pwd->pw_dir, sizeof(homedir)-6);
+		strncat(shell, sh, sizeof(shell)-7);
+		strncat(user, pwd->pw_name, sizeof(user)-5);
+		if ((cp=getenv("TERM")) != NULL)
+			strncpy(term+5, cp, sizeof(term)-5);
+		for (p=environ; *p; p++)
+			if (strncmp(*p, "TERMCAP=", 8) == 0) {
+				envinit[E_TERMCAP] = *p;
+				break;
+			}
+		lang[4] = ediag('e','r');
+		lang[5] = 0;
+		if (chdir(pwd->pw_dir) < 0)
+			perror(pwd->pw_dir);
+		environ = envinit;
+	} else {
+		if ((cp=getenv("SHELL")) != NULL)
+		    sh = cp;
+	}
+	if(strcmp(sh,"/bin/csh") != 0)
+		execl(sh, "su", 0);
+	else
+		execl(sh, "_su", 0);
+	printf(ediag("No shell\n",
+		     "Нет интерпретатора командного языка\n"));
+	exit(3);
+}
+
+sulog(whoid, whoto, password)
+	register char   *whoto, *password;
+{
+	register FILE   *logf;
+	int     i;
+	long    now;
+	char    *ttyn, *ttyname();
+	struct  stat statb;
+	struct passwd *getpwuid();
+
+	if (stat(SULOGFILE, &statb) < 0)
+		return;
+	if ((logf = fopen (SULOGFILE, "a")) == NULL)
+		return;
+
+	flock (fileno (logf), LOCK_EX);
+	for (i = 0; i < 3; i++)
+		if ((ttyn = ttyname(i)) != NULL)
+			break;
+	time (&now);
+	i = _ediag;
+	_ediag = EDIAG_E;
+	fprintf (logf, "SU : %24.24s  %-8.8s %-8.8s-> %-8.8s ",
+			ctime(&now), ttyn+5, getpwuid(whoid)->pw_name, whoto);
+	_ediag = i;
+	if (password == (char *) 0)
+		fprintf(logf, "OK\n");
+	else
+		fprintf(logf, "BAD: PW='%s'\n", password);
+	fclose (logf);
+}
+@
+
+
+1.5
+log
+@flock + общий файл регистрации неверных входов для login и su +
+мелкие правки
+@
+text
+@d3 4
+d20 1
+a20 1
+static char rcsid[] = "$Header: su.c,v 1.6 88/06/23 16:47:38 ache Exp $";
+d32 1
+a32 1
+#define PATH    "PATH=:/bin:/usr/ucb:/usr/bin"          /* default path */
+@
+
+
+1.4
+log
+@При входе в su остаемся в текущем окружении,
+даже если нет пароля. Только для не su по умолчанию
+ставим флаг "-".
+@
+text
+@d3 5
+d16 1
+a16 1
+static char rcsid[] = "$Header: su.c,v 1.3 86/04/22 17:48:49 avg Exp $";
+d24 1
+d29 1
+a29 1
+#define SULOGFILE       "/usr/adm/sulog"
+a54 1
+	char hometmp[50];
+d155 1
+d161 2
+a162 1
+	fprintf (logf, "%24.24s  %-8.8s  %-8.8s-> %-8.8s  ",
+d168 1
+a168 1
+		fprintf(logf, "BAD: PW = '%s'\n", password);
+@
+
+
+1.3
+log
+@Добавлен rcsid.
+@
+text
+@d2 4
+a5 1
+ * $Log:        su.c,v $
+d11 1
+a11 1
+static char rcsid[] = "$Header$";
+d74 1
+a74 1
+	if (pwd->pw_passwd[0] == '\0')
+@
+
+
+1.2
+log
+@Введены двуязычные диагностики.
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d7 3
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d10 1
+d26 1
+d28 2
+a29 2
+char    *envinit[8] = {homedir, PATH, term, shell, user, 0, 0};
+#define E_TERMCAP       5               /* where to put termcap in envinit */
+d32 2
+a33 2
+int	argc;
+char	**argv;
+d55 2
+a56 1
+		printf("Unknown id: %s\n",nptr);
+d69 1
+a69 1
+#ifdef	UCB_GRPMAST
+d73 1
+a73 1
+	password = getpass("Password:  ");
+d77 1
+a77 1
+		printf("Sorry\n");
+d90 1
+a90 1
+	     
+d108 2
+d121 2
+a122 1
+	printf("No shell\n");
+d127 1
+a127 1
+	register char	*whoto, *password;
+d129 5
+a133 5
+	register FILE	*logf;
+	int	i;
+	long	now;
+	char	*ttyn, *ttyname();
+	struct	stat statb;
+d135 1
+a135 1
+	
+d140 1
+a140 1
+	
+d145 1
+d148 1
+@

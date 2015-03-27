@@ -1,0 +1,96 @@
+Y0|ansi|xenix-KOI-8:\
+	:Ct=/usr/local/lib/red/QWERTY8:\
+	:gt=\35+\72\30\32\14\34\36\t\31?\13\03\03\63\62:\
+	:g1=\24\03\20\21)\23\25\04*\22\17:\
+	:g2=\35\72\30\32\14\34\36\t\31?\13:\
+	:g3=\35\03\44\37\16\26(\05%!\10:\
+	:g4=\24\72#9\r\27'\06&"\07:\
+	:g6=/,-.+\01\76:\
+	:m3=\E[m\E[12m:\
+	:Cs=:Ce=:tc=XENIX:
+
+Y1|x43:li#43:tc=xenix
+Y2|x843:li#43:tc=xenix8
+Y3|xenix:\
+	:gt=M[\072HJ<LN9IK;33./:\
+	:g2=M\072HJ<LN9IK;:cu=\E[12m[\E[10m:\
+	:g1=D3@AYCE4ZB?:g3=M3TO>FX5UQ8:g4=D\072SP=GW6VR7:g6=_\\]\136[1p:\
+	:m3=\E[m\E[12m:\
+	:hR=/usr/local/lib/red/help.xenix:tc=XENIX
+
+XENIX:\
+	:al=\E[L:am:cd=\E[J:ce=\E[K:cl=\E[H\E[J:cm=\E[%i%d;%dH:co#80:\
+        :dc=\E[P:dl=\E[M:do=\E[B:bt=\E[Z:ho=\E[H:ic=\E[@:li#25:\
+	:nd=\E[C:so=\E[7m:se=\E[m:us=\E[4m:ue=\E[m:up=\E[A:pt:\
+	:kb=^H:ku=\E[A:kd=\E[B:kl=\E[D:kr=\E[C:eo:sf=\E[S:sr=\E[T:\
+	:cr=^M:ta=^I:nl=^J:\
+	:ec=\E%dX:SF=\E[%dS:SR=\E[%dT:UP=\E[%dA:DO=\E[%dB:LE=\E[%dD:\
+	:RI=\E[%dC:cv=\E[%i%dd:AL=\E[%dL:DL=\E[%dM:IC=\E[%d@:\
+	:DC=\E[%dP:nw=\E[E:le=\E[D:mb=\E[5m:mr=\E[7m:md=\E[1m:me=\E[10m\E[m:\
+	:mk=\E[8m:gs=\E[12m:ge=\E[10m:\
+	:f1=\E[M:f2=\E[N:f3=\E[O:f4=\E[P:f5=\E[Q:f6=\E[R:\
+	:f7=\E[S:f8=\E[T:f9=\E[U:f0=\E[V:f.=\E[W:f-=\E[X:\
+	:kI=\E[L:kB=\E[Z:kD=\177:kH=\E[F:kN=\E[G:kP=\E[I:PU=\E[I:kh=\E[H:\
+	:C2:Nf#16:Nb#16:Mf=0123456789ABCDEF:Mb=0123456789ABCDEF:\
+	:Cf=\E[2;%d;%dm:
+#       :bs:    Removed because of RED (by Rudnev) major bugs
+
+#       :GS=\E[12m:GE=\E[10m:GV=\63:GH=D:\
+#       :GC=E:GL=\64:GR=C:RT=^J:G1=?:G2=Z:G3=@:G4=Y:GU=A:GD=B:\
+#       :CW=\E[M:NU=\E[N:RF=\E[O:RC=\E[P:\
+#       :WL=\E[S:WR=\E[T:CL=\E[U:CR=\E[V:\
+#       :HM=\E[H:EN=\E[F:PU=\E[I:PD=\E[G:\
+
+#    Xterm 
+xv|xterm|xterm terminal emulator:\
+	:am:km:mi:ms:xn:pt:\
+	:co#80:li#50:\
+	:is=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;3;4;6l:\
+	:ti=\E7\E[?47h:us=\E[4m:ue=\E[m:\
+	:AL=\E[%dL:DC=\E[%dP:DL=\E[%dM:DO=\E[%dB:IC=\E[%d@:\
+	:LE=\E[%dD:RI=\E[%dC:UP=\E[%dA:ae=^O:al=\E[2~:as=^N:\
+	:cd=\E[J:ce=\E[K:cl=\E[H\E[2J:cm=\E[%i%d;%dH:\
+	:cs=\E[%i%d;%dr:ct=\E[3g:dc=\E[P:dl=\E[M:ho=\E[8~:\
+	:ic=\E[@:\
+	:kb=\b:\
+	:kd=\E[B:ke=\E>:kl=\E[D:kr=\E[C:ks=\E=:\
+	:ku=\E[A:nd=\E[C:\
+	:r1=\E>\E[1;3;4;5;6l\E[?7h\E[m\E[r\E[2J\E[H:\
+	:r2=\E>\E[?3l\E[?4l\E[?5l\E[?7h\E[?8h:rc=\E8:sc=\E7:\
+	:se=\E[m:so=\E[7m:sr=\EM:st=\EH:\
+	:up=\E[A:bc=\E[1D:\
+	:PU=\E[5~:PD=\E[6~:kh=\E[8~:EN=\E[7~:\
+	:gs=\E(0:ge=\E(B:Cs=:Ce=:\
+	:GS=\E(0:GE=\E(B:\
+	:GV=x:GH=q:G1=k:G2=l:G3=m:G4=j:GU=v:\
+	:GD=w:GC=n:GL=u:GR=t:tc=redx
+
+xm|xterM|xterm terminal emulator:\
+	:am:km:mi:ms:xn:pt:\
+	:co#240:li#96:\
+	:is=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;3;4;6l:\
+	:ti=\E7\E[?47h:us=\E[4m:ue=\E[m:\
+	:AL=\E[%dL:DC=\E[%dP:DL=\E[%dM:DO=\E[%dB:IC=\E[%d@:\
+	:LE=\E[%dD:RI=\E[%dC:UP=\E[%dA:ae=^O:al=\E[2~:as=^N:\
+	:cd=\E[J:ce=\E[K:cl=\E[H\E[2J:cm=\E[%i%d;%dH:\
+	:cs=\E[%i%d;%dr:ct=\E[3g:dc=\E[P:dl=\E[M:ho=\E[8~:\
+	:ic=\E[@:\
+	:kb=\b:\
+	:kd=\E[B:ke=\E>:kl=\E[D:kr=\E[C:ks=\E=:\
+	:ku=\E[A:nd=\E[C:\
+	:r1=\E>\E[1;3;4;5;6l\E[?7h\E[m\E[r\E[2J\E[H:\
+	:r2=\E>\E[?3l\E[?4l\E[?5l\E[?7h\E[?8h:rc=\E8:sc=\E7:\
+	:se=\E[m:so=\E[7m:sr=\EM:st=\EH:\
+	:up=\E[A:bc=\E[1D:\
+	:PU=\E[5~:PD=\E[6~:kh=\E[8~:EN=\E[7~:\
+	:gs=\E(0:ge=\E(B:Cs=:Ce=:\
+	:GS=\E(0:GE=\E(B:\
+	:GV=x:GH=q:G1=k:G2=l:G3=m:G4=j:GU=v:\
+	:GD=w:GC=n:GL=u:GR=t:tc=redx
+
+rx|redx|Addidions required by red:\
+	:f1=\E[11~:f2=\E[12~:f3=\E[13~:f4=\E[14~:f5=\E[15~:f6=\E[17~:\
+	:f7=\E[18~:f8=\E[19~:f9=\E[20~:f0=\E[21~:f.=\E[23~:f-=\E[24~:\
+	:kI=\E[2~:kB=\E[Z:kD=\177:kH=\E[7~:kN=\E[6~:kP=\E[5~:kh=\E[8~:
+
+#

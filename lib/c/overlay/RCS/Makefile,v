@@ -1,0 +1,62 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     88.06.12.15.07.12;  author dvolodin;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.04.05.13.29.30;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Добавлен setjmp.
+@
+text
+@# $Log:	Makefile,v $
+# Revision 1.1  88/04/05  13:29:30  andrew
+# Initial revision
+# 
+COFLAGS=-q
+
+.DEFAULT:
+	co $(COFLAGS) $@@
+
+.s.o:
+	as -V -o $@@ /usr/include/sys.s $<
+	ld -r -x $@@ -o a.out.lib
+	mv a.out.lib $@@
+
+clean:
+	rm -f *.[ob]
+
+CLRSRC: clean
+	rm -f *.[cs]
+
+csv.o: csv.s
+vfork.o: vfork.s
+signal.o: signal.s
+setjmp.o: setjmp.s
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 3
+d24 1
+@

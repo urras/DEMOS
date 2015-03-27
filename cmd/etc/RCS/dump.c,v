@@ -1,0 +1,2019 @@
+head     1.16;
+access   abs guba korotaev;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.16
+date     88.12.27.14.41.44;  author korotaev;  state Exp;
+branches ;
+next     1.15;
+
+1.15
+date     88.12.09.20.12.31;  author guba;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     88.12.09.20.00.34;  author guba;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     88.12.05.17.47.36;  author abs;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.12.05.15.17.09;  author abs;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.12.03.13.53.39;  author root;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.12.02.16.42.57;  author root;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.09.22.14.35.45;  author root;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     87.06.23.14.49.34;  author alex;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     86.10.30.04.01.23;  author alex;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.10.27.00.15.58;  author alex;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.10.21.07.08.46;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.10.17.23.13.02;  author alex;  state Stab;
+branches ;
+next     1.3;
+
+1.3
+date     86.10.16.05.38.04;  author alex;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.10.16.05.04.15;  author alex;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.10.15.19.27.34;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Дамп
+@
+
+
+1.16
+log
+@Обработка FIFO.
+@
+text
+@/*
+ * dump -- Записать на ленту дaмп файловой системы
+ *
+ * $Log:	dump.c,v $
+ * Revision 1.15  88/12/09  20:12:31  guba
+ * нехватка описаний.
+ * 
+ * Revision 1.14  88/12/09  20:00:34  guba
+ * Исправлена ошибка (теперь нет обращения к маг.ленте, если задан
+ * ключ -n).
+ * 
+ * Revision 1.13  88/12/05  17:47:36  abs
+ * пРикидки.
+ * 
+ * Revision 1.12  88/12/05  15:17:09  abs
+ * Части #define-ов перенесены в dumprestor.h
+ *
+ * Revision 1.11  88/12/03  13:53:39  root
+ * Добавлена перемотка магнитной ленты перед запросом
+ * сменить ленту.
+ *
+ * Revision 1.10  88/12/02  16:42:57  root
+ * Добавлен ключ -n.
+ * Продолжение дампирования при смене ленты только после ввода next\n.
+ *
+ * Revision 1.9  88/09/22  14:35:45  root
+ * Исправлена инициализация с xstr-ом.
+ *
+ * Revision 1.8  87/06/23  14:49:34  alex
+ * Добавлен ключ B для указания размера флоппи в блоках.
+ *
+ * Revision 1.7  86/10/30  04:01:23  alex
+ * Исправлена ошибка.
+ *
+ * Revision 1.6  86/10/27  00:15:58  alex
+ * Введено автоматическое определение уровня дампа
+ * в случае, если указано 999.
+ *
+ * Revision 1.5  86/10/21  07:08:46  alex
+ * 1. Введена работа с текстовым файлом /etc/dumpdate вместо
+ * бинарного "/etc/ddate". Формат записей:
+ * имя уровень ДД.ММ.ГГ ЧЧ:ММ:СС <доп.информация>
+ * 2. В конце работы выдается оставшееся на ленте место (в килобайтах).
+ * 3. Заблокирована запись блоков файла, если его длина 0
+ *    (для правильного взаимодействия с /etc/badsect).
+ * 4. Все диагностики выдаются по каналу stderr, а в stdout выдается
+ *    оставшееся на ленте место (килобайт).
+ * 5. Для впихивания в память пришлось сделать #define NI 4 (вместо 8).
+ *
+ * Revision 1.4  86/10/17  23:13:02  alex
+ * Введен поиск имени диска по имени файловой системы.
+ * В ddate пишется теперь имя файловой системы из суперблока,
+ * а не имя устройства, если только имя для ddate не задано явно
+ * дополнительным аргументом.
+ * Умолчание для ленты берется из TAPE.
+ *
+ * Revision 1.3  86/10/16  05:38:04  alex
+ * Окончательно сделана длина в килобайтах, метрах и т.д.
+ *
+ * Revision 1.2  86/10/16  05:04:15  alex
+ * Ввели указание длины ленты в форме ЧислоБуква,
+ * теперь длина указывается в футах, метрах, килобайтах или мегабайтах.
+ * Ввели двойные диагностики, изменили умолчания. Подробнее см. комментарий.
+ *
+ * Revision 1.1  86/10/15  19:27:34  alex
+ * Initial revision
+ *
+ * dump Ключи [аргументы] файловая система
+ * 0-9 - уровень дампирования
+ * u - записать в /etc/ddate
+ * f имя_ленты - указание устройства, на которое писать dump.
+ * s Длина - длина или емкость ленты:
+ *  xxx    - длина в футах;
+ *  xxxm   - в метрах;
+ *  xxxk   - емкость в килобайтах;
+ *  хххM   - емкость в мегабайтах;
+ *  длина:длина - длина (или емкость) первой и последующих
+ *                лент, если они разные.
+ *  По умолчанию подразумевается стандартная малая лента
+ *  d плотность - плотность записи (бит/дюйм), по умолчанию 800.
+ *
+ */
+
+/*NOXSTR*/
+#ifndef lint
+static char rcsid[] = "$Header: dump.c,v 1.15 88/12/09 20:12:31 guba Exp $";
+#endif
+/*YESXSTR*/
+
+#include <ediag.h>
+
+
+#include <whoami.h>
+extern int errno;
+#define NI      4
+#define DIRPB   (BSIZE/sizeof(struct direct))
+
+#include <stdio.h>
+#include <sys/param.h>
+#include <sys/inode.h>
+#include <sys/ino.h>
+#include <sys/fblk.h>
+#include <sys/filsys.h>
+#include <sys/dir.h>
+#include <sys/file.h>
+#include <sys/mtio.h>
+#include <dumprestor.h>
+
+
+struct  mtop mto;
+struct  filsys  sblock;                 /* суперблок диска */
+struct  dinode  itab[INOPB*NI];
+short   clrmap[MSIZ];                   /* bitmap отведенных I-узлов */
+short   dirmap[MSIZ];                   /* I-узлы каталогов */
+short   nodmap[MSIZ];                   /* I-узлы обновленных файлов (to be dumped) */
+/* short *nodmap; /* unodmap - в стеке */
+char    *disk;
+char    *tape;
+char    *namefs;
+char    *tapeinf;
+char    *increm;
+int     incno;
+int     uflag;
+int     fi;
+int     to;
+ino_t   ino;
+int     nsubdir;
+int     ntape;
+int     nadded;
+int     dadded;
+int     density = 80, dens1 = 80;
+short   nogapflg;
+
+char    *ctime();
+char    *prdate();
+long    atol();
+int     fi;
+long    tsize, tsize1, tsize0;
+long    esize;
+long    asize;
+int     mark();
+int     add();
+int     dump();
+int     tapsrec();
+int     dmpspc();
+int     dsrch();
+int     nullf();
+long ldisk = 0, maxdisk = 0; /* Текущая и макс длина флоппи */
+long atol();
+int     nodump;
+int     etapes;
+int     dirwrite;
+
+#define HOUR    (60L*60L)
+#define DAY     (24L*HOUR)
+#define YEAR    (365L*DAY)
+
+
+/***********************************************************/
+/** Затычки для стандартных memory allocator-ов из stdio  **/
+/**/                                                     /**/
+/**/ malloc() {return(NULL);}                            /**/
+/**/ calloc() {return(NULL);}                            /**/
+/**/ free()   {}                                         /**/
+/**/ char    _sibuf;                                     /**/
+/**/ char    _sobuf;                                     /**/
+/**/ struct  _iobuf  _iob[_NFILE] = {                    /**/
+/**/         { NULL, 0, NULL, _IOREAD+_IONBF, 0},        /**/
+/**/         { NULL, 0, NULL, _IOWRT+_IONBF, 1},         /**/
+/**/         { NULL, 0, NULL, _IOWRT+_IONBF, 2},         /**/
+/**/ };                                                  /**/
+/**/ struct  _iobuf  *_lastbuf = { &_iob[_NFILE] };      /**/
+/**/ fseek(){}                                           /**/
+/**/ isatty(){}                                          /**/
+/***********************************************************/
+
+main(argc, argv)
+char *argv[];
+{
+	char *arg;
+	register i;
+	extern char *getenv();
+/* Используем  место в стеке    */
+/*      short   unodmap[MSIZ];  */
+/*      nodmap = unodmap;       */
+/* */
+	time(&spcl.c_date);
+	tsize = 1200L*12L*10L;
+	tape = getenv("TAPE");
+	if ( ! tape )
+		tape = "/dev/rmt0";
+	disk = "/dev/rrk0";
+	increm = "/etc/ddate";
+	incno = 9;
+	uflag = 0;
+	arg = "u";
+	setbuf(stdout,NULL);
+	if(argc > 1) {
+		argv++;
+		argc--;
+		arg = *argv;
+	}
+	if( *arg == '-' ) {
+		if( *++arg != 'n' ) {
+			fprintf( stderr, "bad key '%c'\n", "плохой ключ '%c'\n", arg[-1] );
+			exit(1);
+		}
+		argv++;
+		argc--;
+		arg = *argv;
+		nodump = 1;
+	} else
+		nodump = 0;
+	while(*arg)
+	switch (*arg++) {
+
+	case 'f':
+		if(argc > 1) {
+			argv++;
+			argc--;
+			tape = *argv;
+		}
+		break;
+
+	case 'd':
+		if (argc > 1) {
+			argv++;
+			argc--;
+			dens1 = density = atoi(*argv)/10;
+		}
+		break;
+	case 'B':
+		argv++;    argc--;
+		maxdisk = atol( *argv );
+		if( maxdisk > 0 ) break;
+		fprintf( stderr, "Bad disk length %s\n", argv[-1] );
+		exit(1);
+	case 's':
+		if(argc > 1) {
+			argv++;
+			argc--;
+			gettsize(*argv, &tsize, &density);
+		}
+		break;
+	case '0':
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+	case '8':
+	case '9':
+		incno = arg[-1]-'0';
+		while(*arg>='0'&&*arg<='9')
+			incno= incno*10+(*arg++ -'0');
+		break;
+	case 'u':
+		uflag++;
+		break;
+
+	default:
+		fprintf(stderr,ediag("bad key '%c'\n","плохой ключ'%c'\n"), arg[-1]);
+		exit(1);
+	}
+	if(argc > 1) {
+		argv++;
+		argc--;
+		disk = *argv;
+	}
+	if(argc > 1) {
+		argv++;
+		argc--;
+		namefs = *argv;
+	}
+	if(argc > 1) {
+		argv++;
+		argc--;
+		tapeinf = *argv;
+	}
+	dskopen(disk);
+	getitime();
+	fprintf(stderr,ediag("     date = %s\n","     Дата = %s\n"), prdate(spcl.c_date));
+	fprintf(stderr,ediag("dump date = %s\n","Дамп начиная с %s\n"), prdate(spcl.c_ddate));
+	fprintf(stderr,ediag("dumping %s(%s) to %s\n","Дамп %s(%s) на %s\n"), disk, namefs, tape);
+	if(fi < 0) {
+		fprintf(stderr,ediag("dump: cannot open %s\n","dump: не могу открыть %s\n"), disk);
+		exit(1);
+	}
+	fflush(stdout);
+        if( !nodump ) otape();
+        fprintf(stderr,"I\tI-node collection\n");
+        esize = 15;
+        CLR(clrmap);
+        CLR(dirmap);
+        CLR(nodmap);
+
+        pass(mark, (short *)NULL);
+        do {
+                fprintf(stderr,"II\tdirectory collection\n");
+                nadded = 0;
+                pass(add, dirmap);
+        } while(nadded);
+
+        /* оценивание размера */
+        bmapest(clrmap);
+        bmapest(nodmap);
+        etapes = 1 + esize / (density * (tsize1?tsize1:tsize) / BSIZE);
+        if( maxdisk == 0)
+        fprintf(stderr,ediag("estimated %ld k-bytes on %d tape(s)\n","примерно %ld килобайт на %d ленте(лентах)\n"),
+                esize, etapes);
+        else
+        fprintf(stderr,ediag("estimated %ld k-bytes on %d disks)\n","примерно %ld килобайт на %d дисках)\n"),
+                esize, (int)(esize/maxdisk)+1);
+        fflush(stdout);
+        if( nodump ) {
+                printf( "%ld\n", esize );
+		exit(0);
+	}
+
+	fprintf(stderr,"III\twriting bitmaps and directories\n");
+	bitmap(clrmap, TS_CLRI);
+	pass(dump, dirmap);
+	fprintf(stderr,"IV\twriting files\n");
+	pass(dump, nodmap);
+	fprintf(stderr,ediag("DONE\n","Сделано\n"));
+	fprintf(stderr,ediag("%ld k-bytes on %d %s(s)\n","%ld килобайт на %d %s\n"),
+		spcl.c_tapea, spcl.c_volume,(maxdisk?ediag("disk","диске(дисках)"):ediag("tape","ленте(лентах)")));
+	spcl.c_type = TS_END;
+	for(i=0; i<NTREC; i++)
+		spclrec();
+	putitime();
+	fprintf(stderr,ediag("Rest of tape %ldkbyte (%d%%)\n",
+	"Остаток ленты %ld килобайт (%d%%)\n"),
+	(long)((tsize-asize)*density/1024l), (int)((tsize-asize)*100l/tsize));
+	printf("%ld\n",(long)((tsize-asize)*density/1024l));
+	exit(0);
+}
+
+/* Просмотр всех I-узлов диска. Чтение их осуществляется кусками по NI блоков.
+ * Каждый узел (числящийся в bitmap-е map, а если map==NULL, то ВСЕ)
+ * обрабатывается функцией fn.
+ */
+pass(fn, map)
+int (*fn)();
+short *map;
+{
+	register i, j;
+	int bits;
+	ino_t mino;
+	daddr_t d;
+
+	sync();
+	bread((daddr_t)1, (char *)&sblock, sizeof(sblock));
+	mino = (sblock.s_isize-2) * INOPB;
+	/* число I-узлов в файл. системе */
+
+	ino = 0;
+	for(i=2;; i+=NI) {
+		if(ino >= mino)
+			break;
+		d = (unsigned)i;
+		for(j=0; j<INOPB*NI; j++) {
+			if(ino >= mino)
+				break;
+			if((ino % MLEN) == 0) {
+				bits = ~0;
+				if(map != NULL)
+					bits = *map++;
+			}
+			ino++;
+			if(bits & 1) {
+				if(d != 0) {
+					bread(d, (char *)itab, sizeof(itab));
+					d = 0;
+				}
+				(*fn)(&itab[j]);
+			}
+			bits >>= 1;
+		}
+	}
+}
+
+/* Обработка всех блоков файла, задаваемого узлом ip.
+ * Для блоков данных вызывается сначала функция fn2
+ * (для формирования адресной записи),
+ * затем для каждого блока - fn1.
+ */
+icat(ip, fn1, fn2)
+struct  dinode  *ip;
+int (*fn1)(), (*fn2)();
+{
+	register i;
+	daddr_t d[NADDR];
+
+	l3tol(&d[0], &ip->di_addr[0], NADDR);
+	(*fn2)(d, NADDR-3);
+	for(i=0; i<NADDR; i++) {
+		if(d[i] != 0) {
+			if(i < NADDR-3)
+				(*fn1)(d[i]); else
+				indir(d[i], fn1, fn2, i-(NADDR-3));
+		}
+	}
+}
+
+/* Рекурсивная часть алгоритма icat, вызываемая для косвенных
+ * блоков. fn1 и fn2 сохраняют свой смысл -
+ * fn2 - формирует адреса в header-е spcl,
+ * fn1 - обрабатывает блоки с данными
+ */
+indir(d, fn1, fn2, n)
+daddr_t d;
+int (*fn1)(), (*fn2)();
+{
+	register i;
+	daddr_t idblk[NINDIR];
+
+	bread(d, (char *)idblk, sizeof(idblk));
+	if(n <= 0) {
+		spcl.c_type = TS_ADDR;
+		(*fn2)(idblk, NINDIR);
+		for(i=0; i<NINDIR; i++) {
+			d = idblk[i];
+			if(d != 0)
+				(*fn1)(d);
+		}
+	} else {
+		n--;
+		for(i=0; i<NINDIR; i++) {
+			d = idblk[i];
+			if(d != 0)
+				indir(d, fn1, fn2, n);
+		}
+	}
+}
+
+/* Первый проход: выбор обновленных I-узлов */
+mark(ip)
+struct dinode *ip;
+{
+	register f;
+
+	f = ip->di_mode & IFMT;
+	if(f == 0)
+		return;
+	BIS(ino, clrmap);
+	if(f == IFDIR)
+		BIS(ino, dirmap);
+	if(ip->di_mtime >= spcl.c_ddate ||
+	   ip->di_ctime >= spcl.c_ddate) {
+		BIS(ino, nodmap);
+		if (f != IFREG && f != IFDIR && f != IFLNK)
+			return;
+		est(ip);
+	}
+}
+
+/* Выбор каталогов to be dumped */
+add(ip)
+struct dinode *ip;
+{
+
+	if(BIT(ino, nodmap))
+		return;
+	nsubdir = 0;
+	dadded = 0;
+	icat(ip, dsrch, nullf);
+	if(dadded) {
+		BIS(ino, nodmap);
+		est(ip);
+		nadded++;
+	}
+	if(nsubdir == 0)
+		if(!BIT(ino, nodmap))
+			BIC(ino, dirmap);
+}
+
+int dirite;     /* запись каталога или чего-то еще */
+
+/* Запись выбранных файлов на ленту */
+dump(ip)
+register struct dinode *ip;
+{
+	register i;
+
+	if(ntape) {
+	   /* ntape != 0 после otape() */
+		ntape = 0;
+		bitmap(nodmap, TS_BITS);
+	}
+	BIC(ino, nodmap);
+	spcl.c_type = TS_INODE;
+	spcl.c_count = 0;
+	i = ip->di_mode & IFMT;
+
+	/* Вставка для блокирования записи файлов - списков плохих блоков */
+	if ( (i == IFREG && !ip->di_size) || i == IFIFO )
+		{
+		register int j;
+		for(j=0;j<40;j++) ip->di_addr[j] = 0;
+		if( i == IFIFO ) ip->di_size = (off_t)0;
+		}
+
+	spcl.c_dinode = *ip;
+	if (i != IFDIR && i != IFREG && i != IFLNK) {
+		spclrec();
+		return;
+	}
+
+	dirwrite = (i==IFDIR) ? 1 : 0 ;
+
+	/* скидывание блоков, относящихся к узлу ip, на ленту */
+	icat(ip, tapsrec, dmpspc);
+}
+
+/* формирование адресов в spcl */
+dmpspc(dp, n)
+daddr_t *dp;
+{
+	register i, t;
+
+	spcl.c_count = n;
+	for(i=0; i<n; i++) {
+		t = 0;
+		if(dp[i] != 0)
+			t++;
+		spcl.c_addr[i] = t;
+	}
+	spclrec();
+}
+
+/* записать на ленту битовую шкалу map */
+bitmap(map, typ)
+short *map;
+{
+	register i, n;
+	char *cp;
+
+	n = -1;
+	for(i=0; i<MSIZ; i++)
+		if(map[i])
+			n = i;
+	if(n < 0)
+		return;
+	spcl.c_type = typ;
+	spcl.c_count = (n*sizeof(map[0]) + BSIZE)/BSIZE;
+	spclrec();
+	cp = (char *)map;
+	for(i=0; i<spcl.c_count; i++) {
+		taprec(cp);
+		cp += BSIZE;
+	}
+}
+
+/* запись header-а spcl */
+spclrec()
+{
+	register i, *ip, s;
+
+	spcl.c_inumber = ino;
+	spcl.c_magic = MAGIC;
+	spcl.c_checksum = 0;
+	ip = (int *)&spcl;
+	s = 0;
+	/* checksum */
+	for(i=0; i<BSIZE/sizeof(*ip); i++)
+		s += *ip++;
+	spcl.c_checksum = CHECKSUM - s;
+	taprec((char *)&spcl);
+}
+
+/* обработать блок каталога.
+ * на выходе:
+ *      1) dadded=1
+ *         любой nsubdir -  хоть один файл из каталога занесен в nodmap
+ *      2) nsubdir != 0
+ *         dadded==0     -  в данном каталоге есть подкаталог
+ *      3) ==0 ==0       -  ничего такого нет
+ */
+
+dsrch(d)
+daddr_t d;
+{
+	register char *cp;
+	register i;
+	register ino_t in;
+	struct direct dblk[DIRPB];
+
+	if(dadded)
+		return;
+	bread(d, (char *)dblk, sizeof(dblk));
+	for(i=0; i<DIRPB; i++) {
+		in = dblk[i].d_ino;
+		if(in == 0)
+			continue;
+		cp = dblk[i].d_name;
+		if(cp[0] == '.') {
+			if(cp[1] == '\0')
+				continue;
+			if(cp[1] == '.' && cp[2] == '\0')
+				continue;
+		}
+		if(BIT(in, nodmap)) {
+			dadded++;
+			return;
+		}
+		if(BIT(in, dirmap))
+			nsubdir++;
+	}
+}
+
+nullf()
+{
+}
+
+bread(da, ba, c)
+daddr_t da;
+char *ba;
+{
+	register n;
+
+#ifndef UCB_NKB
+	lseek(fi, da*512, FSEEK_ABSOLUTE);
+#else
+	lseek(fi, da*BSIZE, FSEEK_ABSOLUTE);
+#endif
+	n = read(fi, ba, c);
+	if(n != c) {
+		fprintf(stderr,ediag("asked %d; got %d\n","читали %d; получили %d\n"), c, n);
+		fprintf(stderr,ediag("**** block=%ld, errno=%d\n","**** блок=%ld, код ошибки=%d\n"), da, errno);
+	}
+}
+
+/* зачистить шкалу */
+CLR(map)
+register short *map;
+{
+	register n;
+
+	n = MSIZ;
+	do
+		*map++ = 0;
+	while(--n);
+}
+
+/* буфер для блоков, входящих в ленточныЙ рекорд */
+
+char    tblock[NTREC][BSIZE];
+daddr_t tdaddr[NTREC];
+int     trecno;
+
+/* запись header-а (spcl) на ленту */
+taprec(dp)
+char *dp;
+{
+	register i;
+
+	for(i=0; i<BSIZE; i++)
+		tblock[trecno][i] = *dp++;
+	tdaddr[trecno] = 0;
+	trecno++;
+	spcl.c_tapea++;
+	if(trecno >= NTREC)
+		flusht();
+}
+
+/* виртуальная запись на ленту:
+ * в tdaddr накапливаются адреса блоков, которые надо записать.
+ * Если адрес == 0, то САМ блок (header) уже есть в буфе8ре.
+ */
+
+tapsrec(d)
+daddr_t d;
+{
+
+	if(d == 0)
+		return;
+	tdaddr[trecno] = d;
+	trecno++;
+	spcl.c_tapea++;
+	if(trecno >= NTREC)
+		flusht();
+}
+
+/* ФизическАя запись накоплЕнного рекорда на ленту */
+flusht()
+{
+	char place[100];
+	register i, si;
+	daddr_t d;
+
+	while(trecno < NTREC)
+		tdaddr[trecno++] = 1;
+
+loop:
+ /* некое извращение, читающее блоки с диска в порядке возрастания адреса блока */
+	d = 0;
+	for(i=0; i<NTREC; i++)
+		if(tdaddr[i] != 0)
+		if(d == 0 || tdaddr[i] < d) {
+			si = i;
+			d = tdaddr[i];
+		}
+	if(d != 0) {
+		bread(d, tblock[si], BSIZE);
+		tdaddr[si] = 0;
+		goto loop;
+	}
+	trecno = 0;
+	if(write(to, tblock[0], sizeof(tblock)) < 0 ){
+		perror("write");
+		exit(1);
+	}
+	asize += sizeof(tblock)/density;
+	if(maxdisk) {  ldisk += NTREC; }
+	if (!nogapflg) asize += 7;
+	if((maxdisk && ldisk+NTREC > maxdisk) || asize > tsize) {
+		close(to);
+		if( !maxdisk ) {
+			to = open( tape, 0 );
+			mto.mt_op = MTREW;
+			mto.mt_count = 1;
+			ioctl( to, MTIOCTOP, &mto );
+			close(to);
+		}
+		do {
+			fprintf(stderr, ediag("change %s, then hit 'next'<return>","Смените %s, затем наберите 'next'<ВК>"),
+			(maxdisk?(ediag("Floppy","Флоппи")):(ediag("tape","ленту")) ));
+			if (read(0, place, sizeof(place)) <= 0)  exit(1);
+		} while( strcmp( place, "next\n" ));
+		fprintf(stderr,ediag("Continue\n","Продолжаем\n"));
+		if ( tsize1 ){tsize= tsize1; tsize1 = 0; density = dens1;}
+		otape();
+	}
+}
+
+/* открыть ленту и записать header */
+otape()
+{
+	to = creat(tape, 0666);
+	if(to < 0) {
+		perror(tape);
+		exit(1);
+	}
+	ldisk=0; asize = 0;
+	ntape++;
+	spcl.c_volume++;
+	spcl.c_type = TS_TAPE;
+	spclrec();
+}
+
+char *
+prdate(d)
+time_t d;
+{
+	char *p;
+
+	if(d == 0)
+		return(ediag("the epoch","создания"));
+	p = ctime(&d);
+	p[24] = 0;
+	return(p);
+}
+
+#define FOPEN(id,n,r) if ( !(id=fopen(n,r))) {perror(n);exit(1);}
+/*
+ * getitime() -
+ * Считай информацию о дампах из /etc/dumpdate
+ */
+time_t emitl();
+getitime()
+{
+	FILE *idf;
+	time_t ddtime;
+	struct dumpdate ddbuf;
+	int lname, incno0= -1;
+	char ddlbuf[DDMAXL];
+	/* 1. Открыть файлы */
+	spcl.c_ddate = 0;
+	lname = strlen(namefs);
+	FOPEN(idf,DUMPDN,"r");
+	while(fgets(ddlbuf,DDMAXL,idf)) {
+		if(strncmp(namefs,ddlbuf,lname) != 0 ||
+		   ddlbuf[lname] != ' ') continue;
+		if ( !convdbuf(&ddbuf, ddlbuf)) continue;
+		if ( (incno0=ddbuf.dd_incr) >= incno || (ddtime = emitl(&(ddbuf.dd_tm))) <= spcl.c_ddate) continue;
+		spcl.c_ddate = ddtime;
+	}
+	if ( incno == 999 )
+		{
+		incno = incno0 + 1;
+		fprintf(stderr,
+		  ediag("Increment level %d\n","Уровень дампа %d\n"), incno);
+		}
+	fclose(idf);
+	return;
+}
+
+/*
+ * convdbuf(buf,string)
+ * Преобразование из текстового вида в структуру.
+ * Ответ - 0 - неудачно
+ * Обратите внимание, что в системе
+ * месяц считается с 0, а у нас с 1.
+ */
+#define A(x) (&(dbuf->x))
+#define T(x) (&(dbuf->dd_tm.x))
+convdbuf(dbuf, lbuf)
+register struct dumpdate *dbuf;
+char *lbuf;
+{
+	if ( sscanf(lbuf, "%s%d%d.%d.%d %d:%d:%d",
+		A(dd_name), A(dd_incr),
+		T(tm_mday), T(tm_mon), T(tm_year), T(tm_hour),
+		T(tm_min), T(tm_sec))
+		!= 8) return(0);
+	dbuf->dd_tm.tm_mon -= 1;
+	return(1);
+}
+
+struct tm *localtime();
+/*
+ * putitime()
+ * Записать информацию о дампировании назад.
+ * Сначала переписываем все в другой файл,
+ * затем перелинковываем.
+ */
+putitime()
+{
+	char ddlbuf[DDMAXL];
+	struct dumpdate ddbuf;
+	struct tm *tmout;
+	int lname;
+	FILE *idf, *idt;
+	tmout = localtime(&spcl.c_date);
+	FOPEN(idf,DUMPDN,"r");
+	FOPEN(idt,DUMPDNN,"w");
+	lname = strlen(namefs);
+	while(fgets(ddlbuf,DDMAXL,idf)) {
+		if(strncmp(namefs,ddlbuf,lname) == 0 &&
+			ddlbuf[lname]==' '  &&
+			convdbuf(&ddbuf, ddlbuf) && ddbuf.dd_incr >= incno)
+			       continue;
+		fputs(ddlbuf, idt);
+	}
+	fprintf(idt,"%s %d %d.%d.%d %d:%d:%d %s %s rest=%ldk\n",
+	namefs,incno, (int)tmout->tm_mday, (int)tmout->tm_mon+1,
+	(int)tmout->tm_year, (int)tmout->tm_hour,
+	(int)tmout->tm_min, (int)tmout->tm_sec,
+	disk,
+	tapeinf?tapeinf:tape, (long)((tsize-asize)*density/1024l));
+	fflush(idt);
+	if ( ferror(idt)) { 
+		perror(DUMPDNN); 
+		exit(2);
+	}
+	if ( unlink(DUMPDN) || link(DUMPDNN,DUMPDN) || unlink(DUMPDNN))
+	{ 
+		perror(ediag("Can not rename dumpdate: ","Не могу переименовать dumpdate: "));
+		exit(2);
+	}
+	return;
+}
+
+est(ip)
+struct dinode *ip;
+{
+	long s;
+
+	esize++;
+	s = (ip->di_size + BSIZE-1) / BSIZE;
+	esize += s;
+	if(s > NADDR-3) {
+		s -= NADDR-3;
+		s = (s + (BSIZE/sizeof(daddr_t))-1) / (BSIZE/sizeof(daddr_t));
+		esize += s;
+	}
+}
+
+bmapest(map)
+short *map;
+{
+	register i, n;
+
+	n = -1;
+	for(i=0; i<MSIZ; i++)
+		if(map[i])
+			n = i;
+	if(n < 0)
+		return;
+	esize++;
+	esize += (n + (BSIZE/sizeof(short))-1) / (BSIZE/sizeof(short));
+}
+
+/*
+ * gettsize(s, &tsize, &density)
+ * - считай длину ленты
+ */
+gettsize(s, ats, adn)
+char *s;
+long *ats;
+int *adn;
+{
+	register char *s1= s;
+	long k=12L*10L;
+	while ( *s1 >= '0' && *s1<= '9') s1++;
+	switch ( *s1 ) {
+	case 'b':
+		*adn = 51;
+		k=10L;
+		s1++;
+		nogapflg++;
+		break;
+	case 'M':
+		*adn = 100;
+		k=10L*1024L;
+		s1++;
+		nogapflg++;
+		break;
+	case 'k':
+		*adn = 100;
+		k=10L;
+		s1++;
+		nogapflg++;
+		break;
+	case 'm':
+		k *= 3;
+		s1++;
+		break;
+	}
+	*ats = k * atol(s);
+	if ( !*ats) {
+		fprintf(stderr,ediag("Bad length %s\n","Плохой описатель длины %s\n"), s);
+		exit(1);
+	}
+	if ( *s1 == ':' && ats == &tsize )
+		gettsize(++s1, &tsize1, &dens1);
+	return;
+}
+
+/*
+ * dskopen(name) - открыть файловую систему по имени "name".
+ * name - имя устройства, или имя справочника, куда система смонтирована.
+ */
+#include <mtab.h>
+#include <stat.h>
+dskopen(name)
+char *name;
+{
+	struct stat stbuf;
+	char *oname = name;
+	static char f_name[13];
+	/* 1. Проверим, name - справочник?? */
+rep:
+	if ( stat(name,&stbuf) < 0 ) {
+		perror(name);
+		exit(1);
+	}
+	if (name == oname && (stbuf.st_mode&S_IFMT)==S_IFDIR)
+	{
+		name = mtabname(name);
+		goto rep;
+	}
+	if ((stbuf.st_mode&S_IFMT)!=S_IFCHR &&
+	    (stbuf.st_mode&S_IFMT)!=S_IFBLK)
+		fprintf(stderr,ediag("Warwing: %s is not device\n", "Предупреждение: %s не устройство\n"), name);
+	if ( (fi=open(name,0) )<0)
+	{
+		perror(name);
+		exit(1);
+	}
+	disk = name;
+	if ( !namefs )
+	{
+		sync();
+		bread((daddr_t)1, (char *)&sblock, sizeof(sblock));
+		strncpy(f_name,sblock.s_fsmnt,12);
+		f_name[12] = 0;
+		if ( f_name[0] ) namefs = f_name;
+		else namefs = oname;
+	}
+	return(0);
+}
+
+/*
+ * mtabname - дай имя устройсива по имени файловой системы.
+ */
+char *mtabname(name)
+char *name;
+{
+	char *dsk = NULL;
+	struct mtab mtab;
+/*NOXSTR*/
+	static char dname[DEVSIZE+6] = "/dev/";
+/*YESXSTR*/
+	int id;
+	if (( id = open(MOUNTTABLE,0) ) < 0 )
+	{
+		perror(MOUNTTABLE);
+		exit(1);
+	}
+	while( read(id,&mtab, sizeof mtab) == sizeof mtab )
+	{
+		if ( strncmp(name,mtab.m_name,PATHSIZE) == 0 )
+		{
+			strncpy(dname+5,mtab.m_dname, DEVSIZE);
+			dsk = dname;
+		}
+	}
+	close(id);
+	if ( !dsk)
+	{
+		fprintf(stderr,ediag("%s is not in mount table\n", "%s не найдена в таблице монтирования\n"), name);
+		exit(1);
+	}
+	return(dsk);
+}
+
+/*
+ * Преобразование времени обратно в машинное представление.
+ * Использован идиотский способ - решение обратной задачи.
+ * Зато дает полную гарантию!!
+ */
+
+struct tm *localtime();
+
+time_t emitl(dp)
+	struct tm *dp;
+{
+	time_t conv, bit;
+	register int i;
+	struct tm dcopy;
+
+	dcopy = *dp;
+	dp = &dcopy;
+	conv = 0;
+	for (i = 30; i >= 0; i--) {
+		bit = 1L << i;
+		conv |= bit;
+		if (dcmp(localtime(&conv), dp) > 0)
+			conv &= ~bit;
+	}
+	return(conv);
+}
+
+/*
+ * Compare two localtime dates, return result.
+ */
+
+#define DECIDE(a) \
+	if (dp->a > dp2->a) \
+		return(1); \
+	if (dp->a < dp2->a) \
+		return(-1)
+
+static
+dcmp(dp, dp2)
+	register struct tm *dp, *dp2;
+{
+
+	DECIDE(tm_year);
+	DECIDE(tm_mon);
+	DECIDE(tm_mday);
+	DECIDE(tm_hour);
+	DECIDE(tm_min);
+	DECIDE(tm_sec);
+	return(0);
+}
+@
+
+
+1.15
+log
+@нехватка описаний.
+@
+text
+@d5 3
+d86 1
+a86 1
+static char rcsid[] = "$Header: dump.c,v 1.14 88/12/09 20:00:34 guba Exp $";
+d499 1
+a499 1
+	if ( i == IFREG && !ip->di_size)
+d503 1
+@
+
+
+1.14
+log
+@Исправлена ошибка (теперь нет обращения к маг.ленте, если задан
+ключ -n).
+@
+text
+@d5 4
+d83 1
+a83 1
+static char rcsid[] = "$Header: dump.c,v 1.13 88/12/05 17:47:36 abs Exp $";
+d149 1
+@
+
+
+1.13
+log
+@пРикидки.
+@
+text
+@d4 4
+a7 1
+ * $Log:        dump.c,v $
+d79 1
+a79 1
+static char rcsid[] = "$Header: dump.c,v 1.12 88/12/05 15:17:09 abs Exp $";
+d284 6
+a289 6
+	otape();
+	fprintf(stderr,"I\tI-node collection\n");
+	esize = 15;
+	CLR(clrmap);
+	CLR(dirmap);
+	CLR(nodmap);
+d291 6
+a296 6
+	pass(mark, (short *)NULL);
+	do {
+		fprintf(stderr,"II\tdirectory collection\n");
+		nadded = 0;
+		pass(add, dirmap);
+	} while(nadded);
+d298 13
+a310 13
+	/* оценивание размера */
+	bmapest(clrmap);
+	bmapest(nodmap);
+	etapes = 1 + esize / (density * (tsize1?tsize1:tsize) / BSIZE);
+	if( maxdisk == 0)
+	fprintf(stderr,ediag("estimated %ld k-bytes on %d tape(s)\n","примерно %ld килобайт на %d ленте(лентах)\n"),
+		esize, etapes);
+	else
+	fprintf(stderr,ediag("estimated %ld k-bytes on %d disks)\n","примерно %ld килобайт на %d дисках)\n"),
+		esize, (int)(esize/maxdisk)+1);
+	fflush(stdout);
+	if( nodump ) {
+		printf( "%ld\n", esize );
+@
+
+
+1.12
+log
+@Части #define-ов перенесены в dumprestor.h
+@
+text
+@d5 3
+d76 1
+a76 1
+static char rcsid[] = "$Header: dump.c,v 1.11 88/12/03 13:53:39 root Exp $";
+d469 2
+d499 3
+@
+
+
+1.11
+log
+@Добавлена перемотка магнитной ленты перед запросом
+сменить ленту.
+@
+text
+@d4 5
+a8 1
+ * $Log:	dump.c,v $
+d12 1
+a12 1
+ * 
+d15 1
+a15 1
+ * 
+d18 1
+a18 1
+ * 
+d21 1
+a21 1
+ * 
+d25 1
+a25 1
+ * 
+d31 1
+a31 1
+ * 3. Заблокирована запись блоков файла, если его длина 0 
+d36 1
+a36 1
+ * 
+d43 1
+a43 1
+ * 
+d46 1
+a46 1
+ * 
+d48 1
+a48 1
+ * Ввели указание длины ленты в форме ЧислоБуква, 
+d51 1
+a51 1
+ * 
+d68 1
+a68 1
+ * 
+d73 1
+a73 1
+static char rcsid[] = "$Header: dump.c,v 1.10 88/12/02 16:42:57 root Exp $";
+d83 1
+a83 1
+#define	DIRPB	(BSIZE/sizeof(struct direct))
+a96 6
+#define	MWORD(m,i) (m[(unsigned)(i-1)/MLEN])
+#define	MBIT(i)	(1<<((unsigned)(i-1)%MLEN))
+#define	BIS(i,w)	(MWORD(w,i) |=  MBIT(i))
+#define	BIC(i,w)	(MWORD(w,i) &= ~MBIT(i))
+#define	BIT(i,w)	(MWORD(w,i) & MBIT(i))
+
+d98 5
+a102 5
+struct	filsys	sblock;
+struct	dinode	itab[INOPB*NI];
+short	clrmap[MSIZ];
+short	dirmap[MSIZ];
+short   nodmap[MSIZ];
+d104 2
+a105 2
+char	*disk;
+char	*tape;
+d108 1
+a108 1
+char	*increm;
+d110 8
+a117 8
+int	uflag;
+int	fi;
+int	to;
+ino_t	ino;
+int	nsubdir;
+int	ntape;
+int	nadded;
+int	dadded;
+d121 4
+a124 4
+char	*ctime();
+char	*prdate();
+long	atol();
+int	fi;
+d126 9
+a134 9
+long	esize;
+long	asize;
+int	mark();
+int	add();
+int	dump();
+int	tapsrec();
+int	dmpspc();
+int	dsrch();
+int	nullf();
+d140 3
+a142 3
+#define	HOUR	(60L*60L)
+#define	DAY	(24L*HOUR)
+#define	YEAR	(365L*DAY)
+d189 11
+a199 11
+        if( *arg == '-' ) {
+                if( *++arg != 'n' ) {
+                        fprintf( stderr, "bad key '%c'\n", "плохой ключ '%c'\n", arg[-1] );
+                        exit(1);
+                }
+                argv++;
+                argc--;
+                arg = *argv;
+                nodump = 1;
+        } else
+                nodump = 0;
+d217 7
+a223 7
+                break;
+        case 'B':
+                argv++;    argc--;
+                maxdisk = atol( *argv );
+                if( maxdisk > 0 ) break;
+                fprintf( stderr, "Bad disk length %s\n", argv[-1] );
+                exit(1);
+d279 1
+a279 1
+	fprintf(stderr,"I\n");
+d287 1
+a287 1
+		fprintf(stderr,"II\n");
+d292 1
+d300 2
+a301 2
+        fprintf(stderr,ediag("estimated %ld k-bytes on %d disks)\n","примерно %ld килобайт на %d дисках)\n"),
+                esize, (int)(esize/maxdisk)+1);
+d303 4
+a306 4
+        if( nodump ) {
+                printf( "%ld\n", esize );
+                exit(0);
+        }
+d308 1
+a308 1
+	fprintf(stderr,"III\n");
+d311 1
+a311 1
+	fprintf(stderr,"IV\n");
+d327 4
+d343 2
+d371 5
+d377 1
+a377 1
+struct	dinode	*ip;
+d394 5
+d404 1
+a404 1
+	daddr_t	idblk[NINDIR];
+d425 1
+d446 1
+d466 1
+d473 1
+d481 2
+a482 2
+	/* Вставка для блокирования записи файлов - списков плохих
+	   блоков */
+d488 1
+d494 1
+d498 1
+d514 1
+d537 1
+d547 1
+d554 9
+d616 1
+d628 1
+d630 3
+a632 3
+char	tblock[NTREC][BSIZE];
+daddr_t	tdaddr[NTREC];
+int	trecno;
+d634 1
+d649 5
+d667 1
+d678 1
+d700 13
+a712 13
+                close(to);
+                if( !maxdisk ) {
+                        to = open( tape, 0 );
+                        mto.mt_op = MTREW;
+                        mto.mt_count = 1;
+                        ioctl( to, MTIOCTOP, &mto );
+                        close(to);
+                }
+                do {
+                        fprintf(stderr, ediag("change %s, then hit 'next'<return>","Смените %s, затем наберите 'next'<ВК>"),
+                        (maxdisk?(ediag("Floppy","Флоппи")):(ediag("tape","ленту")) ));
+                        if (read(0, place, sizeof(place)) <= 0)  exit(1);
+                } while( strcmp( place, "next\n" ));
+d719 1
+@
+
+
+1.10
+log
+@Добавлен ключ -n.
+Продолжение дампирования при смене ленты только после ввода next\n.
+@
+text
+@a0 1
+#
+d5 4
+d69 1
+a69 1
+static char rcsid[] = "$Header: dump.c,v 1.9 88/09/22 14:35:45 root Exp $";
+d89 1
+d99 1
+d657 6
+a662 3
+/*
+                if( !maxdisk && etapes > 1 ) {
+                    ПЕРЕМОТАТЬ ЛЕНТУ
+a663 1
+*/
+@
+
+
+1.9
+log
+@Исправлена инициализация с xstr-ом.
+@
+text
+@d6 3
+d66 1
+a66 1
+static char rcsid[] = "$Header: dump.c,v 1.8 87/06/23 14:49:34 alex Exp $";
+d134 2
+d141 19
+a164 1
+	int etapes;
+d166 1
+a166 1
+/* Используем  место в стеке */
+d186 11
+d214 7
+a220 8
+		break;
+		case 'B':
+			argv++; argc--;
+			maxdisk = atol(*argv);
+			if(maxdisk >0) break;
+			fprintf(stderr,"Bad disk length %s\n", argv[-1]);
+			exit (1);
+
+d296 2
+a297 2
+	fprintf(stderr,ediag("estimated %ld k-bytes on %d disks)\n","примерно %ld килобайт на %d дисках)\n"),
+		esize, (int)(esize/maxdisk)+1);
+d299 4
+d651 11
+a661 6
+		close(to);
+		fprintf(stderr,
+ediag("change %s, then hit return__","Смените %s, затем нажмите ввод__"),
+(maxdisk?(ediag("Floppy","Флоппи")):(ediag("tape","ленту")) ));
+		if (read(0, place, sizeof(place)) <= 0)
+			exit(1);
+@
+
+
+1.8
+log
+@Добавлен ключ B для указания размера флоппи в блоках.
+@
+text
+@d6 3
+d61 1
+d63 1
+a63 1
+static char rcsid[] = "$Header: dump.c,v 1.7 86/10/30 04:01:23 alex Exp $";
+d65 2
+a69 1
+
+d881 1
+d883 1
+@
+
+
+1.7
+log
+@Исправлена ошибка.
+@
+text
+@d6 3
+d59 1
+a59 1
+static char rcsid[] = "$Header: dump.c,v 1.6 86/10/27 00:15:58 alex Exp $";
+d124 2
+d176 6
+d254 1
+d257 3
+d268 2
+a269 2
+	fprintf(stderr,ediag("%ld k-bytes on %d tape(s)\n","%ld килобайт на %d ленте(лентах)\n"),
+		spcl.c_tapea, spcl.c_volume);
+d606 1
+d608 1
+a608 1
+	if(asize > tsize) {
+d610 3
+a612 1
+		fprintf(stderr,ediag("change tapes, then hit return__","Смените ленту, затем нажмите ввод__"));
+d628 1
+a628 1
+	asize = 0;
+@
+
+
+1.6
+log
+@Введено автоматическое определение уровня дампа
+в случае, если указано 999.
+@
+text
+@d6 4
+d56 1
+a56 1
+static char rcsid[] = "$Header: dump.c,v 1.5 86/10/21 07:08:46 alex Exp $";
+d144 1
+a144 1
+	incno = '9';
+d654 1
+a654 1
+	if ( incno = 999 )
+@
+
+
+1.5
+log
+@1. Введена работа с текстовым файлом /etc/dumpdate вместо
+бинарного "/etc/ddate". Формат записей:
+имя уровень ДД.ММ.ГГ ЧЧ:ММ:СС <доп.информация>
+2. В конце работы выдается оставшееся на ленте место (в килобайтах).
+3. Заблокирована запись блоков файла, если его длина 0 
+   (для правильного взаимодействия с /etc/badsect).
+4. Все диагностики выдаются по каналу stderr, а в stdout выдается
+   оставшееся на ленте место (килобайт).
+5. Для впихивания в память пришлось сделать #define NI 4 (вместо 8).
+@
+text
+@d6 11
+d52 1
+a52 1
+static char rcsid[] = "$Header: dump.c,v 1.4 86/10/17 23:13:02 alex Stab $";
+d186 1
+a186 1
+		if(*arg>='0'&&*arg<='9')
+a188 1
+
+d637 1
+a637 1
+	int lname;
+d647 1
+a647 1
+		if ( ddbuf.dd_incr >= incno || (ddtime = emitl(&(ddbuf.dd_tm))) <= spcl.c_ddate) continue;
+d650 6
+@
+
+
+1.4
+log
+@Введен поиск имени диска по имени файловой системы.
+В ddate пишется теперь имя файловой системы из суперблока,
+а не имя устройства, если только имя для ddate не задано явно
+дополнительным аргументом.
+Умолчание для ленты берется из TAPE.
+@
+text
+@d6 7
+d41 1
+a41 1
+static char rcsid[] = "$Header: dump.c,v 1.3 86/10/16 05:38:04 alex Exp $";
+d45 2
+d49 1
+a49 1
+#define	NI	8
+d62 1
+d73 2
+a74 2
+/* short   nodmap[MSIZ]; */
+short *nodmap; /* unodmap - в стеке */
+d78 1
+d80 1
+a80 1
+char	incno;
+d90 1
+d96 1
+a96 1
+long    tsize, tsize1;
+d119 2
+a120 2
+	short   unodmap[MSIZ];
+	nodmap = unodmap;
+d174 3
+a176 1
+		incno = arg[-1];
+d184 1
+a184 1
+		printf(ediag("bad key '%c'\n","плохой ключ'%c'\n"), arg[-1]);
+d197 5
+d204 3
+a206 3
+	printf(ediag("     date = %s\n","     Дата = %s\n"), prdate(spcl.c_date));
+	printf(ediag("dump date = %s\n","Дамп начиная с %s\n"), prdate(spcl.c_ddate));
+	printf(ediag("dumping %s(%s) to %s\n","Дамп %s(%s) на %s\n"), disk, namefs, tape);
+d208 1
+a208 1
+		printf(ediag("dump: cannot open %s\n","dump: не могу открыть %s\n"), disk);
+d213 2
+a214 2
+	printf("I\n");
+	esize = 0;
+d221 1
+a221 1
+		printf("II\n");
+d228 2
+a229 2
+	etapes = esize / (density * (tsize1?tsize1:tsize) / BSIZE) + 1;
+	printf(ediag("estimated %ld tape blocks on %d tape(s)\n","примерно %ld килобайт на %d ленте(лентах)\n"),
+d233 1
+a233 1
+	printf("III\n");
+d236 1
+a236 1
+	printf("IV\n");
+d238 3
+a240 2
+	putitime();
+	printf(ediag("DONE\n","Сделано\n"));
+d244 6
+a249 2
+	printf(ediag("%ld tape blocks on %d tape(s)\n","%ld килобайт на %d ленте(лентах)\n"),
+		spcl.c_tapea, spcl.c_volume);
+d374 1
+a374 1
+struct dinode *ip;
+a382 1
+	spcl.c_dinode = *ip;
+d386 8
+d501 2
+a502 2
+		printf(ediag("asked %d; got %d\n","читали %d; получили %d\n"), c, n);
+		printf(ediag("**** block=%ld, errno=%d\n","**** блок=%ld, код ошибки=%d\n"), da, errno);
+d577 1
+a577 1
+	asize += 7;
+d580 1
+a580 1
+		printf(ediag("change tapes, then hit return__","Смените ленту, затем нажмите ввод__"));
+d583 1
+a583 1
+		printf(ediag("Continue\n","Продолжаем\n"));
+d616 6
+d624 6
+a629 13
+	register i, df;
+	struct idates idbuf;
+	char *fname;
+	if ( !namefs ){
+	    namefs = disk;
+	    fname = namefs;
+l1:
+	    for(i=0; fname[i]; i++)
+		    if(fname[i] == '/') {
+			    fname += i+1;
+			    goto l1;
+		    }
+	    } else fname = namefs;
+d631 8
+a638 4
+	df = open(increm, FATT_RDONLY);
+	if(df < 0) {
+		printf(ediag("cannot open %s\n","не могу открыть %s\n"), increm);
+		exit(1);
+d640 3
+d644 20
+a663 18
+l2:
+	i = read(df, (char *)&idbuf, sizeof(idbuf));
+	if(i != sizeof(idbuf)) {
+		close(df);
+		return;
+	}
+	for(i=0;; i++) {
+		if(fname[i] != idbuf.id_name[i])
+			goto l2;
+		if(fname[i] == '\0')
+			break;
+	}
+	if(idbuf.id_incno >= incno)
+		goto l2;
+	if(idbuf.id_ddate <= spcl.c_ddate)
+		goto l2;
+	spcl.c_ddate = idbuf.id_ddate;
+	goto l2;
+d666 7
+d675 15
+a689 19
+	register i, n, df;
+	struct idates idbuf;
+	char *fname;
+
+	if(uflag == 0)
+		return;
+	fname = namefs;
+l1:
+	for(i=0; fname[i]; i++)
+		if(fname[i] == '/') {
+			fname += i+1;
+			goto l1;
+		}
+
+	spcl.c_ddate = 0;
+	df = open(increm, FATT_RDWR);
+	if(df < 0) {
+		printf(ediag("cannot open %s\n","не могу открыть %s\n"), increm);
+		exit(1);
+d691 10
+a700 11
+	n = 0;
+l2:
+	i = read(df, (char *)&idbuf, sizeof(idbuf));
+	if(i != sizeof(idbuf))
+		goto l3;
+	n++;
+	for(i=0;; i++) {
+		if(fname[i] != idbuf.id_name[i])
+			goto l2;
+		if(fname[i] == '\0')
+			break;
+d702 4
+a705 9
+	if(idbuf.id_incno != incno)
+		goto l2;
+	n--;			/* Found it, so overwrite */
+l3:
+	lseek(df, (long)n*sizeof(idbuf), FSEEK_ABSOLUTE);
+	for(i=0;; i++) {
+		idbuf.id_name[i] = fname[i];
+		if(fname[i] == '\0')
+			break;
+d707 1
+a707 5
+	idbuf.id_incno = incno;
+	idbuf.id_ddate = spcl.c_date;
+	write(df, (char *)&idbuf, sizeof(idbuf));
+	close(df);
+	printf(ediag("level %c dump on %s\n","Уровень %c дамп на %s\n"), incno, prdate(spcl.c_date));
+d757 1
+d763 1
+d769 1
+d778 1
+a778 1
+		printf(ediag("Bad length %s\n","Плохой описатель длины %s\n"), s);
+d811 1
+a811 1
+		printf(ediag("Warwing: %s is not device\n", "Предупреждение: %s не устройство\n"), name);
+d856 1
+a856 1
+		printf(ediag("%s is not in mount table\n", "%s не найдена в таблице монтирования\n"), name);
+d860 51
+@
+
+
+1.3
+log
+@Окончательно сделана длина в килобайтах, метрах и т.д.
+@
+text
+@d6 3
+d34 1
+a34 1
+static char rcsid[] = "$Header: dump.c,v 1.2 86/10/16 05:04:15 alex Exp $";
+d63 2
+a64 2
+short	nodmap[MSIZ];
+
+d67 1
+d106 4
+a149 2
+			printf("%ld %d \n", tsize, density);
+			printf("%ld %d \n", tsize1, dens1);
+a151 1
+
+d178 6
+a183 1
+
+d187 1
+a187 2
+	printf(ediag("dumping %s to %s\n","Дамп %s на %s\n"), disk, tape);
+	fi = open(disk, FATT_RDONLY);
+d590 3
+a592 2
+
+	fname = disk;
+d594 6
+a599 6
+	for(i=0; fname[i]; i++)
+		if(fname[i] == '/') {
+			fname += i+1;
+			goto l1;
+		}
+
+d635 1
+a635 1
+	fname = disk;
+d749 76
+@
+
+
+1.2
+log
+@Ввели указание длины ленты в форме ЧислоБуква, 
+теперь длина указывается в футах, метрах, килобайтах или мегабайтах.
+Ввели двойные диагностики, изменили умолчания. Подробнее см. комментарий.
+@
+text
+@d6 5
+d31 1
+a31 1
+static char rcsid[] = "$Header: dump.c,v 1.1 86/10/15 19:27:34 alex Exp $";
+d74 1
+a74 1
+int     density = 80, density1 = 80;
+d112 1
+d133 1
+a133 1
+			density1 = density = atoi(*argv)/10;
+d143 1
+a143 1
+			printf("%ld %d \n", tsize1, density1);
+d200 1
+a200 1
+	etapes = esize / (density * tsize / BSIZE) + 1;
+d544 1
+a544 1
+		if ( tsize1 ){tsize= tsize1; tsize1 = 0; density = density1;}
+d711 2
+a712 2
+	case 'b': 
+		*adn = 51; 
+d714 1
+a714 1
+		s1++; 
+d717 1
+a717 1
+		*adn = 100; 
+d719 1
+a719 1
+		s1++; 
+d721 2
+a722 2
+	case 'k': 
+		*adn = 100; 
+d724 1
+a724 1
+		s1++; 
+d726 1
+a726 1
+	case 'm': 
+d728 1
+a728 1
+		s1++; 
+d737 1
+a737 1
+		gettsize(++s1, &tsize1, &density1);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+ * dump -- Записать на ленту думп файловой системы
+d5 18
+a22 1
+ * $Log$
+d26 1
+a26 1
+static char rcsid[] = "$Header$";
+d69 1
+a69 1
+int	density = 160;
+d75 1
+a75 1
+long	tsize;
+d96 1
+a96 1
+
+d98 5
+a102 4
+
+	tsize = 2300L*12L*10L;
+	tape = "/dev/rmt1";
+	disk = "/dev/rrm1";
+d127 1
+a127 1
+			density = atoi(*argv)/10;
+d135 3
+a137 2
+			tsize = atol(*argv);
+			tsize *= 12L*10L;
+d159 1
+a159 1
+		printf("bad key '%c%'\n", arg[-1]);
+d169 3
+a171 3
+	printf("     date = %s\n", prdate(spcl.c_date));
+	printf("dump date = %s\n", prdate(spcl.c_ddate));
+	printf("dumping %s to %s\n", disk, tape);
+d174 1
+a174 1
+		printf("dump: cannot open %s\n", disk);
+d195 1
+a195 1
+	printf("estimated %ld tape blocks on %d tape(s)\n",
+d205 1
+a205 1
+	printf("DONE\n");
+d209 1
+a209 1
+	printf("%ld tape blocks on %d tape(s)\n",
+d455 2
+a456 2
+		printf("asked %d; got %d\n", c, n);
+		printf("**** block=%ld, errno=%d\n", da, errno);
+d534 1
+a534 1
+		printf("change tapes, then hit return\n");
+d537 2
+d564 1
+a564 1
+		return("the epoch");
+d587 1
+a587 1
+		printf("cannot open %s\n", increm);
+d630 1
+a630 1
+		printf("cannot open %s\n", increm);
+d659 1
+a659 1
+	printf("level %c dump on %s\n", incno, prdate(spcl.c_date));
+d690 43
+@

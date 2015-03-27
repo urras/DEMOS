@@ -1,0 +1,39 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     86.04.21.20.04.56;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/
+/ $Log$
+/
+
+/ C library -- abort
+
+.globl  _abort
+iot     = 4
+.globl  csv,cret
+
+_abort:
+	jsr     r5,csv
+	iot
+	clr     r0
+	jmp     cret
+@

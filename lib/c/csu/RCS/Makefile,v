@@ -1,0 +1,58 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.04.13.15.59.38;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile для стартовых программ C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@# $Log:	Makefile,v $
+RCS=RCS
+# Для версии исх. текстов без архивов RCS установите R=X
+R=
+
+COFLAGS=-q
+CRTS=crt0.o fcrt0.o fmcrt0.o mcrt0.o
+
+.s.o:
+	as -V -o $@@ /usr/include/sys.s $<
+	ld -r -x $@@ -o a.out.lib
+	mv a.out.lib $@@
+
+all:    $(CRTS)
+
+$(R)crt0.s:     $(RCS)/crt0.s,v;   co $(COFLAGS) crt0.s
+$(R)fcrt0.s:    $(RCS)/fcrt0.s,v;  co $(COFLAGS) fcrt0.s
+$(R)fmcrt0.s:   $(RCS)/fmcrt0.s,v; co $(COFLAGS) fmcrt0.s
+$(R)mcrt0.s:    $(RCS)/mcrt0.s,v;  co $(COFLAGS) mcrt0.s
+
+install:        all /lib
+	cp $(CRTS) /lib
+	chown bin.bin /lib/crt0.o /lib/fcrt0.o \
+		      /lib/mcrt0.o /lib/fmcrt0.o
+	chmod 0644 /lib/crt0.o /lib/fcrt0.o \
+		      /lib/mcrt0.o /lib/fmcrt0.o
+
+clean clear:  ;       rm -f *.[bo]
+
+CLRSRC: clean
+	rm -f *.[cs]
+
+source: crt0.s fcrt0.s fmcrt0.s mcrt0.s
+@

@@ -1,0 +1,311 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.07.20.21.12.44;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.11.17.12.48.52;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Функции обработки сигналов разнесены на несколько файлов.
+@
+text
+@/* $Header: sigset.c,v 1.1 88/11/17 12:48:52 ache Exp $
+ * $Log:	sigset.c,v $
+ */
+#include <signal.h>
+#include <errno.h>
+/*
+ * signal system call interface package.
+ */
+
+#define mask(sig)       (1L << ((sig) - 1))
+
+#define BYTESPERVEC	4			/* size of machine language vector */
+extern  int     errno;
+extern	char	mvectors[NSIG][BYTESPERVEC];	/* machine language vector */
+
+extern int     (*_cactions[NSIG])();            /* saved callers signal actions */
+extern char    _setflg[NSIG];                   /* flags for using sigset */
+extern long    _holdmask;
+
+extern int     (*sigsys())();
+
+/*
+ * pretty much like the old signal call - set the action, return the
+ *	previous action and remember the action locally
+ */
+int (*
+sigset(signum, action))()
+register int signum;
+register int (*action)();
+{
+	register int (*retval)();
+
+	if (signum <= 0 || signum > NSIG) {
+		errno = EINVAL;
+		return BADSIG;
+	}
+	retval = _cactions[signum];
+	_cactions[signum] = action;
+	if (action != SIG_IGN && action != SIG_DFL && action != SIG_HOLD)
+		action = DEFERSIG(mvectors[signum]);
+	if (action == SIG_HOLD && signum != SIGKILL && signum != SIGSTOP && signum != SIGCONT)
+		_holdmask |= mask (signum);
+	action = sigsys(signum, action);
+	if (action == SIG_HOLD && !(_holdmask & mask (signum)))
+		_holdmask &= ~mask (signum);
+	if (action == SIG_IGN || action == SIG_DFL || action == SIG_HOLD)
+		retval = action;
+	_setflg[signum] = 1;
+	return retval;
+}
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+/* $Header: sigset.c,v 1.1 88/11/16 22:53:47 ache Exp $
+a3 1
+#include <whoami.h>
+a14 6
+/*int touched[NSIG];*/
+						/* really in I space */
+static	int	(*cactions[NSIG])();		/* saved callers signal actions */
+static	char	setflg[NSIG];			/* flags for using sigset */
+int	(*sigsys())();
+static  long    holdmask = 0L;
+d16 3
+a18 6
+int (*
+signal(signum, action))()
+register int signum;
+register int (*action)();
+{
+	register int (*retval)();
+d20 2
+a21 21
+	if (signum <= 0 || signum > NSIG) {
+		errno = EINVAL;
+		return BADSIG;
+	}
+	retval = cactions[signum];
+	cactions[signum] = action;
+	if (action != SIG_IGN && action != SIG_DFL && action != SIG_HOLD)
+		if (SIGISDEFER(action))
+			action = DEFERSIG(mvectors[signum]);
+		else
+			action = (int (*)())(int)mvectors[signum];
+	if (action == SIG_HOLD && signum != SIGKILL && signum != SIGSTOP && signum != SIGCONT)
+		holdmask |= mask (signum);
+	action = sigsys(signum, action);
+	if (action == SIG_HOLD && !(holdmask & mask (signum)))
+		holdmask &= ~mask (signum);
+	if (action == SIG_IGN || action == SIG_DFL || action == SIG_HOLD)
+		retval = action;
+	setflg[signum] = 0;	/* indicate which kind of protocol */
+	return retval;
+}
+d37 2
+a38 2
+	retval = cactions[signum];
+	cactions[signum] = action;
+d42 1
+a42 1
+		holdmask |= mask (signum);
+d44 2
+a45 2
+	if (action == SIG_HOLD && !(holdmask & mask (signum)))
+		holdmask &= ~mask (signum);
+d48 1
+a48 1
+	setflg[signum] = 1;
+a50 165
+
+/* temporarily hold a signal until further notice - sigpause or sigrelse */
+
+sighold (signum)
+register int signum;
+{
+	if (signum <= 0 || signum > NSIG)
+		abort();
+	/*
+	 *	Bug fix to allow one to call sighold() then sigrelse()
+	 *	to hold the default action rather than being forced
+	 *	to call sigset (x, SIG_HOLD) then sigrelse.
+	 */
+	setflg[signum] = 1;
+	if (signum != SIGKILL && signum != SIGSTOP && signum != SIGCONT)
+		holdmask |= mask (signum);
+	sigsys(signum, SIG_HOLD);
+}
+
+/* re-enable signals after sighold or possibly after sigpause */
+
+sigrelse(signum)
+register signum;
+{
+	if (signum <= 0 || signum > NSIG || setflg[signum] == 0)
+		abort();
+	holdmask &= ~mask (signum);
+	sigsys(signum, DEFERSIG(mvectors[signum]));
+}
+
+/* ignore these signals */
+
+sigignore(signum)
+register signum;
+{
+	holdmask &= ~mask (signum);
+	sigsys(signum, SIG_IGN);
+}
+
+long sigsetmask (newmask)
+long newmask;
+{
+	register int sig, lastrel;
+	long oldmask;
+	long differ = holdmask ^ newmask;
+
+	if (!differ) return holdmask;
+	oldmask = holdmask;
+	for (lastrel = 0, sig = 1; sig <= NSIG; sig++)
+		if (sig == SIGKILL || sig == SIGSTOP || sig == SIGCONT)
+			;
+		else if (differ & mask (sig))
+			if (newmask & mask (sig)) {
+				holdmask |= mask (sig);
+				setflg[sig] = 1;
+				sigsys (sig, SIG_HOLD);
+			}
+			else {
+				if (lastrel > 0) {
+					holdmask &= ~mask (lastrel);
+					sigsys (lastrel, SIG_IGN);
+					sigsys (lastrel, DEFERSIG (mvectors[lastrel]));
+				}
+				lastrel = sig;
+			}
+	if (lastrel > 0) {
+		holdmask &= ~mask (lastrel);
+		sigsys (lastrel, DEFERSIG (mvectors[lastrel]));
+	}
+	return oldmask;
+}
+
+long sigblock (newmask)
+long newmask;
+{
+	register int sig;
+	long oldmask;
+
+	if (!newmask) return holdmask;
+	oldmask = holdmask;
+	for (sig = 1; sig <= NSIG; sig++)
+		if (sig == SIGKILL || sig == SIGSTOP || sig == SIGCONT)
+			;
+		else if ((newmask & mask (sig)) && !(holdmask & mask (sig))) {
+			holdmask |= mask (sig);
+			setflg[sig] = 1;
+			sigsys (sig, SIG_HOLD);
+		}
+	return oldmask;
+}
+
+static long oldmask = 0L;
+static pauseactive = 0;
+/* atomically release the signal and pause (if none pending) */
+/* if no other signal has occurred, the signal will be held upon return */
+sigpause (newmask)
+long newmask;
+{
+	register int sig, lastrel;
+	long differ = holdmask ^ newmask;
+
+	pauseactive = 0;
+	if (!differ) goto Waited;
+	oldmask = holdmask;
+	for (lastrel = 0, sig = 1; sig <= NSIG; sig++)
+		if (sig == SIGKILL || sig == SIGSTOP || sig == SIGCONT)
+			;
+		else if (differ & mask (sig))
+			if (newmask & mask (sig)) {
+				holdmask |= mask (sig);
+				pauseactive = 1;
+				setflg[sig] = 1;
+				sigsys (sig, SIG_HOLD);
+			}
+			else {
+				if (lastrel > 0) {
+					holdmask &= ~mask (lastrel);
+					pauseactive = 1;
+					sigsys (lastrel, SIG_IGN);
+					sigsys (lastrel, DEFERSIG (mvectors[lastrel]));
+				}
+				lastrel = sig;
+			}
+	if (lastrel > 0) {
+		holdmask &= ~mask (lastrel);
+		pauseactive = 1;
+		sigsys ((lastrel | SIGDOPAUSE), DEFERSIG (mvectors[lastrel]));
+		goto Ret;
+	}
+Waited:
+	pause ();
+Ret:
+	if (pauseactive) {
+		pauseactive = 0;
+		sigsetmask (oldmask);
+	}
+}
+
+/* called by the machine language assist at interrupt time */
+/* return value is new signal action (if any) */
+int (*
+_sigcatch(signum))()
+register signum;
+{
+	if (pauseactive) {
+		pauseactive = 0;
+		sigsetmask (oldmask &~ mask (signum));
+	}
+	holdmask |= mask (signum);
+
+	/*touched[signum]++;*/
+	(*cactions[signum]) (signum);            /* call the C routine */
+
+	holdmask &= ~mask (signum);
+	if (setflg[signum])
+		return DEFERSIG(mvectors[signum]);	/* return new action to set */
+	else
+		return SIG_DFL;
+}
+
+/* machine language assist is at interrupt time, where it vectors in,
+ * determining the caught signal and passing it to _sigcatch.
+ * its main purpose in life is to ensure that ALL registers are saved.
+ * and figuring out which signal is being caught
+ */
+@

@@ -1,0 +1,204 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.06.27.18.29.07;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.06.27.18.15.26;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.03.20.36.58;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.3
+log
+@Исправлена проверка на невозможность создания файла.
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header: tee.c,v 1.2 88/06/27 18:15:26 avg Exp $
+** $Log:        tee.c,v $
+ * Revision 1.2  88/06/27  18:15:26  avg
+ * Добавлен ediag.
+ *
+ * Revision 1.1  88/05/03  20:36:58  root
+ * Initial revision
+ *
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header: tee.c,v 1.2 88/06/27 18:15:26 avg Exp $";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * tee-- pipe fitting
+ */
+
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <ediag.h>
+
+int openf[20] = { 1 };
+int n = 1;
+int t = 0;
+int aflag;
+
+char in[512];
+
+char out[512];
+
+extern errno;
+long    lseek();
+
+main(argc,argv)
+char **argv;
+{
+	int register r,w,p;
+	struct stat buf;
+	while(argc>1&&argv[1][0]=='-') {
+		switch(argv[1][1]) {
+		case 'a':
+			aflag++;
+			break;
+		case 'i':
+		case 0:
+			signal(SIGINT, SIG_IGN);
+		}
+		argv++;
+		argc--;
+	}
+	fstat(1,&buf);
+	t = (buf.st_mode&S_IFMT)==S_IFCHR;
+	if(lseek(1,0L,1)==-1&&errno==ESPIPE)
+		t++;
+	while(argc-->1) {
+		if(aflag) {
+			openf[n] = open(argv[1],1);
+			if(openf[n] < 0)
+				openf[n] = creat(argv[1],0666);
+			lseek(openf[n++],0L,2);
+		} else
+			openf[n++] = creat(argv[1],0666);
+		if(openf[n-1]>0 && stat(argv[1],&buf)>=0) {
+			if((buf.st_mode&S_IFMT)==S_IFCHR)
+				t++;
+		} else {
+			puts(ediag("tee: cannot open ",
+				   "tee: не могу открыть "));
+			puts(argv[1]);
+			puts("\n");
+			n--;
+		}
+		argv++;
+	}
+	r = w = 0;
+	for(;;) {
+		for(p=0;p<512;) {
+			if(r>=w) {
+				if(t>0&&p>0) break;
+				w = read(0,in,512);
+				r = 0;
+				if(w<=0) {
+					stash(p);
+					exit((w<0)?1:0);
+				}
+			}
+			out[p++] = in[r++];
+		}
+		stash(p);
+	}
+}
+
+stash(p)
+{
+	int k;
+	int i;
+	int d;
+
+	d = t ? 16 : p;
+	for(i=0; i<p; i+=d)
+		for(k=0;k<n;k++)
+			write(openf[k], out+i, d<p-i?d:p-i);
+}
+
+puts(s)
+char *s;
+{
+	write(2,s,strlen(s));
+}
+@
+
+
+1.2
+log
+@Добавлен ediag.
+@
+text
+@d6 1
+a6 1
+** $Header: tee.c,v 1.1 88/05/03 20:36:58 root Exp $
+d8 3
+d18 1
+a18 1
+static char     Rcs_id[] = "$Header: tee.c,v 1.1 88/05/03 20:36:58 root Exp $";
+d73 1
+a73 1
+		if(stat(argv[1],&buf)>=0) {
+d118 1
+a118 2
+	while(*s)
+		write(2,s++,1);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+** $Header$
+** $Log$
+d15 1
+a15 1
+static char     Rcs_id[] = "$Header$";
+d18 1
+a18 1
+ 
+d27 2
+d39 1
+a39 1
+long	lseek();
+d74 2
+a75 1
+			puts("tee: cannot open ");
+d91 1
+a91 1
+					exit (w < 0);
+d105 1
+@

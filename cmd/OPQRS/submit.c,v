@@ -1,0 +1,101 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.04.28.15.42.11;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+#include        <ctype.h>
+#include        <signal.h>
+
+extern  errno;
+
+main(ac, av)
+register        char **av;
+{
+	register i, pid;
+
+	signal (SIGINT, SIG_IGN);
+	signal (SIGQUIT, SIG_IGN);
+
+	switch (fork ())        {
+
+		case -1:
+			error (*av);
+
+		case 0:
+			--ac, ++av;
+			if (!strcmp ("-p", *av) || isnumber(*av) )      {
+				if (**av == '-') { av++; ac--; }
+				while (ac--)
+					if (submit (pid = atoi (*av++)) == -1)
+						perror (*av);
+					else	renice (pid, 10);
+				exit (errno);
+				}
+			else	if (submit (getpid ()) == -1)
+					error ("submit");
+				else	nice (10);
+
+			if (!strcmp ("-c", *av))	{
+				execl ("/bin/csh", "csh", "-c", *++av, 0);
+				error ("csh");
+				}
+			else	{
+				execvp (*av, av);
+				error (*av);
+				}
+
+		default:
+			exit (0);
+	}
+}
+
+isnumber(s)
+register char	*s;
+{
+	while (*s)
+		if (!isdigit(*s++))
+			return(0);
+	return(1);
+}
+
+error (s)
+register	char	*s;
+{
+	perror (s);
+	exit (errno);
+}
+@

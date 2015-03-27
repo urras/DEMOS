@@ -1,0 +1,1098 @@
+head     22.3;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin;
+symbols  Архыз1:1.9.2 Архыз0:1.9.1;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.10.53;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.13.48.17;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.14.28.56;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.25.12.29.43;  author korotaev;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.12.16.16.32.19;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.11.01.20.39.54;  author dvolodin;  state Exp;
+branches 1.9.2.1;
+next     1.8;
+
+1.8
+date     87.07.24.14.04.32;  author alex;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     87.07.06.19.10.49;  author alex;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.05.12.22.12.20;  author alex;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.01.05.21.32.28;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.05.30.15.03.40;  author avg;  state Stab;
+branches ;
+next     1.3;
+
+1.3
+date     86.05.13.17.13.29;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.05.06.21.39.40;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.17.54.35;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.9.2.1
+date     88.11.17.16.20.24;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы. Интерфейсы внешних устройств.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * LP-11 Line printer driver
+ *
+ * This driver has been modified to work on printers where
+ * leaving LP_IE set would cause continuous interrupts.
+ *
+ * $Log:	lp.c,v $
+ * Revision 22.2  89/04/27  13:48:17  korotaev
+ * Изменения связанные с небольшим перемещением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  14:28:56  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/25  12:29:43  korotaev
+ * Отсюда начинается версия 2.2
+ * 
+ * Revision 1.10  88/12/16  16:32:19  avg
+ * Очередная правка на обработку timeout:
+ * 	теперь будет отваливаться в timeout с запрещенными прерываниями
+ * 	в случае возникновении ERROR бита - на некоторых интерфейцах
+ * 	в этом случае сыплет прерываниями.
+ * 
+ * Revision 1.9  88/11/01  20:39:54  dvolodin
+ * Что сделано и кем сделано - непонятно.
+ * 
+ * Revision 1.8  87/07/24  14:04:32  alex
+ * Внес две правки из-за PRINTRONIX:
+ * 1. Были переставлены spl0 на место в открытии!!
+ * 2. При выходе из прерывания бит разрешения ставится всегда, если нет
+ * еще готовности устройства. Иначе получалось, что за время накопления
+ * очередного буфера печать не успевала пройти, и при lpoutput драйвер
+ * оставался в режиме ожидания конца печати с закрытым битом
+ * разрешения прерываний.
+ *
+ * Revision 1.7  87/07/06  19:10:49  alex
+ * Все те же тайм-ауты.
+ *
+ * Revision 1.6  87/05/12  22:12:20  alex
+ * Увеличен тайм-аут для работы с устройствами,
+ * имеющими большие буфера (до 30 секунд).
+ *
+ * Revision 1.5  87/01/05  21:32:28  alex
+ * Исправлена ошибка, приводившая к зависанию при
+ * выключении устройства на некоторых выдающихся
+ * экземплярах.
+ *
+ * Revision 1.4  86/05/30  15:03:40  avg
+ * При закрытии драйвер теперь ожидает опустошения очереди вывода.
+ *
+ * Revision 1.3  86/05/13  17:13:29  avg
+ * Нормально сделаны таймауты и доделана проверка готовности
+ * устройства на готовность при открытии.
+ *
+ * Revision 1.2  86/05/06  21:39:40  avg
+ * Сделаны правки под русские буквы.
+ * Переключение флагов драйвера теперь делается
+ * через ioctl  LPIOSETP и LPIOGETP.
+ *
+ * Revision 1.1  86/04/19  17:54:35  avg
+ * Initial revision
+ *
+ */
+
+#include "h/lp.h"
+#if NLP > 0
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/file.h>
+#include "../include/lpreg.h"
+
+#define LPPRI   (PZERO + 8)
+#define LPPRI2  (PZERO + 21)
+#define LPLWAT  40
+#define LPHWAT  400
+
+#define MAXCOL  160
+
+#define LPUNIT(dev) (minor(dev))
+
+struct lp_softc {
+	struct  clist sc_outq;
+	int     sc_state;
+	int     sc_physcol;
+	int     sc_logcol;
+	int     sc_physline;
+	int     sc_flags; /* Flags are in ioctl.h */
+	int     sc_lpchar;
+	int     sc_ejline;
+	int     sc_maxcol;
+	int     sc_timout;      /* Тиков для таймаута */
+				/* содержит -1 в случае, если таймаут
+				 * не нужен */
+} lp_softc[NLP];
+
+/* bits for state */
+#define OPEN            1       /* Принтер открыт */
+#define ASLP            2       /* Кто-то ждет опустошения очереди */
+#define OREG            4       /* Включен русский выходной регистр */
+#define TIMER           8       /* Идет таймаут по открытию */
+#define CLOSING        16       /* Печатающее у-во закрывается */
+
+extern  lbolt;
+struct  lpdevice *lp_addr[NLP];
+int     lptout(), lptopen();
+int     lptactive;
+
+lpattach(addr, unit)
+struct lpdevice *addr;
+{
+	if ((unsigned) unit >= NLP)
+		return(0);
+	lp_addr[unit] = addr;
+	return(1);
+}
+
+lpopen(dev, flag)
+dev_t   dev;
+int     flag;
+{
+	register int    unit;
+	register struct lp_softc *sc;
+
+	if (((unit = LPUNIT(dev)) >= NLP) || (lp_addr[unit] == 0)) {
+		u.u_error = ENXIO;
+		return;
+	}
+	if ((flag & FWRITE) == 0 )
+		return;
+	if ((sc = &lp_softc[unit])->sc_state & OPEN) {
+		u.u_error = EBUSY;
+		return;
+	}
+	if ((lp_addr[unit]->lpcs & (LP_RDY|LP_ERR)) != LP_RDY) {
+		u.u_error = EIO;
+		return;
+	}
+
+/* Check if device is off but set LP_RDY bit */
+	lp_addr[unit]->lpcs = LP_IE;
+	sc->sc_state &= ~ASLP;
+	sc->sc_state |= TIMER;
+	sc->sc_timout = -1;
+	(void) _spl4();
+	timeout(lptopen, (caddr_t)sc, hz/2);
+	lp_addr[unit]->lpdb = 0;
+	sleep(sc, LPPRI);
+	(void) _spl0();
+	if ((lp_addr[unit]->lpcs & (LP_RDY|LP_ERR)) != LP_RDY) {
+		lp_addr[unit]->lpcs = 0;
+		u.u_error = EIO;
+		return;
+	}
+
+	sc->sc_state &= ~(CLOSING|TIMER);
+	sc->sc_state |= OPEN;
+	sc->sc_physline = 0;
+	if( sc->sc_maxcol < 10 )
+		sc->sc_maxcol = MAXCOL;
+	(void) _spl4();
+	if (!lptactive) {
+		lptactive++;
+		timeout(lptout, 0, 2 * hz);
+	}
+	(void) _spl0();
+	sc->sc_logcol  = 0;
+	sc->sc_physcol = 1;
+	if (!(sc->sc_flags & LPRAW))
+		lpcanon(dev, '\r');
+}
+
+/*
+ * Таймаут при открытии печатающего у-ва
+ */
+lptopen(lp11)
+register struct lp_softc *lp11;
+{
+	if (lp11->sc_state & TIMER) {
+		lp11->sc_state &= ~TIMER;
+		wakeup((caddr_t)lp11);
+	}
+}
+
+lpclose(dev, flag)
+dev_t   dev;
+int     flag;
+{
+	register struct lp_softc *sc = &lp_softc[LPUNIT(dev)];
+
+	if( (flag & FWRITE) == 0 )
+		return;
+	if (!(sc->sc_flags & LPRAW) && sc->sc_physline != 0 )
+		lpoutput(dev, '\f');
+	sc->sc_state |= CLOSING;
+	sc->sc_state &= ~ASLP;
+	sleep(sc, LPPRI);
+	if (sc->sc_outq.c_cc > 0) {
+		(void) _spl4();
+		lpintr(LPUNIT(dev));
+		(void) _spl0();
+	}
+	sc->sc_timout = -1;
+}
+
+lpwrite(dev)
+dev_t   dev;
+{
+	register c;
+
+	while (u.u_count) {
+		c = fubyte(u.u_base++);
+		if (c < 0) {
+			u.u_error = EFAULT;
+			break;
+		}
+		u.u_count--;
+		lpcanon(dev, c);
+	}
+}
+
+lpcanon(dev, c)
+dev_t   dev;
+register c;
+{
+	register logcol, physcol;
+	register struct lp_softc *sc = &lp_softc[LPUNIT(dev)];
+
+	if (sc->sc_flags & LPRAW) {
+		lpoutput(dev, c);
+		return;
+	}
+	c &= 0377;
+	if ( (sc->sc_flags & LPCYRILL) == 0 )
+		c &= 0177;
+#ifdef Ucode
+	else
+		c = conv_out(c);
+#endif
+	if ( c >= 0200 && c < 0300 )
+		return;
+	if ((sc->sc_flags & LPCAP) == 0) {
+		register c2;
+
+		if (c >= 'a' && c <= 'z')
+			c += 'A'-'a';
+		else if (c==0177 && (sc->sc_flags & (LPZNAK|LPBAR)))
+			c = '#';
+		else if ((c&0300) == 0300) {
+			c |= 040;
+			c &= 0177;
+			if(c==0177 && !(sc->sc_flags & LPZNAK))
+				c = 'x';        /* Зто мягкий знак в КОИ-8 */
+		} else switch (c) {
+
+			case '{':
+				c2 = '(';
+				goto esc;
+
+			case '}':
+				c2 = ')';
+				goto esc;
+
+			case '`':
+				c2 = '\'';
+				goto esc;
+
+			case '|':
+				if(sc->sc_flags & LPBAR) {
+					c = 0177;
+					break;
+				}
+				c2 = '!';
+				goto esc;
+
+			case '~':
+				c2 = '^';
+
+			esc:
+				lpcanon(dev, c2);
+				sc->sc_logcol--;
+				c = '-';
+		}
+	} else {
+		if( c == 0377 && !(sc->sc_flags & LPZNAK) )
+			c = 0337;       /* маленький твердый знак */
+		if( sc->sc_flags & LPSISO ) {
+			if( (c&0300) == 0300 && !(sc->sc_state & OREG) ) {
+				lpoutput(dev, CRUS);
+				sc->sc_state |= OREG;
+			} else
+			if( ((c&0300) == 0100 || c == 033 ) &&
+			    (sc->sc_state & OREG) ) {
+				lpoutput(dev, CLAT);
+				sc->sc_state &= ~OREG;
+			}
+			c &= 0177;
+		}
+	}
+	logcol = sc->sc_logcol;
+	physcol = sc->sc_physcol;
+	if (c == ' ')
+		logcol++;
+	else switch(c) {
+
+		case '\t':
+			logcol = (logcol + 8) & ~7;
+			break;
+
+		case '\f':
+			if (sc->sc_physline == 0 && physcol == 0)
+				break;
+			/* fall into ... */
+
+		case '\n':
+			if (c == '\f') {
+				sc->sc_physline = 0;
+				lpoutput(dev, c);
+			} else {
+				sc->sc_physline++;
+				if( (sc->sc_flags & LPEJECT) &&
+				     sc->sc_ejline == sc->sc_physline ) {
+					lpoutput(dev, '\f');
+					sc->sc_physline = 0;
+				} else
+					lpoutput(dev, c);
+			}
+			physcol = 0;
+			/* fall into ... */
+
+		case '\r':
+			logcol = 0;
+			(void) _spl4();
+			lpintr(LPUNIT(dev));
+			(void) _spl0();
+			if( (sc->sc_flags & (LPSISO|LPCYRILL|LPCAP)) ==
+					    (LPSISO|LPCYRILL|LPCAP) ) {
+				lpoutput(dev, CLAT);
+				sc->sc_state &= ~OREG;
+			}
+			break;
+
+		case '\b':
+			if (logcol > 0)
+				logcol--;
+			break;
+
+		default:
+			if (logcol < physcol) {
+				lpoutput(dev, '\r');
+				physcol = 0;
+			}
+			if (logcol < sc->sc_maxcol) {
+				while (logcol > physcol) {
+					lpoutput(dev, ' ');
+					physcol++;
+				}
+				lpoutput(dev, c);
+				physcol++;
+			}
+			logcol++;
+	}
+	if (logcol > 1000)      /* ignore long lines  */
+		logcol = 1000;
+	sc->sc_logcol = logcol;
+	sc->sc_physcol = physcol;
+}
+
+lpoutput(dev, c)
+dev_t   dev;
+int     c;
+{
+	register struct lp_softc *sc = &lp_softc[LPUNIT(dev)];
+
+	if (sc->sc_outq.c_cc >= LPHWAT) {
+		(void) _spl4();
+		lpintr(LPUNIT(dev));                            /* unchoke */
+		while (sc->sc_outq.c_cc >= LPHWAT) {
+			sc->sc_state |= ASLP;           /* must be LP_ERR */
+			sleep((caddr_t)sc, LPPRI2);
+		}
+		(void) _spl0();
+	}
+	while (putc(c, &sc->sc_outq))
+		sleep((caddr_t)&lbolt, LPPRI);
+}
+
+lpintr(lp11)
+int     lp11;
+{
+	register n;
+	register struct lp_softc *sc = &lp_softc[lp11];
+	register struct lpdevice *lpaddr;
+	int s;
+
+	/* Device is opened */
+	if(sc->sc_state & TIMER) {
+		sc->sc_state &= ~TIMER;
+		wakeup((caddr_t)sc);
+		return;
+	}
+
+	lpaddr = lp_addr[lp11];
+	if ( !(lpaddr->lpcs&LP_RDY)) return;   /* Пусть timeout разбирается */
+	lpaddr->lpcs &= ~LP_IE;
+	s = spl1();
+	n = sc->sc_outq.c_cc;
+	if (sc->sc_lpchar < 0)
+		sc->sc_lpchar = getc(&sc->sc_outq);
+	while ((lpaddr->lpcs & (LP_RDY|LP_ERR)) == LP_RDY &&
+	       sc->sc_lpchar >= 0) {
+		lpaddr->lpdb = sc->sc_lpchar;
+		sc->sc_lpchar = getc(&sc->sc_outq);
+	}
+	sc->sc_timout = 30 * hz;
+	splx(s);
+	if ((sc->sc_outq.c_cc > 0 || sc->sc_lpchar >= 0)&&
+	      (lpaddr->lpcs & LP_ERR) == 0      )
+		lpaddr->lpcs |= LP_IE;  /* ok and more to do later */
+	if ( !(sc->sc_state & ASLP) ) {
+		if((sc->sc_lpchar < 0) && (sc->sc_state & CLOSING)) {
+			sc->sc_state &= ~(OPEN|CLOSING);    /* no longer open */
+			sc->sc_timout = -1;
+			lpaddr->lpcs = 0;
+			wakeup(sc);
+		}
+		return;
+	}
+	if ((n>LPLWAT && sc->sc_outq.c_cc<=LPLWAT) || sc->sc_outq.c_cc==0) {
+		sc->sc_state &= ~ASLP;
+		wakeup((caddr_t)sc);            /* top half should go on */
+	}
+}
+
+lptout()
+{
+	register struct lp_softc *sc;
+	register struct lpdevice *lpaddr;
+	int unit;
+
+	for( unit = 0 ; unit < NLP ; unit++ ) {
+		lpaddr = lp_addr[unit];
+		sc = &lp_softc[unit];
+
+		if (sc->sc_state && sc->sc_timout < 0)
+			continue;
+		sc->sc_timout -= 2*hz;
+
+		if( sc->sc_timout <= 0 ) {
+			sc->sc_timout = -1;
+			if (sc->sc_outq.c_cc) {
+				if( (lpaddr->lpcs & (LP_ERR|LP_RDY)) == LP_RDY )
+					lpintr(unit);       /* ready to go */
+				else {
+					sc->sc_flags |= LPERR;
+					sc->sc_timout = 5*hz;
+				}
+			 } else if (sc->sc_state & CLOSING) {
+				sc->sc_state &= ~(OPEN|CLOSING); /* no longer open */
+				lpaddr->lpcs = 0;
+				wakeup(sc);
+			}
+		}
+	}
+	timeout(lptout, 0, 2*hz);
+}
+
+lpioctl(dev, cmd, addr, flag)
+caddr_t addr;
+{
+	register struct lp_softc *sc = &lp_softc[LPUNIT(dev)];
+	struct lpmodes LPM;
+	register struct lpdevice *lpaddr;
+
+	register i;
+#       define LPMASK (LPCAP|LPRAW|LPCYRILL|LPSISO|LPEJECT|LPZNAK|LPBAR)
+
+	switch( cmd ) {
+
+	case LPIOSETP:
+		if ( !(flag & FWRITE) && (sc->sc_state & OPEN) ) {
+			u.u_error = EBUSY;
+			break;
+		}
+		if ( copyin(addr, (caddr_t)&LPM, sizeof LPM) ) {
+			u.u_error = EFAULT;
+			break;
+		}
+		sc->sc_flags &= ~LPMASK;
+		sc->sc_flags |= LPM.lpm_flags & LPMASK;
+		i = LPM.lpm_ejline;
+		if( i < 0 || i > 256 )
+			i = 0;
+		sc->sc_ejline = i;
+		i = LPM.lpm_maxcol;
+		if( i > MAXCOL || i < 10 )
+			i = MAXCOL;
+		sc->sc_maxcol = i;
+		break;
+
+	case LPIOGETP:
+		lpaddr = lp_addr[LPUNIT(dev)];
+		i = sc->sc_flags & (LPMASK|LPERR);
+		if( sc->sc_state & OPEN )
+			i |= LPOPEN|LPON;
+		else if( lpaddr->lpcs & LP_RDY )
+			i |= LPON;
+		if( lpaddr->lpcs & LP_ERR )
+			i &= ~LPON;
+		LPM.lpm_flags = i;
+		LPM.lpm_ejline = sc->sc_ejline;
+		LPM.lpm_maxcol = sc->sc_maxcol;
+		if ( copyout((caddr_t)&LPM, addr, sizeof LPM) )
+			u.u_error = EFAULT;
+		else if( flag & FWRITE )
+			sc->sc_flags &= ~LPERR;
+		break;
+
+	default:
+		u.u_error = ENOTTY;
+	}
+}
+
+#endif NLP
+@
+
+
+22.2
+log
+@Изменения связанные с небольшим перемещением каталогов и файлов
+@
+text
+@d8 3
+d72 1
+a72 1
+#include <sys/lpreg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d8 3
+d61 1
+a61 1
+#include "lp.h"
+@
+
+
+22.0
+log
+@Отсюда начинается версия 2.2
+@
+text
+@d8 3
+d60 1
+a60 1
+#include "param.h"
+@
+
+
+1.10
+log
+@Очередная правка на обработку timeout:
+	теперь будет отваливаться в timeout с запрещенными прерываниями
+	в случае возникновении ERROR бита - на некоторых интерфейцах
+	в этом случае сыплет прерываниями.
+@
+text
+@d8 6
+@
+
+
+1.9
+log
+@Что сделано и кем сделано - непонятно.
+@
+text
+@d7 4
+a10 1
+ * $Log:        lp.c,v $
+d403 2
+a404 2
+	if (/* (sc->sc_outq.c_cc > 0 || sc->sc_lpchar >= 0) &&  */
+	    (lpaddr->lpcs & (LP_ERR|LP_RDY)) == 0)
+@
+
+
+1.9.2.1
+log
+@Правлены рудневские заблуждения.
+@
+text
+@d394 1
+a394 1
+		sc->sc_lpchar >= 0) {
+d400 2
+a401 2
+	if ( (sc->sc_outq.c_cc > 0 || sc->sc_lpchar >= 0) /* &&  */
+	/*    (lpaddr->lpcs & (LP_ERR|LP_RDY)) == 0 */ )
+@
+
+
+1.8
+log
+@Внес две правки из-за PRINTRONIX:
+1. Были переставлены spl0 на место в открытии!!
+2. При выходе из прерывания бит разрешения ставится всегда, если нет
+еще готовности устройства. Иначе получалось, что за время накопления 
+очередного буфера печать не успевала пройти, и при lpoutput драйвер
+оставался в режиме ожидания конца печати с закрытым битом
+разрешения прерываний.
+@
+text
+@d7 10
+a16 1
+ * $Log:	lp.c,v $
+d19 1
+a19 1
+ * 
+d21 1
+a21 1
+ * Увеличен тайм-аут для работы с устройствами, 
+d23 1
+a23 1
+ * 
+d28 1
+a28 1
+ * 
+d31 1
+a31 1
+ * 
+d75 3
+d82 4
+a85 6
+#define TOUT            2       /* Работает таймаут */
+#define MOD             4       /* Устройство активно */
+#define ASLP            8       /* Кто-то ждет опустошения очереди */
+#define OREG           16       /* Включен русский выходной регистр */
+#define TIMER          32       /* Идет таймаут по открытию */
+#define CLOSING        64       /* Печатающее у-во закрывается */
+d90 1
+d127 1
+d145 3
+a147 3
+	if ((sc->sc_state & TOUT) == 0) {
+		sc->sc_state |= TOUT;
+		timeout(lptout, (caddr_t)dev, 30 * hz);
+d186 1
+d378 2
+d385 1
+d398 1
+a398 1
+	sc->sc_state |= MOD;
+d405 2
+a406 1
+			sc->sc_state &= ~(TOUT|OPEN|CLOSING);    /* no longer open */
+d418 1
+a418 2
+lptout(dev)
+dev_t   dev;
+d422 1
+d424 3
+a426 2
+	lpaddr = lp_addr[LPUNIT(dev)];
+	sc = &lp_softc[LPUNIT(dev)];
+d428 19
+a446 6
+	if ((sc->sc_state & TOUT)==0)
+		return;
+	if ((sc->sc_state & MOD) != 0) {
+		sc->sc_state &= ~MOD;           /* something happened */
+		timeout(lptout, (caddr_t)dev, 30 * hz);  /* so don't sweat */
+		return;
+d448 1
+a448 11
+	if (sc->sc_outq.c_cc) {
+		if( (lpaddr->lpcs & (LP_ERR|LP_RDY)) == LP_RDY )
+			lpintr(LPUNIT(dev));           /* ready to go */
+	} else if (sc->sc_state & CLOSING) {
+		sc->sc_state &= ~(TOUT|OPEN|CLOSING);          /* no longer open */
+		lpaddr->lpcs = 0;
+		wakeup(sc);
+		return;
+	}
+	sc->sc_flags |= LPERR;
+	timeout(lptout, (caddr_t)dev, 5 * hz);
+d506 2
+@
+
+
+1.7
+log
+@Все те же тайм-ауты.
+@
+text
+@d8 3
+a117 1
+	(void) _spl0();
+d120 1
+d384 2
+a385 2
+	if ((sc->sc_outq.c_cc > 0 || sc->sc_lpchar >= 0) &&
+	    (lpaddr->lpcs & LP_ERR) == 0)
+@
+
+
+1.6
+log
+@Увеличен тайм-аут для работы с устройствами, 
+имеющими большие буфера (до 30 секунд).
+@
+text
+@d8 4
+d411 1
+a411 1
+		timeout(lptout, (caddr_t)dev, 2 * hz);  /* so don't sweat */
+d424 1
+a424 1
+	timeout(lptout, (caddr_t)dev, 30 * hz);
+@
+
+
+1.5
+log
+@Исправлена ошибка, приводившая к зависанию при
+выключении устройства на некоторых выдающихся
+экземплярах.
+@
+text
+@d8 5
+d128 1
+a128 1
+		timeout(lptout, (caddr_t)dev, 10 * hz);
+d420 1
+a420 1
+	timeout(lptout, (caddr_t)dev, 10 * hz);
+@
+
+
+1.4
+log
+@При закрытии драйвер теперь ожидает опустошения очереди вывода.
+@
+text
+@d7 4
+a10 1
+ * $Log:        lp.c,v $
+d352 1
+a352 1
+
+d359 1
+d361 1
+d371 1
+@
+
+
+1.3
+log
+@Нормально сделаны таймауты и доделана проверка готовности
+устройства на готовность при открытии.
+@
+text
+@d8 4
+d149 1
+a149 1
+	if (!(sc->sc_flags & LPRAW))
+d153 1
+d373 1
+d405 1
+@
+
+
+1.2
+log
+@Сделаны правки под русские буквы.
+Переключение флагов драйвера теперь делается 
+через ioctl  LPIOSETP и LPIOGETP.
+@
+text
+@d8 5
+d50 4
+a53 4
+#define OPEN            1       /* device is open */
+#define TOUT            2       /* timeout is active */
+#define MOD             4       /* device state has been modified */
+#define ASLP            8       /* awaiting draining of printer */
+d55 2
+a56 1
+#define TIMERR         32       /*--- Ошибка --- таймаут на выводе */
+d60 1
+a60 1
+int     lptout();
+d88 1
+a88 1
+	if (lp_addr[unit]->lpcs & LP_ERR) {
+d92 17
+d119 4
+a122 1
+	lpcanon(dev, '\r');
+d125 12
+a136 1
+/*ARGSUSED*/
+d145 9
+a153 5
+	lpcanon(dev, '\f');
+	(void) _spl4();
+	lpintr(LPUNIT(dev));
+	(void) _spl0();
+	sc->sc_state &= ~(OPEN|TIMERR);
+a324 2
+	if( sc->sc_state & TIMERR )
+		return;
+a330 4
+			if( sc->sc_state & TIMERR ) {
+				u.u_error = ENXIO;
+				return;
+			}
+d345 5
+d355 2
+a356 1
+	while ((lpaddr->lpcs & LP_RDY) && sc->sc_lpchar >= 0) {
+d361 2
+a362 1
+	if (sc->sc_outq.c_cc > 0 && (lpaddr->lpcs & LP_ERR) == 0)
+d364 8
+a371 1
+	if (n > LPLWAT && sc->sc_outq.c_cc <= LPLWAT && (sc->sc_state & ASLP)) {
+a374 1
+	timeout(lptout, (caddr_t)lp11, 10 * hz);
+d385 3
+d393 5
+a397 2
+	if ((sc->sc_state & OPEN) == 0) {
+		sc->sc_state &= ~TOUT;          /* no longer open */
+a400 9
+	if (sc->sc_outq.c_cc && (lpaddr->lpcs & LP_RDY)
+	    && (lpaddr->lpcs & LP_ERR) == 0) {
+		lpintr(LPUNIT(dev));                    /* ready to go */
+	}
+	if ( sc->sc_flags & LPERR ) {
+		sc->sc_state |= TIMERR;
+		wakeup((caddr_t)sc);
+		return;
+	}
+d402 1
+a402 1
+	timeout(lptout, (caddr_t)dev, 20 * hz);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d7 4
+a10 1
+ * $Log$
+d20 1
+d24 1
+d28 1
+a28 2
+#define MAXCOL  132
+#define CAP     1
+d30 1
+a30 1
+#define LPUNIT(dev) (minor(dev) >> 3)
+d36 6
+a41 4
+	int	sc_logcol;
+	int	sc_physline;
+	char	sc_flags;
+	int	sc_lpchar;
+d45 6
+a50 4
+#define	OPEN		1	/* device is open */
+#define	TOUT		2	/* timeout is active */
+#define	MOD		4	/* device state has been modified */
+#define	ASLP		8	/* awaiting draining of printer */
+d52 3
+a54 3
+extern	lbolt;
+struct	lpdevice *lp_addr[NLP];
+int	lptout();
+a64 1
+/*ARGSUSED*/
+d66 2
+a67 2
+dev_t	dev;
+int	flag;
+d69 2
+a70 2
+	register int	unit;
+	register struct	lp_softc *sc;
+d76 6
+a81 5
+	else
+		if ((sc = &lp_softc[unit])->sc_state & OPEN) {
+			u.u_error = EBUSY;
+			return;
+		}
+d87 3
+a89 1
+	sc->sc_flags = minor(dev) & 07;
+d96 1
+a96 1
+	lpcanon(dev, '\f');
+d101 2
+a102 2
+dev_t	dev;
+int	flag;
+d104 1
+a104 1
+	register struct	lp_softc *sc = &lp_softc[LPUNIT(dev)];
+d106 2
+d109 4
+a112 1
+	sc->sc_state &= ~OPEN;
+d116 1
+a116 1
+dev_t	dev;
+d118 1
+a118 1
+	register char c;
+d132 1
+a132 1
+dev_t	dev;
+d138 14
+a151 1
+	if (sc->sc_flags & CAP) {
+d155 9
+a163 2
+			c += 'A'-'a'; else
+		switch (c) {
+d178 4
+d193 15
+d225 1
+a225 2
+			lpoutput(dev, c);
+			if (c == '\f')
+d227 2
+a228 1
+			else
+d230 7
+d245 5
+d262 1
+a262 1
+			if (logcol < MAXCOL) {
+d272 1
+a272 1
+	if (logcol > 1000)	/* ignore long lines  */
+d279 2
+a280 2
+dev_t	dev;
+int	c;
+d282 1
+a282 1
+	register struct	lp_softc *sc = &lp_softc[LPUNIT(dev)];
+d284 2
+d288 1
+a288 1
+		lpintr(LPUNIT(dev));				/* unchoke */
+d290 6
+a295 2
+			sc->sc_state |= ASLP;		/* must be LP_ERR */
+			sleep((caddr_t)sc, LPPRI);
+d304 1
+a304 1
+int	lp11;
+d307 2
+a308 2
+	register struct	lp_softc *sc = &lp_softc[lp11];
+	register struct	lpdevice *lpaddr;
+d321 2
+a322 2
+		lpaddr->lpcs |= LP_IE;	/* ok and more to do later */
+	if (n > LPLWAT && sc->sc_outq.c_cc <= LPLWAT && sc->sc_state & ASLP) {
+d324 1
+a324 1
+		wakeup((caddr_t)sc);		/* top half should go on */
+d326 1
+d330 1
+a330 1
+dev_t	dev;
+d332 2
+a333 2
+	register struct	lp_softc *sc;
+	register struct	lpdevice *lpaddr;
+d338 2
+a339 2
+		sc->sc_state &= ~MOD;		/* something happened */
+		timeout(lptout, (caddr_t)dev, 2 * hz);	/* so don't sweat */
+d343 1
+a343 1
+		sc->sc_state &= ~TOUT;		/* no longer open */
+d348 66
+a413 3
+	    && (lpaddr->lpcs & LP_ERR) == 0)
+		lpintr(LPUNIT(dev));			/* ready to go */
+	timeout(lptout, (caddr_t)dev, 10 * hz);
+@

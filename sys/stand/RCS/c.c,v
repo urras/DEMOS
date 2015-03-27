@@ -1,0 +1,254 @@
+head     1.7;
+access   ;
+symbols  Архыз0:1.5.1;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     90.12.12.17.10.39;  author korotaev;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.06.12.16.39.51;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.11.02.21.37.37;  author dvolodin;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.03.28.10.26.39;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.03.04.15.27.50;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.03.04.14.20.15;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.14.19.14.17;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Таблица устройств.
+@
+
+
+1.7
+log
+@Вставлены my и dw для ДВК.
+@
+text
+@/*
+ * $Log:	c.c,v $
+ * Revision 1.6  89/06/12  16:39:51  korotaev
+ * Вставлен флаг: badflg.
+ * 
+ * Revision 1.5  88/11/02  21:37:37  dvolodin
+ * *** empty log message ***
+ *
+ * Revision 1.4  88/03/28  10:26:39  korotaev
+ * После слияния с AZLK.
+ *
+ * Revision 1.3  87/03/04  15:27:50  avg
+ * *** empty log message ***
+ *
+ * Revision 1.2  87/03/04  14:20:15  avg
+ * Добавлен драйвер fd (Э-85).
+ *
+ * Revision 1.1  86/07/14  19:14:17  avg
+ * Initial revision
+ *
+ */
+
+#include <sys/param.h>
+#include <sys/inode.h>
+#include <saio.h>
+
+devread(io)
+register struct iob *io;
+{
+
+	return( (*devsw[io->i_ino.i_dev].dv_strategy)(io,READ) );
+}
+
+devwrite(io)
+register struct iob *io;
+{
+	return( (*devsw[io->i_ino.i_dev].dv_strategy)(io, WRITE) );
+}
+
+devopen(io)
+register struct iob *io;
+{
+	(*devsw[io->i_ino.i_dev].dv_open)(io);
+}
+
+devclose(io)
+register struct iob *io;
+{
+	(*devsw[io->i_ino.i_dev].dv_close)(io);
+}
+
+nullsys()
+{ ; }
+
+int     xpstrategy();
+int     rastratagy(), raopen();
+int     rpstrategy();
+int     rkstrategy();
+int     hkstrategy();
+int     rlstrategy();
+/* int     rwstrategy();        */
+int     dwstrategy();
+int     fdstrategy();
+int     mystrategy();
+int     nullsys();
+int     tmstrategy(), tmrew(), tmopen();
+int     tsstrategy(), tsopen(), tsclose();
+/*
+int     htstrategy(), htopen(), htclose();
+int     rmstrategy();
+ */
+struct devsw devsw[] {
+	"ra",   rastratagy,     raopen,         nullsys,
+	"rp",   rpstrategy,     nullsys,        nullsys,
+
+	/* "hp" и "rm" - синонимы "xp" */
+	"hp",   xpstrategy,     nullsys,        nullsys,
+	"rm",   xpstrategy,     nullsys,        nullsys,
+	"xp",   xpstrategy,     nullsys,        nullsys,
+
+	"rk",   rkstrategy,     nullsys,        nullsys,
+	"hk",   hkstrategy,     nullsys,        nullsys,
+	"rl",   rlstrategy,     nullsys,        nullsys,
+	"tm",   tmstrategy,     tmopen,         tmrew,
+	"ts",   tsstrategy,     tsopen,         tsclose,
+/*        "rw",   rwstrategy,     nullsys,        nullsys,      */
+	"dw",   dwstrategy,     nullsys,        nullsys,
+	"rw",   dwstrategy,     nullsys,        nullsys,
+	"fd",   fdstrategy,     nullsys,        nullsys,
+/*
+	"ht",   htstrategy,     htopen,         htclose,
+	"rm",   rmstrategy,     nullsys,        nullsys,
+ */
+	"my",   mystrategy,     nullsys,        nullsys,
+	0,0,0,0
+};
+
+char badflg;    /* только для boot'а */
+@
+
+
+1.6
+log
+@Вставлен флаг: badflg.
+@
+text
+@d2 4
+a5 1
+ * $Log:        c.c,v $
+d61 2
+a62 1
+int     rwstrategy();
+d64 1
+d86 3
+a88 1
+	"rw",   rwstrategy,     nullsys,        nullsys,
+d94 1
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d3 3
+d89 2
+@
+
+
+1.4
+log
+@После слияния с AZLK.
+@
+text
+@d2 4
+a5 1
+ * $Log:	c.c,v $
+d8 1
+a8 1
+ * 
+d49 1
+d53 1
+d60 4
+d67 6
+d74 1
+d80 4
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d2 4
+a5 1
+ * $Log:        c.c,v $
+d46 1
+a46 1
+int     xpstrategy();
+a48 1
+int     hkstrategy();
+a53 1
+int     htstrategy(), htopen(), htclose();
+d56 1
+a56 1
+	"xp",   xpstrategy,     nullsys,        nullsys,
+a57 3
+	/* "hp" и "rm" - синонимы "xp" */
+	"hp",   xpstrategy,     nullsys,        nullsys,
+	"rm",   xpstrategy,     nullsys,        nullsys,
+a58 1
+	"hk",   hkstrategy,     nullsys,        nullsys,
+a60 1
+	"ht",   htstrategy,     htopen,         htclose,
+@
+
+
+1.2
+log
+@Добавлен драйвер fd (Э-85).
+@
+text
+@d3 3
+d49 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d45 1
+d62 2
+@

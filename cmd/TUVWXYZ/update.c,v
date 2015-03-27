@@ -1,0 +1,76 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.03.20.42.14;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+ 
+/*
+ * Update the file system every 30 seconds.
+ * For cache benefit, open certain system directories.
+ */
+
+#include <signal.h>
+
+char *fillst[] = {
+	"/bin",
+	"/usr",
+	"/usr/bin",
+	0,
+};
+
+main()
+{
+	char **f;
+
+	if(fork())
+		exit(0);
+	close(0);
+	close(1);
+	close(2);
+	for(f = fillst; *f; f++)
+		open(*f, 0);
+	dosync();
+	for(;;)
+		pause();
+}
+
+dosync()
+{
+	sync();
+	signal(SIGALRM, dosync);
+	alarm(30);
+}
+@

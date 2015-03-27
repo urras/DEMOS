@@ -1,0 +1,53 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.04.21.20.05.39;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Библиотека C.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+#include <utmp.h>
+
+static  char    UTMP[]  = "/etc/utmp";
+static  struct  utmp ubuf;
+
+char *
+getlogin()
+{
+	register me, uf;
+	register char *cp;
+
+	if( !(me = ttyslot()) )
+		return(0);
+	if( (uf = open( UTMP, 0 )) < 0 )
+		return(0);
+	lseek( uf, (long)(me*sizeof(ubuf)), 0 );
+	if (read(uf, (char *)&ubuf, sizeof(ubuf)) != sizeof(ubuf))
+		return(0);
+	close(uf);
+	ubuf.ut_name[8] = ' ';
+	for (cp=ubuf.ut_name; *cp++!=' ';)
+		;
+	*--cp = '\0';
+	return( ubuf.ut_name );
+}
+@

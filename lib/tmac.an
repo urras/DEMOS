@@ -1,0 +1,402 @@
+.\"************************************************
+.\"*                                              *
+.\"*  ******  -MAN   NROFF   M A C R O S  ******  *
+.\"*                                              *
+.\"*  Adapted for your edification and enjoyment  *
+.\"*  by Serg A. Usikow (KIAE,Moscow)             *
+.\"*                                              *
+.\"*  Version 1.6     First Release: 23 Feb 1986  *
+.\"*  See man(7)                                  *
+.\"*                                              *
+.\"*    \n ehlptv - see mx                        *
+.\"*    \n s - no .so file used                   *
+.\"************************************************
+.if !\n(.V .! "You are using the wrong version of PIF"
+'# init0 = standart like many years
+.if \nn==0 \{\
+.nr e 0
+.nr h 8n
+.nr t 8n
+.nr l 16c
+.nr p 66
+.nr v 1
+.nr _ 1
+.\}
+'# init1 = special for asa's hroff+jet
+.if \nn==1 \{\
+.nr e 0
+.nr h 0.5i
+.nr t 0.5i
+.nr l 5.5i
+.nr p 60        "\ vak
+.nr v 1
+.nr _ 1
+.\}
+'# init2 = for robotron
+.if \nn==2 \{\
+.nr e 0
+.nr h 8
+.nr t 8
+.nr l 78
+.nr p 66
+.nr v 1
+.nr _ 1
+.\}
+'	# reset the basic page layout
+.de }E
+.ft 1
+.in \\n()Ru+\\n(INu
+..
+'	# default tabs
+.de DT
+.ie !"\\$1"" 'ta \\$1 +\\$1 +\\$1 +\\$1 +\\$1 +\\$1 +\\$1 +\\$1 +\\$1
+.el          'ta \ntu +\ntu +\ntu +\ntu +\ntu +\ntu +\ntu +\ntu +\ntu
+..
+'	# handle the head of the page
+.rn sp sk
+.de }H
+.ev 1
+.fl
+.lt \nlu
+.sk \nv
+.ft 3
+.tl \\*(]H\\*(]D\\*(]H
+.ft 1
+.sk 2+\nv
+.ev
+.ns
+..
+'	# handle the foot of the page
+.de }F
+.ev 1
+.sk 1+\nv
+.ie \ne \{\
+.       if o .tl \\*(]R\\*(]W\\*(]L
+.       if e .tl \\*(]L\\*(]W\\*(]R
+.\}
+.el .tl \\*(]R\\*(]W\\*(]L
+.\}
+.bp
+.ev
+..
+.de TH
+.nr IN \nhu
+.ie !\nv .nr )S \\n(IN/2+1n
+.el      .nr )S \\n(IN
+.ds ]H \\$1(\\$2)
+.ds O "ОС ДЕМОС. \"
+.ds ]D               "\\*OРуководство программиста.
+.if "\\$2"1"  .ds ]D "\\*OКоманды.
+.if "\\$2"1C" .ds ]D "\\*OКоманды.
+.if "\\$2"1G" .ds ]D "\\*OКоманды.
+.if "\\$2"2"  .ds ]D "\\*OСистемные вызовы.
+.if "\\$2"3"  .ds ]D "\\*OБиблиотечные функции.
+.if "\\$2"3S" .ds ]D "\\*OБиблиотечные функции.
+.if "\\$2"3M" .ds ]D "\\*OБиблиотечные функции.
+.if "\\$2"3X" .ds ]D "\\*OБиблиотечные функции.
+.if "\\$2"4"  .ds ]D "\\*OСпециальные файлы.
+.if "\\$2"5"  .ds ]D "\\*OФорматы данных.
+.if "\\$2"6"  .ds ]D "\\*OИгры.
+.if "\\$2"7"  .ds ]D "\\*OМакропакеты.
+.if "\\$2"8"  .ds ]D "\\*OСопровождение системы.
+.ds ]W -%-
+.rm ]R
+.rm ]L
+.if \n(mo-0 .ds MO January
+.if \n(mo-1 .ds MO February
+.if \n(mo-2 .ds MO March
+.if \n(mo-3 .ds MO April
+.if \n(mo-4 .ds MO May
+.if \n(mo-5 .ds MO June
+.if \n(mo-6 .ds MO July
+.if \n(mo-7 .ds MO August
+.if \n(mo-8 .ds MO September
+.if \n(mo-9 .ds MO October
+.if \n(mo-10 .ds MO November
+.if \n(mo-11 .ds MO December
+.if \n(dw-0 .ds DW Sunday
+.if \n(dw-1 .ds DW Monday
+.if \n(dw-2 .ds DW Tuesday
+.if \n(dw-3 .ds DW Wednesday
+.if \n(dw-4 .ds DW Thursday
+.if \n(dw-5 .ds DW Friday
+.if \n(dw-6 .ds DW Saturday
+.wh 0 }H
+.ie \nv .wh -4 }F
+.el     .wh -3 }F
+.if \\n(nl .bp 1
+.}E
+.DT
+.PD
+.nr )I \nhu
+.nr )R 0
+.mk ka
+.if !'\\n(ka'-1' .bp
+..
+'	# section heading
+.de SH
+.}X 0
+\&\\$1 \|\\$2 \|\\$3 \|\\$4 \|\\$5 \|\\$6
+.}Y
+..
+'	# sub section heading
+.de SS
+.}X \\n()Su
+\&\\$1 \\$2 \\$3 \\$4 \\$5 \\$6
+.}Y
+..
+'	# subroutine for section heading
+.de }X
+.PD
+.}E
+.ft 3
+.ti \\$1
+.sk \\n()Pu
+.if \nv .ne 3
+.nr )R 0
+.fi
+..
+'       # end of SH
+.de }Y
+.sk \nv
+.}E
+.nr )I \nhu
+.ns
+..
+'       # paragraphs
+.de AP
+.sk \\n()Pu
+.fi
+.ns
+..
+.de AQ
+.fi
+.ns
+..
+.de LP
+.sk \\n()Pu
+.in \\n()Ru+\\n(INu
+.nr )I \nhu
+.fi
+.ns
+..
+.de LQ
+.in \\n()Ru+\\n(INu
+.nr )I \nhu
+.fi
+.ns
+..
+.de PP
+.sk \\n()Pu
+.in \\n()Ru+\\n(INu
+.nr )I \nhu
+.fi
+.ns
+..
+.de PQ
+.in \\n()Ru+\\n(INu
+.nr )I \nhu
+.fi
+.ns
+..
+'	# paragraph distance
+.de PD
+.nr )P \nvv
+.if !"\\$1"" .nr )P \\$1v
+..
+'	# hanging indent
+.de HP
+.sk \\n()Pu
+.if \nv .ne 2
+.if !"\\$1"" .nr )I \\$1n
+.in \\n()Ru+\\n(INu+\\n()Iu
+.ti \\n()Ru+\\n(INu
+..
+.de HQ
+.if \nv .ne 2
+.if !"\\$1"" .nr )I \\$1n
+.in \\n()Ru+\\n(INu+\\n()Iu
+.ti \\n()Ru+\\n(INu
+..
+'	# indented paragraph
+.de JP
+.nr JP 2
+.TP \\$2
+\&\\$1
+..
+.de JQ
+.nr JP 2
+.TQ \\$2
+\&\\$1
+..
+.de IP
+.TP \\$2
+\&\\$1
+..
+.de IQ
+.TQ \\$2
+\&\\$1
+..
+'	# hanging label
+.de TP
+.if !"\\$1"" .nr )I \\$1n
+.sk \\n()Pu
+.in \\n()Ru
+.ns
+.it 1 }N
+.di ]B
+..
+.de TQ
+.if !"\\$1"" .nr )I \\$1n
+.in \\n()Ru
+.ns
+.it 1 }N
+.di ]B
+..
+'       # end of TP
+.de }N
+.br
+.di
+.ds ]X \&\\*(]B\\
+.if !"\\$1"" .nr )I \\$1n
+.in \\n()Ru+\\n(INu+\\n()Iu+\\n(JPn
+.ti \\n(INu
+.ie \\n(JP \{\
+.ie !\\n()Iu+\\n()Ru-\w@\\*(]X@u-3p \{\\*(]X
+.br
+.ti -3n
+\\ -\\ \\c\}
+.el \\*(]X\h@|\\n()Iu+\\n()Ru-1n@\\ -\\ \\c
+.\}
+.el \{\
+.ie !\\n()Iu+\\n()Ru-\w\\*(]Xu-3p \{\\*(]X
+.br\}
+.el \\*(]X\h|\\n()Iu+\\n()Ru\c
+.\}
+.rr JP
+..
+'	# increase relative indent
+.de RS
+.nr ]\\n+()p \\n()I
+.nr )\\n()p \\n()R
+.ie !"\\$1"" .nr )R +\\$1n
+.el          .nr )R +\\n()I
+.ie !"\\$2"" .nr )I \\$2n
+.el          .nr )I \nhu
+..
+'	# decrease relative indent
+.de RE
+.if !"\\$1"" \{.ie "\\$1"0" .nr )p 1 1
+.		el .nr )p \\$1 1\}
+.ds ]i \\*(]I\\n()p
+.ds ]r \\*(]Z\\n()p
+.nr )I \\*(]i
+.nr )R \\*(]r
+.if \\n()p .nr )p -1
+.}E
+..
+'	# italic
+.de I
+.ft 2
+.if !"\\$1"" \&\\$1 \\$2 \\$3 \\$4 \\$5 \\$6
+.ft 1
+..
+'	# bold
+.de B
+.ft 3
+.if !"\\$1"" \&\\$1 \\$2 \\$3 \\$4 \\$5 \\$6
+.ft 1
+..
+'	# small
+.de SM
+.if !"\\$1"" \&\\$1 \\$2 \\$3 \\$4 \\$5 \\$6
+..
+'	# combinations of Roman, italic, bold
+.de RI
+.}S 1 2 \& "\\$1" "\\$2" "\\$3" "\\$4" "\\$5" "\\$6"
+..
+.de RB
+.}S 1 3 \& "\\$1" "\\$2" "\\$3" "\\$4" "\\$5" "\\$6"
+..
+.de IR
+.}S 2 1 \& "\\$1" "\\$2" "\\$3" "\\$4" "\\$5" "\\$6"
+..
+.de IB
+.}S 2 3 \& "\\$1" "\\$2" "\\$3" "\\$4" "\\$5" "\\$6"
+..
+.de BR
+.}S 3 1 \& "\\$1" "\\$2" "\\$3" "\\$4" "\\$5" "\\$6"
+..
+.de BI
+.}S 3 2 \& "\\$1" "\\$2" "\\$3" "\\$4" "\\$5" "\\$6"
+..
+'	# make special case of shift out of italic
+.de }S
+.ds ]F
+.if "\\$1"2" .if !"\\$5"" .ds ]F\^
+.ie !"\\$4"" .}S \\$2 \\$1 "\\$3\f\\$1\\$4\\*(]F" "\\$5" "\\$6" "\\$7" "\\$8" "\\$9"
+.el \\$3
+.ft 1
+..
+.de EX
+.ES
+\&\\$1 \\$2 \\$3 \\$4 \\$5 \\$6 \\$7 \\$8 \\$9
+.EE
+..
+.de ES
+.sk \\n()Pu
+.nf
+.nr EI \\n(.i
+.if !"\\$1"L" .in +\nhu
+.cs R 24
+.cs B 24
+.cs I 24
+..
+.de EE
+.in \\n(EIu
+.sk \\n()Pu
+.fi
+.cs R
+.cs B
+.cs I
+.ns
+..
+.de RC
+.if !"\\$3"" .ds ]R "v.\\$3 (\\$4)
+..
+.de SI
+.rs
+.sk \nv
+.ns
+..
+.de So
+.nf
+**************************************************
+file \\$1 called
+(possible from another file)
+**************************************************
+.fi
+..
+.ie \ns .rn So so
+.el .rm So
+.if \nv==0 \{\
+.de ne
+.br
+..
+.\}
+.de sp
+.sk 1
+.ns
+..
+.nr )p 0 1
+.ds ]I \\\\n(]
+.ds ]Z \\\\n()
+.ds R (R)
+.ds C (C)
+.ds lq \&"\"
+.ds rq \&"\"
+.hy 14
+.ll \nlu
+.lt \nlu
+.pl \np
+.ss 12

@@ -1,0 +1,118 @@
+/
+/ $Log:	pcopy.s,v $
+/ Revision 1.3  87/03/03  22:29:44  avg
+/ Восстановлены потерянные правки для Электроники-85.
+/ 
+/ Revision 1.2  86/11/22  22:12:01  alex
+/ ???
+/
+/ Revision 1.1  86/09/01  21:45:44  avg
+/ Initial revision
+/
+/
+/
+/ Копирование блока памяти из тек. адресного пр-ва в другое
+/
+/ Интерфейс C:
+/
+/       cop_to(   haddr, laddr, wcnt, myaddr )      <haddr,laddr> <== myaddr
+/       cop_from( haddr, laddr, wcnt, myaddr )      myaddr <== <haddr,laddr>
+/
+/ Attention !!! It works only if psw accessable by mov.
+/
+
+/mtpi=6600^tst
+/mfpi=6500^tst
+
+.globl  _cop_to, _cop_from, csv, cret
+
+_cop_to:
+	jsr     r5,csv
+	mov     10(r5),r4       / wcnt
+	mov     12(r5),r3       / myaddr
+
+	/ Запомнить регистры сегментов
+	mov     *$KISA0, kisa0
+	mov     *$KISD0, kisd0
+	mov     *$PSW, psw
+
+	/ Установить сегменты
+	mov     $140340, *$PSW
+	mov     $77406, *$KISD0
+	mov     4(r5),r0
+	ash     $12,r0
+	bic     $1777,r0
+	mov     6(r5),r1
+	ash     $-6,r1
+	bic     $176000,r1
+	bis     r1,r0
+	mov     r0,*$KISA0
+	mov     6(r5),r2
+	bic     $177700,r2          / addr of user I
+	br      1f
+
+	/ Копируем ....
+2:
+	mov     (r3)+, -(sp)
+	mtpi    (r2)+
+
+1:      mov     r4,r0
+	dec     r4
+	tst     r0
+	bne     2b
+
+	/ Восстанавливаем состояние
+	mov     kisa0, *$KISA0
+	mov     kisd0, *$KISD0
+	mov     psw, *$PSW
+	jmp     cret
+
+_cop_from:
+	jsr     r5,csv
+	mov     10(r5),r4       / wcnt
+	mov     12(r5),r3       / myaddr
+
+	/ Запомнить регистры сегментов
+	mov     *$KISA0, kisa0
+	mov     *$KISD0, kisd0
+	mov     *$PSW, psw
+
+	/ Установить сегменты
+	mov     $140340, *$PSW
+	mov     $77406, *$KISD0
+	mov     4(r5),r0
+	ash     $12,r0
+	bic     $1777,r0
+	mov     6(r5),r1
+	ash     $-6,r1
+	bic     $176000,r1
+	bis     r1,r0
+	mov     r0,*$KISA0
+	mov     6(r5),r2
+	bic     $177700,r2          / addr of user I
+	br      1f
+
+	/ Копируем ....
+2:
+	mfpi    (r2)+
+	mov     (sp)+, (r3)+
+
+1:      mov     r4,r0
+	dec     r4
+	tst     r0
+	bne     2b
+
+	/ Восстанавливаем состояние
+	mov     kisa0, *$KISA0
+	mov     kisd0, *$KISD0
+	mov     psw, *$PSW
+	jmp     cret
+
+
+kisa0:  .=.+2
+kisd0:  .=.+2
+psw:    .=.+2
+
+PSW=177776
+KISA0=172340
+KISD0=172300

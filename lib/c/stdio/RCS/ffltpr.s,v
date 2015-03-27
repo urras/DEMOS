@@ -1,0 +1,38 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @/ @;
+
+
+1.1
+date     88.04.01.16.16.05;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/ $Header$
+/ $Log$
+/ C library-- fake floating output
+
+.globl	pfloat
+.globl	pscien
+.globl	pgen
+
+pfloat:
+pscien:
+pgen:
+	add	$8,r4
+	movb	$'?,(r3)+
+	rts	pc
+@

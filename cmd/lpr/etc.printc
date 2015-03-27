@@ -1,0 +1,3 @@
+lp|Line printer:sd=/tmp/spool/lpd:\
+        :lp=/dev/lp:\
+        :of=/usr/lib/lpf:sf:nh:

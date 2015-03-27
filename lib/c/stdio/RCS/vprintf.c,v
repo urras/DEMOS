@@ -1,0 +1,39 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.04.18.17.34.04;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header: printf.c,v 1.1 88/04/01 16:13:10 andrew Exp $
+ * $Log:	printf.c,v $
+ */
+#include        <stdio.h>
+#include        <varargs.h>
+
+int vprintf (fmt, args)
+char *fmt;
+va_list args;
+{
+	_doprnt (fmt, args, stdout);
+	return (ferror (stdout)? EOF: 0);
+}
+@

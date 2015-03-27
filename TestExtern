@@ -1,0 +1,2 @@
+CSR = 177170; DBR=CSR+2        //EQUALS CSR=&FE78,DBR=&FE7A
+.globl CSR,DBR
