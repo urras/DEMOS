@@ -1,0 +1,243 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.5
+date     88.10.13.20.43.10;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.10.13.14.12.53;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.10.13.13.56.44;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.01.07.22.46.04;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.01.07.21.55.03;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.5
+log
+@newld style.
+@
+text
+@#
+# $Log: Makefile,v $
+# Revision 1.4  88/10/13  14:12:53  abs
+# правлен, чтоб ПРАВИЛЬНО работал с xstr-ом.
+#
+# Revision 1.3  88/10/13  13:56:44  abs
+# overlay delay.
+#
+# Revision 1.2  87/01/07  22:46:04  avg
+# *** empty log message ***
+#
+# Revision 1.1  87/01/07  21:55:03  avg
+# Initial revision
+#
+#
+
+# Для версии исх. текстов без архивов RCS установите R=X
+R=
+
+RCS=RCS
+COFLAGS=
+
+DST=/usr/bin/awk
+
+I=/usr/include
+IS=/usr/include/sys
+
+#debugging
+# DEBUGF=token.o
+# DEFS=-DDEBUG
+
+# Трансляция на машины:
+#                       FP   AWK   CF      FMT
+# СМ-4                  -f   oawk  -O -V   -n -X
+# СМ-1420                    oawk  -O -V   -n -X
+# Электроника 79             awk   -O      -i
+#
+FP = -f
+AWK=oawk
+CF=-O
+FMT = -n -X
+
+CFLAGS=$(DEFS) $(CF)
+YFLAGS=-d
+
+FILES=awk.lx.o b.o main.o tran.o lib.o run.o parse.o proctab.o strings.o
+
+SRC=awk.def awk.g.y awk.lx.l b.c lib.c main.c parse.c\
+    proc.c run.c token.c tran.c tokenscript
+
+all:    ${AWK}
+
+install:     ${AWK}
+	-rm -f ${DST}
+	strip ${AWK}
+	cp $(AWK) ${DST}
+
+source: $(SRC) Makefile
+
+awk:    $(FILES) awk.g.o $(DEBUGF} strings.o
+	cc ${FMT} ${FP} awk.g.o $(FILES) $(DEBUGF) -lm -o awk
+
+oawk:   $(FILES) awk.g.o $(DEBUGF) strings.o
+	cc -o oawk ${FMT} ${FP} proctab.o strings.o -Q\
+			awk.g.o awk.lx.o parse.o main.o $(DEBUGF) \
+			run.o -lm \
+			lib.o b.o tran.o -lsplitc
+
+.c.o:
+	/lib/cpp $(DEFS) -C $*.c | xstr -c -
+	cc -a $(CFLAGS) -c x.c
+	mv x.o $*.o
+
+.y.o:
+	yacc $(YFLAGS) $*.y
+	/lib/cpp $(DEFS) -C y.tab.c | xstr -c -
+	cc -a $(CFLAGS) -c x.c
+	mv x.o $*.o
+
+.l.o:
+	lex $*.l
+	/lib/cpp $(DEFS) -C lex.yy.c | xstr -c -
+	cc -a $(CFLAGS) -c x.c
+	mv x.o $*.o
+
+strings.o: $(FILES)
+	xstr
+	cc -S xs.c
+	sed <xs.s >xy.s 's/.data/.text/'
+	as -u -o strings.o xy.s
+
+y.tab.h:        awk.g.o
+
+awk.h:  y.tab.h
+	-cmp -s y.tab.h awk.h || cp y.tab.h awk.h
+
+token.h:        awk.h tokenscript
+	ed - <tokenscript
+
+proctab.c:      proc
+	proc > proctab.c
+
+proc.o: proc.c
+	cc -c proc.c
+
+token.o: token.c token.h
+	cc -c $(CFLAGS) token.c
+
+proc:   awk.h proc.o token.o
+	cc -o proc proc.c token.o
+
+awk.lx.o b.o lib.o main.o parse.o proc.o run.o token.o tran.o : awk.h
+awk.g.o awk.lx.o b.o lib.o main.o parse.o run.o tran.o        : awk.def
+awk.g.o awk.lx.o lib.o main.o parse.o run.o tran.o            : ${I}/ediag.h
+b.o lib.o main.o parse.o run.o tran.o                         : ${I}/stdio.h
+b.o run.o                                                     : ${IS}/code.h
+lib.o                                                         : ${I}/ctype.h
+run.o                                                         : ${I}/math.h
+
+clean clear:
+	rm -f *.o *.b *.bak awk oawk proc proctab.c token.h awk.h\
+	      y.tab.h x.c xs.c xs.s xy.s strings lex.yy.c y.tab.c
+
+CLRSRC: clear
+	rm -f $(SRC)
+
+awk.def:        $(RCS)/awk.def,v;       co $(COFLAGS) awk.def
+awk.g.y:        $(RCS)/awk.g.y,v;       co $(COFLAGS) awk.g.y
+awk.lx.l:       $(RCS)/awk.lx.l,v;      co $(COFLAGS) awk.lx.l
+b.c:            $(RCS)/b.c,v;           co $(COFLAGS) b.c
+lib.c:          $(RCS)/lib.c,v;         co $(COFLAGS) lib.c
+main.c:         $(RCS)/main.c,v;        co $(COFLAGS) main.c
+parse.c:        $(RCS)/parse.c,v;       co $(COFLAGS) parse.c
+proc.c:         $(RCS)/proc.c,v;        co $(COFLAGS) proc.c
+run.c:          $(RCS)/run.c,v;         co $(COFLAGS) run.c
+token.c:        $(RCS)/token.c,v;       co $(COFLAGS) token.c
+tran.c:         $(RCS)/tran.c,v;        co $(COFLAGS) tran.c
+tokenscript:    $(RCS)/tokenscript,v;   co $(COFLAGS) tokenscript
+Makefile:       $(RCS)/Makefile,v;      co $(COFLAGS) Makefile
+@
+
+
+1.4
+log
+@правлен, чтоб ПРАВИЛЬНО работал с xstr-ом.
+@
+text
+@d3 3
+d40 1
+a40 1
+CF=-O -V
+d64 4
+a67 4
+	cc ${FMT} ${FP} proctab.o strings.o -Z\
+			awk.g.o awk.lx.o parse.o main.o $(DEBUGF) -Z\
+			run.o -lm -Z\
+			lib.o b.o tran.o -L -lovc -o oawk
+@
+
+
+1.3
+log
+@overlay delay.
+@
+text
+@d3 3
+d43 1
+a43 1
+FILES=awk.lx.o b.o main.o tran.o lib.o run.o parse.o proctab.o
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d2 4
+a5 1
+# $Log:	Makefile,v $
+a7 1
+# 
+d9 1
+d60 1
+a60 1
+			run.o -lovm -Z\
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+# $Log$
+d88 1
+a88 1
+token.h:        awk.h
+@

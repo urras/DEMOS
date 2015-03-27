@@ -1,0 +1,43 @@
+if [ "$*" = "" ]
+then
+echo "Using:
+	printer [-d device_name] [-m macro]
+	[-pl page-length] [-po page_offset] [-pw paper_width]
+	[-T] list-of-files" 1>&2
+echo "Existing Devs: lp
+	"  1>&2
+exit 0
+exec true
+fi
+Pw=60
+Dev=lp
+Macro=-me
+Plen=66
+Poff=0
+Tbl="tbl -TX"
+Col="| col"
+for i in $*
+do
+i=$1
+case $1 in
+-d)     shift;Dev=$1
+	if [ "$Dev" != "lp" ]
+	then
+	Col=""
+	fi
+	shift;;
+-m)     shift;Macro=$1;shift;;
+-pl)    shift;Plen=$1;shift;;
+-po)    shift;Poff=$1;shift;;
+-pw)    shift;Pw=$1;shift;;
+-T)     shift;Tbl=cat;;
+*)      break;;
+esac
+done
+rm -f /tmp/lazer$$
+echo ".po $Poff" > /tmp/lazer$$
+echo ".ll $Pw" >> /tmp/lazer$$
+echo ".lt $Pw" >> /tmp/lazer$$
+echo ".pl $Plen" >> /tmp/lazer$$
+TAB=${Dev}
+$Tbl /tmp/lazer$$ $* | eval hroff -T${TAB} $Macro $Col

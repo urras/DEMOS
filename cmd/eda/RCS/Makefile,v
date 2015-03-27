@@ -1,0 +1,503 @@
+head     1.8;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.8
+date     88.11.15.22.54.10;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.01.19.17.05.32;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.12.21.16.54.43;  author root;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.11.14.21.01.16;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.11.12.18.51.36;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.11.22.02.26;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.11.21.16.14;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.21.11.57;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Экранный редактор eda2.4.
+Общий Makefile.
+@
+
+
+1.8
+log
+@Добавлен BTA 2000-15M.
+@
+text
+@#
+# Makefile для экранного редактора eda версия 2.4
+#
+# $Log: Makefile,v $
+# Revision 1.7  88/01/19  17:05:32  avg
+# *** empty log message ***
+#
+# Revision 1.6  86/12/21  16:54:43  root
+# Исправлено i_neweda на i_eda.
+#
+# Revision 1.5  86/11/14  21:01:16  avg
+# Выделено построение зависимости от mark.tmp.
+#
+# Revision 1.4  86/11/12  18:51:36  avg
+# Немного правлены зависимости.
+#
+# Revision 1.3  86/11/11  22:02:26  avg
+# Добавлена зависимость от исходных текстов в ED.??? т.к.
+# наблюдалась след. феня: пущяю make ED.??? а мне грят: "уже все есть".
+#
+# Revision 1.2  86/11/11  21:16:14  avg
+# Правлена опшибочка в install-е.
+#
+# Revision 1.1  86/11/11  21:11:57  avg
+# Initial revision
+#
+#
+
+# Для трансляции без архивов RCS установите R=X
+R=
+
+RCS=RCS
+COFLAGS=
+
+I=/usr/include
+IS=/usr/include/sys
+
+LIB=/lib/eda
+BIN=/bin
+
+
+LIBES=-ljobs
+LDFLAGS=-n -s
+CFLAGS=-O -DV2 -DUNSM -DNAME='"e.$(NAME).h"'
+
+SRC1=ftab.h glob.h io.h\
+     convert.c copyout.c crlf.c exec.c exit.c fill.c find.c format.c \
+     icdc.c ildl.c io.c macro.c main.c pos.c printx.c putget.c \
+     readchar.c save.c single.c stack.c text.c updown.c
+
+SRC= eda.c  $(SRC1)\
+     e.el002.h e.el15ie.h e.el85ipk.h e.hp2623.h e.sm1611.h e.sm7209.h \
+     e.vdt52100.h e.vdt52130.h e.vt340.h e.vt52.h e.vta2t1.h \
+     e.vta2t2.h e.vta2t3.h e.vta2t15m.h
+
+
+OBJS=convert.o copyout.o crlf.o exec.o exit.o fill.o find.o format.o \
+     icdc.o ildl.o io.o macro.o main.o pos.o printx.o putget.o \
+     readchar.o save.o single.o stack.o text.o updown.o
+
+
+################ general targets
+
+all: neweda
+###
+
+all:     ED.el002 ED.el15ie ED.el85ipk ED.hp2623 ED.sm1611 ED.sm7209 \
+	 ED.vdt52100 ED.vdt52130 ED.vt340 ED.vt52 ED.vta2t1 ED.vta2t2 \
+	 ED.vta2t3 ED.vta2t15m
+
+install: i_eda
+#######
+
+install: i_el002 i_el15ie i_el85ipk i_hp2623 i_sm1611 i_sm7209 \
+	 i_vdt52100 i_vdt52130 i_vt340 i_vt52 i_vta2t1 i_vta2t2 \
+	 i_vta2t3 i_vta2t15m
+
+source:  $(SRC) Makefile
+######
+
+################## installing
+
+i_el002:    ED.el002    ; make NAME=el002    INSTALL
+i_el15ie:   ED.el15ie   ; make NAME=el15ie   INSTALL
+i_el85ipk:  ED.el85ipk  ; make NAME=el85ipk  INSTALL
+i_hp2623:   ED.hp2623   ; make NAME=hp2623   INSTALL
+i_sm1611:   ED.sm1611   ; make NAME=sm1611   INSTALL
+i_sm7209:   ED.sm7209   ; make NAME=sm7209   INSTALL
+i_vdt52100: ED.vdt52100 ; make NAME=vdt52100 INSTALL
+i_vdt52130: ED.vdt52130 ; make NAME=vdt52130 INSTALL
+i_vt340:    ED.vt340    ; make NAME=vt340    INSTALL
+i_vt52:     ED.vt52     ; make NAME=vt52     INSTALL
+i_vta2t1:   ED.vta2t1   ; make NAME=vta2t1   INSTALL
+i_vta2t2:   ED.vta2t2   ; make NAME=vta2t2   INSTALL
+i_vta2t3:   ED.vta2t3   ; make NAME=vta2t3   INSTALL
+i_vta2t15m: ED.vta2t15m ; make NAME=vta2t15m INSTALL
+
+i_eda: neweda
+	-rm -f $(BIN)/e $(BIN)/eda.old
+	-chmod u-t $(BIN)/eda
+	-$(BIN)/eda </dev/null >/dev/null 2>/dev/null
+	-mv        $(BIN)/eda $(BIN)/eda.old
+	-rm -f     $(BIN)/eda.old
+	cp neweda  $(BIN)/eda
+	ln         $(BIN)/eda $(BIN)/e
+	chmod 1755 $(BIN)/eda
+
+INSTALL:    ED.$(NAME)
+	-rm -f     $(LIB)/ed.$(NAME)_O
+	-chmod u-t $(LIB)/ed.$(NAME)
+#        -$(LIB)/ed.$(NAME) </dev/null >/dev/null 2>/dev/null
+	-mv        $(LIB)/ed.$(NAME) $(LIB)/ed.$(NAME)_O
+	-rm -f     $(LIB)/ed.$(NAME)_O
+	cp ED.$(NAME) $(LIB)/ed.$(NAME)
+	chmod 1755    $(LIB)/ed.$(NAME)
+
+# compiling of all modules
+
+ED.el002:    e.el002.h    $(SRC1)
+		make NAME=el002    DEP
+		make NAME=el002    EX.el002
+
+ED.el15ie:   e.el15ie.h   $(SRC1)
+		make NAME=el15ie   DEP
+		make NAME=el15ie   EX.el15ie
+
+ED.el85ipk:  e.el85ipk.h  $(SRC1)
+		make NAME=el85ipk  DEP
+		make NAME=el85ipk  EX.el85ipk
+
+ED.hp2623:   e.hp2623.h   $(SRC1)
+		make NAME=hp2623   DEP
+		make NAME=hp2623   EX.hp2623
+
+ED.sm1611:   e.sm1611.h   $(SRC1)
+		make NAME=sm1611   DEP
+		make NAME=sm1611   EX.sm1611
+
+ED.sm7209:   e.sm7209.h   $(SRC1)
+		make NAME=sm7209   DEP
+		make NAME=sm7209   EX.sm7209
+
+ED.vdt52100: e.vdt52100.h $(SRC1)
+		make NAME=vdt52100 DEP
+		make NAME=vdt52100 EX.vdt52100
+
+ED.vdt52130: e.vdt52130.h $(SRC1)
+		make NAME=vdt52130 DEP
+		make NAME=vdt52130 EX.vdt52130
+
+ED.vt340:    e.vt340.h    $(SRC1)
+		make NAME=vt340    DEP
+		make NAME=vt340    EX.vt340
+
+ED.vt52:     e.vt52.h     $(SRC1)
+		make NAME=vt52     DEP
+		make NAME=vt52     EX.vt52
+
+ED.vta2t1:   e.vta2t1.h   $(SRC1)
+		make NAME=vta2t1   DEP
+		make NAME=vta2t1   EX.vta2t1
+
+ED.vta2t2:   e.vta2t2.h   $(SRC1)
+		make NAME=vta2t2   DEP
+		make NAME=vta2t2   EX.vta2t2
+
+ED.vta2t3:   e.vta2t3.h   $(SRC1)
+		make NAME=vta2t3   DEP
+		make NAME=vta2t3   EX.vta2t3
+
+ED.vta2t15m: e.vta2t15m.h $(SRC1)
+		make NAME=vta2t15m DEP
+		make NAME=vta2t15m EX.vta2t15m
+
+DEP:    mark.tmp
+
+mark.tmp::      e.$(NAME).h
+
+mark.tmp::
+	-@@set -x; if [ ! -r mark.tmp ] ; \
+		  then echo UNKNOWN >mark.tmp ;\
+		  fi
+	-@@set -x; if [ X$(NAME) != X`cat mark.tmp` ] ;\
+		  then echo $(NAME) >mark.tmp;\
+		       cp e.$(NAME).h tmp;\
+		       rm -f e.$(NAME).h;\
+		       mv tmp e.$(NAME).h;\
+		  fi
+
+EX.$(NAME):    $(OBJS)
+	$(CC) -o ED.$(NAME) $(LDFLAGS) $(OBJS) $(LIBES)
+
+neweda:  eda.c $(I)/ediag.h  $(I)/stdio.h $(IS)/stat.h $(IS)/types.h
+	$(CC) -o neweda $(CFLAGS) $(LDFLAGS) eda.c
+
+############## dependencies
+
+exec.o:  ftab.h
+
+convert.o copyout.o crlf.o exec.o exit.o fill.o find.o format.o \
+icdc.o ildl.o macro.o main.o pos.o printx.o putget.o readchar.o \
+save.o single.o stack.o text.o updown.o: glob.h \
+	 $(IS)/localopts.h $(I)/ediag.h $(I)/sgtty.h $(I)/signal.h
+
+
+copyout.o crlf.o exit.o fill.o io.o main.o printx.o stack.o\
+putget.o readchar.o save.o single.o text.o: io.h
+
+convert.o exec.o:   $(IS)/code.h
+
+convert.o copyout.o crlf.o exec.o exit.o fill.o find.o format.o \
+icdc.o ildl.o io.o macro.o main.o pos.o printx.o putget.o \
+readchar.o save.o single.o stack.o text.o updown.o: e.${NAME}.h
+
+############## extracting from RCS archives
+
+$(R)e.el002.h:     RCS/e.el002.h,v      ; co $(COFLAGS) e.el002.h
+$(R)e.el15ie.h:    RCS/e.el15ie.h,v     ; co $(COFLAGS) e.el15ie.h
+$(R)e.el85ipk.h:   RCS/e.el85ipk.h,v    ; co $(COFLAGS) e.el85ipk.h
+$(R)e.hp2623.h:    RCS/e.hp2623.h,v     ; co $(COFLAGS) e.hp2623.h
+$(R)e.sm1611.h:    RCS/e.sm1611.h,v     ; co $(COFLAGS) e.sm1611.h
+$(R)e.sm7209.h:    RCS/e.sm7209.h,v     ; co $(COFLAGS) e.sm7209.h
+$(R)e.vdt52100.h:  RCS/e.vdt52100.h,v   ; co $(COFLAGS) e.vdt52100.h
+$(R)e.vdt52130.h:  RCS/e.vdt52130.h,v   ; co $(COFLAGS) e.vdt52130.h
+$(R)e.vt340.h:     RCS/e.vt340.h,v      ; co $(COFLAGS) e.vt340.h
+$(R)e.vt52.h:      RCS/e.vt52.h,v       ; co $(COFLAGS) e.vt52.h
+$(R)e.vta2t1.h:    RCS/e.vta2t1.h,v     ; co $(COFLAGS) e.vta2t1.h
+$(R)e.vta2t2.h:    RCS/e.vta2t2.h,v     ; co $(COFLAGS) e.vta2t2.h
+$(R)e.vta2t3.h:    RCS/e.vta2t3.h,v     ; co $(COFLAGS) e.vta2t3.h
+$(R)e.vta2t15m.h:  RCS/e.vta2t15m.h,v   ; co $(COFLAGS) e.vta2t15m.h
+
+$(R)ftab.h:        RCS/ftab.h,v         ; co $(COFLAGS) ftab.h
+$(R)glob.h:        RCS/glob.h,v         ; co $(COFLAGS) glob.h
+$(R)io.h:          RCS/io.h,v           ; co $(COFLAGS) io.h
+
+$(R)eda.c:         RCS/eda.c,v          ; co $(COFLAGS) eda.c
+
+$(R)convert.c:     RCS/convert.c,v      ; co $(COFLAGS) convert.c
+$(R)copyout.c:     RCS/copyout.c,v      ; co $(COFLAGS) copyout.c
+$(R)crlf.c:        RCS/crlf.c,v         ; co $(COFLAGS) crlf.c
+$(R)exec.c:        RCS/exec.c,v         ; co $(COFLAGS) exec.c
+$(R)exit.c:        RCS/exit.c,v         ; co $(COFLAGS) exit.c
+$(R)fill.c:        RCS/fill.c,v         ; co $(COFLAGS) fill.c
+$(R)find.c:        RCS/find.c,v         ; co $(COFLAGS) find.c
+$(R)format.c:      RCS/format.c,v       ; co $(COFLAGS) format.c
+$(R)icdc.c:        RCS/icdc.c,v         ; co $(COFLAGS) icdc.c
+$(R)ildl.c:        RCS/ildl.c,v         ; co $(COFLAGS) ildl.c
+$(R)io.c:          RCS/io.c,v           ; co $(COFLAGS) io.c
+$(R)macro.c:       RCS/macro.c,v        ; co $(COFLAGS) macro.c
+$(R)main.c:        RCS/main.c,v         ; co $(COFLAGS) main.c
+$(R)pos.c:         RCS/pos.c,v          ; co $(COFLAGS) pos.c
+$(R)printx.c:      RCS/printx.c,v       ; co $(COFLAGS) printx.c
+$(R)putget.c:      RCS/putget.c,v       ; co $(COFLAGS) putget.c
+$(R)readchar.c:    RCS/readchar.c,v     ; co $(COFLAGS) readchar.c
+$(R)save.c:        RCS/save.c,v         ; co $(COFLAGS) save.c
+$(R)single.c:      RCS/single.c,v       ; co $(COFLAGS) single.c
+$(R)stack.c:       RCS/stack.c,v        ; co $(COFLAGS) stack.c
+$(R)text.c:        RCS/text.c,v         ; co $(COFLAGS) text.c
+$(R)updown.c:      RCS/updown.c,v       ; co $(COFLAGS) updown.c
+
+$(R)Makefile:      RCS/Makefile,v       ; co $(COFLAGS) Makefile
+
+############## cleaning of a directory
+
+clear clean:
+###########
+	-rm -f *.bak *.[ob] ED.*
+	-rm -f neweda mark.tmp
+
+CLRSRC: clear
+######
+	-rm -f $(SRC)
+@
+
+
+1.7
+log
+@*** empty log message ***
+@
+text
+@d5 3
+d54 1
+a54 1
+     e.vta2t2.h e.vta2t3.h
+d69 1
+a69 1
+	 ED.vta2t3
+d76 1
+a76 1
+	 i_vta2t3
+d96 1
+d171 4
+d230 1
+@
+
+
+1.6
+log
+@Исправлено i_neweda на i_eda.
+@
+text
+@d4 4
+a7 1
+# $Log:	Makefile,v $
+d10 1
+a10 1
+# 
+d49 1
+a49 1
+     e.el002.h e.el15ie.h e.el85.h e.hp2623.h e.sm1611.h e.sm7209.h \
+d64 1
+a64 1
+all:     ED.el002 ED.el15ie ED.el85 ED.hp2623 ED.sm1611 ED.sm7209 \
+d71 1
+a71 1
+install: i_el002 i_el15ie i_el85 i_hp2623 i_sm1611 i_sm7209 \
+d82 1
+a82 1
+i_el85:     ED.el85     ; make NAME=el85     INSTALL
+d123 3
+a125 3
+ED.el85:     e.el85.h     $(SRC1)
+		make NAME=el85     DEP
+		make NAME=el85     EX.el85
+d198 1
+a198 1
+copyout.o crlf.o exit.o fill.o io.o main.o printx.o \
+d211 1
+a211 1
+$(R)e.el85.h:      RCS/e.el85.h,v       ; co $(COFLAGS) e.el85.h
+@
+
+
+1.5
+log
+@Выделено построение зависимости от mark.tmp.
+@
+text
+@d4 4
+a7 1
+# $Log: Makefile,v $
+d91 1
+a91 1
+i_neweda: neweda
+@
+
+
+1.4
+log
+@Немного правлены зависимости.
+@
+text
+@d5 3
+d109 3
+a111 13
+ED.el002:    e.el002.h    $(SRC1) ; make NAME=el002    EX.el002
+ED.el15ie:   e.el15ie.h   $(SRC1) ; make NAME=el15ie   EX.el15ie
+ED.el85:     e.el85.h     $(SRC1) ; make NAME=el85     EX.el85
+ED.hp2623:   e.hp2623.h   $(SRC1) ; make NAME=hp2623   EX.hp2623
+ED.sm1611:   e.sm1611.h   $(SRC1) ; make NAME=sm1611   EX.sm1611
+ED.sm7209:   e.sm7209.h   $(SRC1) ; make NAME=sm7209   EX.sm7209
+ED.vdt52100: e.vdt52100.h $(SRC1) ; make NAME=vdt52100 EX.vdt52100
+ED.vdt52130: e.vdt52130.h $(SRC1) ; make NAME=vdt52130 EX.vdt52130
+ED.vt340:    e.vt340.h    $(SRC1) ; make NAME=vt340    EX.vt340
+ED.vt52:     e.vt52.h     $(SRC1) ; make NAME=vt52     EX.vt52
+ED.vta2t1:   e.vta2t1.h   $(SRC1) ; make NAME=vta2t1   EX.vta2t1
+ED.vta2t2:   e.vta2t2.h   $(SRC1) ; make NAME=vta2t2   EX.vta2t2
+ED.vta2t3:   e.vta2t3.h   $(SRC1) ; make NAME=vta2t3   EX.vta2t3
+d113 3
+a115 1
+EX.$(NAME)::    mark.tmp
+d117 46
+d176 1
+a176 1
+EX.$(NAME)::    $(OBJS)
+@
+
+
+1.3
+log
+@Добавлена зависимость от исходных текстов в ED.??? т.к.
+наблюдалась след. феня: пущяю make ED.??? а мне грят: "уже все есть".
+@
+text
+@d5 4
+d122 5
+a126 4
+mark.tmp:       e.$(NAME).h
+	-@@set -x; if [ -r mark.tmp -a $(NAME) = `cat mark.tmp` ] ;\
+		  then echo --- Recompile $(NAME);\
+		  else echo $(NAME) >mark.tmp; touch e.$(NAME).h;\
+d128 6
+d158 1
+a158 1
+readchar.o save.o single.o stack.o text.o updown.o: e.$(NAME).h
+@
+
+
+1.2
+log
+@Правлена опшибочка в install-е.
+@
+text
+@d5 3
+d30 1
+a30 5
+SRC= ftab.h glob.h io.h \
+     e.el002.h e.el15ie.h e.el85.h e.hp2623.h e.sm1611.h e.sm7209.h \
+     e.vdt52100.h e.vdt52130.h e.vt340.h e.vt52.h e.vta2t1.h \
+     e.vta2t2.h e.vta2t3.h \
+     eda.c \
+d35 6
+d102 13
+a114 13
+ED.el002:   ; make NAME=el002        EX.el002
+ED.el15ie:  ; make NAME=el15ie       EX.el15ie
+ED.el85:    ; make NAME=el85         EX.el85
+ED.hp2623:  ; make NAME=hp2623       EX.hp2623
+ED.sm1611:  ; make NAME=sm1611       EX.sm1611
+ED.sm7209:  ; make NAME=sm7209       EX.sm7209
+ED.vdt52100:; make NAME=vdt52100     EX.vdt52100
+ED.vdt52130:; make NAME=vdt52130     EX.vdt52130
+ED.vt340:   ; make NAME=vt340        EX.vt340
+ED.vt52:    ; make NAME=vt52         EX.vt52
+ED.vta2t1:  ; make NAME=vta2t1       EX.vta2t1
+ED.vta2t2:  ; make NAME=vta2t2       EX.vta2t2
+ED.vta2t3:  ; make NAME=vta2t3       EX.vta2t3
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 3
+a6 1
+# $Log$
+d8 1
+d90 1
+a90 1
+	-mv        $(LIB)/ed.$(NAME) $(LIB)/ed.name_O
+@

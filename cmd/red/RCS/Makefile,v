@@ -1,0 +1,1536 @@
+head     4.3;
+access   ;
+symbols  RED_4:3.1.2 DEMOS_2:3.5 ES:3.1.1;
+locks    ;
+comment  @# @;
+
+
+4.3
+date     90.09.19.17.30.14;  author root;  state Exp;
+branches ;
+next     4.2;
+
+4.2
+date     88.04.04.22.18.47;  author alex;  state Exp;
+branches ;
+next     4.1;
+
+4.1
+date     88.03.31.22.08.18;  author alex;  state Exp;
+branches ;
+next     3.9;
+
+3.9
+date     87.06.12.17.22.19;  author alex;  state Exp;
+branches ;
+next     3.8;
+
+3.8
+date     86.10.14.23.04.44;  author alex;  state Exp;
+branches ;
+next     3.7;
+
+3.7
+date     86.10.14.21.03.06;  author alex;  state Exp;
+branches ;
+next     3.6;
+
+3.6
+date     86.09.19.20.02.00;  author alex;  state Exp;
+branches ;
+next     3.5;
+
+3.5
+date     86.08.04.20.56.20;  author alex;  state Exp;
+branches ;
+next     3.4;
+
+3.4
+date     86.07.24.23.39.19;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.07.24.21.09.23;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.09.16;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.04.20.23.44.13;  author alex;  state Exp;
+branches 3.1.1.1 3.1.2.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.08.06;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.05.18.57.18;  author alex;  state Exp;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.06.00.15.04;  author alex;  state Exp;
+branches ;
+next     3.1.1.4;
+
+3.1.1.4
+date     86.06.16.21.55.32;  author alex;  state Stab;
+branches ;
+next     3.1.1.5;
+
+3.1.1.5
+date     86.06.16.22.21.50;  author alex;  state Exp;
+branches ;
+next     3.1.1.6;
+
+3.1.1.6
+date     86.06.16.22.29.56;  author alex;  state Exp;
+branches ;
+next     3.1.1.7;
+
+3.1.1.7
+date     86.06.17.19.28.26;  author alex;  state Exp;
+branches ;
+next     3.1.1.8;
+
+3.1.1.8
+date     86.06.19.00.12.26;  author alex;  state Exp;
+branches ;
+next     3.1.1.9;
+
+3.1.1.9
+date     86.06.25.19.43.20;  author alex;  state Exp;
+branches ;
+next     3.1.1.10;
+
+3.1.1.10
+date     86.07.15.22.15.48;  author alex;  state Stab;
+branches ;
+next     3.1.1.11;
+
+3.1.1.11
+date     86.07.15.23.52.08;  author alex;  state Exp;
+branches ;
+next     ;
+
+3.1.2.1
+date     87.06.19.17.03.26;  author alex;  state Exp;
+branches ;
+next     3.1.2.2;
+
+3.1.2.2
+date     87.06.23.18.58.35;  author alex;  state Exp;
+branches ;
+next     3.1.2.3;
+
+3.1.2.3
+date     87.06.23.19.58.44;  author alex;  state Exp;
+branches ;
+next     3.1.2.4;
+
+3.1.2.4
+date     87.06.23.20.53.54;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+4.3
+log
+@???
+@
+text
+@######################################################################
+#                                                                    #
+#                                                                    #
+#                                       *                            #
+#                       * **   ***      *   1985                     #
+#                       **  * *   *  ****                            #
+#                       *     ****  *   *                            #
+#                       *     *     *   *                            #
+#                       *      ***   ****                            #
+#                                                                    #
+#                                                                    #
+#                                                                    #
+#                            ДEМОС в. I                              #
+#                            МНОС РЛ 1.2                             #
+#                            ДEМОС/EС в. 1.
+######################################################################
+# lred - red for System-V
+# ared - red for UTEC / DEMOS
+# ered - редактор для EС
+# nred - редактор для СМ
+# ired - редактор для Электроники-79
+# tred - отладочная версия для эмуляции EС на СМ.
+# ured - Редактор для UTEC
+# dred - Редактор для ULTRIX-32
+#       $Header: Makefile,v 4.2 88/04/04 22:18:47 alex Exp $
+
+all: nred rpl
+
+# DSTDIR=/usr
+DSTNAME=red
+RED=edit
+CFL=-O
+LDFLAGS=
+# CFL=-O -DRUSDIAG -DDEBUG -DFROMTCAP
+#
+# Для МНОС - убрать FROMTCAP, установить LOCAL=M.locl.h
+#
+PUT=-m"Исправлена ошибка в команде SUSPEND (tostop)"
+PUTF=-r4 -q $(PUT)
+GETF=-r4
+RCSARCHIV=
+RCSPUT=ci $(PUTF)
+
+# Вместо S.termc.o можно использовать и -ltermcap
+#
+# OBJC - общие об'ектные файлы
+# OBJEC - общие для ered и tred
+# OBJEE - специфические файлы для ered
+# OBJEQ - специфические для tred
+# OBJS  - специфические для СМ и Электроники файлы
+
+OBJC=r.cmd.o r.edit.o r.file.o r.hlam.o r.init.o\
+   r.mac.o r.main.o r.tele.o  r.wind.o r.mall.o
+
+OBJEC=E.param.o E.ttyio.o
+OBJEE=E.qsrt.o E.tubecc.o
+OBJEQ=E.qsemul.o
+OBJS=S.ttyio.o S.gettc.o S.termc.o
+
+CSRCS=r.cmd.c r.edit.c r.file.c r.hlam.c\
+    r.init.c  r.mac.c r.main.c r.tele.c  \
+    r.wind.c r.mall.c \
+    S.ttyio.c S.termc.c S.gettc.c
+
+ESRCS=E.param.c E.ttyio.c E.qsrt.c E.tubecc.s E.qsemul.c
+
+HSRCS=r.defs.h  S.tele.h V.locl.h A.locl.h U.locl.h
+EHDRS=E.qsdefs.h  E.locl.h S.locl.h S2.locl.h M.locl.h E.7920.h E.r7920.h
+SRCS=$(HSRCS) $(CSRCS) rpl.c Makefile Newvers
+
+#
+#  OBJ и LOCAL переопределяются при вызове make в случае ered, tred
+#
+LOCAL=V.locl.h
+OBJ=$(OBJS) $(OBJC)
+
+ered: Ered *.[chs] Makefile
+	make -k LDFLAGS=-n LOCAL=E.locl.h OBJ="$(OBJC) $(OBJEC) $(OBJEE)" edit;rm -f ered;ln edit ered
+
+tred: Tred *.[chs] Makefile
+	make -k LOCAL=E.locl.h OBJ="$(OBJC) $(OBJEC) $(OBJEQ)" edit;rm -f tred;ln edit tred
+
+nred: Nred *.[chs] Makefile  Newvers
+	set;make -k CFL="-O -DRUSDIAG" LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" edit;c7t10 edit;rm -f nred;ln edit nred
+
+ired: Nred *.[chs] Makefile  Newvers
+	make -k CFL="-O -DALLDIAG -DRED_CYRILL" LDFLGS=-i LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" edit;rm -f ired;ln edit ired
+
+sred: Sred *.[chs] Makefile
+	make -k LOCAL=S.locl.h OBJ="$(OBJC) $(OBJS)" edit;rm -f sred;ln edit sred
+
+vred: Vred *.[chs] Makefile  Newvers
+	make -k LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f vred;ln edit vred
+
+dred: Dred *.[chs] Makefile  Newvers
+	make -k LOCAL=D.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f vred;ln edit vred
+
+xred: Lred *.[chs] Makefile  Newvers
+	make -k LOCAL=L.locl.h OBJ="$(OBJC) $(OBJS)" LDFLAGS="-F 6000 -i" CFL="-O -DALLDIAG" edit;rm -f xred;ln edit xred
+
+lred: Lred *.[chs] Makefile  Newvers
+	make -k LOCAL=L.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f lred;ln edit lred
+
+ared: Ared *.[chs] Makefile Newvers
+	make -k LOCAL=A.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f ared;ln edit ared
+
+ured: Ured *.[chs] Makefile  Newvers
+	make -k LOCAL=U.locl.h OBJ="$(OBJS) $(OBJC)" CFL="-O" edit;rm -f ured;ln edit ured
+
+
+clean:
+	rm -rf *.o *.b *.bak ?red edit
+
+Ered:
+	  rm -rf *.o *.bak ?red edit
+	  @@echo >Ered
+	  @@echo "Справочник подготовлен для сборки версии для EС"
+
+Dred:
+	  rm -rf *.o *.bak ?red edit
+	  @@echo >Dred
+	  @@echo "Справочник подготовлен для сборки версии для ULTRIX"
+
+Ared:
+	  rm -rf *.o *.bak ?red edit
+	  @@echo >Ared
+	  @@echo "Справочник подготовлен для сборки версии для UTEC/Anshukow"
+
+Lred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Lred
+	 @@echo "Справочник подготовлен для сборки версии для SYSTEM-V"
+
+Nred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Nred
+	 @@echo "Справочник подготовлен для сборки версии для SM"
+
+Sred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Sred
+	 @@echo "Справочник подготовлен для сборки версии для SM ДЕМОС 2"
+
+Vred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Vred
+	 @@echo "Справочник подготовлен для сборки версии для ДЕМОС/V"
+
+Tred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Tred
+	 @@echo "Справочник подготовлен для сборки эмулятора  EС"
+
+
+Ured:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Ured
+	 @@echo "Справочник подготовлен для сборки версии для ДЕМОС/V"
+
+
+#
+#  Общая схема сборки редактора
+#
+
+CFLAGS=$(CFL) -DLOCL="\"$(LOCAL)\""
+LIFLAGS=$(CFL) -DLOCL="\"$(LOCAL)\""
+LDEFS=r.defs.h  $(LOCAL)
+
+$(OBJ):$(LDEFS)
+$(OBJEQ) $(OBJEE):E.qsdefs.h  /usr/include/sgtty.h
+$(OBJEC): E.7920.h E.r7920.h
+
+edit: Makefile $(OBJ) Vers.o
+	cc -o edit $(LDFLAGS) $(OBJ) Vers.o
+Vers.o: $(OBJ)  Newvers
+	csh -f Newvers
+	cc $(CFLAGS) -c Vers.c
+
+rpl: rpl.c
+	cc -o rpl -O rpl.c
+
+
+E.ttyio.o : E.7920.h E.r7920.h
+S.ttyio.o S.gettc.o: S.tele.h
+E.ttyio.o S.ttyio.o: /usr/include/sgtty.h
+r.hlam.o: /usr/include/sys/types.h /usr/include/sys/stat.h
+E.qsemul.o: E.qsdefs.h
+E.tubecc.o: E.tubecc.s
+	as -u -o E.tubecc.o E.tubecc.s
+
+install: edit red.lib/re.std red.lib/help.* rpl
+	-chmod a-t ${DSTDIR}/bin/$(DSTNAME)
+	-${DSTDIR}/bin/$(DSTNAME) </dev/null
+	strip $(RED)
+	cp $(RED) ${DSTDIR}/bin/$(DSTNAME)
+	chmod 7111 ${DSTDIR}/bin/$(DSTNAME)
+	cp red.lib/re.std /usr/lib/re.std
+	-mkdir /usr/lib/red
+	cp red.lib/help* /usr/lib/red
+	cp rpl /bin/rpl;strip /bin/rpl
+
+clean:
+
+LINT: $(CSRCS) $(HSRCS)
+	MSG=r lint $(LIFLAGS) $(CSRCS) > LINT 2>&1
+
+LIST: $(CSRCS) $(HSRCS)
+	grep -n "^[/ ]\*" $(HSRCS) $(CSRCS) > LIST
+
+TAGS: $(CSRCS)
+	ctags -x $(CSRCS) > TAGS
+
+
+put: Rcsversion
+
+get: $(SRCS)
+.DEFAULT:
+	co $(GETF) $@@
+
+Rcsversion: $(SRCS)
+	$(RCSPUT) $?
+	-date >>Rcsversion
+
+#       $Log:	Makefile,v $
+# Revision 4.2  88/04/04  22:18:47  alex
+# 
+# Revision 4.1  88/03/31  22:08:18  alex
+# Версия 4.1 - обкатка на UTEC, СМ
+# 
+# Revision 3.1.2.4  87/06/23  20:53:54  alex
+# Automatic_revisions
+# 
+# Revision 3.1.2.3  87/06/23  19:58:44  alex
+# Внесенна Newvers.
+# 
+# Revision 3.1.2.2  87/06/23  18:58:35  alex
+# wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+# 
+# Revision 3.1.2.1  87/06/19  17:03:26  alex
+# Start revision for red/4
+# 
+# Revision 3.9  87/06/12  17:22:19  alex
+# Включена версия dred для ULTRIX и ired для машин с SEPID.
+# 
+# Revision 3.9  87/04/01  19:13:04  alex
+# Revision for Utec: Cs, Ce, Ct, hR
+# 
+# Revision 3.8  86/10/14  23:04:44  alex
+# Исправлены мелкие ошибки, введено .DEFAULT.
+# 
+# Revision 3.7  86/10/14  21:03:06  alex
+# Исправлена ошибка в S.ttyio.c -> S.ttyio.o
+# 
+# Revision 3.6  86/09/19  20:02:00  alex
+# Версия для СМ-1700
+# 
+# Revision 3.5  86/08/04  20:56:20  alex
+# Bepqh dk LMNQ/DELNQ 2
+# 
+# Revision 3.4  86/07/24  23:39:19  alex
+# Мелочи.
+#
+# Revision 3.3  86/07/24  21:09:23  alex
+# Мелочи
+#
+# Revision 3.2  86/07/24  19:09:16  alex
+# Об'единены версии текстов для ЕС и СМ
+#
+# Revision 3.1.1.11  86/07/15  23:52:08  alex
+# *** empty log message ***
+#
+# Revision 3.1.1.10  86/07/15  22:15:48  alex
+# RED 3.3/EC.
+#
+# Revision 3.1.1.9  86/06/25  19:43:20  alex
+# Введено автоматическое смещение экрана
+#
+# Revision 3.1.1.8  86/06/19  00:12:26  alex
+# Отлажен на модели повтор сеанса
+#
+# Revision 3.1.1.7  86/06/17  19:28:26  alex
+# Правки.
+#
+# Revision 3.1.1.6  86/06/16  22:29:56  alex
+# Первая версия с повтором сеанса (пока грязная)
+#
+# Revision 3.1.1.5  86/06/16  22:21:50  alex
+# Первая версия с повтором сеанса (пока грязная)
+#
+# Revision 3.1.1.4  86/06/16  21:55:32  alex
+# Отлажено на EС без режима восстановления и без макро
+#
+# Revision 3.1.1.3  86/06/06  00:15:04  alex
+# Введена установка ключей
+#
+# Revision 3.1.1.2  86/06/05  18:57:18  alex
+# Отлажено_на_модели
+#
+# Revision 3.1.1.1  86/06/05  00:08:06  alex
+# Отлажено_на_модели
+#
+# Revision 3.1  86/04/20  23:44:13  alex
+# Базовая версия для EС.
+#
+#
+# Revision 1.4  86/04/13  21:54:55  alex
+#
+@
+
+
+4.2
+log
+@
+@
+text
+@d17 1
+d25 1
+a25 1
+#       $Header: Makefile,v 4.1 88/03/31 22:08:18 alex Exp $
+d27 1
+a27 1
+all: ared rpl
+d38 2
+a39 2
+PUT=
+PUTF=-q -u -r4 $(PUT)
+d74 1
+a74 1
+LOCAL=A.locl.h
+d84 1
+a84 1
+	make -k CFL="-O -DRUSDIAG" LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" edit;c7t10 edit;rm -f nred;ln edit nred
+d98 6
+d129 5
+d225 2
+@
+
+
+4.1
+log
+@Версия 4.1 - обкатка на UTEC, СМ
+@
+text
+@d24 1
+a24 1
+#       $Header: Makefile,v 3.1.2.4 87/06/23 20:53:54 alex Exp $
+d26 1
+a26 1
+all: nred rpl
+d73 1
+a73 1
+LOCAL=V.locl.h
+d213 3
+@
+
+
+3.9
+log
+@Включена версия dred для ULTRIX и ired для машин с SEPID.
+@
+text
+@d3 2
+a4 2
+#                                           Руднев А.П.              #
+#                                       *   ИАЭ им. И.В. Курчатова   #
+d17 1
+d24 1
+a24 2
+#       $Header: Makefile,v 3.9 87/04/01 19:13:04 alex Exp $
+all: dred rpl
+d26 2
+d38 2
+a39 2
+PUTF=-l -r3 $(PUT)
+GETF=
+d61 1
+a61 1
+    E.param.c E.ttyio.c r.wind.c r.mall.c E.qsrt.c E.tubecc.s E.qsemul.c\
+d64 1
+a64 1
+HSRCS=r.defs.h E.locl.h S.locl.h S2.locl.h M.locl.h E.7920.h E.r7920.h E.qsdefs.h  S.tele.h V.locl.h
+d66 3
+a68 1
+SRCS=$(HSRCS) $(CSRCS) rpl.c
+d73 1
+a73 1
+LOCAL=D.locl.h
+d82 2
+a83 2
+nred: Nred *.[chs] Makefile
+	make -k LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" edit;c7t10 edit;rm -f nred;ln edit nred
+d85 1
+a85 1
+ired: Nred *.[chs] Makefile
+d91 1
+a91 1
+vred: Vred *.[chs] Makefile
+d94 1
+a94 1
+dred: Dred *.[chs] Makefile
+d97 4
+a100 3
+# ared: Nred *.[ch]
+#         make -n LOCAL=S.locl.h OBJ="$(OBJC) $(OBJS)" edit
+ured: Ured *.[chs] Makefile
+d117 5
+d161 5
+a165 2
+edit: Makefile $(OBJ)
+	cc -o edit $(LDFLAGS) $(OBJ)
+d208 1
+a208 1
+Rcsversion: $(SRCS) Makefile
+d213 15
+@
+
+
+3.8
+log
+@Исправлены мелкие ошибки, введено .DEFAULT.
+@
+text
+@d19 1
+d21 4
+a24 3
+#
+#       $Header: Makefile,v 3.7 86/10/14 21:03:06 alex Exp $
+all: nred rpl
+d29 1
+a29 1
+CFL=-O -DRUSDIAG
+d50 1
+a50 1
+    r.wind.o r.mall.o r.mac.o r.main.o r.tele.o
+d69 2
+a70 2
+LOCAL=V.locl.h
+OBJ=$(OBJC) $(OBJS)
+d81 3
+d90 3
+d95 2
+d98 1
+d107 5
+d133 4
+d138 1
+d155 1
+a155 1
+	cc -o rpl -n -O rpl.c
+d166 2
+a167 2
+install: edit re.std rpl
+	chmod a-t ${DSTDIR}/bin/$(DSTNAME)
+d172 3
+a174 1
+	cp re.std /usr/lib/re.std
+d200 6
+@
+
+
+3.7
+log
+@Исправлена ошибка в S.ttyio.c -> S.ttyio.o
+@
+text
+@d21 2
+a22 2
+#       $Header: Makefile,v 3.6 86/09/19 20:02:00 alex Exp $
+all: vred rpl
+d28 1
+d67 1
+a67 1
+LOCAL=S2.locl.h
+d71 1
+a71 1
+	make -k LOCAL=E.locl.h OBJ="$(OBJC) $(OBJEC) $(OBJEE)" edit;mv edit ered
+d74 1
+a74 1
+	make -k LOCAL=E.locl.h OBJ="$(OBJC) $(OBJEC) $(OBJEQ)" edit;mv edit tred
+d77 1
+a77 1
+	make -k LOCAL=S2.locl.h OBJ="$(OBJC) $(OBJS)" edit;mv edit nred
+d80 1
+a80 1
+	make -k LOCAL=S.locl.h OBJ="$(OBJC) $(OBJS)" edit;mv edit sred
+d83 1
+a83 1
+	make -k LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;mv edit vred
+d131 1
+a131 1
+	cc -o edit -n $(OBJ)
+d145 1
+a145 1
+install: $(RED) re.std rpl
+d169 1
+a169 1
+$(SRCS):
+d177 3
+@
+
+
+3.6
+log
+@Версия для СМ-1700
+@
+text
+@d21 1
+a21 1
+#       $Header: Makefile,v 3.5 86/08/04 20:56:20 alex Exp $
+d76 1
+a76 1
+	make -k LOCAL=S.locl.h OBJ="$(OBJC) $(OBJS)" edit;mv edit nred
+d79 1
+a79 1
+	make -k LOCAL=S2.locl.h OBJ="$(OBJC) $(OBJS)" edit;mv edit sred
+d138 1
+a138 1
+E.ttyio.o S.ttyio.c: /usr/include/sgtty.h
+d176 3
+@
+
+
+3.5
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d21 2
+a22 2
+#       $Header: Makefile,v 3.4 86/07/24 23:39:19 alex Exp $
+all: edit rpl
+d32 2
+a33 2
+PUT=-m"Версия для МНОС/ДЕМОС 2" -nDEMOS_2
+PUTF=-l -f -r3 $(PUT)
+d59 1
+a59 1
+HSRCS=r.defs.h E.locl.h S.locl.h E.7920.h E.r7920.h E.qsdefs.h  S.tele.h
+d81 3
+d105 5
+d175 4
+a178 1
+#       $Log:   Makefile,v $
+@
+
+
+3.4
+log
+@Мелочи.
+@
+text
+@d21 2
+a22 2
+#       $Header: Makefile,v 3.3 86/07/24 21:09:23 alex Exp $
+all: nred rpl
+d26 1
+d32 1
+a32 1
+PUT=
+d34 1
+d66 2
+a67 2
+LOCAL=E.locl.h
+OBJ="$(OBJC) $(OBJEC) $(OBJEQ)"
+d78 3
+d85 1
+a85 1
+	rm -rf *.o *.bak ?red edit
+d97 5
+d159 4
+d167 4
+a170 1
+#       $Log:	Makefile,v $
+d173 1
+a173 1
+# 
+d176 1
+a176 1
+# 
+@
+
+
+3.3
+log
+@Мелочи
+@
+text
+@d21 1
+a21 1
+#       $Header: Makefile,v 3.2 86/07/24 19:09:16 alex Exp $
+d67 1
+a67 1
+ered: Ered *.[chos] Makefile
+d70 1
+a70 1
+tred: Tred *.[chos] Makefile
+d73 1
+a73 1
+nred: Nred *.[chos] Makefile
+d154 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d21 1
+a21 1
+#       $Header: Makefile,v 3.1.1.11 86/07/15 23:52:08 alex Exp $
+d26 1
+a26 1
+CFL=-O -DRUSDIAG -DFROMTCAP
+d32 1
+a32 1
+PUTF=-l -f -r3.2 -m"Об'единены версии текстов для ЕС и СМ" $(PUT)
+d67 1
+a67 1
+ered: Ered *.[ch]
+d70 1
+a70 1
+tred: Tred *.[ch]
+d73 1
+a73 1
+nred: Nred *.[ch]
+d154 3
+@
+
+
+3.1
+log
+@Базовая версия для ЕС.
+@
+text
+@d13 1
+a13 1
+#                            ДЕМОС в. I                              #
+d15 1
+d17 3
+d21 3
+a23 7
+#       $Header: Makefile,v 3.1 86/04/20 23:44:13 alex Exp $
+#       $Log:	Makefile,v $
+# Revision 3.1  86/04/20  23:44:13  alex
+# *** empty log message ***
+# 
+# Revision 1.4  86/04/13  21:54:55  alex
+#
+d26 2
+a27 3
+CFLAGS=-O -DRUSDIAG  -DFROMTCAP
+LIFLAGS=-DRUSDIAG -DFROMTCAP
+LDEFS=r.defs.h  r.local.h
+d29 1
+a29 1
+# Для МНОС - убрать FROMTCAP, передвинуть ned.mdefs в r.local.h
+d31 4
+a34 2
+all: nred
+# Вместо r.termc.o можно использовать и -ltermcap
+d36 7
+a42 2
+OBJ=r.cmd.o r.edit.o r.file.o r.gettc.o r.hlam.o r.init.o\
+    r.mac.o r.main.o r.tele.o r.termc.o r.ttyio.o r.wind.o r.mall.o
+d44 2
+a45 3
+CSRCS=r.cmd.c r.edit.c r.file.c r.gettc.c r.hlam.c\
+    r.init.c  r.mac.c r.main.c r.tele.c  r.termc.c\
+    r.ttyio.c r.wind.c r.mall.c
+d47 4
+a50 1
+HSRCS=r.defs.h r.local.h r.tele.h
+d52 4
+a55 1
+SRCS=$(HSRCS) $(CSRCS)
+d57 1
+a57 3
+PUTF=-tRcsdescr -k
+RCSARCHIV=RCS
+RCSPUT=ci $(PUTF)
+d59 1
+d61 5
+d67 2
+a68 1
+nred:$(OBJ); cc -n $(OBJ) -o nred # если t>0100000 - убрать -n  и этот комментарий ;c7t10 nred
+d70 37
+d108 2
+d111 2
+a112 1
+r.ttyio.o r.gettc.o: r.tele.h
+d114 7
+a120 1
+r.ttyio.o: /usr/include/sgtty.h
+d122 3
+d126 1
+a126 1
+install:nred
+d129 2
+a130 2
+	strip nred
+	cp nred ${DSTDIR}/bin/$(DSTNAME)
+d132 2
+a135 1
+	-rm *.o *.bak nred
+d150 1
+a150 1
+	RCS=$(RCSARCHIV) $(RCSPUT) $?
+d152 41
+@
+
+
+3.1.2.1
+log
+@Start revision for red/4
+@
+text
+@d13 1
+a13 1
+#                            ДEМОС в. I                              #
+a14 1
+#                            ДEМОС/EС в. 1.
+d16 8
+a23 10
+# ared - red for UTEC / DEMOS
+# ered - редактор для EС
+# nred - редактор для СМ
+# ired - редактор для Электроники-79
+# tred - отладочная версия для эмуляции EС на СМ.
+# ured - Редактор для UTEC
+# dred - Редактор для ULTRIX-32
+#       $Header: Makefile,v 3.9 87/06/12 17:22:19 alex Exp $
+all: ared rpl
+
+d26 3
+a28 4
+RED=edit
+CFL=-O
+LDFLAGS=
+# CFL=-O -DRUSDIAG -DDEBUG -DFROMTCAP
+d30 1
+a30 1
+# Для МНОС - убрать FROMTCAP, установить LOCAL=M.locl.h
+d32 2
+a33 5
+PUT=
+PUTF=-l -r3 $(PUT)
+GETF=
+RCSARCHIV=
+RCSPUT=ci $(PUTF)
+d35 2
+a36 7
+# Вместо S.termc.o можно использовать и -ltermcap
+#
+# OBJC - общие об'ектные файлы
+# OBJEC - общие для ered и tred
+# OBJEE - специфические файлы для ered
+# OBJEQ - специфические для tred
+# OBJS  - специфические для СМ и Электроники файлы
+d38 3
+a40 2
+OBJC=r.cmd.o r.edit.o r.file.o r.hlam.o r.init.o\
+   r.mac.o r.main.o r.tele.o  r.wind.o r.mall.o
+d42 1
+a42 4
+OBJEC=E.param.o E.ttyio.o
+OBJEE=E.qsrt.o E.tubecc.o
+OBJEQ=E.qsemul.o
+OBJS=S.ttyio.o S.gettc.o S.termc.o
+d44 1
+a44 4
+CSRCS=r.cmd.c r.edit.c r.file.c r.hlam.c\
+    r.init.c  r.mac.c r.main.c r.tele.c  \
+    E.param.c E.ttyio.c r.wind.c r.mall.c E.qsrt.c E.tubecc.s E.qsemul.c\
+    S.ttyio.c S.termc.c S.gettc.c
+d46 3
+a48 1
+HSRCS=r.defs.h E.locl.h S.locl.h S2.locl.h M.locl.h E.7920.h E.r7920.h E.qsdefs.h  S.tele.h V.locl.h
+a49 1
+SRCS=$(HSRCS) $(CSRCS) rpl.c
+a50 5
+#
+#  OBJ и LOCAL переопределяются при вызове make в случае ered, tred
+#
+LOCAL=A.locl.h
+OBJ=$(OBJS) $(OBJC)
+d52 1
+a52 2
+ered: Ered *.[chs] Makefile
+	make -k LDFLAGS=-n LOCAL=E.locl.h OBJ="$(OBJC) $(OBJEC) $(OBJEE)" edit;rm -f ered;ln edit ered
+a53 78
+tred: Tred *.[chs] Makefile
+	make -k LOCAL=E.locl.h OBJ="$(OBJC) $(OBJEC) $(OBJEQ)" edit;rm -f tred;ln edit tred
+
+nred: Nred *.[chs] Makefile
+	make -k CFL="-O -DRUSDIAG" LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" edit;c7t10 edit;rm -f nred;ln edit nred
+
+ired: Nred *.[chs] Makefile
+	make -k CFL="-O -DALLDIAG -DRED_CYRILL" LDFLGS=-i LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" edit;rm -f ired;ln edit ired
+
+sred: Sred *.[chs] Makefile
+	make -k LOCAL=S.locl.h OBJ="$(OBJC) $(OBJS)" edit;rm -f sred;ln edit sred
+
+vred: Vred *.[chs] Makefile
+	make -k LOCAL=V.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f vred;ln edit vred
+
+dred: Dred *.[chs] Makefile
+	make -k LOCAL=D.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f vred;ln edit vred
+
+ared: Ared *.[chs] Makefile
+	make -k LOCAL=A.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f vred;ln edit vred
+
+ured: Ured *.[chs] Makefile
+	make -k LOCAL=U.locl.h OBJ="$(OBJS) $(OBJC)" CFL="-O" edit;rm -f ured;ln edit ured
+
+
+clean:
+	rm -rf *.o *.b *.bak ?red edit
+
+Ered:
+	  rm -rf *.o *.bak ?red edit
+	  @@echo >Ered
+	  @@echo "Справочник подготовлен для сборки версии для EС"
+
+Dred:
+	  rm -rf *.o *.bak ?red edit
+	  @@echo >Dred
+	  @@echo "Справочник подготовлен для сборки версии для ULTRIX"
+
+Ared:
+	  rm -rf *.o *.bak ?red edit
+	  @@echo >Ared
+	  @@echo "Справочник подготовлен для сборки версии для UTEC/Anshukow"
+
+Nred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Nred
+	 @@echo "Справочник подготовлен для сборки версии для SM"
+
+Sred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Sred
+	 @@echo "Справочник подготовлен для сборки версии для SM ДЕМОС 2"
+
+Vred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Vred
+	 @@echo "Справочник подготовлен для сборки версии для ДЕМОС/V"
+
+Tred:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Tred
+	 @@echo "Справочник подготовлен для сборки эмулятора  EС"
+
+
+Ured:
+	 rm -rf *.o *.bak ?red edit
+	 @@echo >Ured
+	 @@echo "Справочник подготовлен для сборки версии для ДЕМОС/V"
+
+
+#
+#  Общая схема сборки редактора
+#
+
+CFLAGS=$(CFL) -DLOCL="\"$(LOCAL)\""
+LIFLAGS=$(CFL) -DLOCL="\"$(LOCAL)\""
+LDEFS=r.defs.h  $(LOCAL)
+
+a54 2
+$(OBJEQ) $(OBJEE):E.qsdefs.h  /usr/include/sgtty.h
+$(OBJEC): E.7920.h E.r7920.h
+d56 1
+a56 2
+edit: Makefile $(OBJ)
+	cc -o edit $(LDFLAGS) $(OBJ)
+d58 1
+a58 7
+rpl: rpl.c
+	cc -o rpl -O rpl.c
+
+
+E.ttyio.o : E.7920.h E.r7920.h
+S.ttyio.o S.gettc.o: S.tele.h
+E.ttyio.o S.ttyio.o: /usr/include/sgtty.h
+a59 3
+E.qsemul.o: E.qsdefs.h
+E.tubecc.o: E.tubecc.s
+	as -u -o E.tubecc.o E.tubecc.s
+d61 2
+a62 2
+install: edit red.lib/re.std red.lib/help.* rpl
+	-chmod a-t ${DSTDIR}/bin/$(DSTNAME)
+d64 2
+a65 2
+	strip $(RED)
+	cp $(RED) ${DSTDIR}/bin/$(DSTNAME)
+a66 4
+	cp red.lib/re.std /usr/lib/re.std
+	-mkdir /usr/lib/red
+	cp red.lib/help* /usr/lib/red
+	cp rpl /bin/rpl;strip /bin/rpl
+d69 1
+a82 4
+get: $(SRCS)
+.DEFAULT:
+	co $(GETF) $@@
+
+d84 1
+a84 1
+	$(RCSPUT) $?
+a85 68
+
+#       $Log:	Makefile,v $
+# Revision 3.9  87/06/12  17:22:19  alex
+# Включена версия dred для ULTRIX и ired для машин с SEPID.
+# 
+# Revision 3.9  87/04/01  19:13:04  alex
+# Revision for Utec: Cs, Ce, Ct, hR
+# 
+# Revision 3.8  86/10/14  23:04:44  alex
+# Исправлены мелкие ошибки, введено .DEFAULT.
+# 
+# Revision 3.7  86/10/14  21:03:06  alex
+# Исправлена ошибка в S.ttyio.c -> S.ttyio.o
+# 
+# Revision 3.6  86/09/19  20:02:00  alex
+# Версия для СМ-1700
+# 
+# Revision 3.5  86/08/04  20:56:20  alex
+# Bepqh dk LMNQ/DELNQ 2
+# 
+# Revision 3.4  86/07/24  23:39:19  alex
+# Мелочи.
+#
+# Revision 3.3  86/07/24  21:09:23  alex
+# Мелочи
+#
+# Revision 3.2  86/07/24  19:09:16  alex
+# Об'единены версии текстов для ЕС и СМ
+#
+# Revision 3.1.1.11  86/07/15  23:52:08  alex
+# *** empty log message ***
+#
+# Revision 3.1.1.10  86/07/15  22:15:48  alex
+# RED 3.3/EC.
+#
+# Revision 3.1.1.9  86/06/25  19:43:20  alex
+# Введено автоматическое смещение экрана
+#
+# Revision 3.1.1.8  86/06/19  00:12:26  alex
+# Отлажен на модели повтор сеанса
+#
+# Revision 3.1.1.7  86/06/17  19:28:26  alex
+# Правки.
+#
+# Revision 3.1.1.6  86/06/16  22:29:56  alex
+# Первая версия с повтором сеанса (пока грязная)
+#
+# Revision 3.1.1.5  86/06/16  22:21:50  alex
+# Первая версия с повтором сеанса (пока грязная)
+#
+# Revision 3.1.1.4  86/06/16  21:55:32  alex
+# Отлажено на EС без режима восстановления и без макро
+#
+# Revision 3.1.1.3  86/06/06  00:15:04  alex
+# Введена установка ключей
+#
+# Revision 3.1.1.2  86/06/05  18:57:18  alex
+# Отлажено_на_модели
+#
+# Revision 3.1.1.1  86/06/05  00:08:06  alex
+# Отлажено_на_модели
+#
+# Revision 3.1  86/04/20  23:44:13  alex
+# Базовая версия для EС.
+#
+#
+# Revision 1.4  86/04/13  21:54:55  alex
+#
+@
+
+
+3.1.2.2
+log
+@wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+@
+text
+@d24 1
+a24 1
+#       $Header: Makefile,v 3.1.2.1 87/06/19 17:03:26 alex Exp $
+d37 2
+a38 2
+PUTF=-u -rRED_4 $(PUT)
+GETF=-rRED_4
+d60 1
+a60 1
+    r.wind.c r.mall.c \
+d63 1
+a63 1
+ESRCS=E.param.c E.ttyio.c E.qsrt.c E.tubecc.s E.qsemul.c
+a64 2
+HSRCS=r.defs.h  S.tele.h V.locl.h A.locl.h U.locl.h
+EHDRS=E.qsdefs.h  E.locl.h S.locl.h S2.locl.h M.locl.h E.7920.h E.r7920.h
+a206 3
+# Revision 3.1.2.1  87/06/19  17:03:26  alex
+# Start revision for red/4
+# 
+@
+
+
+3.1.2.3
+log
+@Внесенна Newvers.
+@
+text
+@d24 1
+a24 1
+#       $Header: Makefile,v 3.1.2.2 87/06/23 18:58:35 alex Exp $
+d67 1
+a67 1
+SRCS=$(HSRCS) $(CSRCS) rpl.c Makefile Newvers
+d97 1
+a97 1
+	make -k LOCAL=A.locl.h OBJ="$(OBJC) $(OBJS)" CFL="-O -DALLDIAG" edit;rm -f ared;ln edit ared
+d160 2
+a161 5
+edit: Makefile $(OBJ) Vers.o
+	cc -o edit $(LDFLAGS) $(OBJ) Vers.o
+Vers.c: $(OBJ)
+	csh -f Newvers
+Vers.o: Vers.c
+a208 3
+# Revision 3.1.2.2  87/06/23  18:58:35  alex
+# wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+# 
+@
+
+
+3.1.2.4
+log
+@Automatic_revisions
+@
+text
+@d24 1
+a24 2
+#       $Header: Makefile,v 3.1.2.3 87/06/23 19:58:44 alex Exp $
+
+d37 1
+a37 1
+PUTF=-q -u -rRED_4 $(PUT)
+d81 1
+a81 1
+nred: Nred *.[chs] Makefile  Newvers
+d84 1
+a84 1
+ired: Nred *.[chs] Makefile  Newvers
+d90 1
+a90 1
+vred: Vred *.[chs] Makefile  Newvers
+d93 1
+a93 1
+dred: Dred *.[chs] Makefile  Newvers
+d96 1
+a96 1
+ared: Ared *.[chs] Makefile Newvers
+d99 1
+a99 1
+ured: Ured *.[chs] Makefile  Newvers
+d162 1
+a162 1
+Vers.o: $(OBJ)  Newvers
+d164 1
+a164 1
+	cc $(CFLAGS) -c Vers.c
+d207 1
+a207 1
+Rcsversion: $(SRCS)
+a211 3
+# Revision 3.1.2.3  87/06/23  19:58:44  alex
+# Внесенна Newvers.
+# 
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@a19 3
+# Базовая версия для ЕС.
+# 
+# Revision 3.1  86/04/20  23:44:13  alex
+d26 2
+a27 2
+CFLAGS=-O -DRUSDIAG
+LIFLAGS=-DRUSDIAG
+d35 2
+a36 2
+OBJ=r.cmd.o r.edit.o r.file.o r.hlam.o r.init.o\
+    r.mac.o r.main.o r.tele.o r.Eparam.o r.Ettyio.o r.wind.o r.mall.o
+d38 3
+a40 3
+CSRCS=r.cmd.c r.edit.c r.file.c r.hlam.c\
+    r.init.c  r.mac.c r.main.c r.tele.c  \
+    r.Eparam.c r.Ettyio.c r.wind.c r.mall.c
+d42 1
+a42 1
+HSRCS=r.defs.h r.local.h r.7920.h r.r7920.h
+d46 1
+a46 1
+PUTF=-tRcsdescr -l -rES -m"Отлажено_на_модели"
+d52 1
+a52 1
+nred:$(OBJ) qsemul.o; cc -n $(OBJ) qsemul.o -o nred # если t>0100000 - убрать -n  и этот комментарий ;c7t10 nred
+d56 1
+a56 1
+r.Ettyio.o : r.7920.h r.r7920.h
+d58 1
+a58 1
+r.Ettyio.o: /usr/include/sgtty.h
+d60 1
+a60 1
+qsemul.o: qsdefs.h
+@
+
+
+3.1.1.2
+log
+@Отлажено_на_модели
+@
+text
+@d17 1
+a17 1
+#       $Header: Makefile,v 3.1.1.1 86/06/05 00:08:06 alex Exp $
+a18 3
+# Revision 3.1.1.1  86/06/05  00:08:06  alex
+# Отлажено_на_модели
+# 
+d22 2
+@
+
+
+3.1.1.3
+log
+@Введена установка ключей
+@
+text
+@d17 1
+a17 1
+#       $Header: Makefile,v 3.1.1.2 86/06/05 18:57:18 alex Exp $
+a18 3
+# Revision 3.1.1.2  86/06/05  18:57:18  alex
+# Отлажено_на_модели
+# 
+d50 1
+a50 1
+PUTF=-tRcsdescr -l -rES -m"Введена установка ключей"
+@
+
+
+3.1.1.4
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@a14 1
+#                            ДЕМОС/ЕС в. 1.
+a15 2
+# nred - сам редактор
+# tred - отладочная версия для эмуляции ЕС на СМ.
+d17 1
+a17 1
+#       $Header: Makefile,v 3.1.1.3 86/06/06 00:15:04 alex Exp $
+a18 3
+# Revision 3.1.1.3  86/06/06  00:15:04  alex
+# Введена установка ключей
+# 
+d33 1
+a33 1
+CFLAGS=-O -DRUSDIAG -DDEBUG
+d43 1
+a43 1
+    r.wind.o r.mall.o r.mac.o r.main.o r.tele.o r.Eparam.o r.Ettyio.o
+a44 3
+OBJQ=qsrt.o tubecc.o
+OBJE=qsemul.o
+
+d47 1
+a47 1
+    r.Eparam.c r.Ettyio.c r.wind.c r.mall.c qsemul.c qsrt.c tubecc.s
+d53 2
+a54 2
+PUTF=-l -rES -sStab -m"Отлажено на ЕС без режима восстановления и без макро"
+RCSARCHIV=
+d59 1
+a59 2
+nred:$(OBJ) $(OBJQ); cc -n $(OBJ) $(OBJQ) -o nred
+tred:$(OBJ) $(OBJE); cc -n $(OBJ) $(OBJQ) -o tred
+a61 2
+$(OBJQ) $(OBJE):qsdefs.h  /usr/include/sgtty.h
+$(OBJE): r.7920.h r.r7920.h
+d68 1
+a68 1
+install: nred re.std
+a73 1
+	cp re.std /usr/lib/re.std
+d91 1
+a91 1
+	$(RCSPUT) $?
+@
+
+
+3.1.1.5
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@d20 17
+a36 1
+#       $Header: Makefile,v 3.1.1.4 86/06/16 21:55:32 alex Stab $
+d62 1
+a62 1
+PUTF=-l -rES -m"Первая версия с повтором сеанса (пока грязная)"
+a105 20
+
+#       $Log:	Makefile,v $
+# Revision 3.1.1.4  86/06/16  21:55:32  alex
+# Отлажено на ЕС без режима восстановления и без макро
+# 
+# Revision 3.1.1.3  86/06/06  00:15:04  alex
+# Введена установка ключей
+# 
+# Revision 3.1.1.2  86/06/05  18:57:18  alex
+# Отлажено_на_модели
+# 
+# Revision 3.1.1.1  86/06/05  00:08:06  alex
+# Отлажено_на_модели
+# 
+# Revision 3.1  86/04/20  23:44:13  alex
+# Базовая версия для ЕС.
+# 
+# 
+# Revision 1.4  86/04/13  21:54:55  alex
+#
+@
+
+
+3.1.1.6
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@d20 1
+a20 1
+#       $Header: Makefile,v 3.1.1.5 86/06/16 22:21:50 alex Exp $
+d42 1
+a42 1
+HSRCS=r.defs.h r.local.h r.7920.h r.r7920.h qsdefs.h
+a91 3
+# Revision 3.1.1.5  86/06/16  22:21:50  alex
+# Первая версия с повтором сеанса (пока грязная)
+# 
+@
+
+
+3.1.1.7
+log
+@Правки.
+@
+text
+@d20 1
+a20 1
+#       $Header: Makefile,v 3.1.1.6 86/06/16 22:29:56 alex Exp $
+d45 2
+a46 2
+PUT=
+PUTF=-l -rES $PUT
+d53 1
+a53 1
+tred:$(OBJ) $(OBJE); cc -n $(OBJ) $(OBJE) -o tred
+a91 3
+# Revision 3.1.1.6  86/06/16  22:29:56  alex
+# Первая версия с повтором сеанса (пока грязная)
+# 
+@
+
+
+3.1.1.8
+log
+@Отлажен на модели повтор сеанса
+@
+text
+@d20 1
+a20 1
+#       $Header: Makefile,v 3.1.1.7 86/06/17 19:28:26 alex Exp $
+d46 1
+a46 1
+PUTF=-l -rES $(PUT)
+a91 3
+# Revision 3.1.1.7  86/06/17  19:28:26  alex
+# Правки.
+# 
+@
+
+
+3.1.1.9
+log
+@Введено автоматическое смещение экрана
+@
+text
+@d20 1
+a20 1
+#       $Header: Makefile,v 3.1.1.8 86/06/19 00:12:26 alex Exp $
+d46 1
+a46 1
+PUTF=-l -f -rES $(PUT)
+a91 3
+# Revision 3.1.1.8  86/06/19  00:12:26  alex
+# Отлажен на модели повтор сеанса
+# 
+@
+
+
+3.1.1.10
+log
+@RED 3.3/EC.
+@
+text
+@d20 1
+a20 1
+#       $Header: Makefile,v 3.1.1.9 86/06/25 19:43:20 alex Exp $
+d29 1
+a29 1
+all: nred rpl
+d40 1
+a40 1
+    r.Eparam.c r.Ettyio.c r.wind.c r.mall.c qsrt.c tubecc.s
+d44 1
+a44 1
+SRCS=$(HSRCS) $(CSRCS) qsemul.c
+a53 2
+rpl: rpl.c
+	cc -o rpl -O -w rpl.c
+d64 1
+a64 4
+tubecc.o: tubecc.s
+	as -u -o tubecc.o tubecc.s
+
+install: nred re.std rpl
+a70 1
+	cp rpl /bin/rpl;strip /bin/rpl
+d73 1
+a73 1
+	-rm *.o *.bak nred rpl a
+a91 3
+# Revision 3.1.1.9  86/06/25  19:43:20  alex
+# Введено автоматическое смещение экрана
+# 
+@
+
+
+3.1.1.11
+log
+@*** empty log message ***
+@
+text
+@d20 1
+a20 1
+#       $Header: Makefile,v 3.1.1.10 86/07/15 22:15:48 alex Exp $
+d44 1
+a44 1
+SRCS=$(HSRCS) $(CSRCS) qsemul.c rpl.c
+d55 1
+a55 1
+	cc -o rpl -O rpl.c
+a97 3
+# Revision 3.1.1.10  86/07/15  22:15:48  alex
+# RED 3.3/EC.
+# 
+@

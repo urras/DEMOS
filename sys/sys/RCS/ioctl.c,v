@@ -1,0 +1,359 @@
+head     22.3;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin abs;
+symbols  Архыз0:1.3.1;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.11.04;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.06.22.13.37.51;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.21.17;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.30.13.49.50;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.01.07.20.41.42;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.06.06.14.39.51;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.03.23.13.33.48;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.50.03;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы.  Машинно-независимая часть.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * Ioctl.
+ *
+ * $Log:	ioctl.c,v $
+ * Revision 22.2  89/06/22  13:37:51  korotaev
+ * *** empty log message ***
+ * 
+ * Revision 22.1  89/04/12  15:21:17  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/30  13:49:50  korotaev
+ * Begining DEMOS 2.2.
+ * 
+ * Revision 1.4  89/01/07  20:41:42  korotaev
+ * Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+ * 
+ * (from VAX/UTS SV.2)
+ * 
+ * Revision 1.3  88/06/06  14:39:51  korotaev
+ * Вставлен IPK_SELECT (from TCP/IP).
+ * 
+ * Revision 1.2  88/03/23  13:33:48  korotaev
+ * Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+ * 
+ * Revision 1.1  86/04/19  15:50:03  avg
+ * Initial revision
+ * 
+ */
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/tty.h>
+#include <sys/proc.h>
+#include <sys/inode.h>
+#include <sys/file.h>
+#include "../include/reg.h"
+#include <sys/conf.h>
+#include <sys/ioctl.h>
+#include <sys/fcntl.h>
+
+/*
+ * stty/gtty writearound
+ */
+stty()
+{
+	u.u_arg[2] = u.u_arg[1];
+	u.u_arg[1] = TIOCSETP;
+	ioctl();
+}
+
+gtty()
+{
+	u.u_arg[2] = u.u_arg[1];
+	u.u_arg[1] = TIOCGETP;
+	ioctl();
+}
+
+/*
+ * ioctl system call
+ * Check legality, execute common code, and switch out to individual
+ * device routine.
+ */
+ioctl()
+{
+	register struct file *fp;
+	register struct inode *ip;
+	register struct a {
+		int     fdes;
+		int     cmd;
+		caddr_t cmarg;
+	} *uap = (struct a *)u.u_ap;
+	extern int spcnum;
+	dev_t dev;
+	int fmt;
+
+	if( (uap->cmd>>8)=='?' ){
+		if (copyout((caddr_t)&spcnum, uap->cmarg, sizeof(int)))
+			u.u_error = EFAULT;
+		return;
+	}
+	if ((fp = getf(uap->fdes)) == NULL)
+		return;
+	if ((fp->f_flag & (FREAD|FWRITE)) == 0) {
+		u.u_error = EBADF;
+		return;
+	}
+	if (uap->cmd==FIOCLEX) {
+		u.u_pofile[uap->fdes] |= EXCLOSE;
+		return;
+	}
+	if (uap->cmd==FIONCLEX) {
+		u.u_pofile[uap->fdes] &= ~EXCLOSE;
+		return;
+	}
+#ifdef  UCB_NET
+	if (fp->f_flag & FSOCKET) {
+		soioctl(fp->f_socket, uap->cmd, uap->cmarg);
+		return;
+	}
+#endif
+	if( (uap->cmd >> 8) == FCNTL ){
+		fcntl(uap->fdes, fp, uap->cmd, (caddr_t)uap->cmarg);
+		return;
+	}
+	ip = fp->f_inode;
+	fmt = ip->i_mode & IFMT;
+	if (fmt != IFCHR) {
+		if (uap->cmd==FIONREAD && (fmt == IFREG || fmt == IFDIR)) {
+			off_t nread = ip->i_size - fp->f_un.f_offset;
+
+			if (copyout((caddr_t)&nread, uap->cmarg, sizeof(off_t)))
+				u.u_error = EFAULT;
+		} else
+		       if (uap->cmd == FIONBIO || uap->cmd == FIOASYNC)
+			return;
+		else
+			u.u_error = ENOTTY;
+		return;
+	}
+	dev = ip->i_un.i_rdev;
+	u.u_r.r_val1 = 0;
+	if ((u.u_procp->p_flag&SNUSIG) && save(u.u_qsav)) {
+		u.u_eosys = RESTARTSYS;
+		return;
+	}
+	(*cdevsw[major(dev)].d_ioctl)(dev, uap->cmd, uap->cmarg, fp->f_flag);
+}
+
+/*
+ * Do nothing specific version of line
+ * discipline specific ioctl command.
+ */
+/*ARGSUSED*/
+nullioctl(tp, cmd, addr, flag)
+struct tty *tp;
+caddr_t addr;
+{
+	return (cmd);
+}
+@
+
+
+22.2
+log
+@*** empty log message ***
+@
+text
+@d5 3
+d37 1
+a37 1
+#include <sys/reg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d5 3
+d36 2
+d70 1
+d74 5
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@d5 3
+d23 1
+a23 1
+#include "param.h"
+@
+
+
+1.4
+log
+@Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+
+(from VAX/UTS SV.2)
+@
+text
+@d5 5
+d86 1
+a86 1
+		fcntl(fp, uap->cmd, (int)uap->cmarg);
+a97 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a100 1
+#endif
+a122 44
+}
+
+/*
+ * Системный вызов fcntl из System V.2 (VAX/UTS) сделан через ioctl.
+ */
+fcntl(fp, cmd, arg)
+register struct file *fp;
+register int    cmd, arg;
+{
+	struct a {
+		int fdes;
+	};
+
+	switch( cmd ){
+
+	case FIODUPFD:
+		if( arg < 0 || arg > NOFILE ){
+			u.u_error = EINVAL;
+		} else if ((arg = ufalloc(arg)) >= 0){
+			u.u_ofile[arg] = fp;
+			fp->f_count++;
+		}
+		break;
+
+	case FIOGETFD:
+		u.u_r.r_val1 = u.u_pofile[((struct a *)u.u_ap)->fdes];
+		break;
+
+	case FIOSETFD:
+		u.u_pofile[((struct a *)u.u_ap)->fdes] = arg;
+		break;
+
+	case FIOGETFL:
+		u.u_r.r_val1 = fp->f_flag-1;
+		break;
+
+	case FIOSETFL:
+		fp->f_flag &= (FREAD|FWRITE);
+		fp->f_flag |= (++arg) & ~(FREAD|FWRITE);
+		break;
+
+	default:
+		u.u_error = EINVAL;
+	}
+@
+
+
+1.3
+log
+@Вставлен IPK_SELECT (from TCP/IP).
+@
+text
+@d5 3
+a20 3
+#ifdef  MPX_FILS
+# include <sys/mx.h>
+#endif
+d56 1
+a56 1
+	} *uap;
+a59 1
+	uap = (struct a *)u.u_ap;
+d80 4
+d86 1
+a86 7
+#ifdef  MPX_FILS
+	if (fmt != IFCHR && fmt != IFMPC)
+#else
+	if (fmt != IFCHR)
+#endif
+		{
+#ifdef  UCB_NTTY
+a92 1
+#endif
+a102 1
+#ifdef  MENLO_JCL
+a106 1
+#endif
+d120 44
+@
+
+
+1.2
+log
+@Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+@
+text
+@d5 3
+d97 1
+a97 1
+#ifdef  UCB_NET
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d16 1
+a16 1
+#include <sys/mx.h>
+@

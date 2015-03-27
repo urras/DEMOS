@@ -1,0 +1,1 @@
+rm -v `nm -uo *.o | grep cdebug | sed 's/:.*$//'`

@@ -1,0 +1,341 @@
+head     3.4;
+access   ;
+symbols  RED_4:3.1.2 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+3.4
+date     86.09.19.19.47.50;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.49.56;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.00.21.36;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.05.25.23.11.26;  author alex;  state Exp;
+branches 3.1.1.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.03.02;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.16.21.50.39;  author alex;  state Stab;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.16.22.15.40;  author alex;  state Exp;
+branches ;
+next     3.1.1.4;
+
+3.1.1.4
+date     86.06.25.19.40.18;  author alex;  state Exp;
+branches ;
+next     3.1.1.5;
+
+3.1.1.5
+date     86.07.15.22.10.49;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@/*
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+ *      r.r7920.h  - определения для работы с терминалом ЕС7920
+ *                  (ввод команд).
+ *      $Header: E.r7920.h,v 3.3 86/08/04 20:49:56 alex Exp $
+ *      $Log:	E.r7920.h,v $
+ * Revision 3.3  86/08/04  20:49:56  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  00:21:36  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.5  86/07/15  22:10:49  alex
+ * RED 3.3/EC.
+ * 
+ * Revision 3.1.1.4  86/06/25  19:40:18  alex
+ * Введено автоматическое смещение экрана
+ * 
+ * Revision 3.1.1.3  86/06/16  22:15:40  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.1  86/06/05  00:03:02  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/05/25  23:11:26  alex
+ * *** empty log message ***
+ * 
+ * Базовая версия для ЕС.
+ */
+
+ /*
+  * Внутренние команды read1
+  */
+#define CCSET0  040
+#define CCSET1  041
+#define CCSET2  042
+#define CCFIX1  045
+#define CCFIX2  046
+#define CCCLEAR 047
+#define CCWAIT  050 /* Для режима обучения */
+#define CCSLEEP 051 /* -- // -- */
+
+struct in_keys {
+	short in_key;
+	char in_cmd[3];
+	} intcmd[] = {
+{CLEAR,  CCCLEAR,        CCCLEAR,    CCCLEAR},
+{PA2,    CCSET1,         CCSET0,     CCSET0},
+{PA3,    CCSET2,         CCFIX2,     CCSET0},
+{PF1,    CCPLPAGE,       CCMIPAGE,   BT},
+{PF2,    CCOPEN,         CCCLOSE,    CCMILINE},
+{PF3,    CCPICK,         CCPUT,      TB},
+{PF4,    CCGOTO,         CCMAKEPORT, CCLPORT},
+{PF5,    CCINSERT,       CCTABS,     HO},
+{PF6,    CCDELCH,        CCSAVEFILE, CCRPORT},
+{PF7,    CCENTER,        CCENTER,    CCENTER},
+{PF8,    CCSET1,         CCSET0,     CCPLLINE},
+{PF9,    CCPLSRCH,       CCMISRCH,   CCCTRLQUOTE},
+{PF10,   CCSETFILE,      CCCHPORT,   CCDOCMD},
+{PF11,   CCCLOSE,        CCSLEEP,    CCENTER},
+{PF12,   CCPUT,          CCWAIT,     CCENTER},
+{ENTER,  CCRETURN,       CCRETURN,   CCRETURN},
+{TESTREQ,CCQUIT,         CCQUIT,     CCQUIT},
+{PF13,    BT         ,      CCMIPAGE,  CCPLPAGE },
+{PF14,    CCMILINE   ,      CCCLOSE,   CCOPEN   },
+{PF15,   TB          ,      CCPUT,     CCPICK   },
+{PF16,   CCLPORT     ,      CCMAKEPORT,CCGOTO   },
+{PF17,   HO          ,      CCTABS,    CCINSERT },
+{PF18,   CCRPORT     ,      CCSAVEFILE,CCDELCH  },
+{PF19,   CCENTER     ,      CCENTER,   CCENTER  },
+{PF20,   CCPLLINE    ,      CCSET0,    CCSET1   },
+{PF21,   CCQUIT      ,      CCMISRCH,  CCPLSRCH },
+{PF22,   CCDOCMD     ,      CCCHPORT,  CCSETFILE},
+{PF23,   CCENTER     ,      CCSLEEP,   CCCLOSE  },
+{PF24,   CCENTER     ,      CCWAIT,    CCPUT    },
+{0,      0,              0,          0},
+{0,      0,              0,          0},
+{0,      0,              0,          0},
+{0,      0,              0,          0},
+{0,      0,              0,          0}
+};
+#define CMDSIZ ((sizeof intcmd)/(sizeof (struct in_keys)))
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d5 1
+a5 1
+ *      $Header: E.r7920.h,v 3.2 86/07/24 00:21:36 alex Exp $
+d7 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d5 5
+a9 2
+ *      $Header: r.r7920.h,v 3.1.1.5 86/07/15 22:10:49 alex Exp $
+ *      $Log:	r.r7920.h,v $
+@
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@d5 17
+a21 2
+ *      $Header: r.tele.h,v 3.1 86/04/20 23:40:23 alex Exp $
+ *      $Log:	r.tele.h,v $
+d33 3
+d41 34
+a74 20
+PA2,    CCSET1,         CCSET0,     CCSET1,
+TESTREQ,CCSET2,         CCSET2,     CCSET0,
+PF1,    CCPLPAGE,       CCMIPAGE,   BT,
+PF2,    CCOPEN,         CCCLOSE,    CCMILINE,
+PF3,    CCGET,          CCPUT,      TB,
+PF4,    CCGOTO,         CCMAKEPORT, CCLPORT,
+PF5,    CCINSERT,       CCTABS,     HO,
+PF6,    CCDELETE,       CCDELETE,   CCRPORT,
+PF7,    CCENTER,        CCENTER,    CCENTER,
+PF8,    CCENTER,        CCENTER,    CCPLLINE,
+PF9,    CCPLSRCH,       CCMISRCH,   CCCTRLQUOTE,
+PF10,   CCUSE,          CCSAVE,     CCEXEC,
+PF11,   CCENTER,        CCENTER,    CCENTER,
+PF12,   CCENTER,        CCENTER,    CCENTER,
+ENTER,  CCRETURN,       CCRETURN,   CCRETURN,
+0,      0,              0,          0,
+0,      0,              0,          0,
+0,      0,              0,          0,
+0,      0,              0,          0,
+0,      0,              0,          0
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@d5 2
+a6 5
+ *      $Header: r.r7920.h,v 3.1 86/05/25 23:11:26 alex Exp $
+ *      $Log:	r.r7920.h,v $
+ * Revision 3.1  86/05/25  23:11:26  alex
+ * *** empty log message ***
+ * 
+d27 1
+a27 1
+PF3,    CCPICK,         CCPUT,      TB,
+d30 1
+a30 1
+PF6,    CCDELCH,        CCCHPORT,   CCRPORT,
+d34 2
+a35 2
+PF10,   CCSETFILE,      CCSAVEFILE, CCDOCMD,
+PF11,   CCQUIT,         CCQUIT,     CCQUIT,
+@
+
+
+3.1.1.2
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.r7920.h,v 3.1.1.1 86/06/05 00:03:02 alex Exp $
+a6 3
+ * Revision 3.1.1.1  86/06/05  00:03:02  alex
+ * Отлажено_на_модели
+ * 
+a20 1
+#define CCCLEAR 047
+d26 20
+a45 22
+{CLEAR,  CCCLEAR,        CCCLEAR,    CCCLEAR},
+{PA2,    CCSET2,         CCSET0,     CCSET0},
+{PA3,    TB,             CCFIX2,     BT},
+{PF1,    CCPLPAGE,       CCMIPAGE,   BT},
+{PF2,    CCOPEN,         CCCLOSE,    CCMILINE},
+{PF3,    CCPICK,         CCPUT,      TB},
+{PF4,    CCGOTO,         CCMAKEPORT, CCLPORT},
+{PF5,    CCINSERT,       CCTABS,     HO},
+{PF6,    CCDELCH,        CCCHPORT,   CCRPORT},
+{PF7,    CCENTER,        CCENTER,    CCENTER},
+{PF8,    CCSET1,         CCSET0,     CCPLLINE},
+{PF9,    CCPLSRCH,       CCMISRCH,   CCCTRLQUOTE},
+{PF10,   CCSETFILE,      CCSAVEFILE, CCDOCMD},
+{PF11,   CCCLOSE,        CCENTER,    CCENTER},
+{PF12,   CCPUT,          CCENTER,    CCENTER},
+{ENTER,  CCRETURN,       CCRETURN,   CCRETURN},
+{TESTREQ,CCQUIT,         CCQUIT,     CCQUIT},
+{0,      0,              0,          0},
+{0,      0,              0,          0},
+{0,      0,              0,          0},
+{0,      0,              0,          0},
+{0,      0,              0,          0}
+@
+
+
+3.1.1.3
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@d38 1
+a38 1
+{PF6,    CCDELCH,        CCSAVEFILE, CCRPORT},
+d42 1
+a42 1
+{PF10,   CCSETFILE,      CCCHPORT,   CCDOCMD},
+@
+
+
+3.1.1.4
+log
+@Введено автоматическое смещение экрана
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.r7920.h,v 3.1.1.3 86/06/16 22:15:40 alex Exp $
+a6 3
+ * Revision 3.1.1.3  86/06/16  22:15:40  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+a24 2
+#define CCWAIT  050 /* Для режима обучения */
+#define CCSLEEP 051 /* -- // -- */
+d31 2
+a32 2
+{PA2,    CCSET1,         CCSET0,     CCSET0},
+{PA3,    CCSET2,         CCFIX2,     CCSET0},
+d43 2
+a44 2
+{PF11,   CCCLOSE,        CCSLEEP,    CCENTER},
+{PF12,   CCPUT,          CCWAIT,     CCENTER},
+@
+
+
+3.1.1.5
+log
+@RED 3.3/EC.
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.r7920.h,v 3.1.1.4 86/06/25 19:40:18 alex Exp $
+a6 3
+ * Revision 3.1.1.4  86/06/25  19:40:18  alex
+ * Введено автоматическое смещение экрана
+ * 
+a51 12
+{PF13,    BT         ,      CCMIPAGE,  CCPLPAGE },
+{PF14,    CCMILINE   ,      CCCLOSE,   CCOPEN   },
+{PF15,   TB          ,      CCPUT,     CCPICK   },
+{PF16,   CCLPORT     ,      CCMAKEPORT,CCGOTO   },
+{PF17,   HO          ,      CCTABS,    CCINSERT },
+{PF18,   CCRPORT     ,      CCSAVEFILE,CCDELCH  },
+{PF19,   CCENTER     ,      CCENTER,   CCENTER  },
+{PF20,   CCPLLINE    ,      CCSET0,    CCSET1   },
+{PF21,   CCQUIT      ,      CCMISRCH,  CCPLSRCH },
+{PF22,   CCDOCMD     ,      CCCHPORT,  CCSETFILE},
+{PF23,   CCENTER     ,      CCSLEEP,   CCCLOSE  },
+{PF24,   CCENTER     ,      CCWAIT,    CCPUT    },
+@

@@ -1,0 +1,140 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.11.11.20.45.42;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.10;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@όΛÒΑΞΞΩΚ ÒΕΔΑΛΤΟÒ eda 2.4
+@
+
+
+1.2
+log
+@υΒÒΑΞ rcsid
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: e.vta2t1.h,v 1.1 86/11/11 17:51:10 avg Exp $";*/
+#endif
+
+/*
+ * $Log:	e.vta2t1.h,v $
+ * Revision 1.1  86/11/11  17:51:10  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * όΛÒΑΞΞΩΚ ÒΕΔΑΛΤΟÒ eda  ver 2.4
+ *   αΧΤΟÒΩ: αΞΤΟΞΟΧ χ.η. ( χνλ νηυ, ιπλ νΙΞΑΧΤΟΠÒΟΝΑ )
+ *   πΟΣΜΕΔΞΡΡ ΝΟΔΙΖΙΛΑΓΙΡ: 02.01.1986   λÒΑΣΞΕΞΛΟΧ σ.ν.
+ */
+
+/* πΑÒΑΝΕΤÒΩ ΔΜΡ ΤΕÒΝΙΞΑΜΑ χτα-2000-15 */
+
+#define NLIN    24
+#define SWID    80
+#define ROLL   0
+#define UPPERONLY 0
+
+#define F_right "\033c"                   /* πεςενεύεξιε λυςσοςα */
+#define F_left  "\033d"
+#define F_up    "\033a"
+#define F_down  "\033b"
+#define F_il    "\033l"                   /* INS./DEL. LINE/CHAR  */
+#define F_dl    "\033m"
+#define F_ic    "\033@@"
+#define F_dc    "\033p"
+#define F_del   "\177"
+#define F_tab   "\011"
+#define F_btab  "\010"                    /* οβςατξαρ ταβυμργιρ */
+#define F_wtab  "\033k"                   /* ταβ.χπεςεδ πο σμοχαν */
+#define F_bwtab "\033j"                   /* ταβ.ξαϊαδ πο σμοχαν */
+#define F_exit  "\032\032"                /* ξοςν.χωθοδ             */
+#define F_rew   "\001"                    /* πεςεςισοχλα όλςαξα     */
+#define F_na    "\033\140"                /* ώισμο ποχτοςεξικ       */
+#define F_lnum  "\033e\033\140"
+#define F_cnum  "\033e\0331"
+#define F_ret   "\033g"                   /* χ ξαώαμο στςολι        */
+#define F_cr    "\015"                    /* χσταχλα πυστοκ στςολι  */
+#define F_aex   "\004\004\004\004"        /* αχαςικξωκ χωθοδ        */
+#define F_inter "\003"                    /* πςεςωχαξιε οπεςαγιι    */
+#define F_fsd   "\033>"                   /* ξαώαμο ποισλα          */
+#define F_find  "\033?"                   /* χωπομξιτψ ποισλ        */
+#define F_savel "\005"                    /* δοβαχμ.χ βυζες σοθςαξ. */
+#define F_incll "\007"                    /* χωχοδ ιϊ βυζεςα σοθς.  */
+#define F_wrtex "\033e\005"               /* ϊαπον. στςολι χ ζακμε  */
+#define F_rdtex "\033e\007"               /* χσπον. στςολι ιϊ ζακμα */
+#define F_clrtx "\033e\027"               /* οώιστιτψ βυζ.σοθςαξεξ. */
+#define F_end   "\033e\033c"              /* χ λοξεγ στςολι         */
+#define F_beg   "\033e\033d"              /* χ ξαώαμο στςολι        */
+#define F_pgup  "\033e\033a"              /* χ ξαώαμο στςαξιγω      */
+#define F_pgdown "\033e\033b"             /* χ λοξεγ στςαξιγω       */
+#define F_shell "\033s"                   /* χωϊοχ SHELL            */
+#define F_sins  "\033e\033@@"              /* ςεφιν χσταχλι          */
+#define F_sdel  "\033e\033p"              /* ςεφιν ϊανεξω           */
+#define F_tof   "\033h"                   /* χ ξαώαμο στςαξ./ζακμα  */
+#define F_eof   "\033f"                   /* χ λοξεγ στςαξ./ζακμα   */
+#define F_cat   "\033q"                   /* σλμεκλα/ςαϊςεϊαξιε     */
+#define F_rpt   "\033e\033e"              /* ποχτοςεξιε πςεδωδ.λον. */
+#define F_store "\033w"                   /* ϊαπον.ιϊνεξεξ. χ ζακμε */
+#define F_pmode "\033<"
+#define F_tmode "\033="
+#define F_flush "\027"
+#define F_parup "\033e\033m"
+#define F_pardown "\033e\033l"
+#define F_mdef1 "\012\017"                /* ναλςοοπςεδεμεξιε 1     */
+#define F_mdef2 "\012\020"                /*                  2     */
+#define F_mdef3 "\012\022"                /*                  3     */
+#define FS_mdend "\012"                   /* λοξεγ χχοδα ναλςο      */
+#define Mname1  'o'
+#define Mname2  'p'
+#define Mname3  'r'
+
+/* λοδω οτοβςαφεξιρ ξα όλςαξ */
+
+#define S_right "\033C"              /* πεςενεύεξιε λυςσοςα */
+#define S_left  "\033D"
+#define S_up    "\033A"
+#define S_down  "\033B"
+#define S_ic    "\033@@"
+#define S_dc    "\033P"
+#define S_ret   "\015"               /* χ ξαώαμο στςολι        */
+#define S_cr    "\015\012"
+#define S_home  "\033H"
+#define S_clrl  "\033K"              /* στιςαξιε στςολι        */
+#define S_clrel "\033K"              /* στιςαξιε λοξγα στςολι  */
+#define S_erase "\033E"
+#define S_il    "\033L"
+#define S_dl    "\033M"
+#define S_pos   "\033Y  "            /* αδςεσαγιρ υλαϊατεμρ    */
+#define POSX    2                    /* λοοςδιξατα στςολι      */
+#define POSY    3                    /* νεστο υλαϊατ. χ στςολε */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

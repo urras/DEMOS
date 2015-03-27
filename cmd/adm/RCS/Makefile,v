@@ -1,0 +1,136 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.10.18.22.51.36;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adm Makefile
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#################################################################
+#                                                               #
+#                                *                              #
+#                      ****      *  ** *                        #
+#                     *   *   ****  * * *                       #
+#                     *   *  *   *  * * *                       #
+#                     *   *  *   *  * * *                       #
+#                      *** *  ****  * * *                       #
+#                                                               #
+#                          äåíïó - 2                            #
+#                                                               #
+#      ÷ëìàşåîéå/éóëìàşåîéå/âàäöåôéòï÷áîéå ğïìøúï÷áôåìåê        #
+#                                                               #
+#################################################################
+
+# äÌÑ ÉÓĞÏÌØÚÏ×ÎÉÑ ×ÅÒÓÉÉ ÂÅÚ ÁÒÈÉ×Á RCS ÉÓĞÏÌØÚÕÊÔÅ R=X
+
+CFLAGS=-O
+LOAD=-s -n
+FFLAG=-f
+DESTDIR=/usr/ucb/bin
+OBJ=adm.o adm1.o adm2.o adm3.o adm4.o adm5.o
+SRC=adm.c adm.h adm1.c adm2.c adm3.c adm4.c adm5.c dostat.c timstat.c clbud.c
+ETC=/etc
+R=
+####
+all:    adm dostat clbud timstat
+
+i_adm:  adm
+	-rm -f $(DESTDIR)/adm
+	cp adm $(DESTDIR)/adm
+	chmod 755 $(DESTDIR)/adm
+
+adm:    $(OBJ)
+	cc $(LOAD) $(OBJ) -o adm
+
+adm.o:  adm.c adm.h
+
+$(R)adm.c:
+	co adm.c
+
+adm1.o: adm1.c adm.h
+
+$(R)adm1.c:
+	co adm1.c
+
+adm2.o: adm2.c adm.h
+
+$(R)adm2.c:
+	co adm2.c
+
+adm3.o: adm3.c adm.h
+
+$(R)adm3.c:
+	co adm3.c
+
+adm4.o: adm4.c adm.h
+
+$(R)adm4.c:
+	co adm4.c
+
+adm5.o: adm5.c adm.h
+
+$(R)adm5.c:
+	co adm5.c
+
+i_dostat:    dostat
+	-rm -f $(ETC)/dostat
+	cp dostat $(ETC)/dostat
+	chmod 500 $(ETC)/dostat
+
+dostat: dostat.c
+	cc $(LOAD) $(CFLAGS) -o dostat dostat.c
+
+$(R)dostat.c:
+	co dostat.c
+
+i_timstat:    timstat
+	-rm -f $(ETC)/timstat
+	cp timstat $(ETC)/timstat
+	chmod 500 $(ETC)/timstat
+
+timstat:      timstat.c
+	cc $(LOAD) $(CFLAGS) $(FFLAG) -o timstat timstat.c
+
+$(R)timstat.c:
+	co timstat.c
+
+i_clbud:  clbud
+	-rm -f $(DESTDIR)/clbud
+	cp clbud $(DESTDIR)/clbud
+
+clbud: clbud.c
+	cc $(LOAD) $(CFLAGS) -o clbud clbud.c
+
+$(R)clbud.c:
+	co clbud.c
+
+########
+install: i_adm i_dostat i_timstat i_clbud
+
+######
+clear:
+	-rm -f adm dostat timstat clbud
+	-rm -f *.[ob]
+
+source: $(SRC)
+
+$(R)adm.h:
+	co adm.h
+@

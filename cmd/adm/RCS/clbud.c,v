@@ -1,0 +1,87 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.03.21.18.32.38;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+чистка бюджета по бумаге и терминальному времени
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* Программа очистки файла бюджетов
+ *
+ * $Header$
+ * $Log$
+*/
+#include <stdio.h>
+#include <bud.h>
+main(argc,argv)
+int argc;
+char **argv;
+{
+	struct USER user;
+	register int fd;
+	int cflag=0;
+	int lpflag=0;
+	int ttflag=0;
+	if((fd=open("/usr/adm/budget",2)) == -1) {
+		fprintf(stderr,"Не могу открыть файл бюджетов \n");
+		perror("clbud");
+		exit(1);
+	}
+	lseek(fd,0l,0);
+	while(--argc > 0 && (++argv)[0][0] == '-') {
+		switch(argv[0][1]) {
+		case 'l':
+			++lpflag;
+			break;
+		case 't':
+			++ttflag;
+			break;
+		default:
+			fprintf(stderr,"Вызов: clbud [-l] [-t] [users ...]\n");
+			exit(1);
+		}
+	}
+	if(argc==0) goto m1;
+	++cflag;
+	while(--argc >= 0) {
+m1:
+		while(read(fd,&user,sizeof user) == (sizeof user)) {
+			if(!cflag) goto m2;
+			if(!strcmp(argv[argc],user.B_name)) {
+m2:
+				if(!lpflag)
+					user.B_lpused=0;
+				if(!ttflag) {
+					user.B_ttyused=0l;
+					user.B_pad=0l;
+				}
+				lseek(fd,(-((long)(sizeof user))),1);
+				if(write(fd,&user,(sizeof user)) != (sizeof user)) {
+					fprintf(stderr,"Ошибка записи\n");
+					perror("clbud");
+					exit(1);
+				}
+			}
+		}
+		if(cflag) lseek(fd,0l,0);
+		else exit(0);
+	}
+}
+@

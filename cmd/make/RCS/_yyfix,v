@@ -1,0 +1,94 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     89.04.27.16.19.02;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@:
+#       standard out from this shell script produces the static tables files
+
+grep 'typedef.*yytabelem;' y.tab.c
+grep 'typedef.*yytoktype;' y.tab.c
+
+#       assume that the arrays wanted are:
+#       yyexca, yyact, yypact, yypgo, yyr1, yyr2, yychk, yydef,
+#       and the debugging arrays and #if ... #endif pairs are
+#       (in order):  yytoks, yyreds
+
+ed - y.tab.c <<DONE
+/^\(.*\)yyexca[ 	]*\[]/s//extern \1 yyexca[];\\
+static \1 yyexca []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\)yyact[ 	]*\[]/s//extern \1 yyact[];\\
+static \1 yyact []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\)yypact[ 	]*\[]/s//extern \1 yypact[];\\
+static \1 yypact []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\)yypgo[ 	]*\[]/s//extern \1 yypgo[];\\
+static \1 yypgo []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\)yyr1[ 	]*\[]/s//extern \1 yyr1[];\\
+static \1 yyr1 []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\)yyr2[ 	]*\[]/s//extern \1 yyr2[];\\
+static \1 yyr2 []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\)yychk[ 	]*\[]/s//extern \1 yychk[];\\
+static \1 yychk []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\)yydef[ 	]*\[]/s//extern \1 yydef[];\\
+static \1 yydef []/
+.ka
+/}/kb
+'a,'bp
+'a,'bd
+/^\(.*\).*\*yyxi[ 	]*;/s// \1 *yyxi;\\
+#ifdef	SMALL\\
+	char _yytext[INMAX];\\
+\\
+	yytext = _yytext;\\
+#endif/
+w gram.c
+q
+DONE
+@

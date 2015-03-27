@@ -1,0 +1,71 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.10.05.18.43.04;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile fo dired
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@# makefile for dired
+# $Log:	Makefile,v $
+R       =
+COFLAGS =-q
+RCS     =RCS
+
+DESTDIR = /usr/new/bin
+LIBDIR = /usr/new/lib/dired
+
+D = '"/usr/new/bin/dired "'      # пробел на конце обязателен
+E = '"/usr/new/lib/dired/hlp_e"'
+R = '"/usr/new/lib/dired/hlp_r"'
+M = '"/usr/bin/more "'             # пробел на конце обязателен
+
+CFLAGS = -O -DDIREDNAM=$(D) -DEHELP=$(E) -DRHELP=$(R) -DMOREPGM=$(M)
+LD = cc
+
+SRC = dired.c
+
+dired: dired.o
+	$(LD) -o dired dired.o -ltermcap -ljobs
+	c7t10 dired
+	size dired
+	checkobj -40 dired
+
+install: i_dired
+
+i_dired: dired
+	cp dired $(DESTDIR)
+	strip $(DESTDIR)/dired
+	chmod 755 $(DESTDIR)/dired
+	-mkdir $(LIBDIR)
+	cp misc/* $(LIBDIR)
+	chmod 444 $(LIBDIR)/*
+
+######
+source: $(SRC) Makefile
+
+$(R)dired.c:     $(RCS)/dired.c,v     ;  co $(COFLAGS) dired.c
+
+######
+clear clean:
+	-rm -f *.[ob]
+
+CLRSRC: clean
+	-rm -f $(SRC) dired
+@

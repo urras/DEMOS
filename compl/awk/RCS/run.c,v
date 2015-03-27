@@ -1,0 +1,1074 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.10.13.12.44.32;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.03.24.12.46.18;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.01.07.21.58.04;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.01.05.14.53.26;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Интерпретатор языка обработки таблиц AWK.
+@
+
+
+1.4
+log
+@разделено o = execute(... ) 
+на obj o;
+   o = execute(...);
+@
+text
+@/*
+ * $Log:        run.c,v $
+ * Revision 1.3  87/03/24  12:46:18  avg
+ * Сделана небольшая правка - для совместимости с
+ * C-компилятором VENIX-а.
+ *
+ * Revision 1.2  87/01/07  21:58:04  avg
+ * Сделаны правки под русские буквы.
+ * - / - двуязычные диагностики.
+ * Исправлены некоторые ошибки.
+ *
+ *Revision 1.1  87/01/05  14:53:26  avg
+ *Initial revision
+ *
+ */
+
+#include "awk.def"
+#include        "math.h"
+#define RECSIZE 512
+#include "awk.h"
+#include <stdio.h>
+#include <ediag.h>
+#include <sys/code.h>
+
+/*NOXSTR*/
+#ifndef lint
+static char rcsid[] = "$Header: run.c,v 1.3 87/03/24 12:46:18 avg Exp $";
+#endif
+/*YESXSTR*/
+
+#ifndef KOI8
+# define Xstrcmp strcmp
+#endif
+
+#define FILENUM 10
+struct
+{
+	FILE *fp;
+	char *fname;
+} files[FILENUM];
+FILE *popen();
+
+extern obj execute(), nodetoobj(), fieldel(), dopa2();
+#define PA2NUM  29
+int pairstack[PA2NUM], paircnt;
+node *winner = (node *)NULL;
+#define MAXTMP 20
+cell tmps[MAXTMP];
+static cell nullval ={0,0,0.0,NUM,0};
+obj     true    ={ OBOOL, BTRUE, 0 };
+obj     false   ={ OBOOL, BFALSE, 0 };
+
+run()
+{
+	obj o;
+
+	o = execute(winner);
+	return(o.otype);
+}
+
+obj execute(u) node *u;
+{
+	register obj (*proc)();
+	obj x;
+	node *a;
+	extern char *printname[];
+
+	if (u==(node *)NULL)
+		return(true);
+	for (a = u; ; a = a->nnext) {
+		if (cantexec(a))
+			return(nodetoobj(a));
+		if (a->ntype==NPA2)
+			proc=dopa2;
+		else {
+			if (notlegal(a->nobj))
+				error(FATAL, ediag("illegal statement %o",
+						   "плохой оператор %o"), a);
+			proc = proctab[a->nobj-FIRSTTOKEN];
+		}
+		x = (*proc)(a->narg,a->nobj);
+		if (isfld(x)) fldbld();
+		if (isexpr(a))
+			return(x);
+		/* a statement, goto next statement */
+		if (isjump(x))
+			return(x);
+		if (a->nnext == (node *)NULL)
+			return(x);
+		tempfree(x);
+	}
+}
+
+obj program(a, n) node **a;
+{
+	obj x;
+
+	if (a[0] != NULL) {
+		x = execute(a[0]);
+		if (isexit(x))
+			return(true);
+		if (isjump(x))
+			error(FATAL, ediag("unexpected break, continue or next",
+					   "недопустимый break, continue или next"));
+		tempfree(x);
+	}
+	while (getrec()) {
+		recloc->tval &= ~NUM;
+		recloc->tval |= STR;
+		++nrloc->fval;
+		nrloc->tval &= ~STR;
+		nrloc->tval |= NUM;
+		x = execute(a[1]);
+		if (isexit(x)) break;
+		tempfree(x);
+	}
+	tempfree(x);
+	if (a[2] != NULL) {
+		x = execute(a[2]);
+		if (isbreak(x) || isnext(x) || iscont(x))
+			error(FATAL, ediag("unexpected break, continue or next",
+					   "недопустимый break, continue или next"));
+		tempfree(x);
+	}
+	return(true);
+}
+
+obj array(a,n) node **a;
+{
+	obj x, y;
+	extern obj arrayel();
+
+	x = execute(a[1]);
+	y = arrayel(a[0], x);
+	tempfree(x);
+	return(y);
+}
+
+obj arrayel(a,b) node *a; obj b;
+{
+	char *s;
+	cell *x;
+	int i;
+	obj y;
+
+	s = getsval(b.optr);
+	x = (cell *) a;
+	if (!(x->tval&ARR)) {
+		xfree(x->sval);
+		x->tval &= ~STR;
+		x->tval |= ARR;
+		x->sval = (char *) makesymtab();
+	}
+	y.optr = setsymtab(s, tostring(""), 0.0, STR, x->sval);
+	y.otype = OCELL;
+	y.osub = CVAR;
+	return(y);
+}
+
+obj matchop(a,n) node **a;
+{
+	obj x;
+	char *s;
+	int i;
+
+	x = execute(a[0]);
+	if (isstr(x)) s = x.optr->sval;
+	else    s = getsval(x.optr);
+	tempfree(x);
+	i = match(a[1], s);
+	if (n==MATCH && i==1 || n==NOTMATCH && i==0)
+		return(true);
+	else
+		return(false);
+}
+
+obj boolop(a,n) node **a;
+{
+	obj x, y;
+	int i;
+
+	x = execute(a[0]);
+	i = istrue(x);
+	tempfree(x);
+	switch (n) {
+	default:
+		error(FATAL, ediag("unknown boolean operator %d",
+				   "неизвестная логическая операция %d"), n);
+	case BOR:
+		if (i) return(true);
+		y = execute(a[1]);
+		i = istrue(y);
+		tempfree(y);
+		if (i) return(true);
+		else return(false);
+	case AND:
+		if ( !i ) return(false);
+		y = execute(a[1]);
+		i = istrue(y);
+		tempfree(y);
+		if (i) return(true);
+		else return(false);
+	case NOT:
+		if (i) return(false);
+		else return(true);
+	}
+}
+
+obj relop(a,n) node **a;
+{
+	int i;
+	obj x, y;
+	awkfloat j;
+
+	x = execute(a[0]);
+	y = execute(a[1]);
+	if (x.optr->tval&NUM && y.optr->tval&NUM) {
+		j = x.optr->fval - y.optr->fval;
+		i = j<0? -1: (j>0? 1: 0);
+	} else {
+		i = Xstrcmp(getsval(x.optr), getsval(y.optr));
+	}
+	tempfree(x);
+	tempfree(y);
+	switch (n) {
+	default:
+		error(FATAL, ediag("unknown relational operator %d",
+				   "неизвестная операция сравнения %d"), n);
+	case LT:        if (i<0) return(true);
+			else return(false);
+	case LE:        if (i<=0) return(true);
+			else return(false);
+	case NE:        if (i!=0) return(true);
+			else return(false);
+	case EQ:        if (i==0) return(true);
+			else return(false);
+	case GE:        if (i>=0) return(true);
+			else return(false);
+	case GT:        if (i>0) return(true);
+			else return(false);
+	}
+}
+
+tempfree(a) obj a;
+{
+	if (!istemp(a)) return;
+	xfree(a.optr->sval);
+	a.optr->tval = 0;
+}
+
+obj gettemp()
+{
+	int i;
+	obj x;
+
+	for (i=0; i<MAXTMP; i++)
+		if (tmps[i].tval==0)
+			break;
+	if (i==MAXTMP)
+		error(FATAL, ediag("out of temporaries in gettemp",
+				   "переполение массива в gettemp"));
+	x.optr = &tmps[i];
+	tmps[i] = nullval;
+	x.otype = OCELL;
+	x.osub = CTEMP;
+	return(x);
+}
+
+obj indirect(a,n) node **a;
+{
+	obj x;
+	int m;
+	cell *fieldadr();
+
+	x = execute(a[0]);
+	m = getfval(x.optr);
+	tempfree(x);
+	x.optr = fieldadr(m);
+	x.otype = OCELL;
+	x.osub = CFLD;
+	return(x);
+}
+
+obj substr(a, nnn) node **a;
+{
+	char *s, *p, temp[100];
+	obj x;
+	int k, m, n;
+
+	x = execute(a[0]);
+	s = getsval(x.optr);
+	k = strlen(s) + 1;
+	tempfree(x);
+	x = execute(a[1]);
+	m = getfval(x.optr);
+	if (m <= 0)
+		m = 1;
+	else if (m > k)
+		m = k;
+	tempfree(x);
+	if (a[2] != nullstat) {
+		x = execute(a[2]);
+		n = getfval(x.optr);
+		tempfree(x);
+	}
+	else
+		n = k - 1;
+	if (n < 0)
+		n = 0;
+	else if (n > k - m)
+		n = k - m;
+	dprintf("substr: m=%d, n=%d, s=%s\n", m, n, s);
+	p = temp;
+	s += m - 1;
+	while (n-- > 0)
+		*p++ = *s++;
+	*p = '\0';
+	x = gettemp();
+	setsval(x.optr, temp);
+	return(x);
+}
+
+obj sindex(a, nnn) node **a;
+{
+	obj x, y;
+	char *s1, *s2, *p1, *p2, *q;
+
+	x = execute(a[0]);
+	s1 = getsval(x.optr);
+	tempfree(x);
+	y = execute(a[1]);
+	s2 = getsval(y.optr);
+	tempfree(y);
+
+	x = gettemp();
+	for (p1 = s1; *p1 != '\0'; p1++) {
+		for (q=p1, p2=s2; *p2 != '\0' && *q == *p2; q++, p2++)
+			;
+		if (*p2 == '\0') {
+			setfval(x.optr, (awkfloat) (p1 - s1 + 1));      /* origin 1 */
+			return(x);
+		}
+	}
+	setfval(x.optr, 0.0);
+	return(x);
+}
+
+char *format(s,a) char *s; node *a;
+{
+	char *buf, *p, fmt[100], *t, *os;
+	obj x;
+	int flag = 0;
+	awkfloat xf;
+
+	os = s;
+	p = buf = (char *)malloc(RECSIZE);
+	while (*s) {
+		if (*s != '%') {
+			*p++ = *s++;
+			continue;
+		}
+		if (*(s+1) == '%') {
+			*p++ = '%';
+			*p++ = '%';
+			s += 2;
+			continue;
+		}
+		for (t=fmt; (*t++ = *s) != '\0'; s++)
+			if (*s >= 'a' && *s <= 'z' && *s != 'l')
+				break;
+		*t = '\0';
+		if (t > fmt + 100)
+			error(FATAL, ediag("format item %.20s... too long",
+					   "слишком длинный формат %.20s..."), os);
+		switch (*s) {
+		case 'f': case 'e': case 'g':
+			flag = 1;
+			break;
+		case 'd':
+			flag = 2;
+			if(*(s-1) == 'l') break;
+			*(t-1) = 'l';
+			*t = 'd';
+			*++t = '\0';
+			break;
+		case 'o': case 'x':
+			flag = *(s-1)=='l' ? 2 : 3;
+			break;
+		case 's':
+			flag = 4;
+			break;
+		default:
+			flag = 0;
+			break;
+		}
+		if (flag == 0) {
+			sprintf(p, "%s", fmt);
+			p += strlen(p);
+			continue;
+		}
+		if (a == NULL)
+			error(FATAL, ediag("not enough arguments in printf(%s)",
+					   "не хватает аргументов для printf(%s)"), os);
+		x = execute(a);
+		a = a->nnext;
+		if (flag != 4)  /* watch out for converting to numbers! */
+			xf = getfval(x.optr);
+		if (flag==1) sprintf(p, fmt, xf);
+		else if (flag==2) sprintf(p, fmt, (long)xf);
+		else if (flag==3) sprintf(p, fmt, (int)xf);
+		else if (flag==4) sprintf(p, fmt, x.optr->sval==NULL ? "" : getsval(x.optr));
+		tempfree(x);
+		p += strlen(p);
+		s++;
+	}
+	*p = '\0';
+	return(buf);
+}
+
+obj asprintf(a,n) node **a;
+{
+	obj x;
+	node *y;
+	char *s;
+
+	y = a[0]->nnext;
+	x = execute(a[0]);
+	s = format(getsval(x.optr), y);
+	tempfree(x);
+	x = gettemp();
+	x.optr->sval = s;
+	x.optr->tval = STR;
+	return(x);
+}
+
+obj arith(a,n) node **a;
+{
+	awkfloat i,j;
+	obj x,y,z;
+
+	x = execute(a[0]);
+	i = getfval(x.optr);
+	tempfree(x);
+	if (n != UMINUS) {
+		y = execute(a[1]);
+		j = getfval(y.optr);
+		tempfree(y);
+	}
+	z = gettemp();
+	switch (n) {
+	default:
+		error(FATAL, ediag("illegal arithmetic operator %d",
+				   "плохая арифметческая операция %d"), n);
+	case ADD:
+		setfval(z.optr, i+j);
+		break;
+	case MINUS:
+		setfval(z.optr, i-j);
+		break;
+	case MULT:
+		setfval(z.optr, i*j);
+		break;
+	case DIVIDE:
+		if (j == 0)
+			error(FATAL, ediag("division by zero",
+					   "деление на 0"));
+		setfval(z.optr, i/j);
+		break;
+	case MOD:
+		if (j == 0)
+			error(FATAL, ediag("division by zero",
+					   "деление на 0"));
+		setfval(z.optr, i-j*(long)(i/j));
+		break;
+	case UMINUS:
+		setfval(z.optr, -i);
+		break;
+	}
+	return(z);
+}
+
+obj incrdecr(a, n) node **a;
+{
+	obj x, z;
+	int k;
+	awkfloat xf;
+
+	x = execute(a[0]);
+	xf = getfval(x.optr);
+	k = (n == PREINCR || n == POSTINCR) ? 1 : -1;
+	if (n == PREINCR || n == PREDECR) {
+		setfval(x.optr, xf + k);
+		return(x);
+	}
+	z = gettemp();
+	setfval(z.optr, xf);
+	setfval(x.optr, xf + k);
+	tempfree(x);
+	return(z);
+}
+
+
+obj assign(a,n) node **a;
+{
+	obj x, y;
+	awkfloat xf, yf;
+
+	x = execute(a[0]);
+	y = execute(a[1]);
+	if (n == ASSIGN) {      /* ordinary assignment */
+		if (y.optr->tval&STR) setsval(x.optr, y.optr->sval);
+		if (y.optr->tval&NUM) setfval(x.optr, y.optr->fval);
+		tempfree(y);
+		return(x);
+	}
+	xf = getfval(x.optr);
+	yf = getfval(y.optr);
+	switch (n) {
+	case ADDEQ:
+		setfval(x.optr, xf + yf);
+		break;
+	case SUBEQ:
+		setfval(x.optr, xf - yf);
+		break;
+	case MULTEQ:
+		setfval(x.optr, xf * yf);
+		break;
+	case DIVEQ:
+		if (yf == 0)
+			error(FATAL, ediag("division by zero",
+					   "деление на 0"));
+		setfval(x.optr, xf / yf);
+		break;
+	case MODEQ:
+		if (yf == 0)
+			error(FATAL, ediag("division by zero",
+					   "деление на 0"));
+		setfval(x.optr, xf - yf*(long)(xf/yf));
+		break;
+	default:
+		error(FATAL, ediag("illegal assignment operator %d",
+				   "плохой оператор присваивания %d"), n);
+		break;
+	}
+	tempfree(y);
+	return(x);
+}
+
+obj cat(a,q) node **a;
+{
+	obj x,y,z;
+	int n;
+	char *s;
+
+	x = execute(a[0]);
+	y = execute(a[1]);
+	getsval(x.optr);
+	getsval(y.optr);
+	n = strlen(x.optr->sval) + strlen(y.optr->sval);
+	s = (char *)malloc(n+1);
+	strcpy(s, x.optr->sval);
+	strcat(s, y.optr->sval);
+	tempfree(y);
+	z = gettemp();
+	z.optr->sval = s;
+	z.optr->tval = STR;
+	tempfree(x);
+	return(z);
+}
+
+obj pastat(a,n) node **a;
+{
+	obj x;
+
+	if (a[0]==nullstat)
+		x = true;
+	else
+		x = execute(a[0]);
+	if (istrue(x)) {
+		tempfree(x);
+		x = execute(a[1]);
+	}
+	return(x);
+}
+
+obj dopa2(a,n) node **a;
+{
+	obj x;
+
+	if (pairstack[n]==0) {
+		x = execute(a[0]);
+		if (istrue(x))
+			pairstack[n] = 1;
+		tempfree(x);
+	}
+	if (pairstack[n] == 1) {
+		x = execute(a[1]);
+		if (istrue(x))
+			pairstack[n] = 0;
+		tempfree(x);
+		x = execute(a[2]);
+		return(x);
+	}
+	return(false);
+}
+
+obj aprintf(a,n) node **a;
+{
+	obj x;
+
+	x = asprintf(a,n);
+	if (a[1]==NULL) {
+		printf(x.optr->sval);
+		tempfree(x);
+		return(true);
+	}
+	redirprint(x.optr->sval, (int)a[1], a[2]);
+	return(x);
+}
+
+obj split(a,nnn) node **a;
+{
+	obj x;
+	cell *ap;
+	register char *s, *p;
+	char *t, temp[100], num[5];
+	register int sep;
+	int n;
+
+	x = execute(a[0]);
+	s = getsval(x.optr);
+	tempfree(x);
+	if (a[2] == nullstat)
+		sep = **FS;
+	else {
+		x = execute(a[2]);
+		sep = getsval(x.optr)[0];
+		tempfree(x);
+	}
+	n = 0;
+	ap = (cell *) a[1];
+	freesymtab(ap);
+	dprintf("split: s=|%s|, a=%s, sep=|%c|\n", s, ap->nval, sep);
+	ap->tval &= ~STR;
+	ap->tval |= ARR;
+	ap->sval = (char *) makesymtab();
+	/* here we go */
+	for (;;) {
+		if (sep == ' ')
+			while (*s == ' ' || *s == '\t' || *s == '\n')
+				s++;
+		if (*s == '\0')
+			break;
+		n++;
+		for (p=s, t=temp; (*t = *p) != '\0'; p++, t++)
+			if (*p == sep
+			  || sep == ' ' && (*p == '\t' || *p == '\n')
+			  || sep == '\t' && *p == '\n')
+				break;
+		*t = '\0';
+		dprintf("n=%d, s=|%s|, temp=|%s|\n", n, s, temp);
+		sprintf(num, "%d", n);
+		setsymtab(num, tostring(temp), 0.0, STR, ap->sval);
+		if (*p == '\0') /* all done */
+			break;
+		s = p + 1;
+	}
+	x = gettemp();
+	x.optr->tval = NUM;
+	x.optr->fval = n;
+	return(x);
+}
+
+obj ifstat(a,n) node **a;
+{
+	obj x;
+
+	x = execute(a[0]);
+	if (istrue(x)) {
+		tempfree(x);
+		x = execute(a[1]);
+	}
+	else if (a[2] != nullstat) {
+		tempfree(x);
+		x = execute(a[2]);
+	}
+	return(x);
+}
+
+obj whilestat(a,n) node **a;
+{
+	obj x;
+
+	for (;;) {
+		x = execute(a[0]);
+		if (!istrue(x)) return(x);
+		tempfree(x);
+		x = execute(a[1]);
+		if (isbreak(x)) {
+			x = true;
+			return(x);
+		}
+		if (isnext(x) || isexit(x))
+			return(x);
+		tempfree(x);
+	}
+}
+
+obj forstat(a,n) node **a;
+{
+	obj x;
+
+	tempfree(execute(a[0]));
+	for (;;) {
+		if (a[1]!=nullstat) {
+			x = execute(a[1]);
+			if (!istrue(x)) return(x);
+			else tempfree(x);
+		}
+		x = execute(a[3]);
+		if (isbreak(x)) {       /* turn off break */
+			x = true;
+			return(x);
+		}
+		if (isnext(x) || isexit(x))
+			return(x);
+		tempfree(x);
+		tempfree(execute(a[2]));
+	}
+}
+
+obj instat(a, n) node **a;
+{
+	cell *vp, *arrayp, *cp, **tp;
+	obj x;
+	int i;
+
+	vp = (cell *) a[0];
+	arrayp = (cell *) a[1];
+	if (!(arrayp->tval & ARR))
+		error(FATAL, ediag("%s is not an array",
+				   "%s не массив"), arrayp->nval);
+	tp = (cell **) arrayp->sval;
+	for (i = 0; i < MAXSYM; i++) {  /* this routine knows too much */
+		for (cp = tp[i]; cp != NULL; cp = cp->nextval) {
+			xfree(vp->sval);
+			vp->sval = tostring(cp->nval);
+			vp->tval = STR;
+			x = execute(a[2]);
+			if (isbreak(x)) {
+				x = true;
+				return(x);
+			}
+			if (isnext(x) || isexit(x))
+				return(x);
+			tempfree(x);
+		}
+	}
+}
+
+obj jump(a,n) node **a;
+{
+	obj x;
+
+	x.otype = OJUMP;
+	switch (n) {
+	default:
+		error(FATAL, ediag("illegal jump type %d",
+				   "плохой переход типа %d"), n);
+		break;
+	case EXIT:
+		x.osub = JEXIT;
+		break;
+	case NEXT:
+		x.osub = JNEXT;
+		break;
+	case BREAK:
+		x.osub = JBREAK;
+		break;
+	case CONTINUE:
+		x.osub = JCONT;
+		break;
+	}
+	return(x);
+}
+
+obj fncn(a,n) node **a;
+{
+	obj x;
+	awkfloat u;
+	int t;
+
+	t = (int) a[0];
+	x = execute(a[1]);
+	if (t == FLENGTH)
+		u = (awkfloat) strlen(getsval(x.optr));
+	else if (t == FLOG)
+		u = log(getfval(x.optr));
+	else if (t == FINT)
+		u = (awkfloat) (long) getfval(x.optr);
+	else if (t == FEXP)
+		u = exp(getfval(x.optr));
+	else if (t == FSQRT)
+		u = sqrt(getfval(x.optr));
+	else
+		error(FATAL, ediag("illegal function type %d",
+				   "плохая функция типа %d"), t);
+	tempfree(x);
+	x = gettemp();
+	setfval(x.optr, u);
+	return(x);
+}
+
+obj print(a,n) node **a;
+{
+	register node *x;
+	obj y;
+	char s[RECSIZE];
+
+	s[0] = '\0';
+	for (x=a[0]; x!=NULL; x=x->nnext) {
+		y = execute(x);
+		strcat(s, getsval(y.optr));
+		tempfree(y);
+		if (x->nnext==NULL)
+			strcat(s, *ORS);
+		else
+			strcat(s, *OFS);
+	}
+	if (strlen(s) >= RECSIZE)
+		error(FATAL, ediag("string %.20s ... too long to print",
+				   "слишком длинная строка %.20s... для print"), s);
+	if (a[1]==nullstat) {
+		printf("%s", s);
+		return(true);
+	}
+	redirprint(s, (int)a[1], a[2]);
+	return(false);
+}
+
+obj nullproc() {}
+
+obj nodetoobj(a) node *a;
+{
+	obj x;
+
+	x.optr = (cell *) a->nobj;
+	x.otype = OCELL;
+	x.osub = a->subtype;
+	if (isfld(x)) fldbld();
+	return(x);
+}
+
+redirprint(s, a, b) char *s; node *b;
+{
+	register int i;
+	obj x;
+
+	x = execute(b);
+	getsval(x.optr);
+	for (i=0; i<FILENUM; i++)
+		if (strcmp(x.optr->sval, files[i].fname) == 0)
+			goto doit;
+	for (i=0; i<FILENUM; i++)
+		if (files[i].fp == 0)
+			break;
+	if (i >= FILENUM)
+		error(FATAL, ediag("too many output files %d",
+				   "слишком много выходных файлов %d"), i);
+	if (a == '|')   /* a pipe! */
+		files[i].fp = popen(x.optr->sval, "w");
+	else if (a == APPEND)
+		files[i].fp = fopen(x.optr->sval, "a");
+	else
+		files[i].fp = fopen(x.optr->sval, "w");
+	if (files[i].fp == NULL)
+		error(FATAL, ediag("can't open file %s",
+				   "не могу открыть файл %s"), x.optr->sval);
+	files[i].fname = tostring(x.optr->sval);
+doit:
+	fprintf(files[i].fp, "%s", s);
+	tempfree(x);
+}
+@
+
+
+1.3
+log
+@Сделана небольшая правка - для совместимости с
+C-компилятором VENIX-а.
+@
+text
+@d3 4
+d27 1
+a27 1
+static char rcsid[] = "$Header: run.c,v 1.2 87/01/07 21:58:04 avg Exp $";
+d55 1
+a55 1
+	obj o = execute(winner);
+d57 1
+@
+
+
+1.2
+log
+@Сделаны правки под русские буквы.
+- / - двуязычные диагностики.
+Исправлены некоторые ошибки.
+@
+text
+@d3 5
+d23 1
+a23 1
+static char rcsid[] = "$Header$";
+d51 3
+a53 1
+	return(execute(winner).otype);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d12 3
+a14 1
+#include "stdio.h"
+d16 10
+d65 2
+a66 1
+				error(FATAL, "illegal statement %o", a);
+d91 2
+a92 1
+			error(FATAL, "unexpected break, continue or next");
+d109 2
+a110 1
+			error(FATAL, "unexpected break, continue or next");
+d156 1
+a156 1
+	else	s = getsval(x.optr);
+d175 2
+a176 1
+		error(FATAL, "unknown boolean operator %d", n);
+d209 1
+a209 1
+		i = strcmp(getsval(x.optr), getsval(y.optr));
+d215 3
+a217 2
+		error(FATAL, "unknown relational operator %d", n);
+	case LT:	if (i<0) return(true);
+d219 1
+a219 1
+	case LE:	if (i<=0) return(true);
+d221 1
+a221 1
+	case NE:	if (i!=0) return(true);
+d223 1
+a223 1
+	case EQ:	if (i==0) return(true);
+d225 1
+a225 1
+	case GE:	if (i>=0) return(true);
+d227 1
+a227 1
+	case GT:	if (i>0) return(true);
+d248 2
+a249 1
+		error(FATAL, "out of temporaries in gettemp");
+d328 1
+a328 1
+			setfval(x.optr, (awkfloat) (p1 - s1 + 1));	/* origin 1 */
+d361 2
+a362 1
+			error(FATAL, "format item %.20s... too long", os);
+d390 2
+a391 1
+			error(FATAL, "not enough arguments in printf(%s)", os);
+d394 1
+a394 1
+		if (flag != 4)	/* watch out for converting to numbers! */
+d440 2
+a441 1
+		error(FATAL, "illegal arithmetic operator %d", n);
+d453 2
+a454 1
+			error(FATAL, "division by zero");
+d459 2
+a460 1
+			error(FATAL, "division by zero");
+d498 1
+a498 1
+	if (n == ASSIGN) {	/* ordinary assignment */
+d518 2
+a519 1
+			error(FATAL, "division by zero");
+d524 2
+a525 1
+			error(FATAL, "division by zero");
+d529 2
+a530 1
+		error(FATAL, "illegal assignment operator %d", n);
+d652 1
+a652 1
+		if (*p == '\0')	/* all done */
+d709 1
+a709 1
+		if (isbreak(x)) {	/* turn off break */
+d729 2
+a730 1
+		error(FATAL, "%s is not an array", arrayp->nval);
+d732 1
+a732 1
+	for (i = 0; i < MAXSYM; i++) {	/* this routine knows too much */
+d756 2
+a757 1
+		error(FATAL, "illegal jump type %d", n);
+d794 2
+a795 1
+		error(FATAL, "illegal function type %d", t);
+d819 2
+a820 1
+		error(FATAL, "string %.20s ... too long to print", s);
+d856 3
+a858 2
+		error(FATAL, "too many output files %d", i);
+	if (a == '|')	/* a pipe! */
+d865 2
+a866 1
+		error(FATAL, "can't open file %s", x.optr->sval);
+@

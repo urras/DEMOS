@@ -1,0 +1,10 @@
+#print
+Аналогичны ли команды "ls -lt" и "ls -tl"? Узнайте и
+ответьте да или нет.
+#copyin
+#user
+#uncopyin
+#match да
+#log
+#next
+1.1b 10

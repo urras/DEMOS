@@ -1,0 +1,524 @@
+.TH DECO C
+.rm ES
+.rm EE
+.de ES
+.PP
+.nf
+.in +0.5i
+..
+.de EE
+.in -0.5i
+.fi
+..
+.SH NAME
+deco \- screen interface for UNIX shell
+.SH FORMAT
+.B deco
+[directory]
+.SH DESCRIPTION
+.PP
+DECO, or Demos Commander, is a screen interface for the UNIX 
+operating system, developed on the basis of the widely known NC 
+(Norton Commander) for IBM PC running under MS-DOS.
+.PP
+Control characters are designated below as ^X, which means: 
+CTRL+X. The "~" in file names means "home directory".
+.SH Functional Keys
+DECO is adjusted to the type of terminal by means of the 
+termcap terminal description file. While in operation, DECO
+uses 10 functional keys F1-F10. To determine the keys,
+'termcap' descriptors are used:
+.IP "f0...f9"
+for F10, F1...F9 keys
+.IP "kl, kr, ku, kd"
+for left, right, up, down arrow keys respectively
+.IP "kh, kH, kP, kN"
+for home screen, screen end, page up, page down, respectively
+.IP "kI"
+mark
+.IP "kD"
+delete character
+.PP
+For terminals without an additional keyboard, it is possible to 
+enter commands by control characters or ESC X sequence.
+.PP
+Here is the Commands Table:
+.ES
+Command Key                     Alternative
+(PC key)        VT-220          input
+-------------------------------------
+F1              -1-             ESC 1
+F2              -2-             ESC 2
+F3              -3-             ESC 3
+F4              -4-             ESC 4
+F5              -5-             ESC 5
+F6              -6-             ESC 6
+F7              -7-             ESC 7
+F8              -8-             ESC 8
+F9              -9-             ESC 9
+F10             -0-             ESC 0
+arrow up        up              ESC u
+arow down       down            ESC d
+arrow left      left            ESC l
+arrow right     right           ESC r
+HOME            Home            ESC h
+END             End             ESC e
+PgUP            PrPage          ESC p
+PgDN            NextPage        ESC n
+INS             Ins             ^T
+DEL             Del             ^G
+.EE
+.PP
+Note that for some devices (for example, Xenix console) F1-F10 
+keys are used, while for others - keys 1-9, 0 of the additional
+keyboard.
+.SH Command Cancelling and Exit from Deco
+.PP
+In any state of DECO, press F10 to reset and cancel the
+current menu. If DECO is in the usual mode (system command
+input), F10 calls for an exit from the DECO menu:
+.ES
+Do you want to exit from DECO commander?
+Yes No Shell
+.EE
+.PP
+Yes (exit), No (no exit), and Shell (run csh) should be selected
+by the arrow keys and the RETURN key (ENTER for IBM PC). If
+Shell is selected, you have to input the exit command in order 
+to return to DECO.
+.SH Getting Help
+.PP
+F1 provides you with a built-in prompt. Press F10 to return to
+DECO.
+.SH Deco Windows and Operation Modes
+.PP
+Usually, DECO shows two panels (right and left ones), two 
+directories are displayed there. One of these panels is the
+current one, where all the operations take place (the name of 
+this panel is printed in italics). The second panel is used to 
+point out the place to copy, move or link files, as well as to 
+present information about the current directory (see the ^L 
+command). The TAB command (Tab or ^I key) serves as a fast way
+to select another panel as the current one, the key ^U is used 
+to swap panels on the screen.
+.PP
+System commands are executed from DECO in the same manner, as 
+from the usual interpreter sh or csh (see below, Running UNIX 
+Commands). DECO calls for the csh interpreter to execute
+commands. The single restriction is that SHELL is
+reinitialised each time, so variables are not memorised.  
+Initially, DECO is set to the screen mode, where panels, status 
+line (in the upper part of the screen, which includes the names 
+of machine, user, terminal and current time), and hint line (in 
+the lower part of the screen) are displayed. In this mode, all
+DECO commands are executed (F1 - F10 and others). After a DECO
+command is over, DECO remains in the command input mode. No
+panels and prompts are displayed in this mode (for faster 
+operation). In this mode, only system commands are executed,
+as well as some DECO commands, such as ^B (operation with 
+History commands journal). Once an empty command (Return) is
+entered, DECO returns to the screen mode, and panels are 
+displayed. In some cases, DECO can move to the screen mode
+without highlighting the panels (for example, calling for 
+History from the non-screen mode). During operations with 
+different menues, DECO moves to the menu mode. In this case, 
+the commands listed in the menu are executed, arrows move the
+cursor along the menu, F10 means always "Cancel the MENU mode".
+.SH Executing Unix Commands
+.PP
+DECO is usually set to the screen mode when you can use arrows 
+to travel across the directory and select files, as well as 
+form a command line by entering characters. You can add the
+names of the current and selected files to the end of the 
+command line by the LineFeed or ^J commands. Using ^E and ^X
+commands, it is possible to move along the History, i.e. to 
+"recall" previously executed commands. To erase the command
+line, use the ^Y command.
+.PP
+System commands executed are memorised in the History. You can 
+call for History from the DECO main menu, as well as by the ^B
+command. In History, arrows move the cursor along the
+commands, the ^J command serves to insert the current file
+name into the command line, Return - to insert the current file 
+name and execute the command.
+.PP
+The EDIT mode serves to correct the command line. This mode is 
+characterised by the fact that a direﬂtory name is not  
+italicized in DECO panels. The ^P command turns this mode on 
+and off. In EDIT, arrows move the cursor along the command line 
+and across History. Commands Del or ^G delete characters under 
+the cursor. 
+.SH File Types
+.PP
+DECO differs regular, special files and directories.
+Type of file is marked to the left of file name by character tag.
+There are fillowing file tags:
+.IP "space"
+regular file
+.IP "*"
+executable file
+.IP "/"
+directory
+.IP "&"
+unaccessible directory
+.IP "$"
+character device
+.IP "#"
+block device
+.IP "="
+FIFO file
+.IP "~"
+symbolic link
+.IP "@"
+unaccessible symbolic link
+.IP "!"
+named socket
+.SH Handling Selected Files
+.PP
+Selected files are used to set filenames for commands. Only 
+regular files can be marked. To mark the files (and to cancel 
+the marking), the following commands can be used:
+.IP "Ins or ^T"
+Current file marking on and off
+.IP "+"
+Setting marking a group of files according to the
+pattern
+.IP "-"
+Cancelling marking a group of files according to
+the pattern
+.PP
+If there are no selected files, the current file is used in the 
+command.
+.SH Entering Menu
+.PP
+F9 brings you to the MENU mode. To execute the command, select 
+the desired command and press Return. 
+.PP
+The menu's structure is given below. Many commands can be
+called for without panel mode, the corresponding keys are  
+given in the right column:
+.ES
+Left/
+       Brief
+       Long
+       Full
+       Status                  ^L
+       Re-read                 ^R
+       Pattern
+Files/
+       Help                    F1
+       User menu               F2
+       View                    F3
+       Edit                    F4
+       Copy                    F5
+       Link
+       Symbolic Link
+       Rename/move             F6
+       Make directory          F7
+       Delete                  F8
+       Quit                    F10
+Commands/
+       Exit to shell
+       Compare directories
+       Find file               ^K
+       History                 ^B
+       Home directory          ^\\
+       Root directory          ^_
+       Redraw screen           ^l
+Options/
+       Switch pannels          ^I
+       Swap panels             ^U
+       Full screen             ^F
+       Double width            ^W
+       Command line mode       ^P
+       Viewer...
+       Editor...
+       Save setup
+Right/
+       Brief
+       Long
+       Full
+       Status                  ^L
+       Re-read                 ^R
+       Pattern
+.EE
+.PP
+Commands from the menu are described in detail below.
+.SH Customizing Panels
+.PP
+LEFT and RIGHT sections are used to alter states of the left 
+and right panels, respectively. The commands brief, long, full 
+set different degrees of detalization of information about 
+files. The command status turns the status panel on and off, 
+this panel is situated in the opposite panel. The command re-
+read re-reads the directory. The command pattern sets a
+pattern of "visible" filenames. The pattern is set according
+to the usual UNIX rules of handling filenames: ? means "any
+symbol", * means "any number of any symbols", [symbols] - "any 
+of these symbols", ^ in the first position - "every file not
+matching the pattern". See Files Patterns for more detail. For 
+example, the pattern "^*.[bo]" means "not to show object and
+backup files".
+.SH Handling Files
+.PP
+The FILES section is intended for operating files. Most  
+commands of this section are placed on the functional keyboard. 
+Copy, link, and move commands use another panel to show the 
+place to copy, move or link files to by default. 
+.IP "F3: View"
+View the contents of the current file. The built-in 
+facility is used by default. Using the command 
+Options/Viewer, you can set the name of an external 
+utility, e.g., less -Merq. The command Options/Save 
+setup saves the set-up
+.IP "F4: Edit"
+Edit the current file. The built-in editor is used 
+by default. Using the Options/Editor command, you 
+can set the name of an external editor, e.g., re -
++i, and, by means of the command Options/ Save, you 
+can store it for future recallings
+.IP "F5: Copy"
+Copy the current or selected files
+.IP "F6: Rename/move"
+Move the files or the directory
+.IP "F7: Make directory"
+Create a new directory
+.IP "F8: Delete"
+Delete the files or the directory
+.IP "Link"
+Make a reference to the file
+.IP "Symbolic link"
+Make a symbolic reference to the file
+.SH Other Commands
+.PP
+The Commands section includes various commands:
+.IP "Exit to shell"
+Temporary exit into csh. The Csh command exit returns
+you to DECO.
+.IP "Compare directories"
+Compares the left and right directories. Files, which are 
+different, are marked. 
+.IP "Find file"
+Places the cursor onto the file by its name. 
+.IP "History"
+Selects and repeats one of the previous commands. Select the
+command and press Return or ^M to execute it. Pressing
+LineFeed or ^J, you can insert the command into the command
+line and re-edit it.
+.IP "Home Directory"
+Returns to the "home" ("~") directory
+.IP "Root directory"
+Returns to the root directory (/).
+.IP "Redraw screen"
+Redraws the screen.
+.SH Adjusting Modes
+.PP
+The Options section serves to set and save DECO operation 
+modes:
+.IP "Switch panels"
+Moves to the opposite panel.
+.IP "Swap panels"
+Swaps panels on the screen
+.IP "Full screen"
+Adjusts the panels' height to the full-screen size
+.IP "Double Width"
+Adjusts the panels' width to the full-screen size
+.IP "Command line mode"
+Switches the command line editing mode on and off. In 
+this mode, the arrows move only along the command line. 
+.IP "Viewer"
+Sets an external viewer utility to go through the files
+.IP "Editor"
+Sets a new external editor utility
+.IP "Save setup"
+Saves the settings in the file ~/.decoini. When
+DECO is started up, the files ~/.decoini, or
+/usr/local/lib/deco/initfile, or /usr/lib/deco/initfile 
+are being read. 
+.SH Built-in Commands
+.IP "cd [name]"
+Moves to the directory named as name.
+.IP "exit"
+Exit from DECO.
+.SH Builtt-in Editor Commands
+.PP
+The followinf commands are awailable in the built-in editor:
+.IP "Arrows"
+move cursor through the file, shift the screen when border is reached
+.IP "Printable characters"
+insert characters into the text
+.IP "Del"
+delete the character under the cursor
+.IP "BackSpace"
+delete the character to the left of the cursor
+.IP "^Y"
+delete the current line
+.IP "^K"
+delete the text starting from the cursor till the end of line
+.IP "F2 (Save)"
+save the file
+.IP "F3 (Raw)"
+swich the displaying characters with codes greater than 127
+.IP "F5 (Top)"
+go to the beginning of the file
+.IP "F6 (Bottom)"
+go to the end of the file
+.IP "F7 (Search)"
+text/binary search
+.IP "F8 (Home)"
+go to the beginning of the screen
+.IP "F9 (Spaces)"
+swich on/off the space and tabulation displaying mode.
+Spaces are disignated by dim points, and tabulations -
+by dim underlines
+.IP "F10 (Quit)"
+exit the editor
+.SH User's Menus
+.PP
+DECO has a possibility to create menus defined by the user. The 
+Command F2 reads the file /.menu, which includes the 
+description of the menu. If the file .menu is not found, the
+file ~/.menu, or /usr/local/lib/deco/menu, or 
+/usr/lib/deco/menu is being read. The menu description file has 
+the following structure:
+.ES
+# Comments
+<character>     <description of command>
+       <command>
+<character>     <description of command>
+       <command>
+.........
+.EE
+.PP
+The character is either a Roman letter, or a digit, or a name 
+of the functional keys F1- F10. If you press the key, a command 
+of the menu is executed. The command may include macros like %X 
+which are replaced in the following way:
+.ES
+%f      name of current file
+%b      name of current file without extension
+%d      name of current catalogue
+%c      full name of current catalogue
+%h      full name of home catalogue
+%u      name of user
+%g      name of group of users
+%%      symbol '%'
+.EE
+.PP
+Indicating symbols may find themselves at the beginning of the 
+command:
+.IP "-"
+remain in the panel mode after execution
+.IP "@"
+not to insert the command into History
+.IP "!"
+interpret command string as file name and read menu from this file;
+using this feature you can implement submenus
+.PP
+An example of the file with the menu description:
+.ES
+F1     Main menu
+       !%h/.menu
+F2     Default menu
+       !/usr/lib/deco/menu
+w      Count lines in source code
+       wc *.h *.c
+b      Remove bak files
+       -@rm -f *.b *.b
+d      Show my processes
+       ps -fu %u
+s      Syncronize disks
+       -@sync
+.EE
+.SH Executing Files
+.PP
+If the command line is empty when Return or ^M is pressed in 
+the panel mode, and the current file is the directory, DECO 
+moves to this directory. If the current file is an executable 
+one, it is executed. If the current file is a usual regular 
+one, then the command that corresponds its name is executed. 
+The command is described in the file ~/.deco. This allows the 
+user to fulfil operations for each file, which depend on the 
+name of this file, e.g., to start the C compiler for the files 
+named *. c, to start the make utility for the file Makefile, 
+etc. 
+.PP
+If the file ~/.deco is not found, file 
+/usr/local/lib/deco/profile, or /usr/lib/deco/profile is being 
+read. 
+.PP
+The file, in which operations are described by name, has the 
+following structure:
+.ES
+# Comments
+<pattern 1> <pattern 2>...<pattern N>
+       <command>
+<pattern 1> <pattern 2>...<pattern N>
+       <command>
+. . .
+.EE
+.PP
+The command can include macros (see User's menu).
+.PP
+An example of the file ~/.deco:
+.ES
+.menu .deco .cshrc .login *.c *.h
+       re %f
+*.b
+       rm %f
+Makefile makefile *.mk
+       make -f %f
+core
+       adb
+*.o
+       nm %f | more
+*.a
+       ar tv %f | more
+.EE
+.SH Patterns of Filenames
+.PP
+Patterns of filenames can include the following metasymbols:
+.IP "^ at the beginning of the pattern"
+every file not matching the pattern
+.IP "*"
+Arbitrary symbol sequence. It can be empty.
+.IP "?"
+Arbitrary symbol.
+.IP "[abcx-y]"
+Arbitrary symbol from the selected set.
+.IP "[^abcx-y]"
+Arbitrary symbol outside the set.
+.SH FILES
+.PP
+~/.decoini
+.br
+/usr/local/lib/deco/initfile
+.br
+/usr/lib/deco/initfile
+.IP
+Files of modes and initial settings.
+.PP
+\&.menu
+.br
+~/.menu
+.br
+/usr/local/lib/deco/menu
+.br
+/usr/lib/deco/menu
+.IP
+Menu description files.
+.PP
+~/.deco
+.br
+/usr/local/lib/deco/profile
+.br
+/usr/lib/deco/profile
+.IP
+Files for describing of operations by name.
+.SH NOTES
+.PP
+If the screen display is distorted,
+you can restore it by the command ^].
+.SH REFERENCES
+.PP
+csh(1), nc(MSDOS), termcap(5)

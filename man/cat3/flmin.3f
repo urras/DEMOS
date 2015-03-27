@@ -1,0 +1,66 @@
+
+FLMIN(3F)     ДЕМОС. Руководство программиста      FLMIN(3F)
+
+
+ИИММЯЯ
+       ffllmmiinn, ffllmmaaxx, ffffrraacc, ddffllmmiinn, ddffllmmaaxx, ddffffrraacc, iinnmmaaxx  -
+       граничные значения.
+
+ФФООРРММААТТ
+       ffuunnccttiioonn ffllmmiinn()
+
+       ffuunnccttiioonn ffllmmaaxx()
+
+       ffuunnccttiioonn ffffrraacc()
+
+       ddoouubbllee pprreecciissiioonn ffuunnccttiioonn ddffllmmiinn()
+
+       ddoouubbllee pprreecciissiioonn ffuunnccttiioonn ddffllmmaaxx()
+
+       ddoouubbllee pprreecciissiioonn ffuunnccttiioonn ddffffrraacc()
+
+       ffuunnccttiioonn iinnmmaaxx()
+
+ООППИИССААННИИЕЕ
+       Функции ffllmmiinn и ffllmmaaxx возвращают соответственно мини-
+       мальные  и максимальные положительные величины с пла-
+       вающей точкой. Функции  ddffllmmiinn  и  ddffllmmaaxx  возвращают
+       минимальные  и  максимальные положительные величины с
+       плавающей  точкой  двойной  точности.  Функция  iinnmmaaxx
+       возвращает максимальное положительное целое значение.
+
+       Функции ffffrraacc и ddffffrraacc возвращают минимально  возмож-
+       ные  значения  для чисел одинарной и двойной точности
+       (наименьшие числа, при суммировании которых с 1.0  не
+       происходит потери точности).
+
+       Эти функции могут  использоваться  в  программах  для
+       учета  возможностей  конкретной  вычислительной уста-
+       новки.
+
+ФФААЙЙЛЛЫЫ
+       /_u_s_r/_l_i_b/_l_i_b_F_7_7._a
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            -1-                     ДЕМОС/PV
+

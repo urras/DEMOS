@@ -1,0 +1,12 @@
+:
+VAXOPTS="SEP= OPTIONS=-DVMUNIX"
+X386OPTS="SEP= LIBS=-lx"
+X286OPTS="SEP='-i -F 3000' MODE=-Mm CC='cc -LARGE -M2'"
+IX386OPTS="SEP= OPTIONS=-DM_SYSV"
+DEMOSOPTS="OPTIONS=-DDEMOS"
+:
+. ../Ask-CPU
+set -x
+mkdir $CPU > /dev/null 2>& 1
+eval OPTS='$'${CPU}OPTS
+eval ${MAKE-make} -f Makefile R=X D=$CPU SD=.. CPU=$CPU $OPTS $*

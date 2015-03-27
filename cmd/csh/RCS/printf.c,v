@@ -1,0 +1,184 @@
+head     1.2;
+access   ;
+symbols  BSD29:1.1.2.9 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.09.26.18.29.55;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.17.58;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.16.04;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.37.40;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.04.58;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.31.58;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@В BSD 2.9 и 4.2 разный порядок первых аргументов strout.
+(см. исх. текст).
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: printf.c,v 1.1 86/06/01 20:17:58 dmitry Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        printf.c,v $
+ * Revision 1.1  86/06/01  20:17:58  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+/*
+ * Hacked "printf" which prints through putchar.
+ * DONT USE WITH STDIO!
+ */
+printf(fmt, args)
+char *fmt;
+{
+	_doprnt(fmt, &args, 0);
+}
+
+#ifdef pdp11
+_strout(string, count, adjust, foo, fillch)
+#else
+_strout(count, string, adjust, foo, fillch)
+#endif
+register char *string;
+register int count;
+int adjust;
+register struct { int a[6]; } *foo;
+{
+
+	if (foo != 0)
+		abort();
+	while (adjust < 0) {
+		if (*string=='-' && fillch=='0') {
+			putchar(*string++);
+			count--;
+		}
+		putchar(fillch);
+		adjust++;
+	}
+	while (--count>=0)
+		putchar(*string++);
+	while (adjust) {
+		putchar(fillch);
+		adjust--;
+	}
+}
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: printf.c,v 0.0 86/04/20 21:23:50 root Exp $";
+
+d8 4
+a11 1
+ * $Log$
+d24 1
+d26 3
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 12
+a12 1
+/* Copyright (c) 1979 Regents of the University of California */
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)printf.c    2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+static  char *sccsid = "@@(#)$Header: printf.c,v 2.1 86/03/12 23:47:18 alex Exp $";
+
+d13 1
+a13 1
+_strout(count, string, adjust, foo, fillch)
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+d4 2
+a5 4
+ * $Log:	printf.c,v $
+ * Revision 1.1  86/02/24  20:22:40  sys
+ * Initial revision
+ * 
+d7 5
+d13 5
+a17 2
+
+printf( fmt, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 )
+a18 2
+	char string[512];
+	char *p ;
+d20 16
+a35 3
+	sprintf( string, fmt, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 );
+	for( p = string ; *p ; p++ )
+		putchar( *p ) ;
+@

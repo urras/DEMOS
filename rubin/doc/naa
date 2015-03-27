@@ -1,0 +1,89 @@
+.ns
+.nr in 5
+.de i0
+.in \n(in
+..
+.de lp
+.i0
+.if !\n(.V .ta \\$2+1
+.if \n(.V .ta \\$2
+.in \\$1
+.ti -\\$2
+..
+.de s1
+.sp 1
+.ne 4
+..
+.de s2
+.sp 1
+..
+.de s3
+.sp 1
+..
+.de fo
+'sp 2
+'tl ''- % -''
+'bp
+..
+.de th
+.de x1
+.rs
+'sp 4
+'tl '\\fB\\$1(\\$2)\\fR'\\fB\\$3\\fR'\\fB\\$1(\\$2)\\fR'
+'sp 2
+\\..
+.wh -7  fo
+.wh 0 x1
+.pn 1
+'fi
+'ad
+.bp
+.in \n(in
+.dt
+..
+.de sh
+.i0
+.s1
+.ne 5
+.ti 0
+\\fB\\$1 \\$2 \\$3\\fR
+.br
+..
+.de bd
+.tr __
+.ul
+\\fB\\$1\\fR
+..
+.de bn
+.tr __
+.ul
+\\$1\\t
+..
+.de it
+.tr __
+.ul
+.li
+\\fI\\$1\\fR
+..
+.de dt
+.ta 8 16 24 32 40 48 56 64
+..
+.ds II \s-2\*(RU\s0
+.ds UU \s-2\*(DM\s0
+.ds GQ \s-2GEO-QUEL\s0
+.if !\n(.V .ds +- +-
+.if \n(.V .ds +- \(+-
+.ds ** *
+.ds b B
+.ds G G
+.ds a '
+.ds - -
+.ds _ _
+.ds v |
+.ds p J
+.ds r
+.ds g `
+.ds X X
+.ds u u
+.ds > ->
+.ds |

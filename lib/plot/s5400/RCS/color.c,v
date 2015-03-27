@@ -1,0 +1,66 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     90.09.24.16.44.29;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.04.21.09.02;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Устанвка цвета по номеру.
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@/* $Header: color.c,v 1.1 88/02/04 21:09:02 avg Exp $
+ * $Log:        color.c,v $
+ * Revision 1.1  88/02/04  21:09:02  avg
+ * Initial revision
+ *
+ */
+
+# include <stdio.h>
+
+char _HEXtab[] = "0123456789ABCDEF";
+
+color( col )
+unsigned col;
+{
+	if( col > 15 )                  /* Zero color IS a background color */
+		col = 1+(col%15);
+	printf( "HI%c", _HEXtab[col] );
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header$
+ * $Log$
+d13 1
+a13 1
+short col;
+d15 3
+a17 1
+	printf( "HI%c", _HEXtab[col&017] );
+@

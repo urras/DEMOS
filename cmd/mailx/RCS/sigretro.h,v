@@ -1,0 +1,47 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.12.25.16.00.52;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+
+/*
+ * Define extra stuff not found in signal.h
+ *
+ * $Log$
+ */
+
+/* $Header$ */
+
+#ifndef SIGRETRO
+
+#define SIGRETRO                                /* Can use this for cond code */
+
+#ifndef SIG_HOLD
+
+#define SIG_HOLD        (int (*)()) 3           /* Phony action to hold sig */
+#define BADSIG          (int (*)()) -1          /* Return value on error */
+
+#endif SIG_HOLD
+
+#endif SIGRETRO
+
+@

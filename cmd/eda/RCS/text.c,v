@@ -1,0 +1,299 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.52.11;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 09.07.1986
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+#define CR      012
+#define TAB     011
+
+/*
+ * Запоминание/чтение текстового буфера из файла
+ */
+text(arg)
+{
+	int  i,j,ccold1,clold1,fd;
+	extern int  mlevel,mdp,mdf,txtflg,txt;
+	extern char mtext[3][256];
+	extern char *tname;
+	char fname[SWID],txstr[NCOL];
+	char sym;
+	int  c;
+	FILE F1, F2, *f1, *f2;
+	extern int ffault;
+
+	f1 = &F1;
+	f2 = &F2;
+	if( !mlevel ) {          /* Eсли определение происходит при   */
+		ccold1 = cc;     /* выполнении макро,на экране ничего */
+		clold1 = cl;     /* не индицируется                   */
+		qpos(0, csh);
+		clrl();
+#ifdef VS
+		printx( VS );
+#endif VS
+#ifndef HPUX
+		if( _ediag ) {
+#endif
+			printx(arg==PLUS ? "Output": "Input " );
+			printx(" file? ");
+			cc = csh+13;
+#ifndef HPUX
+		} else {
+			printx(arg==PLUS ? "Выходной": "Входной " );
+			printx(" файл? ");
+			cc = csh+15;
+		}
+#endif
+	}
+	i = 0;
+	for(;;) {
+		readchar(&sym);
+		if( mdf && mlevel == 0 ) {
+			if( mdp < 254 )
+				mtext[mdf-1][mdp++] = sym;
+#ifdef S_bell
+			else
+				printx(S_bell);
+#endif S_bell
+		}
+		if( (sym>037 || sym&0100) && sym != 0177 ) {
+			if( i < SWID-25 ) {
+				if( !mlevel ) {
+					cc++;
+					writex( &sym, 1);
+				}
+				fname[i++] = sym;
+			}
+			continue;
+		}
+		if( sym != *(F_del) )   /* F_del - один символ */
+			goto out;
+		if( i > 0 ) {
+			i--;
+			if( !mlevel ) {
+				printx(S_left);
+#ifdef VE
+				printx( VE );
+#endif VE
+				writex( " ", 1);
+#ifdef VS
+				printx( VS );
+#endif VS
+				printx(S_left);
+				cc--;
+			}
+		}
+	}
+out:
+	if( !mlevel ) {
+		printx( ediag( " ** Hang on ... ",
+			       " ** Минуточку..." ));
+		fflush( stdout );
+		cc += 16;
+	}
+	fname[i] = 0;
+	if( i == 0 )
+		goto solong;
+
+/* Чтение/запись файла */
+	if( arg == PLUS ) {     /* Запись в файл */
+		if( (fd = creat(fname, 0644)) == -1 ) {
+			if(mlevel)
+				goto solong;
+#ifdef S_bell
+			printx(S_bell);
+#endif S_bell
+			qpos(0, csh);
+			clrl();
+			printx( ediag( "*** File cannot be created ***   ",
+				       "*** Файл не может быть создан ***" ));
+#ifdef VE
+			printx( VE );
+#endif VE
+			qpos(clold1, ccold1);
+			fflush( stdout );
+#if !defined(HPUX) && !defined(V2)
+			sleep( -75 );  /* 1.5 sec */
+#else
+			sleep( 2 );
+#endif
+			cc = csh+33;
+			ffault = 1;
+		} else {
+			/* 'Открыть' файл текстового буфера */
+			f1->_ptr  = f1->_buf;
+			f1->_chan = txt;
+			f1->_flag = _IOREAD;
+			f1->_cnt  = 0;
+
+			/* 'Открыть' выходной файл */
+			f2->_ptr  = f2->_buf;
+			f2->_chan = fd;
+			f2->_flag = _IOWRITE;
+			f2->_cnt  = 0;
+
+			if( txtflg && txt != -1 ) {
+				txtflg = -1;
+				lseek(txt, 0L, 0);
+				for(;;) {
+					if( testinput())
+						break;
+					i = 0;
+					txstr[0] = ' ';
+					while( (c = getc(f1)) !='\n' &&
+						c != EOF )
+						if( i < NCOL )
+							txstr[i++] = c;
+					if( c == EOF )
+						break;
+					if( i < NCOL )
+						txstr[i] = ' ';
+#ifdef UPPERONLY
+					conv_to(txstr, i);
+#endif UPPERONLY
+					for( c = 0; c < i ; c++ )
+						putc( txstr[c], f2 );
+					putc( '\n', f2 );
+				}
+			}
+			fclose(f2);
+		}
+	} else {        /* Чтение из файла */
+		if( (fd = open(fname, 0)) == -1 ) {
+			if(mlevel)
+				goto solong;
+#ifdef S_bell
+			printx(S_bell);
+#endif S_bell
+			qpos(0, csh);
+			clrl();
+			printx( ediag( "*** Cannot read input file ***   ",
+				       "*** Файл не может быть открыт ***"));
+#ifdef VE
+			printx( VE );
+#endif VE
+			qpos(clold1, ccold1);
+			fflush( stdout );
+#if !defined(HPUX) && !defined(V2)
+			sleep( -75 );   /* 1.5 sec */
+#else
+			sleep( 2 );
+#endif
+			cc = csh+33;
+			ffault = 1;
+		} else {
+			close(txt);
+			txtflg = 0;
+			if( (txt = creat(tname, 0600)) == -1 )
+				goto solong;
+			close(txt);
+			txt = open(tname, 2);
+			txtflg = -1;
+
+			/* 'Открыть' файл текстового буфера */
+			f1->_ptr  = f1->_buf;
+			f1->_chan = txt;
+			f1->_flag = _IOWRITE;
+			f1->_cnt  = 0;
+
+			/* 'Открыть' выходной файл */
+			f2->_ptr  = f2->_buf;
+			f2->_chan = fd;
+			f2->_flag = _IOREAD;
+			f2->_cnt  = 0;
+
+again :
+			if( testinput() )
+				goto skip;
+			for( i = NCOL-1 ; i>=0 ; i-- )
+				txstr[i] = ' ';
+			i = 0;
+			while( (c = getc(f2)) != EOF ) {
+				c &= 0377;
+				if( c == CR ) {
+#ifdef UPPERONLY
+					conv_from(txstr, width1);
+#endif UPPERONLY
+					for( j = width1 ; j >= 0 &&
+					     txstr[j] == ' ' ; j-- );
+					for( c = 0 ; c <= j ; c++ )
+						putc( txstr[c], f1 );
+					putc( '\n', f1 );
+					goto again;
+				} else if( c == TAB )
+					i = (i+8) & ~07;
+				else if( (c >= ' ' || (c&0100)) &&
+					  c != 0177 && i<NCOL )
+					txstr[i++] = c;
+			}
+skip :
+			fclose(f2);
+			fflush(f1);
+		}
+	}
+#ifdef S_bell
+	printx(S_bell);
+#endif S_bell
+
+solong :
+	if( ffault || !mlevel ) {
+#ifdef VE
+		printx( VE );
+#endif VE
+		typestr(0);
+		qpos(clold1, ccold1);
+	}
+	fflush( stdout );
+	if(
+#ifdef F_cr
+		sym != *(F_cr) &&
+#endif F_cr
+#ifdef F_lf
+		sym != *(F_lf) &&
+#endif F_lf
+#ifdef Q_cr
+		sym != *(Q_cr) &&
+#endif Q_cr
+#ifdef Q_lf
+		sym != *(Q_lf) &&
+#endif Q_lf
+	   1 )
+		execute(sym, 1);
+}
+@

@@ -1,0 +1,1661 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     87.03.22.21.05.43;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.12.30.16.58.34;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.28.20.29.28;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.28.18.50.04;  author avg;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.12.28.18.42.12;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Построитель лексических анализатров LEX.
+@
+
+
+1.4
+log
+@Неправильно обрабатывались русские буквы
+в строках (тип RSTR).
+@
+text
+@/*
+ * $Log:        parser.y,v $
+ * Revision 1.3  86/12/30  16:58:34  avg
+ * Сделаны правки для работы в КОИ-8.
+ *
+ * Revision 1.2  86/12/28  20:29:28  avg
+ * Версия для ДЕМОС 2.0
+ *
+ */
+%{
+/*NOXSTR*/
+#ifndef lint
+static char rcsid[] = "$Header: parser.y,v 1.3 86/12/30 16:58:34 avg Exp $";
+#endif
+/*YESXSTR*/
+%}
+
+%token CHAR CCL NCCL STR DELIM SCON ITER NEWE NULLS
+%left SCON '/' NEWE
+%left '|'
+%left '$' '^'
+%left CHAR CCL NCCL '(' '.' STR NULLS
+%left ITER
+%left CAT
+%left '*' '+' '?'
+
+%{
+#include "ldefs.h"
+%}
+%%
+%{
+int      i;
+int      j;
+int      k;
+int      g;
+char    *p;
+%}
+acc     :       lexinput
+	={
+#ifdef DEBUG
+		if( debug )
+			sect2dump();
+#endif DEBUG
+	}
+	;
+lexinput:       defns delim prods end
+	|       defns delim end
+	={
+		if( !funcflag )
+			phead2();
+		funcflag = TRUE;
+	}
+	| error
+	={
+#ifdef DEBUG
+		if( debug ){
+			sect1dump();
+			sect2dump();
+		}
+#endif DEBUG
+	}
+	;
+end:            delim | ;
+defns:  defns STR STR
+	={      scopy( $2, dp );
+		def[dptr] = dp;
+		dp =+ slength( $2 ) + 1;
+		scopy( $3, dp );
+		subs[dptr++] = dp;
+		if( dptr >= DEFSIZE )
+			error( "Too many definitions", "Слишком много определений" );
+		dp =+ slength( $3 ) + 1;
+		if( dp >= dchar + DEFCHAR )
+			error( "Definitions too long", "Определения слишком длинные" );
+		subs[dptr] = def[dptr] = 0; /* for lookup - require ending null */
+	}
+	|
+	;
+delim:  DELIM
+	={
+#ifdef DEBUG
+		if( sect == DEFSECTION && debug )
+			sect1dump();
+#endif DEBUG
+		sect++;
+	}
+	;
+prods:  prods pr
+	={      $$ = mn2( RNEWE, $1, $2 );
+	}
+	|       pr
+	={      $$ = $1;
+	}
+	;
+pr:     r NEWE
+	={
+		if( divflg == TRUE )
+			i = mn1( S1FINAL, casecount );
+		else
+			i = mn1( FINAL, casecount );
+		$$ = mn2( RCAT, $1, i );
+		divflg = FALSE;
+		casecount++;
+	}
+	| error NEWE
+	={
+#ifdef DEBUG
+		if( debug )
+			sect2dump();
+#endif
+	}
+r:      CHAR
+	={      $$ = mn0( $1 );
+	}
+	| STR
+	={
+		p = $1;
+		i = mn0( C(*p++) );
+		while( *p )
+			i = mn2( RSTR, i, C(*p++) );
+		$$ = i;
+	}
+	| '.'
+	={      symbol[C('\n')] = 0;
+		if( psave == FALSE ){
+			p = ccptr;
+			psave = ccptr;
+			for( i = 1; i < '\n'; i++ ){
+				symbol[C(i)] = 1;
+				*ccptr++ = i;
+			}
+			for( i = '\n' + 1; i < NCH; i++ ){
+				symbol[C(i)] = 1;
+				*ccptr++ = i;
+			}
+			*ccptr++ = 0;
+			if( ccptr > ccl + CCLSIZE ){
+				error( "Many long char classes", "Много длинных классов символов" );
+			}
+		}else{
+			p = psave;
+		}
+		$$ = mn1( RCCL, p );
+		cclinter( 1 );
+	}
+	| CCL
+	={      $$ = mn1( RCCL, $1 );
+	}
+	| NCCL
+	={      $$ = mn1( RNCCL, $1 );
+	}
+	| r '*'
+	={      $$ = mn1( STAR, $1 );
+	}
+	| r '+'
+	={      $$ = mn1( PLUS, $1 );
+	}
+	| r '?'
+	={      $$ = mn1( QUEST, $1 );
+	}
+	| r '|' r
+	={      $$ = mn2( BAR, $1, $3 );
+	}
+	| r r %prec CAT
+	={      $$ = mn2( RCAT, $1, $2 );
+	}
+	| r '/' r
+	={      if( !divflg ){
+			j = mn1( S2FINAL, -casecount );
+			i = mn2( RCAT, $1, j );
+			$$ = mn2( DIV, i, $3 );
+		}else{
+			$$ = mn2( RCAT, $1, $3 );
+			warning( "External '/' removed", "Внешний '/' удален" );
+		}
+		divflg = TRUE;
+	}
+	| r ITER ',' ITER '}'
+	={      if( $2 > $4 ){
+			i = $2;
+			$2 = $4;
+			$4 = i;
+		}
+		if( $4 <= 0 ){
+			warning( "Iteration range must be >0", "Диапазон итерации должен быть >0" );
+		}else{
+			j = $1;
+			for( k = 2; k <= $2; k++ )
+				j = mn2( RCAT, j, dupl( $1 ) );
+			for( i = $2 + 1; i <= $4; i++ ){
+				g = dupl( $1 );
+				for( k = 2; k <= i; k++ )
+					g = mn2( RCAT, g, dupl( $1 ) );
+				j = mn2( BAR, j, g );
+			}
+			$$ = j;
+		}
+	}
+	| r ITER '}'
+	={
+		if( $2 < 0 ){
+			warning( "Must be positive iteration", "Недопустимы негативные итерации" );
+		}else if( $2 == 0 ){
+			$$ = mn0( RNULLS );
+		}else{
+			j = $1;
+			for( k = 2; k <= $2; k++ )
+				j = mn2( RCAT, j, dupl( $1 ) );
+			$$ = j;
+		}
+	}
+	| r ITER ',' '}'
+	={
+				/* from n to infinity */
+		if( $2 < 0 ){
+			warning( "Must be positive iteration", "Недопустимы негативные итерации" );
+		}else if( $2 == 0 ){
+			$$ = mn1( STAR, $1 );
+		}else if( $2 == 1 ){
+			$$ = mn1( PLUS, $1 );
+		}else{          /* >= 2 iterations minimum */
+			j = $1;
+			for( k = 2; k < $2; k++ )
+				j = mn2( RCAT, j, dupl( $1 ) );
+			k = mn1( PLUS, dupl( $1 ) );
+			$$ = mn2( RCAT, j, k );
+		}
+	}
+	| SCON r
+	={      $$ = mn2( RSCON, $2, $1 );
+	}
+	| '^' r
+	={      $$ = mn1( CARAT, $2 );
+	}
+	| r '$'
+	={      i = mn0( '\n' );
+		if( !divflg ){
+			j = mn1( S2FINAL, -casecount );
+			k = mn2( RCAT, $1, j );
+			$$ = mn2( DIV, k, i );
+		}else
+			$$ = mn2( RCAT, $1, i );
+		divflg = TRUE;
+	}
+	| '(' r ')'
+	={      $$ = $2;
+	}
+	|       NULLS
+	={      $$ = mn0( RNULLS );
+	}
+	;
+%%
+yylex()
+{
+	register char   *p;
+	register int     c;
+	register int     i;
+		 char   *t;
+		 char   *xp;
+		 int     n;
+		 int     j;
+		 int     k;
+		 int     x;
+	static   int     sectbegin;
+	static   char    token[TOKENSIZE];
+	static   int     iter;
+
+#ifdef DEBUG
+	yylval = 0;
+#endif DEBUG
+
+	if( sect == DEFSECTION ){                /* definitions section */
+		while( !eof ){
+			if( prev == '\n' ){               /* next char is at beginning of line */
+				getl( p = buf );
+				switch( *p ){
+				  case '%':
+						switch( c = *( p + 1 ) ){
+						  case '%':
+								lgate();
+								fprintf( fout, "#define YYNEWLINE %d\n", ctable[C('\n')] );
+								fprintf( fout, "yylex(){\nint nstr; extern int yyprevious;\n" );
+								sectbegin = TRUE;
+								i = treesize*( sizeof( *name ) + sizeof( *left )+
+									sizeof(*right) + sizeof( *nullstr ) + sizeof( *parent ) )+ALITTLEEXTRA;
+								c = myalloc( i, 1 );
+								if( c == 0 )
+									error( "Not enough memory for parsing", "Мало памяти для дерева разбора" );
+								p = c;
+								cfree( p, i, 1 );
+								name = myalloc( treesize, sizeof( *name ) );
+								left = myalloc( treesize, sizeof( *left ) );
+								right = myalloc( treesize, sizeof( *right ) );
+								nullstr = myalloc( treesize, sizeof( *nullstr ) );
+								parent = myalloc( treesize, sizeof( *parent ) );
+								if( name == 0 || left == 0 || right == 0 || parent == 0 || nullstr == 0 )
+									error( "Not enough memory for parsing", "Мало памяти для дерева разбора" );
+								return( freturn( DELIM ) );
+						  case 'p':  /* has overridden number of positions */
+						  case 'P':
+								while( *p && !digit( *p ) )
+									p++;
+								maxpos = siconv( p );
+#ifdef DEBUG
+								if( debug )
+									printf( "positions (%%p) now %d\n", maxpos );
+#endif DEBUG
+								if( report == 2 )
+									report = 1;
+								continue;
+						  case 'n':
+						  case 'N':     /* has overridden number of states */
+								while( *p && !digit( *p ) )
+									p++;
+								nstates = siconv( p );
+#ifdef DEBUG
+								if( debug )
+									printf( " no. states (%%n) now %d\n", nstates );
+#endif DEBUG
+								if( report == 2 )
+									report = 1;
+								continue;
+						  case 'e':
+						  case 'E':             /* has overridden number of tree nodes */
+								while( *p && !digit( *p ) )
+									p++;
+								treesize = siconv( p );
+#ifdef DEBUG
+								if( debug )
+									printf( "treesize (%%e) now %d\n", treesize );
+#endif DEBUG
+								if( report == 2 ){
+									report = 1;
+								}
+								continue;
+						  case 'o':
+						  case 'O':
+								while( *p && !digit( *p ) )
+									p++;
+								outsize = siconv( p );
+								if( report == 2 )
+									report = 1;
+								continue;
+						  case 'a':
+						  case 'A':             /* has overridden number of transitions */
+								while( *p && !digit( *p ) )
+									p++;
+								if( report == 2 )
+									report = 1;
+								ntrans = siconv( p );
+# ifdef DEBUG
+								if( debug )
+									printf( "N. trans (%%a) now %d\n", ntrans );
+# endif
+								continue;
+						  case 'k':
+						  case 'K': /* overriden packed char classes */
+								while( *p && !digit( *p ) )
+									p++;
+								if( report == 2 )
+									report = 1;
+								cfree( pchar, pchlen, sizeof( *pchar ) );
+								pchlen = siconv( p );
+# ifdef DEBUG
+								if( debug )
+									printf( "Size classes (%%k) now %d\n", pchlen );
+# endif
+								pchar = pcptr = myalloc( pchlen, sizeof( *pchar ) );
+								continue;
+						  case 't': case 'T':     /* character set specifier */
+								ZCH = atoi(p+2);
+								if (ZCH < NCH) ZCH = NCH;
+								if (ZCH > 2*NCH) error("char table redefining is necessary",
+										       "необходимо переопределение табл. символов");
+								chset = TRUE;
+								for(i = 0; i<ZCH; i++)
+									ctable[i] = 0;
+								while(getl(p) && scomp(p,"%T") != 0 && scomp(p,"%t") != 0 ){
+									if((n = siconv(p)) <= 0 || n > ZCH){
+										warning("Bad value of char %d", "Плохое значение символа %d",n);
+										continue;
+									}
+									while(!space(*p) && *p) p++;
+									while(space(*p)) p++;
+									t = p;
+									while(*t){
+										c = ctrans(&t);
+										if( ctable[c] ){
+											if( printable( c ) )
+												warning( "Char '%c' used twice",
+													 "Символ '%c' использован дважды", c );
+											else
+												warning( "Char %3o used twice",
+													 "Символ %3o использован дважды", c );
+										}
+										else ctable[c] = n;
+										t++;
+									}
+									p = buf;
+								}
+								{
+									char chused[2*NCH]; int kr;
+
+									for(i=0; i<ZCH; i++)
+										chused[i]=0;
+									for(i=0; i<NCH; i++)
+										chused[ctable[i]]=1;
+									for(kr=i=1; i<NCH; i++)
+										if (ctable[i]==0){
+											while (chused[kr] == 0)
+												kr++;
+											ctable[i]=kr;
+											chused[kr]=1;
+										}
+								}
+								lgate();
+								continue;
+						  case 'c': case 'C':
+								continue;
+						  case '{':
+								lgate();
+								while(getl(p) && scomp(p,"%}") != 0)
+									fprintf(fout, "%s\n",p);
+								if(p[0] == '%') continue;
+								error("Unexpected EOF", "Неожиданный EOF");
+						 case 's': case 'S':             /* start conditions */
+								lgate();
+								while(*p && index(*p," \t,") < 0) p++;
+								n = TRUE;
+								while(n){
+									while(*p && index(*p," \t,") >= 0) p++;
+									t = p;
+									while(*p && index(*p," \t,") < 0)p++;
+									if(!*p) n = FALSE;
+									*p++ = 0;
+									if (*t == 0) continue;
+									i = sptr*2;
+									fprintf(fout,"#define %s %d\n",t,i);
+									scopy(t,sp);
+									sname[sptr++] = sp;
+									sname[sptr] = 0;        /* required by lookup */
+									if(sptr >= STARTSIZE)
+										error("Too many start conditions",
+										      "Слишком много стартовых условиий");
+									sp =+ slength(sp) + 1;
+									if(sp >= schar+STARTCHAR)
+										error("Start conditions too long",
+										      "Стартовые условия слишком длинные");
+								}
+								continue;
+						  default:
+								warning("Illegal request %s",
+									"Неправильный запрос %s",p);
+								continue;
+						}       /* end of switch after seeing '%' */
+				    case ' ': case '\t':            /* must be code */
+						lgate();
+						fprintf(fout, "%s\n",p);
+						continue;
+				    default:                /* definition */
+						while(*p && !space(*p)) p++;
+						if(*p == 0)
+							continue;
+						prev = U(*p);
+						*p = 0;
+						bptr = p+1;
+						yylval = buf;
+						if(digit(buf[0]))
+							warning("Substitution strings can't have leading digit",
+								"Строки подстановки не могут начинаться с цифр");
+						return(freturn(STR));
+				}
+			}else{       /* still sect 1, but prev != '\n' */
+				p = bptr;
+				while(*p && space(*p)) p++;
+				if(*p == 0)
+					warning("Translation not defined - empty string",
+						"Не задана трансляция - пустая строка");
+				scopy(p,token);
+				yylval = token;
+				prev = '\n';
+				return(freturn(STR));
+			}
+		}
+		/* end of section one processing */
+	}else if(sect == RULESECTION){           /* rules and actions */
+		while(!eof){
+			switch( c = gch() ){
+			  case '\0':
+					return( freturn( 0 ) );
+			  case '\n':
+					if( prev == '\n' ) continue;
+					x = NEWE;
+					break;
+			  case ' ':
+			  case '\t':
+					if( sectbegin == TRUE ){
+						cpyact();
+						while( ( c = gch() ) && c != '\n' );
+						continue;
+					}
+					if( !funcflag ) phead2();
+					funcflag = TRUE;
+					fprintf( fout, "case %d:\n", casecount );
+					if( cpyact() )
+						fprintf( fout, "break;\n" );
+					while( ( c = gch() ) && c != '\n' );
+					if( peek == ' ' || peek == '\t' || sectbegin == TRUE ){
+						warning( "Executable operators must be after %% in string",
+							 "Выполнимые операторы должны быть справа после %%" );
+						continue;
+					}
+					x = NEWE;
+					break;
+			  case '%':
+					if( prev != '\n' ) goto character;
+					if( peek == '{' ){        /* included code */
+						getl( buf );
+						while( !eof && getl( buf ) && scomp( "%}", buf ) != 0 )
+							fprintf( fout, "%s\n", buf );
+						continue;
+					}
+					if( peek == '%' ){
+						c = gch();
+						c = gch();
+						x = DELIM;
+						break;
+					}
+					goto character;
+			  case '|':
+					if( peek == ' ' || peek == '\t' || peek == '\n' ){
+						fprintf( fout, "case %d:\n", casecount++ );
+						continue;
+					}
+					x = '|';
+					break;
+			  case '$':
+					if( peek == '\n' || peek == ' ' || peek == '\t' || peek == '|' || peek == '/' ){
+						x = c;
+						break;
+					}
+					goto character;
+			  case '^':
+					if( prev != '\n' && scon != TRUE ) goto character;        /* valid only at line begin */
+					x = c;
+					break;
+			  case '?':
+			  case '+':
+			  case '.':
+			  case '*':
+			  case '(':
+			  case ')':
+			  case ',':
+			  case '/':
+					x = c;
+					break;
+			  case '}':
+					iter = FALSE;
+					x = c;
+					break;
+			  case '{':       /* either iteration or definition */
+					if( digit( c = gch() ) ){     /* iteration */
+						iter = TRUE;
+					ieval:
+						i = 0;
+						while( digit( c ) ){
+							token[i++] = c;
+							c = gch();
+						}
+						token[i] = 0;
+						yylval = siconv( token );
+						munput( 'c', c );
+						x = ITER;
+						break;
+					}else{          /* definition */
+
+						i = 0;
+						while( c && c != '}' ){
+							token[i++] = c;
+							c = gch();
+						}
+						token[i] = 0;
+						i = lookup( token, def );
+						if( i < 0 )
+							warning( "Definition %s not found", "Определение %s не найдено", token );
+						else
+							munput( 's', subs[i] );
+						continue;
+					}
+			  case '<':               /* start condition ? */
+					if( prev != '\n' )                /* not at line begin, not start */
+						goto character;
+					t = slptr;
+					do{
+						i = 0;
+						c = gch();
+						while( c != ',' && c && c != '>' ){
+							token[i++] = c;
+							c = gch();
+						}
+						token[i] = 0;
+						if( i == 0 )
+							goto character;
+						i = lookup( token, sname );
+						if( i < 0 ){
+							warning( "Undefined start condition %s", "Неопределенное стартовое условие %s", token );
+							continue;
+						}
+						*slptr++ = i+1;
+					}while( c && c != '>' );
+					*slptr++ = 0;
+					/* check if previous value re-usable */
+					for( xp = slist; xp < t; ){
+						if( strcmp( xp, t ) == 0 )
+							break;
+						while( *xp++ )
+							;
+					}
+					if( xp < t ){
+						/* re-use previous pointer to string */
+						slptr = t;
+						t = xp;
+					}
+					if( slptr > slist + STARTSIZE )             /* note not packed ! */
+						error( "Too many start conditions used", "Использовано слишком много стартовых условий" );
+					yylval = t;
+					x = SCON;
+					break;
+			  case '"':
+					i = 0;
+					while( ( c = gch() ) && c != '"' && c != '\n' ){
+						if( c == '\\' )
+							c = usescape( c = gch() );
+						token[i++] = c;
+						if( i > TOKENSIZE ){
+							warning( "String too long", "Слишком длинная строка" );
+							i = TOKENSIZE-1;
+							break;
+						}
+					}
+					if( c == '\n' ){
+						yyline--;
+						warning( "Nonterminated string", "Незакрытая строка" );
+						yyline++;
+					}
+					token[i] = 0;
+					if( i == 0 ){
+						x = NULLS;
+					}else if( i == 1 ){
+						yylval = U( token[0] );
+						x = CHAR;
+					}else{
+						yylval = token;
+						x = STR;
+					}
+					break;
+			  case '[':
+					for( i = 1; i < NCH; i++ )
+						symbol[C(i)] = 0;
+					x = CCL;
+					if( ( c = gch() ) == '^' ){
+						x = NCCL;
+						c = gch();
+					}
+					while( c != ']' && c ){
+						if( c == '\\' )
+							c = usescape( c = gch() );
+						symbol[C(c)] = 1;
+						j = C(c);
+						if( ( c = gch() ) == '-' && peek != ']' ){            /* range specified */
+							c = gch();
+							if( c == '\\' )
+								c = usescape( c = gch() );
+							k = C(c);
+#ifndef KOI8
+							if( j > k ){
+#else
+							if( KtoU(j) > KtoU(k) ){
+#endif KOI8
+								warning( "Inverted range", "Инвертированый диапазон" );
+								n = j;
+								j = k;
+								k = n;
+								symbol[C(j)] = 1;
+							}
+							if( !( ( 'A' <= j && k <= 'Z' ) ||
+							       ( 'a' <= j && k <= 'z' ) ||
+							       ( '0' <= j && k <= '9' )
+#ifdef Ucode
+
+							    || ( C('А')<=j && k<=C('Я') )
+							    || ( C('а')<=j && k<=C('я') )
+#endif
+#ifdef KOI8
+							    || ( 0300<=KtoU(j) && KtoU(k)<=0337 )
+							    || ( 0340<=KtoU(j) && KtoU(k)<=0377 )
+#endif
+											   ) )
+
+								warning( "Nonportable char class '%c'-'%c'", "Неперемещаемый класс символов '%c'-'%c'", j, k );
+#ifndef KOI8
+							for( n = j + 1; n <= k; n++ )
+								symbol[C(n)] = 1;          /* implementation dependent */
+#else
+							i = KtoU(k);
+							for( n = KtoU(j+1); n <= i; n++ )
+								symbol[UtoK(n)] = 1;
+#endif KOI8
+							c = gch();
+						}
+					}
+					/* try to pack ccl's */
+					i = 0;
+					for( j = 0; j < NCH; j++ )
+						if( symbol[C(j)] )
+							token[i++] = j;
+					token[i] = 0;
+					p = ccptr;
+					if( optim ){
+						p = ccl;
+						while( p < ccptr && scomp( token, p ) != 0 )
+							p++;
+					}
+					if( p < ccptr ){   /* found it */
+						yylval = p;
+					}else{
+						yylval = ccptr;
+						scopy( token, ccptr );
+						ccptr =+ slength(token) + 1;
+						if( ccptr >= ccl + CCLSIZE )
+							error( "Char classes too long",
+							       "Слишком большие классы символов" );
+					}
+					cclinter( x == CCL );
+					break;
+			  case '\\':
+					c = usescape( c = gch() );
+			  default:
+			  character:
+					if( iter ){       /* second part of an iteration */
+						iter = FALSE;
+						if( '0' <= c && c <= '9' )
+							goto ieval;
+					}
+					if( alpha( peek ) ){
+						i = 0;
+						yylval = token;
+						token[i++] = c;
+						while( alpha( peek ) )
+							token[i++] = gch();
+						if( peek == '?' || peek == '*' || peek == '+' )
+							munput( 'c', token[--i] );
+						token[i] = 0;
+						if( i == 1 ){
+							yylval = U(token[0]);
+							x = CHAR;
+						}else
+							x = STR;
+					}else{
+						yylval = c;
+						x = CHAR;
+					}
+				}
+				scon = FALSE;
+				if( x == SCON )
+					scon = TRUE;
+				sectbegin = FALSE;
+				return( freturn( x ) );
+		}
+	}
+	/* section three */
+	ptail();
+#ifdef DEBUG
+	if( debug )
+		fprintf( fout, "\n/*this comes from section three - debug */\n" );
+#endif
+	while( getl( buf ) && !eof )
+		fprintf( fout, "%s\n", buf );
+	return( freturn( 0 ) );
+}
+/* end of yylex */
+
+#ifdef DEBUG
+freturn(i)
+  int i; {
+	if(yydebug) {
+		printf("now return ");
+		if(i < NCH) allprint(i);
+		else printf("%d",i);
+		printf("   yylval = ");
+		switch(i){
+			case STR: case CCL: case NCCL:
+				strpt(yylval);
+				break;
+			case CHAR:
+				allprint(yylval);
+				break;
+			default:
+				printf("%d",yylval);
+				break;
+			}
+		putchar('\n');
+		}
+	return(i);
+	}
+# endif
+@
+
+
+1.3
+log
+@Сделаны правки для работы в КОИ-8.
+@
+text
+@d3 3
+d13 1
+a13 1
+static char rcsid[] = "$Header: parser.y,v 1.2 86/12/28 20:29:28 avg Exp $";
+d118 1
+a118 1
+		i = mn0( *p++ );
+d120 1
+a120 1
+			i = mn2( RSTR, i, *p++ );
+@
+
+
+1.2
+log
+@Версия для ДЕМОС 2.0
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d10 1
+a10 1
+static char rcsid[] = "$Header$";
+d672 1
+d674 3
+d685 13
+a697 1
+							       ( '0' <= j && k <= '9' ) ||
+d699 2
+a700 2
+							       ( C('А')<=j && k<=C('Я') ) ||
+							       ( C('а')<=j && k<=C('я') ) ) )
+d702 3
+a704 1
+							       ( (j&0300) == 0300       ) ) )
+a705 3
+								warning( "Nonportable char class '%c'-'%c'", "Неперемещаемый класс символов '%c'-'%c'", j, k );
+							for( n = j + 1; n <= k; n++ )
+								symbol[C(n)] = 1;          /* implementation dependent */
+@
+
+
+1.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d2 1
+a2 5
+ * МНОС РЛ 1.2
+ * lex - построитель лексических анализаторов
+ *	Версия для СМ-4 и т.п. - Антонов В.Г.
+ *				( ИПК Минавтопрома, ВМК МГУ )
+ * Последнее изменение: 03.09.85
+d4 7
+d679 1
+d682 3
+@
+
+
+1.0
+log
+@Initial revision
+@
+text
+@d1 8
+d19 1
+a19 1
+# include "ldefs.c"
+d23 5
+a27 4
+int i;
+int j,k;
+int g;
+char *p;
+d29 6
+a34 5
+acc	:	lexinput
+	={	
+# ifdef DEBUG
+		if(debug) sect2dump();
+# endif
+d37 2
+a38 2
+lexinput:	defns delim prods end
+	|	defns delim end
+d40 2
+a41 1
+		if(!funcflag)phead2();
+d46 2
+a47 2
+# ifdef DEBUG
+		if(debug) {
+a49 2
+			}
+# endif
+d51 2
+d54 3
+a56 3
+end:		delim | ;
+defns:	defns STR STR
+	={	scopy($2,dp);
+d58 2
+a59 2
+		dp =+ slength($2) + 1;
+		scopy($3,dp);
+d61 6
+a66 6
+		if(dptr >= DEFSIZE)
+			error("Too many definitions");
+		dp =+ slength($3) + 1;
+		if(dp >= dchar+DEFCHAR)
+			error("Definitions too long");
+		subs[dptr]=def[dptr]=0;	/* for lookup - require ending null */
+d70 1
+a70 1
+delim:	DELIM
+d72 4
+a75 3
+# ifdef DEBUG
+		if(sect == DEFSECTION && debug) sect1dump();
+# endif
+d77 1
+a77 1
+		}
+d79 6
+a84 5
+prods:	prods pr
+	={	$$ = mn2(RNEWE,$1,$2);
+		}
+	|	pr
+	={	$$ = $1;}
+d86 1
+a86 1
+pr:	r NEWE
+d88 5
+a92 4
+		if(divflg == TRUE)
+			i = mn1(S1FINAL,casecount);
+		else i = mn1(FINAL,casecount);
+		$$ = mn2(RCAT,$1,i);
+d95 1
+a95 1
+		}
+d98 8
+a105 6
+# ifdef DEBUG
+		if(debug) sect2dump();
+# endif
+		}
+r:	CHAR
+	={	$$ = mn0($1); }
+d109 3
+a111 3
+		i = mn0(*p++);
+		while(*p)
+			i = mn2(RSTR,i,*p++);
+d113 1
+a113 1
+		}
+d115 2
+a116 2
+	={	symbol['\n'] = 0;
+		if(psave == FALSE){
+d119 2
+a120 2
+			for(i=1;i<'\n';i++){
+				symbol[i] = 1;
+d122 3
+a124 3
+				}
+			for(i='\n'+1;i<NCH;i++){
+				symbol[i] = 1;
+d126 1
+a126 1
+				}
+d128 2
+a129 2
+			if(ccptr > ccl+CCLSIZE)
+				error("Too many large character classes");
+d131 1
+a131 1
+		else
+a132 2
+		$$ = mn1(RCCL,p);
+		cclinter(1);
+d134 3
+d138 2
+a139 1
+	={	$$ = mn1(RCCL,$1); }
+d141 2
+a142 1
+	={	$$ = mn1(RNCCL,$1); }
+d144 2
+a145 1
+	={	$$ = mn1(STAR,$1); }
+d147 2
+a148 1
+	={	$$ = mn1(PLUS,$1); }
+d150 2
+a151 1
+	={	$$ = mn1(QUEST,$1); }
+d153 2
+a154 1
+	={	$$ = mn2(BAR,$1,$3); }
+d156 2
+a157 1
+	={	$$ = mn2(RCAT,$1,$2); }
+d159 8
+a166 9
+	={	if(!divflg){
+			j = mn1(S2FINAL,-casecount);
+			i = mn2(RCAT,$1,j);
+			$$ = mn2(DIV,i,$3);
+			}
+		else {
+			$$ = mn2(RCAT,$1,$3);
+			warning("Extra slash removed");
+			}
+d168 1
+a168 1
+		}
+d170 1
+a170 1
+	={	if($2 > $4){
+d174 12
+a186 12
+		if($4 <= 0)
+			warning("Iteration range must be positive");
+		else {
+			j = $1;
+			for(k = 2; k<=$2;k++)
+				j = mn2(RCAT,j,dupl($1));
+			for(i = $2+1; i<=$4; i++){
+				g = dupl($1);
+				for(k=2;k<=i;k++)
+					g = mn2(RCAT,g,dupl($1));
+				j = mn2(BAR,j,g);
+				}
+d188 1
+a188 1
+			}
+d192 5
+a196 3
+		if($2 < 0)warning("Can't have negative iteration");
+		else if($2 == 0) $$ = mn0(RNULLS);
+		else {
+d198 2
+a199 2
+			for(k=2;k<=$2;k++)
+				j = mn2(RCAT,j,dupl($1));
+a200 1
+			}
+d202 1
+d206 7
+a212 4
+		if($2 < 0)warning("Can't have negative iteration");
+		else if($2 == 0) $$ = mn1(STAR,$1);
+		else if($2 == 1)$$ = mn1(PLUS,$1);
+		else {		/* >= 2 iterations minimum */
+d214 4
+a217 5
+			for(k=2;k<$2;k++)
+				j = mn2(RCAT,j,dupl($1));
+			k = mn1(PLUS,dupl($1));
+			$$ = mn2(RCAT,j,k);
+			}
+d219 1
+d221 2
+a222 1
+	={	$$ = mn2(RSCON,$2,$1); }
+d224 2
+a225 1
+	={	$$ = mn1(CARAT,$2); }
+d227 7
+a233 7
+	={	i = mn0('\n');
+		if(!divflg){
+			j = mn1(S2FINAL,-casecount);
+			k = mn2(RCAT,$1,j);
+			$$ = mn2(DIV,k,i);
+			}
+		else $$ = mn2(RCAT,$1,i);
+d235 1
+a235 1
+		}
+d237 5
+a241 3
+	={	$$ = $2; }
+	|	NULLS
+	={	$$ = mn0(RNULLS); }
+d244 14
+a257 8
+yylex(){
+	register char *p;
+	register int c, i;
+	char  *t, *xp;
+	int n, j, k, x;
+	static int sectbegin;
+	static char token[TOKENSIZE];
+	static int iter;
+d259 1
+a259 1
+# ifdef DEBUG
+d261 1
+a261 1
+# endif
+d263 79
+a341 31
+	if(sect == DEFSECTION) {		/* definitions section */
+		while(!eof) {
+			if(prev == '\n'){		/* next char is at beginning of line */
+				getl(p=buf);
+				switch(*p){
+				case '%':
+					switch(c= *(p+1)){
+					case '%':
+						lgate();
+						if(!ratfor)fprintf(fout,"# ");
+						fprintf(fout,"define YYNEWLINE %d\n",ctable['\n']);
+						if(!ratfor)fprintf(fout,"yylex(){\nint nstr; extern int yyprevious;\n");
+						sectbegin = TRUE;
+						i = treesize*(sizeof(*name)+sizeof(*left)+
+							sizeof(*right)+sizeof(*nullstr)+sizeof(*parent))+ALITTLEEXTRA;
+						c = myalloc(i,1);
+						if(c == 0)
+							error("Too little core for parse tree");
+						p = c;
+						cfree(p,i,1);
+						name = myalloc(treesize,sizeof(*name));
+						left = myalloc(treesize,sizeof(*left));
+						right = myalloc(treesize,sizeof(*right));
+						nullstr = myalloc(treesize,sizeof(*nullstr));
+						parent = myalloc(treesize,sizeof(*parent));
+						if(name == 0 || left == 0 || right == 0 || parent == 0 || nullstr == 0)
+							error("Too little core for parse tree");
+						return(freturn(DELIM));
+					case 'p': case 'P':	/* has overridden number of positions */
+						while(*p && !digit(*p))p++;
+						maxpos = siconv(p);
+d343 2
+a344 1
+						if (debug) printf("positions (%%p) now %d\n",maxpos);
+d346 9
+a354 5
+						if(report == 2)report = 1;
+						continue;
+					case 'n': case 'N':	/* has overridden number of states */
+						while(*p && !digit(*p))p++;
+						nstates = siconv(p);
+d356 2
+a357 1
+						if(debug)printf( " no. states (%%n) now %d\n",nstates);
+d359 1
+a359 43
+						if(report == 2)report = 1;
+						continue;
+					case 'e': case 'E':		/* has overridden number of tree nodes */
+						while(*p && !digit(*p))p++;
+						treesize = siconv(p);
+# ifdef DEBUG
+						if (debug) printf("treesize (%%e) now %d\n",treesize);
+# endif
+						if(report == 2)report = 1;
+						continue;
+					case 'o': case 'O':
+						while (*p && !digit(*p))p++;
+						outsize = siconv(p);
+						if (report ==2) report=1;
+						continue;
+					case 'a': case 'A':		/* has overridden number of transitions */
+						while(*p && !digit(*p))p++;
+						if(report == 2)report = 1;
+						ntrans = siconv(p);
+# ifdef DEBUG
+						if (debug)printf("N. trans (%%a) now %d\n",ntrans);
+# endif
+						continue;
+					case 'k': case 'K': /* overriden packed char classes */
+						while (*p && !digit(*p))p++;
+						if (report==2) report=1;
+						cfree(pchar, pchlen, sizeof(*pchar));
+						pchlen = siconv(p);
+# ifdef DEBUG
+						if (debug) printf( "Size classes (%%k) now %d\n",pchlen);
+# endif
+						pchar=pcptr=myalloc(pchlen, sizeof(*pchar));
+						continue;
+					case 't': case 'T': 	/* character set specifier */
+						ZCH = atoi(p+2);
+						if (ZCH < NCH) ZCH = NCH;
+						if (ZCH > 2*NCH) error("ch table needs redeclaration");
+						chset = TRUE;
+						for(i = 0; i<ZCH; i++)
+							ctable[i] = 0;
+						while(getl(p) && scomp(p,"%T") != 0 && scomp(p,"%t") != 0){
+							if((n = siconv(p)) <= 0 || n > ZCH){
+								warning("Character value %d out of range",n);
+d361 12
+a372 11
+								}
+							while(!space(*p) && *p) p++;
+							while(space(*p)) p++;
+							t = p;
+							while(*t){
+								c = ctrans(&t);
+								if(ctable[c]){
+									if (printable(c))
+										warning("Character '%c' used twice",c);
+									else
+										warning("Character %o used twice",c);
+d374 17
+a390 2
+								else ctable[c] = n;
+								t++;
+a391 10
+							p = buf;
+							}
+						{
+						char chused[2*NCH]; int kr;
+						for(i=0; i<ZCH; i++)
+							chused[i]=0;
+						for(i=0; i<NCH; i++)
+							chused[ctable[i]]=1;
+						for(kr=i=1; i<NCH; i++)
+							if (ctable[i]==0)
+d393 13
+a405 4
+								while (chused[kr] == 0)
+									kr++;
+								ctable[i]=kr;
+								chused[kr]=1;
+d407 41
+a447 1
+						}
+d449 1
+d451 12
+a462 57
+					case 'r': case 'R':
+						c = 'r';
+					case 'c': case 'C':
+						if(lgatflg)
+							error("Too late for language specifier");
+						ratfor = (c == 'r');
+						continue;
+					case '{':
+						lgate();
+						while(getl(p) && scomp(p,"%}") != 0)
+							fprintf(fout, "%s\n",p);
+						if(p[0] == '%') continue;
+						error("Premature eof");
+					case 's': case 'S':		/* start conditions */
+						lgate();
+						while(*p && index(*p," \t,") < 0) p++;
+						n = TRUE;
+						while(n){
+							while(*p && index(*p," \t,") >= 0) p++;
+							t = p;
+							while(*p && index(*p," \t,") < 0)p++;
+							if(!*p) n = FALSE;
+							*p++ = 0;
+							if (*t == 0) continue;
+							i = sptr*2;
+							if(!ratfor)fprintf(fout,"# ");
+							fprintf(fout,"define %s %d\n",t,i);
+							scopy(t,sp);
+							sname[sptr++] = sp;
+							sname[sptr] = 0;	/* required by lookup */
+							if(sptr >= STARTSIZE)
+								error("Too many start conditions");
+							sp =+ slength(sp) + 1;
+							if(sp >= schar+STARTCHAR)
+								error("Start conditions too long");
+							}
+						continue;
+					default:
+						warning("Invalid request %s",p);
+						continue;
+						}	/* end of switch after seeing '%' */
+				case ' ': case '\t':		/* must be code */
+					lgate();
+					fprintf(fout, "%s\n",p);
+					continue;
+				default:		/* definition */
+					while(*p && !space(*p)) p++;
+					if(*p == 0)
+						continue;
+					prev = *p;
+					*p = 0;
+					bptr = p+1;
+					yylval = buf;
+					if(digit(buf[0]))
+						warning("Substitution strings may not begin with digits");
+					return(freturn(STR));
+					}
+d464 1
+a464 2
+			/* still sect 1, but prev != '\n' */
+			else {
+d468 2
+a469 1
+					warning("No translation given - null string assumed");
+a473 1
+				}
+d475 1
+d477 1
+a477 2
+		}
+	else if(sect == RULESECTION){		/* rules and actions */
+d479 13
+a491 13
+			switch(c=gch()){
+			case '\0':
+				return(freturn(0));
+			case '\n':
+				if(prev == '\n') continue;
+				x = NEWE;
+				break;
+			case ' ':
+			case '\t':
+				if(sectbegin == TRUE){
+					cpyact();
+					while((c=gch()) && c != '\n');
+					continue;
+d493 10
+a502 7
+				if(!funcflag)phead2();
+				funcflag = TRUE;
+				if(ratfor)fprintf(fout,"%d\n",30000+casecount);
+				else fprintf(fout,"case %d:\n",casecount);
+				if(cpyact()){
+					if(ratfor)fprintf(fout,"goto 30997\n");
+					else fprintf(fout,"break;\n");
+d504 9
+a512 4
+				while((c=gch()) && c != '\n');
+				if(peek == ' ' || peek == '\t' || sectbegin == TRUE){
+					warning("Executable statements should occur right after %%");
+					continue;
+d514 5
+a518 9
+				x = NEWE;
+				break;
+			case '%':
+				if(prev != '\n') goto character;
+				if(peek == '{'){	/* included code */
+					getl(buf);
+					while(!eof && getl(buf) && scomp("%}",buf) != 0)
+						fprintf(fout,"%s\n",buf);
+					continue;
+d520 7
+a526 4
+				if(peek == '%'){
+					c = gch();
+					c = gch();
+					x = DELIM;
+d528 4
+d533 3
+a535 11
+				goto character;
+			case '|':
+				if(peek == ' ' || peek == '\t' || peek == '\n'){
+					if(ratfor)fprintf(fout,"%d\n",30000+casecount++);
+					else fprintf(fout,"case %d:\n",casecount++);
+					continue;
+					}
+				x = '|';
+				break;
+			case '$':
+				if(peek == '\n' || peek == ' ' || peek == '\t' || peek == '|' || peek == '/'){
+d538 9
+a546 33
+					}
+				goto character;
+			case '^':
+				if(prev != '\n' && scon != TRUE) goto character;	/* valid only at line begin */
+				x = c;
+				break;
+			case '?':
+			case '+':
+			case '.':
+			case '*':
+			case '(':
+			case ')':
+			case ',':
+			case '/':
+				x = c;
+				break;
+			case '}':
+				iter = FALSE;
+				x = c;
+				break;
+			case '{':	/* either iteration or definition */
+				if(digit(c=gch())){	/* iteration */
+					iter = TRUE;
+				ieval:
+					i = 0;
+					while(digit(c)){
+						token[i++] = c;
+						c = gch();
+						}
+					token[i] = 0;
+					yylval = siconv(token);
+					munput('c',c);
+					x = ITER;
+d548 12
+a559 6
+					}
+				else {		/* definition */
+					i = 0;
+					while(c && c!='}'){
+						token[i++] = c;
+						c = gch();
+d561 19
+a579 7
+					token[i] = 0;
+					i = lookup(token,def);
+					if(i < 0)
+						warning("Definition %s not found",token);
+					else
+						munput('s',subs[i]);
+					continue;
+d581 6
+a586 9
+			case '<':		/* start condition ? */
+				if(prev != '\n')		/* not at line begin, not start */
+					goto character;
+				t = slptr;
+				do {
+					i = 0;
+					c = gch();
+					while(c != ',' && c && c != '>'){
+						token[i++] = c;
+d588 3
+d592 7
+a598 7
+					token[i] = 0;
+					if(i == 0)
+						goto character;
+					i = lookup(token,sname);
+					if(i < 0) {
+						warning("Undefined start condition %s",token);
+						continue;
+d600 9
+a608 9
+					*slptr++ = i+1;
+					} while(c && c != '>');
+				*slptr++ = 0;
+				/* check if previous value re-usable */
+				for (xp=slist; xp<t; )
+					{
+					if (strcmp(xp, t)==0)
+						break;
+					while (*xp++);
+d610 4
+a613 5
+				if (xp<t)
+					{
+					/* re-use previous pointer to string */
+					slptr=t;
+					t=xp;
+d615 15
+a629 14
+				if(slptr > slist+STARTSIZE)		/* note not packed ! */
+					error("Too many start conditions used");
+				yylval = t;
+				x = SCON;
+				break;
+			case '"':
+				i = 0;
+				while((c=gch()) && c != '"' && c != '\n'){
+					if(c == '\\') c = usescape(c=gch());
+					token[i++] = c;
+					if(i > TOKENSIZE){
+						warning("String too long");
+						i = TOKENSIZE-1;
+						break;
+d632 4
+a635 4
+				if(c == '\n') {
+					yyline--;
+					warning("Non-terminated string");
+					yyline++;
+d637 9
+a645 5
+				token[i] = 0;
+				if(i == 0)x = NULLS;
+				else if(i == 1){
+					yylval = token[0];
+					x = CHAR;
+d647 8
+a654 3
+				else {
+					yylval = token;
+					x = STR;
+d656 16
+a671 20
+				break;
+			case '[':
+				for(i=1;i<NCH;i++) symbol[i] = 0;
+				x = CCL;
+				if((c = gch()) == '^'){
+					x = NCCL;
+					c = gch();
+					}
+				while(c != ']' && c){
+					if(c == '\\') c = usescape(c=gch());
+					symbol[c] = 1;
+					j = c;
+					if((c=gch()) == '-' && peek != ']'){		/* range specified */
+						c = gch();
+						if(c == '\\') c = usescape(c=gch());
+						k = c;
+						if(j > k) {
+							n = j;
+							j = k;
+							k = n;
+d673 9
+a681 7
+						if(!(('A' <= j && k <= 'Z') ||
+						     ('a' <= j && k <= 'z') ||
+						     ('0' <= j && k <= '9')))
+							warning("Non-portable Character Class");
+						for(n=j+1;n<=k;n++)
+							symbol[n] = 1;		/* implementation dependent */
+						c = gch();
+d684 11
+a694 9
+				/* try to pack ccl's */
+				i = 0;
+				for(j=0;j<NCH;j++)
+					if(symbol[j])token[i++] = j;
+				token[i] = 0;
+				p = ccptr;
+				if(optim){
+					p = ccl;
+					while(p <ccptr && scomp(token,p) != 0)p++;
+d696 9
+a704 8
+				if(p < ccptr)	/* found it */
+					yylval = p;
+				else {
+					yylval = ccptr;
+					scopy(token,ccptr);
+					ccptr =+ slength(token) + 1;
+					if(ccptr >= ccl+CCLSIZE)
+						error("Too many large character classes");
+d706 10
+a715 10
+				cclinter(x==CCL);
+				break;
+			case '\\':
+				c = usescape(c=gch());
+			default:
+			character:
+				if(iter){	/* second part of an iteration */
+					iter = FALSE;
+					if('0' <= c && c <= '9')
+						goto ieval;
+d717 16
+a732 11
+				if(alpha(peek)){
+					i = 0;
+					yylval = token;
+					token[i++] = c;
+					while(alpha(peek))
+						token[i++] = gch();
+					if(peek == '?' || peek == '*' || peek == '+')
+						munput('c',token[--i]);
+					token[i] = 0;
+					if(i == 1){
+						yylval = token[0];
+a733 2
+						}
+					else x = STR;
+a734 4
+				else {
+					yylval = c;
+					x = CHAR;
+					}
+d736 5
+a740 5
+			scon = FALSE;
+			if(x == SCON)scon = TRUE;
+			sectbegin = FALSE;
+			return(freturn(x));
+			}
+d742 1
+d745 8
+a752 8
+# ifdef DEBUG
+	if(debug)
+		fprintf(fout,"\n/*this comes from section three - debug */\n");
+# endif
+	while(getl(buf) && !eof)
+		fprintf(fout,"%s\n",buf);
+	return(freturn(0));
+	}
+d754 2
+a755 1
+# ifdef DEBUG
+@

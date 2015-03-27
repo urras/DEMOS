@@ -1,0 +1,32 @@
+#print
+Напишите программу, подсчитывающую число английских
+гласных букв, подступающих ей на вход (не учитывайте 'y').
+Не забудте определить значение конца файла в начале
+Вашей программы.
+#once #create Ref
+This line contains some vowels, including
+the letter 'y'. It also has a capital letter, I think.
+#user
+a.out <Ref >test
+grep 28 test >/dev/null
+#succeed
+Вот наше решение:
+
+ #include <stdio.h>
+
+main()
+{
+	int nv, c;
+
+	nv = 0;
+	while ((c = getchar()) != EOF)
+		if (c=='a' || c=='e' || c=='i' || c=='o' || c=='u'
+		 || c=='A' || c=='E' || c=='I' || c=='O' || c=='U')
+			nv++;
+	printf("%d\n", nv);
+}
+#fail
+А Вы не забыли про заглавные буквы?
+#log
+#next
+5.1f 10

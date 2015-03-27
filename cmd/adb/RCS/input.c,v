@@ -1,0 +1,128 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.03.26.21.29.14;  author andrew;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.05.18.36.53;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adb
+@
+
+
+1.2
+log
+@+many args :r
+@
+text
+@#
+/*
+ *
+ *	UNIX debugger
+ * $Log:	input.c,v $
+ * Revision 1.1  88/01/05  18:36:53  andrew
+ * Initial revision
+ * 
+ */
+
+#include "defs.h"
+
+INT		mkfault;
+CHAR            *line;
+INT		infile;
+CHAR		*lp;
+CHAR		lastc EOR;
+INT		eof;
+
+/* input routines */
+
+eol(c)
+CHAR	c;
+{
+	return(c==EOR ORF c==';');
+}
+
+rdc()
+{	REP	readchar();
+	PER	lastc==SP ORF lastc==TB
+	DONE
+	return(lastc);
+}
+
+readchar()
+{
+	IF eof
+	THEN	lastc=EOF;
+	ELSE	IF lp==0
+		THEN	lp=line;
+			REP eof = read(infile,lp,1)==0;
+			    IF mkfault THEN error(0); FI
+			PER eof==0 ANDF *lp++!=EOR DONE
+			*lp=0; lp=line;
+		FI
+		IF lastc = *lp THEN lp++; FI
+	FI
+	return(lastc);
+}
+
+nextchar()
+{
+	IF eol(rdc())
+	THEN lp--; return(0);
+	ELSE return(lastc);
+	FI
+}
+
+quotchar()
+{
+	IF readchar()=='\\'
+	THEN	return(readchar());
+	ELIF lastc=='\''
+	THEN	return(0);
+	ELSE	return(lastc);
+	FI
+}
+
+getformat(deformat)
+STRING		deformat;
+{
+	REG STRING	fptr;
+	REG BOOL	quote;
+	fptr=deformat; quote=FALSE;
+	WHILE (quote ? readchar()!=EOR : !eol(readchar()))
+	DO  IF (*fptr++ = lastc)=='"'
+	    THEN quote = ~quote;
+	    FI
+	OD
+	lp--;
+	IF fptr!=deformat THEN *fptr++ = '\0'; FI
+}
+
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d14 1
+a14 1
+CHAR		line[LINSIZ];
+@

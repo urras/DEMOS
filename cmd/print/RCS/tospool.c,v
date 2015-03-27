@@ -1,0 +1,593 @@
+head     1.11;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.11
+date     89.03.04.22.53.27;  author avg;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.04.04.13.52.58;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.01.30.17.59.54;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     87.03.23.15.28.31;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     87.03.21.18.37.23;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.01.06.10.45.04;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.09.22.22.01.47;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.09.22.21.19.07;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.09.22.21.04.10;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.05.18.21.08.07;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.05.17.21.52.11;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Открыть/закрыть вывод в спулинг.
+@
+
+
+1.11
+log
+@....
+@
+text
+@/*
+ * Открыть/закрыть вывод в спулинг
+ *
+ * Автор: Антонов В.Г.
+ *
+ * $Log:        tospool.c,v $
+ * Revision 1.10  88/04/04  13:52:58  avg
+ * Исправлены некоторые мелкие ошибки.
+ *
+ * Revision 1.9  88/01/30  17:59:54  avg
+ * Сделан режим on-line print (без записи в спулинг).
+ *
+ * Revision 1.8  87/03/23  15:28:31  avg
+ * Исправлена ошибка: если пользователь работал под su, то
+ * проверялся бюджет у su, а писались использованные листы ему
+ * самому.
+ *
+ * Revision 1.7  87/03/21  18:37:23  avg
+ * Сделано взаимодействие с бюджетом пользователя.
+ * Если у пользователя не осталось бумаги для печати,
+ * печать не производится.
+ *
+ * Revision 1.6  87/01/06  10:45:04  avg
+ * Разделено имя физического устройсва печати и логического
+ * устройства спулинга.
+ *
+ * Revision 1.5  86/09/22  22:01:47  avg
+ * Error: делался chown 2 раза на Hfn, а на Sfn на делался.
+ *
+ * Revision 1.4  86/09/22  21:19:07  avg
+ * Правка - непр. имя структуры.
+ *
+ * Revision 1.3  86/09/22  21:04:10  avg
+ * Добавлены chown-ы на спул. файлы и процедура проверки доступа
+ * на чтение к исх. файлам.
+ *
+ * Revision 1.2  86/05/18  21:08:07  avg
+ * lpq теперь глобальная структура - для того, чтобы можно было править
+ * lpq_flags.
+ *
+ * Revision 1.1  86/05/17  21:52:11  avg
+ * Initial revision
+ *
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: tospool.c,v 1.10 88/04/04 13:52:58 avg Exp $";
+#endif
+
+#include <ediag.h>
+#include <stdio.h>
+#include <stat.h>
+#include <bud.h>
+#include <signal.h>
+#include "getlp.h"
+#include "lpspool.h"
+
+#define BUDGET "/usr/adm/budget"
+
+/* Эти процедуры используют статические рабочие переменные */
+/*         ===> они не реентерабельны !!!                  */
+
+struct getlp *LP_PARMS;  /* Парамеры АЦПУ */
+static char   Sfn[64];   /* Имя файла спулинга */
+static char   Hfn[64];   /* Имя файла заголовка */
+static FILE  *sfi;       /* Файл спулинга */
+static        hfi;       /* Файл заголовка */
+struct LP_QUEUE lpq;     /* Таблица LPQ */
+static        NFI = 0;   /* Номер текущего файла спулинга */
+static int    (*OSINT)(), (*OSTERM)();  /* старые реакции  на сигналы */
+int           remtemp();
+
+/*
+ * Открыть вывод в спулинг
+ * Аргументы:
+ *      filename - имя файла
+ *      xf       - флаги спулинга
+ *      lp       - имя АЦПУ (если NULL, то по умолчанию)
+ *      ncopy    - число копий
+ *
+ */
+
+FILE *tospool( filename, xf, ncopy, lp )
+char   *filename;
+short   xf;
+short   ncopy;
+char   *lp;
+{
+	register char    *p;
+	register unsigned i;
+	char              HH[11];
+#ifdef ONLINE
+	int pipedes[2];
+	int r;
+#endif ONLINE
+
+	if( lp == NULL && (p = getenv( "LP" )) != NULL )
+		lp = p;
+	if( (LP_PARMS = getlp( lp )) == NULL ) {
+		if( lp == NULL )
+			error( "Can't read lptab", "Не могу прочитать lptab", NULL );
+		else
+			error( "not in lptab: ", "В lptab нет ", lp );
+	}
+#ifndef PRINT
+	if( xf & XF_NOSPOOL ) {
+		if( *filename != '/' ) {
+			if( getwd( lpq.lpq_filename ) == NULL )
+				error( "Can't found work directory: ",
+				       "Не могу определить имя рабочего каталога: ", lpq.lpq_filename );
+			strcat( lpq.lpq_filename, "/" );
+			strcat( lpq.lpq_filename, filename );
+		} else
+			strcpy( lpq.lpq_filename, filename );
+		sfi = NULL;
+	} else
+#endif
+			strncpy( lpq.lpq_filename, filename, MAXFNAME-1 );
+
+	/* Пока все делается по USER */
+	if( (p = getenv( "USER" )) == NULL )
+		p = "INCOGNITO";
+
+	strncpy( lpq.lpq_user, p, 15 );
+	xf |= ediag(0, XF_RUS);
+#ifndef ONLINE
+	HH[1] = 'S';
+	p = &HH[10];
+	*p-- = '\0';
+	i = NFI++;
+	*p-- = 'A' + (i%26);
+	*p-- = 'A' + (i/26);
+	i = getpid();
+	while( i > 0 ) {
+		*p-- = (i%10) + '0';
+		i /= 10;
+	}
+	while( p > &HH[1] )
+		*p-- = '0';
+	HH[0] = '/';
+	strcpy( lpq.lpq_spoolfile, &HH[1] );
+	strcpy( Sfn, LP_DIR );
+	strcat( Sfn, HH );
+	HH[1] = 'H';
+	strcpy( Hfn, LP_DIR );
+	strcat( Hfn, HH );
+	lpq.lpq_ncopy = ncopy;
+#endif ONLINE
+	strcpy( lpq.lpq_printer, LP_PARMS->lp_name );
+	strcpy( lpq.lpq_dev,     LP_PARMS->lp_dev );
+	lpq.lpq_class = LP_PARMS->lp_class;
+	lpq.lpq_width = LP_PARMS->lp_width;
+	lpq.lpq_length= LP_PARMS->lp_length;
+	lpq.lpq_flags = LP_PARMS->lp_flags;
+	lpq.lpq_xflags= xf;
+
+	lpq.lpq_speed  = LP_PARMS->lp_speed;
+	lpq.lpq_startc = LP_PARMS->lp_startc;
+	lpq.lpq_stopc  = LP_PARMS->lp_stopc;
+	lpq.lpq_local  = LP_PARMS->lp_local;
+	lpq.lpq_crdly  = LP_PARMS->lp_crdly;
+	lpq.lpq_nldly  = LP_PARMS->lp_nldly;
+	lpq.lpq_htdly  = LP_PARMS->lp_htdly;
+	lpq.lpq_vtdly  = LP_PARMS->lp_vtdly;
+	lpq.lpq_ldisc  = LP_PARMS->lp_ldisc;
+	strcpy(lpq.lpq_filter,LP_PARMS->lp_filter!=NULL?LP_PARMS->lp_filter:"");
+	strcpy( lpq.lpq_type, LP_PARMS->lp_type );
+	strcpy(lpq.lpq_istr, LP_PARMS->lp_istr!=NULL? LP_PARMS->lp_istr : "");
+	strcpy(lpq.lpq_tstr, LP_PARMS->lp_tstr!=NULL? LP_PARMS->lp_tstr : "");
+
+	lpq.lpq_slot  = lpslot;
+
+	if( (OSINT = signal(SIGINT, SIG_IGN)) != SIG_IGN )
+		signal(SIGINT, remtemp);
+	if( (OSTERM = signal(SIGTERM, SIG_IGN)) != SIG_IGN )
+		signal(SIGTERM, remtemp);
+
+#ifndef PRINT
+	if( !(xf & XF_NOSPOOL) ) {
+#endif
+#ifndef ONLINE
+		i = umask( 0177 );
+		if( (sfi = fopen( Sfn, "w" )) == NULL )
+			error( "Can't create spool file",
+			       "Не могу создать файл спулинга", NULL );
+		umask( i );
+#endif ONLINE
+#ifndef PRINT
+	}
+#endif
+
+#ifdef ONLINE
+	wait( &r );     /* Possible waits all of prev procs */
+	if( pipe( pipedes ) == -1 )
+		error( "Can't make pipe",
+		       "Не могу сздать трубу", NULL );
+	/*
+	 * Запустить процесс, печатающий на АЦПУ
+	 */
+	if( !(i = fork()) ) {
+		/* NEW PROCESS */
+		close(pipedes[1]);
+		print(&lpq, pipedes[0]);
+		exit(0);
+	}
+	if( i == -1 )
+		error( "Can't fork, try again",
+		       "Не могу создать процесс, попробуйте еще раз", NULL );
+	/* OLD PROCESS */
+	close(pipedes[0]);
+	sfi = fdopen(pipedes[1], "w");
+#endif ONLINE
+	return( sfi );
+}
+
+/*
+ * Закрыть вывод в спулинг
+ */
+spclose( nps )
+short    nps;    /* Число листов в вых. файле */
+{
+	struct stat stb;
+	int pages;
+	int bufd;
+	struct USER B;
+
+	/*
+	 * Проверка на бюджет бумаги
+	 */
+	if( (bufd = open(BUDGET, 2)) != -1 ) {
+		while( read(bufd, &B, sizeof B) == (sizeof B) ) {
+			if( !strcmp(lpq.lpq_user, B.B_name) ) {
+				pages = B.B_lppages - B.B_lpused;
+				if( B.B_lppages >= 0 && (nps*lpq.lpq_ncopy) > pages )
+					error("Out of paper budget",
+					      "Кончился бюджет бумаги",NULL);
+				break;
+			}
+		}
+		close(bufd);
+	}
+
+	if( sfi != NULL ) {
+		fclose( sfi );
+#ifndef ONLINE
+		chown( Sfn, DAEMON, DAEMON );
+#endif
+	}
+
+#ifndef ONLINE
+	lpq.lpq_npages = nps;
+
+	if( (hfi = creat( Hfn, 0600 )) < 0 ) {
+		error( "Can't create spool header file",
+		       "Не могу создать файл заголовка спулинга", NULL );
+	}
+	write( hfi, &lpq, sizeof lpq );
+	close( hfi );
+	chown( Hfn, DAEMON, DAEMON );
+	signal(SIGINT, OSINT);
+	signal(SIGTERM, OSTERM);
+
+	if( stat( LP_LOCK, &stb ) == -1 ) {
+		if( fork() == 0 ) {
+			execl( LP_DAEMON, LP_DAEMON, 0 );
+			error( "Can not start daemon",
+			       "Не могу запустить спулер", NULL );
+		}
+	}
+#endif ONLINE
+}
+
+/*
+ * Проверить доступ на чтение на файл
+ * 0 - success        1 - error
+ */
+chacc( n )
+char *n;
+{
+	struct stat stb;
+
+	if( stat( n, &stb ) == -1 )
+		return(1);
+	if( (stb.st_mode & 04) ||
+	    (stb.st_mode & 040 &&  getgid() == stb.st_gid) ||
+	    (stb.st_mode & 0400 && getuid() == stb.st_uid) )
+		return(0);
+	return(1);
+}
+
+#ifndef ONLINE
+/*
+ * Уничтожить временные файлы по сигналу
+ */
+int remtemp()
+{
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
+	unlink( Hfn );
+	unlink( Sfn );
+	exit(10);
+}
+#endif
+@
+
+
+1.10
+log
+@Исправлены некоторые мелкие ошибки.
+@
+text
+@d7 3
+d47 1
+a47 1
+static char rcsid[] = "$Header: tospool.c,v 1.9 88/01/30 17:59:54 avg Exp $";
+a56 1
+#define BUJET "/usr/adm/budget"
+d58 2
+d220 1
+a220 1
+short   nps;    /* Число листов в вых. файле */
+d223 2
+a224 2
+	int bumaga;
+	int yfd;
+a225 1
+/* проверка на бюджет бумаги  */
+d227 8
+a234 6
+	if((yfd=open(BUJET,2)) != -1) {
+		while( read(yfd,&B, sizeof B) == (sizeof B)) {
+		      /*printf("l=%s b=%s\n",lpq.lpq_user,B.B_name); */
+			if(!strcmp(lpq.lpq_user,B.B_name)) {
+				bumaga=B.B_lppages - B.B_lpused;
+				if( B.B_lppages >= 0 && nps*lpq.lpq_ncopy > bumaga)
+d236 1
+a236 1
+					"Кончился бюджет бумаги",NULL);
+d240 1
+a240 1
+		close(yfd);
+a241 1
+/* end проверки бюджета */
+@
+
+
+1.9
+log
+@Сделан режим on-line print (без записи в спулинг).
+@
+text
+@d7 3
+d44 1
+a44 1
+static char rcsid[] = "$Header: tospool.c,v 1.8 87/03/23 15:28:31 avg Exp $";
+d168 6
+a177 5
+		if( (OSINT = signal(SIGINT, SIG_IGN)) != SIG_IGN )
+			signal(SIGINT, remtemp);
+		if( (OSTERM = signal(SIGTERM, SIG_IGN)) != SIG_IGN )
+			signal(SIGTERM, remtemp);
+
+@
+
+
+1.8
+log
+@Исправлена ошибка: если пользователь работал под su, то
+проверялся бюджет у su, а писались использованные листы ему
+самому.
+@
+text
+@d7 4
+d41 1
+a41 1
+static char rcsid[] = "$Header: tospool.c,v 1.8 87/03/23 13:10:36 root Exp $";
+d48 1
+d63 2
+d85 4
+d119 1
+d141 1
+d159 1
+a159 4
+	if( LP_PARMS->lp_filter == NULL )
+		lpq.lpq_filter[0] = '\0';
+	else
+		strcpy(lpq.lpq_filter, LP_PARMS->lp_filter);
+d161 2
+d168 6
+d179 1
+d184 21
+d226 1
+a226 1
+					error("Paper budget had finished",
+d237 1
+d239 1
+d242 1
+d252 2
+d262 1
+d282 14
+@
+
+
+1.7
+log
+@Сделано взаимодействие с бюджетом пользователя.
+Если у пользователя не осталось бумаги для печати,
+печать не производится.
+@
+text
+@d7 6
+d37 1
+a37 1
+static char rcsid[] = "$Header: tospool.c,v 1.6 87/01/06 10:45:04 avg Exp $";
+d175 1
+a175 1
+	int yuid, bumaga;
+a179 1
+	yuid=getuid();
+d182 2
+a183 1
+			if(yuid==B.B_uid) {
+@
+
+
+1.6
+log
+@Разделено имя физического устройсва печати и логического
+устройства спулинга.
+@
+text
+@d7 4
+d31 1
+a31 1
+static char rcsid[] = "$Header: tospool.c,v 1.5 86/09/22 22:01:47 avg Exp $";
+d37 1
+d40 1
+d169 19
+@
+
+
+1.5
+log
+@Error: делался chown 2 раза на Hfn, а на Sfn на делался.
+@
+text
+@d7 3
+d27 1
+a27 1
+static char rcsid[] = "$Header: tospool.c,v 1.4 86/09/22 21:19:07 avg Exp $";
+d118 1
+@
+
+
+1.4
+log
+@Правка - непр. имя структуры.
+@
+text
+@d7 3
+d24 1
+a24 1
+static char rcsid[] = "$Header: tospool.c,v 1.3 86/09/22 21:04:10 avg Exp $";
+d162 1
+a162 1
+		chown( Hfn, DAEMON, DAEMON );
+@
+
+
+1.3
+log
+@Добавлены chown-ы на спул. файлы и процедура проверки доступа
+на чтение к исх. файлам.
+@
+text
+@d7 4
+d21 1
+a21 1
+static char rcsid[] = "$Header: tospool.c,v 1.2 86/05/18 21:08:07 avg Exp $";
+d188 1
+a188 1
+	struct statb stb;
+@
+
+
+1.2
+log
+@lpq теперь глобальная структура - для того, чтобы можно было править 
+lpq_flags.
+@
+text
+@d7 4
+d17 1
+a17 1
+static char rcsid[] = "$Header: tospool.c,v 1.1 86/05/17 21:52:11 avg Exp $";
+d153 1
+a153 1
+	if( sfi != NULL )
+d155 2
+d166 1
+d175 18
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 4
+a9 1
+ * $Log$
+d13 1
+a13 1
+static char rcsid[] = "$Header$";
+d30 1
+a30 1
+static struct LP_QUEUE lpq;
+@

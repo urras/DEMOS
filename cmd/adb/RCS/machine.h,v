@@ -1,0 +1,135 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     89.01.31.17.20.55;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.15.20.20.41;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.05.18.39.25;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adb
+@
+
+
+1.3
+log
+@Сделан разбор стека ядра в режиме IPK_FASTKOV.
+@
+text
+@#include <sys/localopts.h>
+/*
+ *      UNIX/INTERDATA debugger
+ * $Log:        machine.h,v $
+ * Revision 1.2  88/09/15  20:20:41  ache
+ * Добавлено приглашение, если ввод/вывод с терминала.
+ *
+ * Revision 1.1  88/01/05  18:39:25  andrew
+ * Initial revision
+ *
+ */
+
+/* unix parameters */
+#define DBNAME "adb> "
+#define LPRMODE "%Q"
+#define OFFMODE "+%o"
+#define TXTRNDSIZ 8192L
+
+TYPE    unsigned TXTHDR[8];
+TYPE    struct ovhead   OVLVEC;
+#ifdef  IPK_XOVLY
+TYPE    struct xovhead XOVLVEC;
+#endif  /*IPK_XOVLY*/
+TYPE    unsigned  SYMV;
+TYPE    char  SYMFLG;
+TYPE    char  OVTAG;
+
+/* symbol table in a.out file */
+struct symtab {
+	char    symc[8];
+	SYMFLG  symf;
+	OVTAG   ovnumb;
+	SYMV    symv;
+};
+#define SYMTABSIZ (sizeof (struct symtab))
+
+#define SYMCHK 047
+#define SYMTYPE(symflag) (( symflag>=041 || (symflag>=02 && symflag<=04))\
+				?  ((symflag&07)>=3 ? DSYM : (symflag&07))\
+				: NSYM\
+			)
+struct  ovhead {
+	unsigned        max;
+	unsigned        ov[7];
+};
+#ifdef  IPK_XOVLY
+struct  xovhead {
+	unsigned        xmax;
+	unsigned        xov[31];
+};
+#endif  /*IPK_XOVLY*/
+@
+
+
+1.2
+log
+@Добавлено приглашение, если ввод/вывод с терминала.
+@
+text
+@d3 5
+a7 2
+ *	UNIX/INTERDATA debugger
+ * $Log:	machine.h,v $
+d10 1
+a10 1
+ * 
+d19 2
+a20 2
+TYPE	unsigned TXTHDR[8];
+TYPE	struct ovhead	OVLVEC;
+d24 3
+a26 3
+TYPE	unsigned  SYMV;
+TYPE	char  SYMFLG;
+TYPE	char  OVTAG;
+d30 4
+a33 4
+	char	symc[8];
+	SYMFLG	symf;
+	OVTAG	ovnumb;
+	SYMV	symv;
+d42 3
+a44 3
+struct	ovhead {
+	unsigned	max;
+	unsigned	ov[7];
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d11 1
+a11 1
+#define DBNAME "adb\n"
+@

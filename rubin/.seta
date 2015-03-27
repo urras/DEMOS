@@ -1,0 +1,5 @@
+alias ing "rubin \!* demo ~/files/proctab7P"
+alias ad "adb ~/bin/\!* ~/data/base/demo/core"
+alias roll "echo '[\!:1;\!:2r[\!:1;0H'"
+alias rub 'rubin -udolrub \!* ptest ~/files/proctab7P'
+alias new 'rubin  \!* ~/files/proctab7P'

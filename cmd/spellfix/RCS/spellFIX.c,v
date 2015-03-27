@@ -1,0 +1,299 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.07.09.20.36.02;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Интерактивное исправление ошибок при помощи spell.
+Программа вставки диагостик в исходный файл.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+#ifndef lint
+static rcsid[] = "$Header$";
+#endif
+
+#include <stdio.h>
+#include <ctype.h>
+#include <ediag.h>
+
+malloc() { return(NULL); }
+free()   { }
+calloc() { return(NULL); }
+
+#define HSIZE  300
+#define MEMINC 512
+
+struct hash {
+	struct hash *link;
+	char         word[1];
+}       *hashtab[HSIZE];
+
+char *himem, *curmem;
+
+newentry(word)
+	register char *word;
+{
+	register n;
+	struct hash *h;
+	register char *p;
+
+	/*
+	 * Trim tailing \n and check for null words
+	 */
+	p = word;
+	while( *p ) p++;
+	if( *--p == '\n' )
+		*p = '\0';
+	if( p == word )
+		return;
+
+	/*
+	 * Allocate some memory
+	 */
+	n = strlen(word)+1+sizeof(struct hash *);
+	if( n % sizeof(struct hash *) ) {
+		n += sizeof(struct hash *)-1;
+		n /= sizeof(struct hash *);
+		n *= sizeof(struct hash *);
+	}
+	if( himem < curmem+n ) {
+		if( sbrk(MEMINC) < 0 ) {
+			fprintf(stderr, ediag("not enough core\n",
+					      "не хватило памяти\n"));
+			exit(3);
+		}
+		himem += MEMINC;
+	}
+	h = (struct hash *)curmem;
+	curmem += n;
+
+	/*
+	 * Compute hash function
+	 */
+	p = word;
+	n = 0;
+	while( *p ) {
+		n += (*p++ & 0377) + 1;
+		if( n < 0 )
+			n = -n;
+	}
+	n %= HSIZE;
+
+	/*
+	 * Copy word and link the hash queue
+	 */
+	strcpy(h->word, word);
+	h->link = hashtab[n];
+	hashtab[n] = h;
+}
+
+/*
+ * Check - are word in dictionary?
+ */
+check(word)
+	register char *word;
+{
+	register n;
+	char    *p;
+	register struct hash *h;
+
+	/*
+	 * Compute hash function
+	 */
+	p = word;
+	n = 0;
+	while( *p ) {
+		n += (*p++ & 0377) + 1;
+		if( n < 0 )
+			n = -n;
+	}
+	n %= HSIZE;
+
+	/*
+	 * Search in hash list
+	 */
+	for( h = hashtab[n] ; h != NULL ; h = h->link ) {
+		if( !strcmp(word, h->word) )
+			return(1);
+	}
+	return(0);
+}
+
+main(c, v)
+	char **v;
+{
+	register FILE *dict;
+	char Dbuf[BUFSIZ];
+	char Line[256];
+
+	if( c < 2 ) {
+		fprintf(stderr, ediag("Usage: %s dictionary\n",
+				      "Вызов: %s словарь\n"), v[0]);
+		exit(1);
+	}
+	if( (dict = fopen(v[1], "r")) == NULL ) {
+		fprintf(stderr, ediag("%s: can't open dictionary %s\n",
+				      "%s: не могу открыть словарь %s\n"), v[0], v[1]);
+		exit(2);
+	}
+	setbuf(dict, Dbuf);
+
+	/*
+	 * Read dictionary in
+	 */
+	himem = curmem = (char *)sbrk(0);
+	while( fgets(Line, 255, dict) != NULL )
+		newentry(Line);
+	fclose(dict);
+
+	/*
+	 * Read stdin check all of words
+	 * After reading write the string out
+	 */
+	while( gets(Line) != NULL ) {
+		spell(Line);
+		puts(Line);
+	}
+	exit(0);
+}
+
+char escape = '\\';
+int NullChar;
+
+/*
+ * Skip nroff escape sequence
+ */
+char *skipescape(p)
+	register char *p;
+{
+	register ecc;
+
+	NullChar = 0;
+	switch( *++p ) {
+	    case 'j':
+	    case 'k':
+	    case 'f':
+		if( !*++p ) break;
+	    case '&':
+	    case '%':
+		p++;
+	    default:
+		NullChar++;
+		break;
+
+	    case 'z':
+	    case '$':
+		if( !*++p ) break;
+	    case 'e':
+	    case 'a':
+	    case 't':
+	    case 'c':
+	    case 'd':
+	    case 'p':
+	    case 'r':
+	    case 'u':
+	    case '{':
+	    case '!':
+		p++;
+		break;
+
+	    case '*':
+	    case 'n':
+		if( *++p == '(' ) {
+			if( *++p ) p++;
+		}
+		if( *p ) p++;
+		break;
+
+	    case 'b':
+	    case 'h':
+	    case 'l':
+	    case 'L':
+	    case 'o':
+	    case 'v':
+	    case 'w':
+	    case 'x':
+		if( ecc = *++p ) {
+			p++;            /* skip ecc */
+			while( *p && *p != ecc ) p++; /* skip until ecc */
+			if( *p ) p++;   /* skip ecc */
+		}
+
+	    case '"':
+		while( *p ) p++;
+		break;
+	}
+	return p;
+}
+
+/*
+ * Deroff line and check all of words
+ */
+spell(line)
+	char *line;
+{
+	register char *p;
+	register char *q;
+	char wordbuf[256];      /* buffer for word */
+
+	/*
+	 * Lexical finite automata
+	 */
+
+	/*
+	 * state 0 - initial, begin of line
+	 */
+	p = line;
+
+	if( *p == '.' || *p == '\'' ) { /* macro, skip to space or 2 letters */
+		p++;
+		while( isspace(*p) ) p++;
+		if( !isspace(*p) && *p ) p++;
+		if( !isspace(*p) && *p ) p++;
+	}
+
+	/*
+	 * state 1 - random position in line
+	 */
+S1:     while( !isalnum(*p) && *p != escape && *p ) p++;
+	if( !*p )
+		return;
+	if( *p == escape ) {
+		p = skipescape(p);
+		goto S1;
+	}
+
+	/*
+	 * state 2 - begin of word
+	 */
+	q = wordbuf;
+S2:     while( isalnum(*p) ) *q++ = *p++;
+	if( *p == escape ) {
+		p = skipescape(p);
+		if(NullChar)
+			goto S2;
+	}
+	*q = '\0';
+	if( check(wordbuf) )
+		printf( ".\\\" ### spell: %s %%%%%%\n", wordbuf );
+	goto S1;
+}
+@

@@ -1,0 +1,541 @@
+head     4.1;
+access   ;
+symbols  RED_4:3.1.2 RED_3_9:3.5 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+4.1
+date     88.03.31.22.03.40;  author alex;  state Exp;
+branches ;
+next     3.5;
+
+3.5
+date     87.06.05.23.50.50;  author alex;  state Exp;
+branches ;
+next     3.4;
+
+3.4
+date     86.09.19.19.54.15;  author alex;  state Stab;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.52.20;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.12.03;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.04.20.23.42.10;  author alex;  state Exp;
+branches 3.1.1.1 3.1.2.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.05.14;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.05.18.53.55;  author alex;  state Stab;
+branches ;
+next     ;
+
+3.1.2.1
+date     87.06.19.17.00.53;  author alex;  state Exp;
+branches ;
+next     3.1.2.2;
+
+3.1.2.2
+date     87.06.23.18.51.42;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+4.1
+log
+@Версия 4.1 - обкатка на UTEC, СМ
+@
+text
+@/*
+ *      Редактор RED.
+ *
+ *      $Header: r.mac.c,v 3.1.2.2 87/06/23 18:51:42 alex Exp $
+ *      $Log:	r.mac.c,v $
+ * Revision 3.1.2.2  87/06/23  18:51:42  alex
+ * wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+ * 
+ * Revision 3.1.2.1  87/06/19  17:00:53  alex
+ * Start revision for red/4
+ * 
+ * Revision 3.5  87/06/05  23:50:50  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.4  86/09/19  19:54:15  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:52:20  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  19:12:03  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.2  86/06/05  18:53:55  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1.1.1  86/06/05  00:05:14  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/04/20  23:42:10  alex
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:42:10  alex
+ * *** empty log message ***
+ * 
+ * Revision 1.4  86/04/13  22:01:27  alex
+ */
+
+
+/* Файл содержит программы, реализующие новые возможности
+ *  редактора "RED", связанные с макропеременными
+ *
+ * Типы макросов
+ TAG - точка в файле
+ BUF - буфер вставки
+ MAC - макро=вставка
+*/
+
+#include "r.defs.h"
+
+#define MTAG 1
+#define MBUF 2
+#define MMAC 3
+
+struct tag {int line, col, nfile;};
+#define MSBUF SSAVEBUF
+#define MSTAG sizeof(struct tag)
+#define MSMAC sizeof(char *)
+
+#define LMAC ('z'-'a'+1)
+int csrsw; /* Для яркой отметки на экране */
+union macro {struct savebuf mbuf; struct tag mtag; char *mstring;}
+		*mtaba[LMAC];
+char mtabt[LMAC];
+
+/*
+ * union macro *mname(name,typ,l)
+ * Функция поиска описателя по имени
+ * если l=0, то ищет и проверяет тип,
+ * иначе создает новый описатель
+ */
+union macro *mname(name,typ,l)
+register char *name;
+int typ,l;
+{
+    register int i;char cname;
+    cname = (*name|040) &0177;
+    if((cname >'z') || (cname<'a') || (*(name+1) != 0))
+    {
+        error(DIAG("ill.macro name","Недоп.имя макро"));
+        goto err;
+    }
+    i= cname -'a';
+    if(l) {
+        if(mtaba[i]) {
+            if (mtabt[i] == MMAC) free(mtaba[i]->mstring);
+	    free((char *)mtaba[i]);
+            telluser(DIAG("macro redefined","макро переопределен"),0);
+        }
+        mtabt[i]=typ;
+        mtaba[i]=(union macro *)salloc(l);
+        goto retn;
+    }
+    if( mtabt[i] != typ) {
+        error( mtabt[i]?DIAG("ill.macro type","Ошиб.тип макро"):DIAG("undefined","неопределено"));
+        goto err;
+    }
+retn:
+    return(mtaba[i]);
+err:
+    return(0);
+}
+
+/*
+ * msrbuf( sbuf, name,op)
+ * Функция запоминает и выдает буфер вставки
+ * op=1 - выдать, 0 - запомнить
+ * ответ 1, если хорошо, иначе 0
+ */
+msrbuf( sbuf, name,op)
+register struct savebuf *sbuf;
+register char *name;
+int op;
+{
+    register union macro *m;
+    if ((m=mname(name,MBUF,(op?0:MSBUF))))
+        {
+        if(op) *sbuf = m->mbuf; else m->mbuf = *sbuf;
+        return(1);
+    }
+    return(0);
+}
+
+/*
+ * msvtag(name) -
+ * Функция запоминает текущее положение курсора в файле под именем name.
+ * Ее дефект в том, что tag (метка) не связана с файлом жестко и
+ * перемещается при редактировании предыдущих строк файла
+ */
+msvtag(name)
+register char *name;
+{
+	register union macro *m; register struct workspace *cws;
+	cws = curwksp;
+	if( !(m=mname(name,MTAG,MSTAG)) ) return(0);
+	m->mtag.line = cursorline + cws->ulhclno;
+	m->mtag.col  = cursorcol  + cws->ulhccno;
+	m->mtag.nfile= cws->wfile;
+	return(1);
+}
+
+/*
+ * mgotag(name) -
+ * Функция mgotag служит для установки курсора обратно в именованную
+ * точку. cgoto является общей для нее и для нескольких других функций
+ */
+mgotag(name)
+char *name;
+{
+    register int i;
+    int fnew=0;
+    register union macro *m;
+    if( !(m=mname(name,MTAG,0))) return(0);
+    if (curwksp->wfile != (i=m->mtag.nfile))
+    {
+        editfile(openfnames[i],0,0,0,0);
+        fnew=1;
+    }
+    cgoto(m->mtag.line, m->mtag.col, -1, fnew);
+    csrsw = 1;
+    return(1);
+}
+
+/*
+ * mdeftag(name)
+ * Функция mdeftag вырабатывает параметры, описывающие область
+ *  между текущим положением курсора и меткой "name". Она заполняет:
+ *      paramtype = -2
+ *      paramc1   =    соответствует точке "name"
+ *      paramr1   =           -- // --
+ */
+mdeftag(name)
+char *name;
+{
+    register union macro *m;
+    register struct workspace *cws; 
+    int cl,ln,f=0;
+    if( !(m=mname(name,MTAG,0))) return(0);
+    cws = curwksp;
+    if(m->mtag.nfile != cws->wfile) {
+        error(DIAG("another file","Другой файл"));
+        return(0);
+    }
+    paramtype= -2;
+    paramr1 = m->mtag.line;
+    paramc1 = m->mtag.col ;
+    paramr0 += cws -> ulhclno;
+    paramc0 += cws -> ulhccno;
+    if( paramr0 > paramr1) {
+        f++;
+        ln = paramr1;
+        paramr1 = paramr0; 
+        paramr0 = ln;
+    }
+    else ln = paramr0;
+    if( paramc0 > paramc1) {
+        f++;
+        cl = paramc1;
+        paramc1 = paramc0; 
+        paramc0 = cl;
+    }
+    else cl = paramc0;
+    if( f ){
+        cgoto(ln,cl,-1,0);
+    }
+    paramr0 -= cws -> ulhclno;
+    paramr1 -= cws -> ulhclno;
+    paramc0 -= cws -> ulhccno;
+    paramc1 -= cws -> ulhccno;
+    if (paramr1 == paramr0)
+        telluser(DIAG("**:columns defined by tag","***Часть строки указана меткой***"),0);
+    else if(paramc1 == paramc0)
+        telluser(DIAG("**:lines defined by tag","***:строки указаны меткой"),0);
+    else telluser(DIAG("**:square defined by tag","**:прямоугольник указан меткой"),0);
+    return(1);
+}
+
+/*
+ * defmac(name)
+ * Программа определения макро - последовательности,
+ */
+defmac(name)
+char *name;
+{
+    register union macro *m;
+    if(!(m = mname(name,MMAC,MSMAC))) return(0);
+    param(1);
+    if(paramtype == 1 && paramv)
+        {    
+        m->mstring = paramv; 
+        paraml = 0; paramv=NULL;
+        return(1);
+    }               
+    return(0);
+}
+
+/*
+ * char *rmacl(isy)
+ * Выдается макро = последовательность или 0;
+ * Имя определяется как один символ с кодом isy - 0200 + 'a'
+ */
+char *rmacl(isy)
+int isy;
+{
+	char nm[2];
+	register union macro *m;
+	nm[0]=isy - (CCMAC+1) + 'a';
+	nm[1] =0;
+	if (!(m=mname(nm,MMAC,0))) return(0);
+	return(m->mstring);
+}
+
+#define LKEY 20 /* Макс. число символов, генерируемых новой клавишей */
+/*
+ * defkey()
+ * Функция служит для диалогового переопределения клавиатуры
+ */
+defkey()
+{
+    char bufc[LKEY+1], *buf;
+    register int lc;
+    struct viewport *curp;
+    int curl,curc;
+    register char *c,*c1;
+    int lread1;
+    curp = curport; 
+    curc = cursorcol; 
+    curl = cursorline;
+    switchport(&paramport);
+    poscursor(22,0);
+    telluser(DIAG(" enter <new key><del>:","нажмите <новую клавишу><забой>:"),0);
+    lc = 0;
+    while((bufc[lc] = read2()) !='\177'  && lc++ < LKEY);
+    if ( lc ==0 || lc == LKEY )
+    {
+        goto reterr;
+    }
+    bufc[lc] = 0;
+    telluser(DIAG("enter <command> or <macro name>:","введите команду или имя макро"),1);
+    poscursor(33,0);
+    lread1= readch();
+    if (!ISACMD(lread1)) {
+        if(lread1 == '$') lread1 = CCMAC;
+        else
+            if(lread1 >= 'a' && lread1 <= 'z') lread1 += CCMAC+1 -'a';
+            else {
+                goto reterr;
+            }
+    }
+    telluser("",0);
+    c = buf = salloc(lc + 1);
+    c1 = bufc;
+    while ( *c++ = *c1++);
+    lc = addkey(lread1,buf);
+ret:    
+    switchport(curp);
+    poscursor(curc,curl);
+    return(lc);
+reterr:
+    lc = 0; 
+    error(DIAG("illegal","ошибка")); 
+    goto ret;
+}
+@
+
+
+3.5
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d2 1
+a2 1
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.4 86/09/19 19:54:15 alex Exp $
+d6 10
+d266 1
+d282 2
+a283 3
+    lread1= -1;
+    read1();
+    if (!CTRLCHAR) {
+a296 1
+    lread1 = -1;
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.3 86/08/04 20:52:20 alex Exp $
+d6 3
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.2 86/07/24 19:12:03 alex Exp $
+d6 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.1.1.2 86/06/05 18:53:55 alex Exp $
+d6 3
+@
+
+
+3.1
+log
+@Базовая версия для ЕС.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.1 86/04/20 23:42:10 alex Exp $
+d6 6
+d13 3
+d69 1
+a69 1
+            free(mtaba[i]);
+@
+
+
+3.1.2.1
+log
+@Start revision for red/4
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.5 87/06/05 23:50:50 alex Exp $
+a5 19
+ * Revision 3.5  87/06/05  23:50:50  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.4  86/09/19  19:54:15  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:52:20  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  19:12:03  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.2  86/06/05  18:53:55  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1.1.1  86/06/05  00:05:14  alex
+ * Отлажено_на_модели
+ * 
+a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:42:10  alex
+d60 1
+a60 1
+	    free((char *)mtaba[i]);
+@
+
+
+3.1.2.2
+log
+@wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.1.2.1 87/06/19 17:00:53 alex Exp $
+a5 3
+ * Revision 3.1.2.1  87/06/19  17:00:53  alex
+ * Start revision for red/4
+ * 
+a259 1
+    int lread1;
+d275 3
+a277 2
+    lread1= readch();
+    if (!ISACMD(lread1)) {
+d291 1
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:42:10  alex
+@
+
+
+3.1.1.2
+log
+@Отлажено_на_модели
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.mac.c,v 3.1.1.1 86/06/05 00:05:14 alex Exp $
+a5 3
+ * Revision 3.1.1.1  86/06/05  00:05:14  alex
+ * Отлажено_на_модели
+ * 
+d63 1
+a63 1
+	    free((char *)mtaba[i]);
+@

@@ -1,0 +1,519 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.04.10.19.13.09;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.13.16.41.13;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Сделан ediag + исправлены некоторые ошибки
+@
+text
+@/*
+ * Process command line options.
+ * Each option is a single letter which controls a program variable.
+ * The options have defaults which may be changed via
+ * the command line option, or toggled via the "-" command.
+ */
+
+#include "less.h"
+
+#define toupper(c)      ((c)-'a'+'A')
+
+/*
+ * Types of options.
+ */
+#define BOOL            01      /* Boolean option: 0 or 1 */
+#define TRIPLE          02      /* Triple-valued option: 0, 1 or 2 */
+#define NUMBER          04      /* Numeric option */
+#define NO_TOGGLE       0100    /* Option cannot be toggled with "-" cmd */
+
+/*
+ * Variables controlled by command line options.
+ */
+public int p_nbufs, f_nbufs;    /* Number of buffers.  There are two values,
+				   one used for input from a pipe and
+				   the other for input from a file. */
+public int clean_data;          /* Can we assume the data is "clean"?
+				   (That is, free of nulls, etc) */
+public int quiet;               /* Should we suppress the audible bell? */
+public int top_search;          /* Should forward searches start at the top
+				   of the screen? (alternative is bottom) */
+public int top_scroll;          /* Repaint screen from top?
+				   (alternative is scroll from bottom) */
+public int pr_type;             /* Type of prompt (short, medium, long) */
+public int bs_mode;             /* How to process backspaces */
+public int know_dumb;           /* Don't complain about dumb terminals */
+public int quit_at_eof;         /* Quit after hitting end of file twice */
+public int squeeze;             /* Squeeze multiple blank lines into one */
+public int tabstop;             /* Tab settings */
+public int back_scroll;         /* Repaint screen on backwards movement */
+public int twiddle;             /* Display "~" for lines after EOF */
+
+extern int nbufs;
+extern char *first_cmd;
+extern char *every_first_cmd;
+
+#define DEF_F_NBUFS     5       /* Default for f_nbufs */
+#define DEF_P_NBUFS     12      /* Default for p_nbufs */
+
+static struct option
+{
+	char oletter;           /* The controlling letter (a-z) */
+	char otype;             /* Type of the option */
+	int odefault;           /* Default value */
+	int *ovar;              /* Pointer to the associated variable */
+	char *odesc[3];         /* Description of each value */
+	char *rodesc[3];        /* Russian description of each value */
+} option[] =
+{
+	{ 'C', BOOL, 1, &clean_data,
+		{ "Don't assume data is clean",
+		  "Assume data is clean",
+		  NULL
+		},
+		{ "Включена обработка спецсимволов",
+		  "Обработка спецсимволов выключена",
+		  NULL
+		}
+	},
+	{ 'd', BOOL|NO_TOGGLE, 1, &know_dumb,
+		{ NULL, NULL, NULL},
+		{ NULL, NULL, NULL}
+	},
+	{ 'e', BOOL, 1, &quit_at_eof,
+		{ "Don't quit at end-of-file",
+		  "Quit at end-of-file",
+		  NULL
+		},
+		{ "Не выходить по концу файла",
+		  "Выходить по концу файла",
+		  NULL
+		}
+	},
+	{ 'h', NUMBER, -1, &back_scroll,
+		{ "Backwards scroll limit is %d lines",
+		  NULL, NULL
+		},
+		{ "Роллирование назад ограничено %d строками",
+		  NULL, NULL
+		}
+	},
+	{ 'c', BOOL, 0, &top_scroll,
+		{ "Repaint by scrolling from bottom of screen",
+		  "Repaint by painting from top of screen",
+		  NULL
+		},
+		{ "Перерисовка роллированием вверх",
+		  "Перерисовка после очистки экрана",
+		   NULL
+		}
+	},
+	{ 'x', NUMBER, 8, &tabstop,
+		{ "Tab stops every %d spaces",
+		  NULL, NULL
+		},
+		{ "Табуляции по %d позиций",
+		  NULL, NULL
+		}
+	},
+	{ 's', BOOL, 0, &squeeze,
+		{ "Don't squeeze multiple blank lines",
+		  "Squeeze multiple blank lines",
+		  NULL
+		},
+		{ "Не сжимать повторяющиеся пустые строки",
+		  "Сжимать повторяющиеся пустые строки",
+		  NULL
+		}
+	},
+	{ 't', BOOL, 1, &top_search,
+		{ "Forward search starts from bottom of screen",
+		  "Forward search starts from top of screen",
+		  NULL
+		},
+		{ "Поиск вперед начинается с низа экрана",
+		  "Поиск вперед начинается с верха экрана",
+		  NULL
+		}
+	},
+	{ 'w', BOOL, 0, &twiddle,
+		{ "Display nothing for lines after end-of-file",
+		  "Display ~ for lines after end-of-file",
+		  NULL
+		},
+		{ "Не выделять строки после конца файла",
+		  "Выделять символом ~ строки после конца файла",
+		  NULL
+		}
+	},
+	{ 'm', TRIPLE, 1, &pr_type,
+		{ "Prompt with a colon",
+		  "Prompt with a message",
+		  "Prompt with a verbose message"
+		},
+		{ "Короткое приглашение",
+		  "Обычное приглашение",
+		  "Длинное приглашение"
+		}
+	},
+	{ 'q', TRIPLE, 1, &quiet,
+		{ "Ring the bell for errors AND at eof/bof",
+		  "Ring the bell for errors but not at eof/bof",
+		  "Never ring the bell"
+		},
+		{ "Звонок по ошибкам и по началу/концу файла",
+		  "Звонок только по ошибкам",
+		  "Звонок выключен"
+		}
+	},
+	{ 'u', TRIPLE, 0, &bs_mode,
+		{ "Underlined text displayed in underline mode",
+		  "All backspaces cause overstrike",
+		  "Backspaces print as ^H"
+		},
+		{ "Подчеркнутый текст выводится в режиме подчеркивания",
+		  "Возврат на шаг приводит к надпечатке",
+		  "Возврат на шаг выводится как ^H"
+		}
+	},
+	{ '\0' }
+};
+
+public char all_options[64];    /* List of all valid options */
+
+/*
+ * Initialize each option to its default value.
+ */
+	public void
+init_option()
+{
+	register struct option *o;
+	register char *p;
+
+	/*
+	 * First do special cases, not in option table.
+	 */
+	first_cmd = every_first_cmd = NULL;
+	f_nbufs = DEF_F_NBUFS;          /* -bf */
+	p_nbufs = DEF_P_NBUFS;          /* -bp */
+
+	p = all_options;
+	*p++ = 'b';
+
+	for (o = option;  o->oletter != '\0';  o++)
+	{
+		/*
+		 * Set each variable to its default.
+		 * Also make a list of all options, in "all_options".
+		 */
+		*(o->ovar) = o->odefault;
+		*p++ = o->oletter;
+		if (o->otype & TRIPLE)
+			*p++ = toupper(o->oletter);
+	}
+	*p = '\0';
+}
+
+/*
+ * Toggle command line flags from within the program.
+ * Used by the "-" command.
+ */
+	public void
+toggle_option(c)
+	int c;
+{
+	register struct option *o;
+	char message[100];
+	char buf[5];
+
+	/*
+	 * First check for special cases not handled by the option table.
+	 */
+	switch (c)
+	{
+	case 'b':
+		sprintf(message, ediag("%d buffers", "%d буферов"), nbufs);
+		error(message);
+		return;
+	}
+
+
+	for (o = option;  o->oletter != '\0';  o++)
+	{
+		if ((o->otype & BOOL) && (o->oletter == c) &&
+			(o->otype & NO_TOGGLE) == 0)
+		{
+			/*
+			 * Boolean option:
+			 * just toggle it.
+			 */
+			*(o->ovar) = ! *(o->ovar);
+			error(ediag(o->odesc,o->rodesc)[*(o->ovar)]);
+			return;
+		} else if ((o->otype & TRIPLE) && (o->oletter == c) &&
+			(o->otype & NO_TOGGLE) == 0)
+		{
+			/*
+			 * Triple-valued option with lower case letter:
+			 * make it 1 unless already 1, then make it 0.
+			 */
+			*(o->ovar) = (*(o->ovar) == 1) ? 0 : 1;
+			error(ediag(o->odesc,o->rodesc)[*(o->ovar)]);
+			return;
+		} else if ((o->otype & TRIPLE) && (toupper(o->oletter) == c) &&
+			(o->otype & NO_TOGGLE) == 0)
+		{
+			/*
+			 * Triple-valued option with upper case letter:
+			 * make it 2 unless already 2, then make it 0.
+			 */
+			*(o->ovar) = (*(o->ovar) == 2) ? 0 : 2;
+			error(ediag(o->odesc,o->rodesc)[*(o->ovar)]);
+			return;
+		} else if ((o->otype & NUMBER) && (o->oletter == c) &&
+			(o->otype & NO_TOGGLE) == 0)
+		{
+			sprintf(message, ediag(o->odesc[0], o->rodesc[0]), *(o->ovar));
+			error(message);
+			return;
+		}
+	}
+
+	if (control_char(c))
+		sprintf(buf, "^%c", carat_char(c));
+	else
+		sprintf(buf, "%c", c);
+	sprintf(message, ediag("\"-%s\": no such flag.  Use one of \"%s\"",
+			       "\"-%s\": неизвестный ключ. Допустимы \"%s\""),
+		buf, all_options);
+	error(message);
+}
+
+/*
+ * Scan an argument (either from command line or from LESS environment
+ * variable) and process it.
+ */
+	public void
+scan_option(s)
+	char *s;
+{
+	register struct option *o;
+	register int c;
+
+	if (s == NULL)
+		return;
+
+    next:
+	if (*s == '\0')
+		return;
+	switch (c = *s++)
+	{
+	case '-':
+	case ' ':
+	case '\t':
+		goto next;
+	case '+':
+		if (*s == '+')
+			every_first_cmd = ++s;
+		first_cmd = s;
+		return;
+	case 'b':
+		switch (*s)
+		{
+		case 'f':
+			s++;
+			f_nbufs = getnum(&s, 'b');
+			break;
+		case 'p':
+			s++;
+			p_nbufs = getnum(&s, 'b');
+			break;
+		default:
+			f_nbufs = p_nbufs = getnum(&s, 'b');
+			break;
+		}
+		goto next;
+	}
+
+	for (o = option;  o->oletter != '\0';  o++)
+	{
+		if ((o->otype & BOOL) && (o->oletter == c))
+		{
+			*(o->ovar) = ! o->odefault;
+			goto next;
+		} else if ((o->otype & TRIPLE) && (o->oletter == c))
+		{
+			*(o->ovar) = (o->odefault == 1) ? 0 : 1;
+			goto next;
+		} else if ((o->otype & TRIPLE) && (toupper(o->oletter) == c))
+		{
+			*(o->ovar) = (o->odefault == 2) ? 0 : 2;
+			goto next;
+		} else if ((o->otype & NUMBER) && (o->oletter == c))
+		{
+			*(o->ovar) = getnum(&s, c);
+			goto next;
+		}
+	}
+
+	fprintf(stderr, ediag("\"-%c\": invalid flag\n",
+			      "\"-%c\": плохой ключ\n"), c);
+	exit(1);
+}
+
+/*
+ * Translate a string into a number.
+ * Like atoi(), but takes a pointer to a char *, and updates
+ * the char * to point after the translated number.
+ */
+	static int
+getnum(sp, c)
+	char **sp;
+	int c;
+{
+	register char *s;
+	register int n;
+
+	s = *sp;
+	if (*s < '0' || *s > '9')
+	{
+		fprintf(stderr, ediag("Number is required after -%c\n",
+				      "После -%c должно быть число\n"), c);
+		exit(1);
+	}
+
+	n = 0;
+	while (*s >= '0' && *s <= '9')
+		n = 10 * n + *s++ - '0';
+	*sp = s;
+	return (n);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d10 1
+a10 1
+#define	toupper(c)	((c)-'a'+'A')
+d15 4
+a18 4
+#define	BOOL		01	/* Boolean option: 0 or 1 */
+#define	TRIPLE		02	/* Triple-valued option: 0, 1 or 2 */
+#define	NUMBER		04	/* Numeric option */
+#define	NO_TOGGLE	0100	/* Option cannot be toggled with "-" cmd */
+d23 2
+a24 2
+public int p_nbufs, f_nbufs;	/* Number of buffers.  There are two values,
+				   one used for input from a pipe and 
+d26 1
+a26 1
+public int clean_data;		/* Can we assume the data is "clean"? 
+d28 2
+a29 2
+public int quiet;		/* Should we suppress the audible bell? */
+public int top_search;		/* Should forward searches start at the top 
+d31 1
+a31 1
+public int top_scroll;		/* Repaint screen from top?
+d33 8
+a40 8
+public int pr_type;		/* Type of prompt (short, medium, long) */
+public int bs_mode;		/* How to process backspaces */
+public int know_dumb;		/* Don't complain about dumb terminals */
+public int quit_at_eof;		/* Quit after hitting end of file twice */
+public int squeeze;		/* Squeeze multiple blank lines into one */
+public int tabstop;		/* Tab settings */
+public int back_scroll;		/* Repaint screen on backwards movement */
+public int twiddle;		/* Display "~" for lines after EOF */
+d46 2
+a47 2
+#define	DEF_F_NBUFS	5	/* Default for f_nbufs */
+#define	DEF_P_NBUFS	12	/* Default for p_nbufs */
+d51 6
+a56 5
+	char oletter;		/* The controlling letter (a-z) */
+	char otype;		/* Type of the option */
+	int odefault;		/* Default value */
+	int *ovar;		/* Pointer to the associated variable */
+	char *odesc[3];		/* Description of each value */
+d59 1
+a59 1
+	{ 'c', BOOL, 0, &clean_data,
+d63 4
+d70 1
+d77 4
+d86 3
+d91 1
+a91 1
+	{ 'p', BOOL, 0, &top_scroll,
+d95 4
+d102 5
+a106 2
+		{ "Tab stops every %d spaces", 
+		  NULL, NULL 
+d113 4
+d123 4
+d133 4
+d143 4
+d153 4
+d163 4
+d172 1
+a172 1
+public char all_options[64];	/* List of all valid options */
+d187 2
+a188 2
+	f_nbufs = DEF_F_NBUFS;		/* -bf */
+	p_nbufs = DEF_P_NBUFS;		/* -bp */
+d225 1
+a225 1
+		sprintf(message, "%d buffers", nbufs);
+d237 1
+a237 1
+			 * Boolean option: 
+d241 1
+a241 1
+			error(o->odesc[*(o->ovar)]);
+d251 1
+a251 1
+			error(o->odesc[*(o->ovar)]);
+d261 1
+a261 1
+			error(o->odesc[*(o->ovar)]);
+d266 1
+a266 1
+			sprintf(message, o->odesc[0], *(o->ovar));
+d276 2
+a277 1
+	sprintf(message, "\"-%s\": no such flag.  Use one of \"%s\"", 
+d283 1
+a283 1
+ * Scan an argument (either from command line or from LESS environment 
+d349 2
+a350 1
+	printf("\"-%c\": invalid flag\n", c);
+d370 2
+a371 1
+		printf("number is required after -%c\n", c);
+@

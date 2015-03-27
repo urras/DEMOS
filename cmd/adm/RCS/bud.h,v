@@ -1,0 +1,52 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.03.21.18.41.56;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+формат файла бюджетов
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Формат файла бюджетов
+ * Модифицировано для работы в ДЕМОС-2
+ *
+ */
+struct USER {
+	int     B_uid;          /* Пользовательский uid */
+	char    B_name[8];      /* Имя пользователя */
+	int     B_flags;
+	int     B_lppages;      /* Страницы бумаги                      */
+	int     B_lpused;       /* Использовано бумаги                  */
+	long    B_ttymins;      /* Секунды терминального времени        */
+	long    B_ttyused;      /* Использовано времени                 */
+	long    B_diskblk;      /* Дисковое пр-во                       */
+	long    B_diskused;     /* Использовано блоков                  */
+	long    B_sttime;       /* Время, с которого ведется статистика */
+	int     B_ntty;         /* Max кол-во терминалов, которое может
+				    занимать пользователь
+				 */
+	long    B_pad;          /* Время отработанное пользователе
+				   до последней чистки wtmp */
+};
+
+/* Флаги ( B_flags ) */
+#define B_NORMAL  0
+#define B_SHTRAF   1      /* Вход в систему запрещен администратором */
+@

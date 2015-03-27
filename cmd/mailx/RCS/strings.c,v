@@ -1,0 +1,163 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.07.23.20.38.37;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.11.12.45.52;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.12.25.16.00.56;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.3
+log
+@Русские диагностики
+@
+text
+@#
+
+/*
+ * Mail -- a mail program
+ *
+ * String allocation routines.
+ * Strings handed out here are reclaimed at the top of the command
+ * loop each time, so they need not be freed.
+ *
+ * $Log:	strings.c,v $
+ * Revision 1.2  88/01/11  12:45:52  avg
+ * Добавлен NOXSTR у rcsid.
+ * 
+ * Revision 1.1  87/12/25  16:00:56  avg
+ * Initial revision
+ * 
+ */
+
+#include "rcv.h"
+
+/*NOXSTR*/
+static char rcsid[] = "$Header: strings.c,v 1.2 88/01/11 12:45:52 avg Exp $";
+/*YESXSTR*/
+
+/*
+ * Allocate size more bytes of space and return the address of the
+ * first byte to the caller.  An even number of bytes are always
+ * allocated so that the space will always be on a word boundary.
+ * The string spaces are of exponentially increasing size, to satisfy
+ * the occasional user with enormous string size requests.
+ */
+
+char *
+salloc(size)
+{
+	register char *t;
+	register int s;
+	register struct strings *sp;
+	int index;
+
+	s = size;
+	s++;
+	s &= ~01;
+	index = 0;
+	for (sp = &stringdope[0]; sp < &stringdope[NSPACE]; sp++) {
+		if (sp->s_topFree == NOSTR && (STRINGSIZE << index) >= s)
+			break;
+		if (sp->s_nleft >= s)
+			break;
+		index++;
+	}
+	if (sp >= &stringdope[NSPACE])
+		panic(ediag("String too large","Слишком большая строка"));
+	if (sp->s_topFree == NOSTR) {
+		index = sp - &stringdope[0];
+		sp->s_topFree = (char *) calloc(STRINGSIZE << index,
+		    (unsigned) 1);
+		if (sp->s_topFree == NOSTR) {
+			fprintf(stderr, ediag(
+"No room for space %d\n",
+"Нет места для %d\n"),
+index);
+			panic(ediag("Internal error","Внутренняя ошибка"));
+		}
+		sp->s_nextFree = sp->s_topFree;
+		sp->s_nleft = STRINGSIZE << index;
+	}
+	sp->s_nleft -= s;
+	t = sp->s_nextFree;
+	sp->s_nextFree += s;
+	return(t);
+}
+
+/*
+ * Reset the string area to be empty.
+ * Called to free all strings allocated
+ * since last reset.
+ */
+
+sreset()
+{
+	register struct strings *sp;
+	register int index;
+
+	if (noreset)
+		return;
+	minit();
+	index = 0;
+	for (sp = &stringdope[0]; sp < &stringdope[NSPACE]; sp++) {
+		if (sp->s_topFree == NOSTR)
+			continue;
+		sp->s_nextFree = sp->s_topFree;
+		sp->s_nleft = STRINGSIZE << index;
+		index++;
+	}
+}
+@
+
+
+1.2
+log
+@Добавлен NOXSTR у rcsid.
+@
+text
+@d11 3
+d22 1
+a22 1
+static char rcsid[] = "$Header: strings.c,v 1.1 87/12/25 16:00:56 avg Exp $";
+d53 1
+a53 1
+		panic("String too large");
+d59 5
+a63 2
+			fprintf(stderr, "No room for space %d\n", index);
+			panic("Internal error");
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d10 4
+a13 1
+ * $Log$
+d18 3
+a20 1
+static char rcsid[] = "$Header$";
+@

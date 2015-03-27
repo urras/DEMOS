@@ -1,0 +1,1132 @@
+head     0.5;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.5
+date     89.02.07.23.10.18;  author korotaev;  state Exp;
+branches ;
+next     0.4;
+
+0.4
+date     86.09.29.18.28.56;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.53.23;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.41.22;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.18.41;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.5
+log
+@Теперь умеет экранировать сигналы 17-25 (командой trap).
+@
+text
+@#
+/*
+ *      KIAE  shell
+ *
+ *
+ */
+
+
+#include        "defs.h"
+#include        "sym.h"
+
+#ifndef RL
+MSG             version = "\nSHELL KIAE - DATE 1984 Nov 13 1984\n";
+#endif
+
+/* error messages */
+MSG     Islogin         =
+#ifndef RL
+			  "\nUse 'exit' to leave shell.\n";
+#else
+			  "\nДля выхода используйте 'конец'.\n";
+#endif RL
+
+MSG     badopt          =
+#ifndef RL
+			  "bad option(s)";
+#else
+			  "плохой(ие) ключ(и)";
+#endif  RL
+MSG     mailmsg         =
+#ifndef RL
+			  "you have mail\n";
+#else
+			  "Вам есть почта\n";
+#endif  RL
+MSG     nospace         =
+#ifndef RL
+			  "no space";
+#else
+			  "нет места";
+#endif  RL
+MSG     synmsg          =
+#ifndef RL
+			  "syntax error";
+#else
+			  "синтаксическая ошибка";
+#endif  RL
+
+MSG     badnum          =
+#ifndef RL
+			  "bad number";
+#else
+			  "плохое число";
+#endif  RL
+MSG     badparam        =
+#ifndef RL
+			  "parameter not set";
+#else
+			  "параметр не установлен";
+#endif  RL
+MSG     badsub          =
+#ifndef RL
+			  "bad substitution";
+#else
+			  "плохая подстановка";
+#endif  RL
+MSG     badcreate       =
+#ifndef RL
+			  "cannot create";
+#else
+			  "не могу создать";
+#endif  RL
+MSG     illegal         =
+#ifndef RL
+			  "illegal io";
+#else
+			  "недопустимый ввод/вывод";
+#endif  RL
+MSG     restricted      =
+#ifndef RL
+			  "restricted";
+#else
+			  "ограничено";
+#endif  RL
+MSG     piperr          =
+#ifndef RL
+			  "cannot make pipe";
+#else
+			  "не могу создать трубу";
+#endif  RL
+MSG     badopen         =
+#ifndef RL
+			  "cannot open";
+#else
+			  "не могу открыть";
+#endif  RL
+MSG     coredump        =
+#ifndef RL
+			  " - core dumped";
+#else
+			  " - память сброшена";
+#endif  RL
+MSG     arglist         =
+#ifndef RL
+			  "arg list too long";
+#else
+			  "слишком длинный список аргументов";
+#endif  RL
+MSG     txtbsy          =
+#ifndef RL
+			  "text busy";
+#else
+			  "текст занят";
+#endif  RL
+MSG     toobig          =
+#ifndef RL
+			  "too big";
+#else
+			  "слишком большой";
+#endif  RL
+MSG     badexec         =
+#ifndef RL
+			  "cannot execute";
+#else
+			  "не могу выполнить";
+#endif  RL
+MSG     notfound        =
+#ifndef RL
+			  "not found";
+#else
+			  "не найден";
+#endif  RL
+MSG     badfile         =
+#ifndef RL
+			  "bad file number";
+#else
+			  "плохой номер файла";
+#endif  RL
+MSG     badshift        =
+#ifndef RL
+			  "cannot shift";
+#else
+			  "не могу сделать сдвиг";
+#endif  RL
+MSG     baddir          =
+#ifndef RL
+			  "bad directory";
+#else
+			  "плохой каталог";
+#endif  RL
+MSG     badtrap         =
+#ifndef RL
+			  "bad trap";
+#else
+			  "плохая ловушка";
+#endif  RL
+MSG     wtfailed        =
+#ifndef RL
+			  "is read only";
+#else
+			  "только для чтения";
+#endif  RL
+MSG     notid           =
+#ifndef RL
+			  "is not an identifier";
+#else
+			  "не идентификатор";
+#endif  RL
+
+/* built in names */
+MSG     pathname        = "PATH";
+MSG     homename        = "HOME";
+MSG     mailname        = "MAIL";
+MSG     fngname         = "FILEMATCH";
+MSG     ifsname         = "IFS";
+MSG     ps1name         = "PS1";
+MSG     ps2name         = "PS2";
+
+/* string constants */
+MSG     nullstr         = "";
+MSG     sptbnl          = " \t\n";
+MSG     defpath         = ":/bin:/usr/bin";
+MSG     colon           = ": ";
+MSG     minus           = "-";
+MSG     endoffile       =
+#ifndef RL
+			  "end of file";
+#else
+			  "конец файла";
+#endif  RL
+MSG     unexpected      =
+#ifndef RL
+			  " unexpected";
+#else
+			  " не на месте";
+#endif  RL
+MSG     atline          =
+#ifndef RL
+			  " at line ";
+#else
+			  " в строке ";
+#endif  RL
+MSG     devnull         = "/dev/null";
+MSG     execpmsg        = "+ ";
+MSG     readmsg         = "> ";
+MSG     stdprompt       = "$ ";
+MSG     supprompt       = "# ";
+MSG     profile         = ".profile";
+
+
+/* tables */
+SYSTAB reserved {
+		{"in",          INSYM},
+		{"в",           INSYM},
+
+		{"esac",        ESSYM},
+		{"быв",         ESSYM},
+
+		{"case",        CASYM},
+		{"выб",         CASYM},
+
+		{"for",         FORSYM},
+		{"для",         FORSYM},
+
+		{"done",        ODSYM},
+		{"кц",          ODSYM},
+
+		{"if",          IFSYM},
+		{"если",        IFSYM},
+
+		{"while",       WHSYM},
+		{"пока",        WHSYM},
+
+		{"do",          DOSYM},
+		{"цк",          DOSYM},
+
+		{"then",        THSYM},
+		{"то",          THSYM},
+
+		{"else",        ELSYM},
+		{"иначе",       ELSYM},
+
+		{"elif",        EFSYM},
+		{"инес",        EFSYM},
+
+		{"fi",          FISYM},
+		{"все",         FISYM},
+
+		{"until",       UNSYM},
+		{"до",          UNSYM},
+
+		{ "{",          BRSYM},
+		{ "}",          KTSYM},
+
+		{0,     0},
+};
+
+#ifdef  RL
+STRING  sysmsg[] {
+		0,
+		"Hangup",
+		0,      /* Interrupt */
+		"Сброшен",
+		"Плохая команда",
+		"Прерывание по трассировке/BPT",
+		"Прерывание по IOT",
+		"Прерывание по EMT",
+		"Ошибка плавающей арифметики",
+		"Убит",
+		"Ошибка шины",
+		"Сбой памяти",
+		"Плохой системный вызов",
+		0,      /* Broken pipe */
+		"Будильник",
+		"Прекращен",
+		"Сигнал 16",
+
+		"Сигнал 17",
+		"Сигнал 18",
+		"Сигнал 19",
+		"Сигнал 20",
+		"Сигнал 21",
+		"Сигнал 22",
+		"Сигнал 23",
+		"Сигнал 24",
+		"Сигнал 25",
+/*                "Сигнал 26",
+		"Сигнал 27",
+		"Сигнал 28",
+		"Сигнал 29",
+		"Сигнал 30",
+		"Сигнал 31",
+		"Сигнал 32",            */
+};
+#else
+STRING	sysmsg[] {
+	0,
+	"Hangup",
+	"Interrupt",
+	"Quit",
+	"Illegal instruction",
+	"Trace/BPT trap",
+	"IOT trap",
+	"EMT trap",
+	"Floating exception",
+	"Killed",
+	"Bus error",
+	"Segmentation fault",
+	"Bad system call",
+	"Broken pipe",
+	"Alarm clock",
+	"Terminated",
+	"Signal 16",
+	"Stopped (signal)",
+	"Stopped",
+	"Continued",
+	"Child exited",
+	"Stopped (tty input)",
+	"Stopped (tty output)",
+	"Tty input interrupt",
+	"Cputime limit exceeded",
+	"Filesize limit exceeded",
+};
+#endif
+
+#ifndef RL
+MSG             export = "export" ;
+MSG             readonly = "readonly" ;
+#else
+MSG             export = "среда:" ;
+MSG             readonly = "только для чтения:" ;
+#endif
+
+SYSTAB  commands {
+		{"cd",          SYSCD},
+		{"ск",          SYSCD},
+		{"read",        SYSREAD},
+		{"читать",      SYSREAD},
+/*
+		{"[",           SYSTST},
+*/
+		{"set",         SYSSET},
+		{"уст",         SYSSET},
+		{":",           SYSNULL},
+		{"trap",        SYSTRAP},
+		{"ловушка",     SYSTRAP},
+		{"login",       SYSLOGIN},
+		{"начало",      SYSLOGIN},
+		{"wait",        SYSWAIT},
+		{"ждать",       SYSWAIT},
+		{"eval",        SYSEVAL},
+		{"сделать",     SYSEVAL},
+		{".",           SYSDOT},
+		{"newgrp",      SYSLOGIN},
+		{"новгру",      SYSLOGIN},
+		{"readonly",    SYSRDONLY},
+		{"толькочт",    SYSRDONLY},
+		{"export",      SYSXPORT},
+		{"среда",       SYSXPORT},
+		{"chdir",       SYSCD},
+		{"break",       SYSBREAK},
+		{"выход",       SYSBREAK},
+		{"continue",    SYSCONT},
+		{"продолжить",  SYSCONT},
+		{"shift",       SYSSHFT},
+		{"сдвиг",       SYSSHFT},
+		{"exit",        SYSEXIT},
+		{"конец",       SYSEXIT},
+		{"exec",        SYSEXEC},
+		{"выполнить",   SYSEXEC},
+		{"times",       SYSTIMES},
+		{"время",       SYSTIMES},
+		{"umask",       SYSUMASK},
+		{"маска",       SYSUMASK},
+		{0,     0},
+};
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@
+
+
+0.4
+log
+@Версия, слитая из 2.9 и ДЕМОС без русских диагностик
+@
+text
+@d287 1
+a287 1
+		"Сигнал 26",
+d293 1
+a293 1
+		"Сигнал 32",
+d297 26
+a322 17
+		0,
+		"Hangup",
+		0,	/* Interrupt */
+		"Quit",
+		"Illegal instruction",
+		"Trace/BPT trap",
+		"IOT trap",
+		"EMT trap",
+		"Floating exception",
+		"Killed",
+		"Bus error",
+		"Memory fault",
+		"Bad system call",
+		0,	/* Broken pipe */
+		"Alarm call",
+		"Terminated",
+		"Signal 16",
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d3 1
+a3 1
+ *      МНОС РЛ 1.2 shell
+d8 1
+d12 3
+a14 1
+STRING  *sysmsg;
+d17 12
+a28 39
+VOID    initmess( Rf )
+BOOL    Rf;
+{
+       if( !Rf ) {
+		static STRING Rsysmesg[] = {
+			0,
+			"Hangup",
+			0,      /* Interrupt */
+			"Сброшен",
+			"Плохая команда",
+			"Прерывание по трассировке/BPT",
+			"Прерывание по IOT",
+			"Прерывание по EMT",
+			"Ошибка плавающей арифметики",
+			"Убит",
+			"Ошибка шины",
+			"Нарушение защиты памяти",
+			"Плохой системный вызов",
+			0,      /* Broken pipe */
+			"Будильник",
+			"Прекращен",
+			"Сигнал 16",
+#ifdef  RL
+			"Сигнал 17",
+			"Сигнал 18",
+			"Сигнал 19",
+			"Сигнал 20",
+			"Сигнал 21",
+			"Сигнал 22",
+			"Сигнал 23",
+			"Сигнал 24",
+			"Сигнал 25",
+			"Сигнал 26",
+			"Сигнал 27",
+			"Сигнал 28",
+			"Сигнал 29",
+			"Сигнал 30",
+			"Сигнал 31",
+			"Сигнал 32",
+d30 18
+a47 1
+		};
+d49 5
+a53 68
+		sysmsg     = Rsysmesg;
+		Islogin    = "\nДля выхода используйте 'конец'.\n";
+		badopt     = "плохой(ие) ключ(и)";
+		mailmsg    = "Вам есть почта\n";
+		nospace    = "нет места";
+		synmsg     = "синтаксическая ошибка";
+		badnum     = "плохое число";
+		badparam   = "параметр не установлен";
+		badsub     = "плохая подстановка";
+		badcreate  = "не могу создать";
+		illegal    = "недопустимый ввод/вывод";
+		restricted = "ограничено";
+		piperr     = "не могу создать трубу";
+		badopen    = "не могу открыть";
+		coredump   = " - процесс дампирован в файл core";
+		arglist    = "слишком длинный список аргументов";
+		txtbsy     = "текст занят";
+		toobig     = "слишком большой";
+		badexec    = "не могу выполнить";
+		notfound   = "не найден";
+		badfile    = "плохой номер файла";
+		badshift   = "не могу сделать сдвиг";
+		baddir     = "плохой каталог";
+		badtrap    = "плохая ловушка";
+		wtfailed   = "только для чтения";
+		notid      = "не идентификатор";
+		endoffile  = "конец файла";
+		unexpected = " не на месте";
+		atline     = " в строке ";
+		export     = "среда:";
+		readonly   = "только для чтения:";
+		Newline    = "конец строки";
+	} else {
+		static STRING Esysmesg[] = {
+			0,
+			"Hangup",
+			0,      /* Interrupt */
+			"Quit",
+			"Illegal instruction",
+			"Trace/BPT trap",
+			"IOT trap",
+			"EMT trap",
+			"Floating exeption",
+			"Killed",
+			"Bus error",
+			"Segmentation violation",
+			"Bad sys call",
+			0,      /* Broken pipe */
+			"Alarm clock",
+			"Terminated",
+			"Signal 16",
+#ifdef  RL
+			"Signal 17",
+			"Signal 18",
+			"Signal 19",
+			"Signal 20",
+			"Signal 21",
+			"Signal 22",
+			"Signal 23",
+			"Signal 24",
+			"Signal 25",
+			"Signal 26",
+			"Signal 27",
+			"Signal 28",
+			"Signal 29",
+			"Signal 30",
+			"Signal 31",
+			"Signal 32",
+d55 114
+a168 1
+		};
+d170 8
+a177 34
+		sysmsg     = Esysmesg;
+		Islogin    = "\nUse 'exit' to leave shell.\n";
+		badopt     = "bad option(s)";
+		mailmsg    = "you have mail\n";
+		nospace    = "no space";
+		synmsg     = "syntax error";
+		badnum     = "bad number";
+		badparam   = "parameter not set";
+		badsub     = "bad substitution";
+		badcreate  = "cannot create";
+		illegal    = "illegal io";
+		restricted = "restricted";
+		piperr     = "cannot make pipe";
+		badopen    = "cannot open";
+		coredump   = " - core dumped";
+		arglist    = "arg list too long";
+		txtbsy     = "text busy";
+		toobig     = "too big";
+		badexec    = "cannot execute";
+		notfound   = "not found";
+		badfile    = "bad file number";
+		badshift   = "cannot shift";
+		baddir     = "bad directory";
+		badtrap    = "bad trap";
+		wtfailed   = "is read only";
+		notid      = "is not an identifier";
+		endoffile  = "end of file";
+		unexpected = " unexpected";
+		atline     = " at line ";
+		export     = "export: ";
+		readonly   = "readonly: ";
+		Newline    = "newline";
+	}
+}
+d179 32
+d257 67
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d3 1
+a3 1
+ *	UNIX shell
+a4 2
+ *	S. R. Bourne
+ *	Bell Telephone Laboratories
+d8 2
+d11 1
+a11 2
+#include	"defs.h"
+#include	"sym.h"
+a12 2
+MSG		version = "\nVERSION sys137	DATE 1978 Nov 6 14:29:22\n";
+
+d14 41
+a54 4
+MSG	badopt		= "bad option(s)";
+MSG	mailmsg		= "you have mail\n";
+MSG	nospace		= "no space";
+MSG	synmsg		= "syntax error";
+d56 70
+a125 20
+MSG	badnum		= "bad number";
+MSG	badparam	= "parameter not set";
+MSG	badsub		= "bad substitution";
+MSG	badcreate	= "cannot create";
+MSG	illegal		= "illegal io";
+MSG	restricted	= "restricted";
+MSG	piperr		= "cannot make pipe";
+MSG	badopen		= "cannot open";
+MSG	coredump	= " - core dumped";
+MSG	arglist		= "arg list too long";
+MSG	txtbsy		= "text busy";
+MSG	toobig		= "too big";
+MSG	badexec		= "cannot execute";
+MSG	notfound	= "not found";
+MSG	badfile		= "bad file number";
+MSG	badshift	= "cannot shift";
+MSG	baddir		= "bad directory";
+MSG	badtrap		= "bad trap";
+MSG	wtfailed	= "is read only";
+MSG	notid		= "is not an identifier";
+d127 34
+a160 8
+/* built in names */
+MSG	pathname	= "PATH";
+MSG	homename	= "HOME";
+MSG	mailname	= "MAIL";
+MSG	fngname		= "FILEMATCH";
+MSG	ifsname		= "IFS";
+MSG	ps1name		= "PS1";
+MSG	ps2name		= "PS2";
+a161 17
+/* string constants */
+MSG	nullstr		= "";
+MSG	sptbnl		= " \t\n";
+MSG	defpath		= ":/bin:/usr/bin";
+MSG	colon		= ": ";
+MSG	minus		= "-";
+MSG	endoffile	= "end of file";
+MSG	unexpected 	= " unexpected";
+MSG	atline		= " at line ";
+MSG	devnull		= "/dev/null";
+MSG	execpmsg	= "+ ";
+MSG	readmsg		= "> ";
+MSG	stdprompt	= "$ ";
+MSG	supprompt	= "# ";
+MSG	profile		= ".profile";
+
+
+d164 2
+a165 17
+		{"in",		INSYM},
+		{"esac",	ESSYM},
+		{"case",	CASYM},
+		{"for",		FORSYM},
+		{"done",	ODSYM},
+		{"if",		IFSYM},
+		{"while",	WHSYM},
+		{"do",		DOSYM},
+		{"then",	THSYM},
+		{"else",	ELSYM},
+		{"elif",	EFSYM},
+		{"fi",		FISYM},
+		{"until",	UNSYM},
+		{ "{",		BRSYM},
+		{ "}",		KTSYM},
+		{0,	0},
+};
+d167 40
+a206 18
+STRING	sysmsg[] {
+		0,
+		"Hangup",
+		0,	/* Interrupt */
+		"Quit",
+		"Illegal instruction",
+		"Trace/BPT trap",
+		"IOT trap",
+		"EMT trap",
+		"Floating exception",
+		"Killed",
+		"Bus error",
+		"Memory fault",
+		"Bad system call",
+		0,	/* Broken pipe */
+		"Alarm call",
+		"Terminated",
+		"Signal 16",
+d209 5
+a213 5
+MSG		export = "export";
+MSG		readonly = "readonly";
+SYSTAB	commands {
+		{"cd",		SYSCD},
+		{"read",	SYSREAD},
+d215 1
+a215 1
+		{"[",		SYSTST},
+d217 34
+a250 19
+		{"set",		SYSSET},
+		{":",		SYSNULL},
+		{"trap",	SYSTRAP},
+		{"login",	SYSLOGIN},
+		{"wait",	SYSWAIT},
+		{"eval",	SYSEVAL},
+		{".",		SYSDOT},
+		{"newgrp",	SYSLOGIN},
+		{readonly,	SYSRDONLY},
+		{export,	SYSXPORT},
+		{"chdir",	SYSCD},
+		{"break",	SYSBREAK},
+		{"continue",	SYSCONT},
+		{"shift",	SYSSHFT},
+		{"exit",	SYSEXIT},
+		{"exec",	SYSEXEC},
+		{"times",	SYSTIMES},
+		{"umask",	SYSUMASK},
+		{0,	0},
+d252 1
+@
+
+
+0.1
+log
+@
+@
+text
+@d3 1
+a3 1
+ *      KIAE  shell
+d5 2
+d11 2
+a12 2
+#include        "defs.h"
+#include        "sym.h"
+d14 1
+a14 3
+#ifndef RL
+MSG             version = "\nSHELL KIAE - DATE 1984 Nov 13 1984\n";
+#endif
+d17 4
+a20 6
+MSG     Islogin         =
+#ifndef RL
+			  "\nUse 'exit' to leave shell.\n";
+#else
+			  "\nДля выхода используйте 'конец'.\n";
+#endif RL
+d22 20
+a41 24
+MSG     badopt          =
+#ifndef RL
+			  "bad option(s)";
+#else
+			  "плохой(ие) ключ(и)";
+#endif  RL
+MSG     mailmsg         =
+#ifndef RL
+			  "you have mail\n";
+#else
+			  "Вам есть почта\n";
+#endif  RL
+MSG     nospace         =
+#ifndef RL
+			  "no space";
+#else
+			  "нет места";
+#endif  RL
+MSG     synmsg          =
+#ifndef RL
+			  "syntax error";
+#else
+			  "синтаксическая ошибка";
+#endif  RL
+a42 121
+MSG     badnum          =
+#ifndef RL
+			  "bad number";
+#else
+			  "плохое число";
+#endif  RL
+MSG     badparam        =
+#ifndef RL
+			  "parameter not set";
+#else
+			  "параметр не установлен";
+#endif  RL
+MSG     badsub          =
+#ifndef RL
+			  "bad substitution";
+#else
+			  "плохая подстановка";
+#endif  RL
+MSG     badcreate       =
+#ifndef RL
+			  "cannot create";
+#else
+			  "не могу создать";
+#endif  RL
+MSG     illegal         =
+#ifndef RL
+			  "illegal io";
+#else
+			  "недопустимый ввод/вывод";
+#endif  RL
+MSG     restricted      =
+#ifndef RL
+			  "restricted";
+#else
+			  "ограничено";
+#endif  RL
+MSG     piperr          =
+#ifndef RL
+			  "cannot make pipe";
+#else
+			  "не могу создать трубу";
+#endif  RL
+MSG     badopen         =
+#ifndef RL
+			  "cannot open";
+#else
+			  "не могу открыть";
+#endif  RL
+MSG     coredump        =
+#ifndef RL
+			  " - core dumped";
+#else
+			  " - память сброшена";
+#endif  RL
+MSG     arglist         =
+#ifndef RL
+			  "arg list too long";
+#else
+			  "слишком длинный список аргументов";
+#endif  RL
+MSG     txtbsy          =
+#ifndef RL
+			  "text busy";
+#else
+			  "текст занят";
+#endif  RL
+MSG     toobig          =
+#ifndef RL
+			  "too big";
+#else
+			  "слишком большой";
+#endif  RL
+MSG     badexec         =
+#ifndef RL
+			  "cannot execute";
+#else
+			  "не могу выполнить";
+#endif  RL
+MSG     notfound        =
+#ifndef RL
+			  "not found";
+#else
+			  "не найден";
+#endif  RL
+MSG     badfile         =
+#ifndef RL
+			  "bad file number";
+#else
+			  "плохой номер файла";
+#endif  RL
+MSG     badshift        =
+#ifndef RL
+			  "cannot shift";
+#else
+			  "не могу сделать сдвиг";
+#endif  RL
+MSG     baddir          =
+#ifndef RL
+			  "bad directory";
+#else
+			  "плохой каталог";
+#endif  RL
+MSG     badtrap         =
+#ifndef RL
+			  "bad trap";
+#else
+			  "плохая ловушка";
+#endif  RL
+MSG     wtfailed        =
+#ifndef RL
+			  "is read only";
+#else
+			  "только для чтения";
+#endif  RL
+MSG     notid           =
+#ifndef RL
+			  "is not an identifier";
+#else
+			  "не идентификатор";
+#endif  RL
+
+d44 7
+a50 7
+MSG     pathname        = "PATH";
+MSG     homename        = "HOME";
+MSG     mailname        = "MAIL";
+MSG     fngname         = "FILEMATCH";
+MSG     ifsname         = "IFS";
+MSG     ps1name         = "PS1";
+MSG     ps2name         = "PS2";
+d53 14
+a66 29
+MSG     nullstr         = "";
+MSG     sptbnl          = " \t\n";
+MSG     defpath         = ":/bin:/usr/bin";
+MSG     colon           = ": ";
+MSG     minus           = "-";
+MSG     endoffile       =
+#ifndef RL
+			  "end of file";
+#else
+			  "конец файла";
+#endif  RL
+MSG     unexpected      =
+#ifndef RL
+			  " unexpected";
+#else
+			  " не на месте";
+#endif  RL
+MSG     atline          =
+#ifndef RL
+			  " at line ";
+#else
+			  " в строке ";
+#endif  RL
+MSG     devnull         = "/dev/null";
+MSG     execpmsg        = "+ ";
+MSG     readmsg         = "> ";
+MSG     stdprompt       = "$ ";
+MSG     supprompt       = "# ";
+MSG     profile         = ".profile";
+d71 16
+a86 43
+		{"in",          INSYM},
+		{"в",           INSYM},
+
+		{"esac",        ESSYM},
+		{"быв",         ESSYM},
+
+		{"case",        CASYM},
+		{"выб",         CASYM},
+
+		{"for",         FORSYM},
+		{"для",         FORSYM},
+
+		{"done",        ODSYM},
+		{"кц",          ODSYM},
+
+		{"if",          IFSYM},
+		{"если",        IFSYM},
+
+		{"while",       WHSYM},
+		{"пока",        WHSYM},
+
+		{"do",          DOSYM},
+		{"цк",          DOSYM},
+
+		{"then",        THSYM},
+		{"то",          THSYM},
+
+		{"else",        ELSYM},
+		{"иначе",       ELSYM},
+
+		{"elif",        EFSYM},
+		{"инес",        EFSYM},
+
+		{"fi",          FISYM},
+		{"все",         FISYM},
+
+		{"until",       UNSYM},
+		{"до",          UNSYM},
+
+		{ "{",          BRSYM},
+		{ "}",          KTSYM},
+
+		{0,     0},
+a88 38
+#ifdef  RL
+STRING  sysmsg[] {
+		0,
+		"Hangup",
+		0,      /* Interrupt */
+		"Сброшен",
+		"Плохая команда",
+		"Прерывание по трассировке/BPT",
+		"Прерывание по IOT",
+		"Прерывание по EMT",
+		"Ошибка плавающей арифметики",
+		"Убит",
+		"Ошибка шины",
+		"Сбой памяти",
+		"Плохой системный вызов",
+		0,      /* Broken pipe */
+		"Будильник",
+		"Прекращен",
+		"Сигнал 16",
+
+		"Сигнал 17",
+		"Сигнал 18",
+		"Сигнал 19",
+		"Сигнал 20",
+		"Сигнал 21",
+		"Сигнал 22",
+		"Сигнал 23",
+		"Сигнал 24",
+		"Сигнал 25",
+		"Сигнал 26",
+		"Сигнал 27",
+		"Сигнал 28",
+		"Сигнал 29",
+		"Сигнал 30",
+		"Сигнал 31",
+		"Сигнал 32",
+};
+#else
+a107 1
+#endif
+d109 5
+a113 13
+#ifndef RL
+MSG             export = "export" ;
+MSG             readonly = "readonly" ;
+#else
+MSG             export = "среда:" ;
+MSG             readonly = "только для чтения:" ;
+#endif
+
+SYSTAB  commands {
+		{"cd",          SYSCD},
+		{"ск",          SYSCD},
+		{"read",        SYSREAD},
+		{"читать",      SYSREAD},
+d115 1
+a115 1
+		{"[",           SYSTST},
+d117 19
+a135 34
+		{"set",         SYSSET},
+		{"уст",         SYSSET},
+		{":",           SYSNULL},
+		{"trap",        SYSTRAP},
+		{"ловушка",     SYSTRAP},
+		{"login",       SYSLOGIN},
+		{"начало",      SYSLOGIN},
+		{"wait",        SYSWAIT},
+		{"ждать",       SYSWAIT},
+		{"eval",        SYSEVAL},
+		{"сделать",     SYSEVAL},
+		{".",           SYSDOT},
+		{"newgrp",      SYSLOGIN},
+		{"новгру",      SYSLOGIN},
+		{"readonly",    SYSRDONLY},
+		{"толькочт",    SYSRDONLY},
+		{"export",      SYSXPORT},
+		{"среда",       SYSXPORT},
+		{"chdir",       SYSCD},
+		{"break",       SYSBREAK},
+		{"выход",       SYSBREAK},
+		{"continue",    SYSCONT},
+		{"продолжить",  SYSCONT},
+		{"shift",       SYSSHFT},
+		{"сдвиг",       SYSSHFT},
+		{"exit",        SYSEXIT},
+		{"конец",       SYSEXIT},
+		{"exec",        SYSEXEC},
+		{"выполнить",   SYSEXEC},
+		{"times",       SYSTIMES},
+		{"время",       SYSTIMES},
+		{"umask",       SYSUMASK},
+		{"маска",       SYSUMASK},
+		{0,     0},
+a136 1
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@

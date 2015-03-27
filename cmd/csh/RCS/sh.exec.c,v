@@ -1,0 +1,809 @@
+head     1.8;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.8
+date     89.05.06.16.31.22;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.11.15.23.47.35;  author ache;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.09.28.17.41.34;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.09.19.12.36.00;  author dmitry;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.07.21.22.38.55;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.20.21.34.25;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.17.33.14;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.19.19;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.17.09;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.39.32;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.08.42;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.33.58;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.8
+log
+@В статическую область вынесен большой массив.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.exec.c,v 1.7 88/11/15 23:47:35 ache Exp $";
+/*YESXSTR*/
+#endif lint
+
+/*
+ *
+ * $Log:        sh.exec.c,v $
+ * Revision 1.7  88/11/15  23:47:35  ache
+ * В libjobs.a добавлены из 4.2: sigsetmask, sigblock
+ * изменен в соотв. с 4.2 формат sigpause
+ *
+ * Revision 1.6  86/09/28  17:41:34  avg
+ * Неправильно обрабатывался sigint в неинтерактивном режиме.
+ *
+ * Revision 1.5  86/09/19  12:36:00  dmitry
+ * В одном месте забыли ediag.
+ *
+ * Revision 1.4  86/07/21  22:38:55  avg
+ * Добавлен #ifdef U42 т.к. в МНОС 2 нет sigmask-а.
+ *
+ * Revision 1.3  86/07/20  21:34:25  avg
+ * Версия, слитая с версией alex-а из 4.2.
+ *
+ * Revision 1.2  86/06/02  17:33:14  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+ *
+ * Revision 1.1  86/06/01  20:19:19  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+#ifdef U42
+#include <sys/dir.h>
+#endif
+/*
+ * System level search and execute of a command.
+ * We look in each directory for the specified command name.
+ * If the name contains a '/' then we execute only the full path name.
+ * If there is no search path then we execute only full path names.
+ */
+
+/*
+ * As we search for the command we note the first non-trivial error
+ * message for presentation to the user.  This allows us often
+ * to show that a file has the wrong mode/no access when the file
+ * is not in the last component of the search path, so we must
+ * go on after first detecting the error.
+ */
+char     exerr;                 /* Execution error message No */
+char    *expath;                /* Path for exerr */
+
+/*
+ * Xhash is an array of HSHSIZ chars, which are used to hash execs.
+ * If it is allocated, then to tell whether ``name'' is (possibly)
+ * present in the i'th component of the variable path, you look at
+ * the i'th bit of xhash[hash("name")].  This is setup automatically
+ * after .login is executed, and recomputed whenever ``path'' is
+ * changed.
+ */
+int     havhash;
+#define HSHSIZ  511
+char    xhash[HSHSIZ];
+#ifdef VFORK
+int     hits, misses;
+#endif
+
+/* Dummy search path for just absolute search when no path */
+char    *justabs[] =    { "", 0 };
+
+doexec(t)
+	register struct command *t;
+{
+	char *sav;
+	register char *dp, **pv, **av;
+	register struct varent *v;
+	bool slash = any('/', t->t_dcom[0]);
+	int hashval, i;
+	char *blk[2];
+
+	/*
+	 * Glob the command name.  If this does anything, then we
+	 * will execute the command only relative to ".".  One special
+	 * case: if there is no PATH, then we execute only commands
+	 * which start with '/'.
+	 */
+	dp = globone(t->t_dcom[0]);
+	sav = t->t_dcom[0];
+	exerr = 0; expath = t->t_dcom[0] = dp;
+	xfree(sav);
+	v = adrof("path");
+	if (v == 0 && expath[0] != '/')
+		pexerr();
+	slash |= gflag;
+
+	/*
+	 * Glob the argument list, if necessary.
+	 * Otherwise trim off the quote bits.
+	 */
+	gflag = 0; av = &t->t_dcom[1];
+	rscan(av, tglob);
+	if (gflag) {
+		av = glob(av);
+		if (av == 0)
+			error(ediag("No match",
+				    "Нет таких имен"));
+	}
+	blk[0] = t->t_dcom[0];
+	blk[1] = 0;
+	av = blkspl(blk, av);
+#ifdef VFORK
+	Vav = av;
+#endif
+	scan(av, trim);
+
+	xechoit(av);            /* Echo command if -x */
+	closech();              /* Close random fd's */
+
+	/*
+	 * We must do this AFTER any possible forking (like `foo`
+	 * in glob) so that this shell can still do subprocesses.
+	 */
+/* #ifdef notdef @@VG */
+	sigsys(SIGCHLD, SIG_IGN);       /* sigsys for vforks sake */
+/* #endif */
+#if !defined(pdp11) || !defined(VFORK)
+	sigsetmask(0L);
+#endif
+	/*
+	 * If no path, no words in path, or a / in the filename
+	 * then restrict the command search.
+	 */
+	if (v == 0 || v->vec[0] == 0 || slash)
+		pv = justabs;
+	else
+		pv = v->vec;
+	sav = strspl("/", *av);         /* / command name for postpending */
+#ifdef VFORK
+	Vsav = sav;
+#endif
+	if (havhash)
+		hashval = xhash[hash(*av)];
+	i = 0;
+#ifdef VFORK
+	hits++;
+#endif
+	do {
+		if (!slash && pv[0][0] == '/' && havhash && (hashval & (1 << (i % 8))) == 0)
+			goto cont;
+		if (pv[0][0] == 0 || eq(pv[0], "."))    /* don't make ./xxx */
+			texec(*av, av);
+		else {
+			dp = strspl(*pv, sav);
+#ifdef VFORK
+			Vdp = dp;
+#endif
+			texec(dp, av);
+#ifdef VFORK
+			Vdp = 0;
+#endif
+			xfree(dp);
+		}
+#ifdef VFORK
+		misses++;
+#endif
+cont:
+		pv++;
+		i++;
+	} while (*pv);
+#ifdef VFORK
+	hits--;
+#endif
+#ifdef VFORK
+	Vsav = 0;
+	Vav = 0;
+#endif
+	xfree(sav);
+	xfree(av);
+	pexerr();
+}
+
+pexerr()
+{
+
+	/* Couldn't find the damn thing */
+	setname(expath);
+	/* xfree(expath); */
+	if (exerr) {
+		extern errno;
+
+		flush();
+		haderr = 1;
+		errno = exerr;
+		Perror(bname);
+	}
+	bferr(ediag("Command not found",
+		    "Команда не найдена"));
+}
+
+/* Last resort shell */
+char    *lastsh[] =     { SHELLPATH, 0 };
+
+/*
+ * Execute command f, arg list t.
+ * Record error message if not found.
+ * Also do shell scripts here.
+ */
+texec(f, t)
+	char *f;
+	register char **t;
+{
+	register struct varent *v;
+	register char **vp;
+
+	execv(f, t);
+	switch (errno) {
+
+	case ENOEXEC:
+		/*
+		 * If there is an alias for shell, then
+		 * put the words of the alias in front of the
+		 * argument list replacing the command name.
+		 * Note no interpretation of the words at this point.
+		 */
+		v = adrof1("shell", &aliases);
+		if (v == 0) {
+#ifdef OTHERSH
+			register int ff = open(f, 0);
+			char ch;
+#endif
+
+			vp = lastsh;
+			vp[0] = adrof("shell") ? value("shell") : SHELLPATH;
+#ifdef OTHERSH
+			if (ff != -1 && read(ff, &ch, 1) == 1 && ch != '#')
+				vp[0] = OTHERSH;
+			close(ff);
+#endif
+		} else
+			vp = v->vec;
+		t[0] = f;
+		t = blkspl(vp, t);              /* Splice up the new arglst */
+		f = *t;
+		execv(f, t);
+		xfree((char *)t);
+		/* The sky is falling, the sky is falling! */
+
+	case ENOMEM:
+		Perror(f);
+
+	case ENOENT:
+		break;
+
+	default:
+		if (exerr == 0) {
+			exerr = errno;
+			expath = savestr(f);
+		}
+	}
+}
+
+execash(t, kp)
+	register struct command *kp;
+{
+
+	didcch++;
+	rechist();
+	signal(SIGINT, parintr);
+	signal(SIGQUIT, parintr);
+	signal(SIGTERM, parterm);               /* if doexec loses, screw */
+	lshift(kp->t_dcom, 1);
+	exiterr++;
+	doexec(kp);
+	/*NOTREACHED*/
+}
+
+xechoit(t)
+	char **t;
+{
+
+	if (adrof("echo")) {
+		flush();
+		haderr = 1;
+		blkpr(t), printf("\n");
+		haderr = 0;
+	}
+}
+
+dohash()
+{
+	struct stat stb;
+#ifndef U42
+	struct direct dirbuf[BUFSIZ / sizeof (struct direct)];
+	char d_name[DIRSIZ + 1];
+	register int dirf, cnt;
+#else
+	DIR *dirp;
+	register struct direct *dp;
+	register int cnt;
+#endif
+	int i = 0;
+	struct varent *v = adrof("path");
+	char **pv;
+
+	havhash = 1;
+	for (cnt = 0; cnt < HSHSIZ; cnt++)
+		xhash[cnt] = 0;
+	if (v == 0)
+		return;
+	for (pv = v->vec; *pv; pv++, i = (i + 1) % 8) {
+		if (pv[0][0] != '/')
+			continue;
+#ifndef U42
+		dirf = open(*pv, 0);
+		if (dirf < 0)
+			continue;
+		if (fstat(dirf, &stb) < 0 || !isdir(stb)) {
+			close(dirf);
+			continue;
+		}
+		while ((cnt = read(dirf, (char *) dirbuf, sizeof dirbuf)) >= sizeof dirbuf[0]) {
+			register struct direct *ep = dirbuf;
+
+			for (cnt /= sizeof(struct direct); cnt > 0; cnt--, ep++) {
+				if (ep->d_ino == 0)
+					continue;
+				copdent(d_name, ep->d_name);
+				xhash[hash(d_name)] |= (1 << i);
+			}
+		}
+		close(dirf);
+#else
+		dirp = opendir(*pv);
+		if (dirp == NULL)
+			continue;
+		if (fstat(dirp->dd_fd, &stb) < 0 || !isdir(stb)) {
+			closedir(dirp);
+			continue;
+		}
+		while ((dp = readdir(dirp)) != NULL) {
+			if (dp->d_ino == 0)
+					continue;
+			xhash[hash(dp->d_name)] |= (1 << i);
+		}
+		closedir(dirp);
+#endif
+	}
+}
+
+dounhash()
+{
+
+	havhash = 0;
+}
+
+#ifdef VFORK
+hashstat()
+{
+
+	if (hits+misses)
+	printf(ediag("%d hits, %d misses, %2d%%\n",
+		     "%d попаданий, %d промахов, %2d%%\n"), hits, misses, 100 * hits / (hits + misses));
+}
+#endif
+
+hash(cp)
+	register char *cp;
+{
+	register long hash = 0;
+	int retval;
+
+	while (*cp)
+		hash += hash + *cp++;
+	if (hash < 0)
+		hash = -hash;
+	retval = hash % HSHSIZ;
+	return (retval);
+}
+@
+
+
+1.7
+log
+@В libjobs.a добавлены из 4.2: sigsetmask, sigblock
+изменен в соотв. с 4.2 формат sigpause
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exec.c,v 1.6 86/09/28 17:41:34 avg Exp $";
+d9 5
+a13 1
+ * $Log:	sh.exec.c,v $
+d16 1
+a16 1
+ * 
+d52 1
+a52 1
+char    *exerr;                 /* Execution error message */
+d190 8
+a197 2
+	if (exerr)
+		bferr(exerr);
+a215 2
+	extern char *sys_errlist[];
+	extern char *sys_rerrlist[];
+d258 1
+a258 2
+			exerr = ediag(sys_errlist [errno],
+				      sys_rerrlist[errno]);
+@
+
+
+1.6
+log
+@Неправильно обрабатывался sigint в неинтерактивном режиме.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exec.c,v 1.5 86/09/19 12:36:00 dmitry Exp $";
+d9 4
+a12 1
+ * $Log:        sh.exec.c,v $
+d124 2
+a125 2
+#ifdef U42
+	sigsetmask(0);
+a126 1
+
+@
+
+
+1.5
+log
+@В одном месте забыли ediag.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exec.c,v 1.4 86/07/21 22:38:55 avg Exp $";
+d10 3
+d118 1
+a118 1
+#ifdef notdef
+d120 1
+a120 1
+#endif
+@
+
+
+1.4
+log
+@Добавлен #ifdef U42 т.к. в МНОС 2 нет sigmask-а.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exec.c,v 1.1 86/07/21 21:41:22 avg Exp $";
+d10 3
+d202 1
+d245 2
+a246 1
+			exerr = sys_errlist[errno];
+@
+
+
+1.3
+log
+@Версия, слитая с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exec.c,v 1.2 86/06/02 17:33:14 dmitry Exp $";
+d5 1
+d10 3
+d115 1
+d117 1
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.exec.c,v 1.1 86/06/01 20:19:19 dmitry Exp $";
+
+a4 1
+#endif  lint
+a6 1
+ * C shell
+d9 3
+d18 3
+a20 1
+
+d105 1
+a105 1
+	 * We must do this after any possible forking (like `foo`
+d108 1
+d110 2
+d246 1
+d271 1
+d275 5
+d292 1
+d311 15
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.exec.c,v 0.0 86/04/20 21:24:11 root Exp $";
+d10 6
+a15 1
+ * $Log$
+a20 4
+ * C shell
+ */
+
+/*
+d89 2
+a90 1
+			error("No match");
+d170 2
+a171 1
+	bferr("Command not found");
+d313 2
+a314 1
+	printf("%d hits, %d misses, %2d%%\n", hits, misses, 100 * hits / (hits + misses));
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.exec.c 4.1 10/9/80";
+d4 9
+d26 1
+a26 1
+/* 
+d33 2
+a34 2
+char	*exerr;			/* Execution error message */
+char	*expath;		/* Path for exerr */
+d44 3
+a46 3
+int	havhash;
+#define	HSHSIZ	511
+char	xhash[HSHSIZ];
+d48 1
+a48 1
+int	hits, misses;
+d52 1
+a52 1
+char	*justabs[] =	{ "", 0 };
+d98 2
+a99 2
+	xechoit(av);		/* Echo command if -x */
+	closech();		/* Close random fd's */
+d105 1
+a105 1
+	sigsys(SIGCHLD, SIG_IGN);	/* sigsys for vforks sake */
+d115 1
+a115 1
+	sav = strspl("/", *av);		/* / command name for postpending */
+d128 1
+a128 1
+		if (pv[0][0] == 0 || eq(pv[0], "."))	/* don't make ./xxx */
+d172 1
+a172 1
+char	*lastsh[] =	{ SHELLPATH, 0 };
+d214 1
+a214 1
+		t = blkspl(vp, t);		/* Splice up the new arglst */
+d241 1
+a241 1
+	signal(SIGTERM, parterm);		/* if doexec loses, screw */
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.exec.c   2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+d26 1
+a26 1
+/* 
+d102 6
+d217 1
+a217 1
+		xfree(t);
+d240 2
+d243 1
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* static  char *sccsid = "$Header: sh.exec.c,v 2.1 86/03/12 23:47:29 alex Exp $/Kiae"; */
+
+a3 1
+#include <sys/dir.h>
+d23 2
+a24 2
+char	*exerr;			/* Execution error message */
+char	*expath;		/* Path for exerr */
+d34 3
+a36 3
+int	havhash;
+#define	HSHSIZ	511
+char	xhash[HSHSIZ];
+d38 1
+a38 1
+int	hits, misses;
+d42 1
+a42 1
+char	*justabs[] =	{ "", 0 };
+d88 2
+a89 2
+	xechoit(av);		/* Echo command if -x */
+	closech();		/* Close random fd's */
+a91 9
+	 * We must do this AFTER any possible forking (like `foo`
+	 * in glob) so that this shell can still do subprocesses.
+	 */
+#ifdef notdef
+	sigsys(SIGCHLD, SIG_IGN);	/* sigsys for vforks sake */
+#endif
+	sigsetmask(0);
+
+	/*
+d99 1
+a99 1
+	sav = strspl("/", *av);		/* / command name for postpending */
+d112 1
+a112 1
+		if (pv[0][0] == 0 || eq(pv[0], "."))	/* don't make ./xxx */
+d156 1
+a156 1
+char	*lastsh[] =	{ SHELLPATH, 0 };
+d198 1
+a198 1
+		t = blkspl(vp, t);		/* Splice up the new arglst */
+d201 1
+a201 1
+		xfree((char *)t);
+a222 1
+	rechist();
+a223 2
+	signal(SIGQUIT, parintr);
+	signal(SIGTERM, parterm);		/* if doexec loses, screw */
+a224 1
+	exiterr++;
+d244 3
+a246 3
+	DIR *dirp;
+	register struct direct *dp;
+	register int cnt;
+d259 2
+a260 2
+		dirp = opendir(*pv);
+		if (dirp == NULL)
+d262 2
+a263 2
+		if (fstat(dirp->dd_fd, &stb) < 0 || !isdir(stb)) {
+			closedir(dirp);
+d266 9
+a274 4
+		while ((dp = readdir(dirp)) != NULL) {
+			if (dp->d_ino == 0)
+				continue;
+			xhash[hash(dp->d_name)] |= (1 << i);
+d276 1
+a276 1
+		closedir(dirp);
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.exec.c,v $
+ * Revision 1.1  86/02/24  20:22:58  sys
+ * Initial revision
+ * 
+d16 1
+a16 1
+/*
+d36 1
+a36 1
+char    *xhash;         /* see sh.c, @@VG */
+d78 1
+a78 2
+			error(ediag("No match",
+				    "Нет таких имен"));
+d152 1
+a152 2
+	bferr(ediag("Command not found",
+		    "Команда не найдена"));
+a223 1
+	signal(SIGTERM, parterm);               /* if doexec loses, screw */
+@

@@ -1,0 +1,1334 @@
+head     1.7;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     90.10.21.16.42.49;  author root;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.06.10.11.49.28;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.06.07.18.25.59;  author root;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.05.04.17.04.12;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.03.22.18.30.21;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.03.16.12.14.07;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.05.19.29.25;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+C shell.
+@
+
+
+1.7
+log
+@Теперь используются Ku Kr Kd Kl вместо ku kr kd kl (for vt100).
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static char rcsid[] = "$Header: sh.screen.c,v 1.6 89/06/10 11:49:28 avg Exp $";
+/*YESXSTR*/
+#endif lint
+
+/*
+ * C Shell.
+ *
+ * Разбор характеристик из TERMCAP и работа с терминалом
+ *
+ * $Log:	sh.screen.c,v $
+ * Revision 1.6  89/06/10  11:49:28  avg
+ * Правлена обработка ucase_flag.
+ * 
+ * Revision 1.5  89/06/07  18:25:59  root
+ * Исправлена перерисовка, более аккуратная работа с буфером
+ *
+ * Revision 1.4  89/05/04  17:04:12  avg
+ * Сделана подстановка переменных в prompt.
+ *
+ * Revision 1.3  89/03/22  18:30:21  avg
+ * Теперь csh корректно работает с stopc и startc.
+ *
+ * Revision 1.2  89/03/16  12:14:07  avg
+ * Внесены изменения для экранной версии csh.
+ *
+ * Revision 1.1  89/03/05  19:29:25  avg
+ * Initial revision
+ *
+ */
+
+#include "sh.h"
+
+#include <ediag.h>
+
+#ifndef NULL
+# define NULL            (0)
+#endif
+
+/*NOXSTR*/
+char *C_UP;
+char *C_DOWN;
+char *C_LEFT;
+char *C_RIGHT;
+char *C_HOME;
+char *C_DEL     = "\177";
+char *C_ERASE   = "\025";
+char *C_IC;
+char *C_DC;
+char *C_CLRL;
+char *C_RESET   = "\022";
+char *C_TAB     = "\t";
+char *C_BTAB;
+char *C_SPEC    = "\026";
+char *C_INTR    = "\003";
+char *C_EOF     = "\004";
+char *C_WERASE  = "\027";
+char *C_START   = "\021";
+char *C_STOP    = "\023";
+/*YESXSTR*/
+
+extern char **C_Chars[];        /* Imported from sh.edline.c */
+
+/*
+ * Strings for tputs() to do various terminal functions.
+ */
+static char
+	*sc_pad,                /* Pad string */
+	*sc_home,               /* Cursor home */
+	*sc_lower_left,         /* Cursor to last line, first column */
+	*sc_move,               /* General cursor positioning */
+	*sc_eol_clear,          /* Clear to end of line */
+	*sc_bell,               /* Bell*/
+	*sc_backspace,          /* Backspace cursor */
+	*sc_up,                 /* Cursor up */
+	*sc_down,               /* Cursor down */
+	*sc_right,              /* Cursor left */
+	*sc_cr,                 /* Return to 1-st column */
+	*sc_roll,               /* Set scrolling region */
+	*sc_init,               /* Startup terminal initialization */
+	*sc_deinit,
+	*sc_cls;
+
+int     bwtty;                  /* bw feature */
+int     auto_wrap;              /* Terminal does \r\n when write past margin */
+int     can_cleol;              /* Terminal can clear to eol */
+
+int     erase_char, kill_char;  /* The user's erase and line-kill chars */
+int     sc_width, sc_height;    /* Height & width of screen */
+int     attr_width;             /* Printing width of standout sequences */
+
+extern int  ScrFlag;
+extern int  TermInitFlag;
+
+int     TCQuiet;        /* discard messages about bad termcap */
+
+int     lc_tty;         /* tty driver has LCASE raised */
+int     ucase_flag;     /* LCASE + UCASE */
+
+/*
+ * These two variables are sometimes defined in,
+ * and needed by, the termcap library.
+ * It may be necessary on some systems to declare them extern here.
+ */
+short ospeed;        /* Terminal output baud rate */
+char PC;             /* Pad character */
+
+int back_scroll;
+char *tgetstr();
+char *tgoto();
+void PutEChar ();
+
+int noxon;          /* XON or XOFF char is in termcap entry */
+int noxoff;
+
+/*
+ * Перевести терминал в "raw mode", или восстновить "normal" mode.
+ */
+
+#if TERMIO
+static struct termio save_term;
+
+save_tty(s)
+struct termio *s;
+{
+	/*
+	 * Get terminal modes.
+	 */
+	ioctl(SHIN, TCGETA, s);
+}
+
+reset_tty(s)
+struct termio s;
+{
+	/*
+	 * Restore saved initial modes.
+	 */
+	ioctl(SHIN, TCSETAW, s);
+}
+
+set_mode()
+{
+	struct termio s;
+
+	/*
+	 * Get terminal modes.
+	 */
+	ioctl(SHIN, TCGETA, &save_term);
+	ioctl(SHIN, TCGETA, &s);
+
+	/*
+	 * Save modes and set certain variables dependent on modes.
+	 */
+	ospeed = s.c_cflag & CBAUD;
+	erase_char = s.c_cc[VERASE];
+	kill_char = s.c_cc[VKILL];
+	C_DEL[0] = erase_char;
+	C_DEL[1] = 0;
+	C_ERASE[0] = kill_char;
+	C_ERASE[1] = 0;
+
+	/*
+	 * Set the modes to the way we want them.
+	 */
+	s.c_lflag &= ~(ICANON|ECHO|ECHOE|ECHOK|ECHONL);
+	s.c_oflag |=  (OPOST|ONLCR|TAB3);
+	s.c_oflag &= ~(OCRNL|ONOCR|ONLRET);
+	s.c_cc[VMIN] = 1;
+	s.c_cc[VTIME] = 0;
+	ioctl(SHIN, TCSETAW, &s);
+}
+
+reset_mode()
+{
+	struct termio s;
+
+	/*
+	 * Restore saved modes.
+	 */
+	ioctl(SHIN, TCSETAW, &save_term);
+}
+
+#else /* TERMCAP */
+
+static struct sgttya save_term;
+
+save_tty(s)
+struct sgttya *s;
+{
+	/*
+	 * Get terminal modes.
+	 */
+	ioctl(SHIN, TIOCGETA, s);
+	lc_tty     = (s->sg_flags & LCASE) != 0;
+	ucase_flag = lc_tty && (s->sg_flags & UCASE);
+}
+
+static char startc, stopc;
+
+set_mode()
+{
+	struct sgttya s;
+
+	/*
+	 * Get terminal modes.
+	 */
+	ioctl(SHIN, TIOCGETA, &save_term);
+	s = save_term;
+	GetTmode(&s);
+
+	/*
+	 * Set the modes to the way we want them.
+	 */
+	s.sg_flags |= CBREAK;
+	s.sg_flags &= ~(ECHO|XTABS);
+	s.sg_lnextc = s.sg_rprntc = s.sg_flushc = s.sg_werasc = 0;
+	s.sg_suspc  = s.sg_dsuspc = s.sg_intrc = s.sg_quitc = 0;
+	if( startc == 0 || stopc == 0 ) {
+		s.sg_startc = s.sg_stopc = 0;
+	} else {
+		if( noxon )
+			s.sg_startc = 0;
+		if( noxoff )
+			s.sg_stopc = 0;
+	}
+	ioctl(SHIN, TIOCSETB, &s);
+	lc_tty     = (s.sg_flags & LCASE) != 0;
+	ucase_flag = lc_tty && (s.sg_flags & UCASE);
+}
+
+reset_mode()
+{
+	/*
+	 * Restore saved modes.
+	 */
+	ioctl(SHIN, TIOCSETB, &save_term);
+}
+
+reset_tty(s)
+struct sgttya *s;
+{
+	/*
+	 * Restore saved initial modes.
+	 */
+	ioctl(SHIN, TIOCSETB, s);
+}
+#endif  /* TERMIO */
+
+static int couldnt = 0;
+
+static void
+cannot(s)
+	char *s;
+{
+	if( !TCQuiet )
+	printf(ediag("terminal cannot %s\n","У терминала нет %s\n"), s);
+	couldnt = 1;
+}
+
+/*
+ * Read Terminal Mode
+ */
+GetTmode(s)
+register struct sgttya *s;
+{
+	char c;
+	register NeedCheck = 0;
+
+	ospeed = s->sg_ospeed;
+	erase_char = s->sg_erase;
+	kill_char = s->sg_kill;
+	if( startc != s->sg_startc || stopc != s->sg_stopc )
+		NeedCheck++;
+	startc = s->sg_startc;
+	stopc = s->sg_stopc;
+	if( startc == -1 || startc == 0 ) stopc = 0;
+	if( erase_char == -1 ) erase_char = 0; C_DEL[0]   = erase_char;
+	if( kill_char  == -1 ) kill_char  = 0; C_ERASE[0] = kill_char;
+	if( startc     == -1 ) startc     = 0; C_START[0] = startc;
+	if( stopc      == -1 ) stopc      = 0; C_STOP[0]  = stopc;
+	if( (c = s->sg_lnextc) == -1 ) c = 0; C_SPEC[0]   = c;
+	if( (c = s->sg_rprntc) == -1 ) c = 0; C_RESET[0]  = c;
+	if( (c = s->sg_intrc)  == -1 ) c = 0; C_INTR[0]   = c;
+	if( (c = s->sg_eofc)   == -1 ) c = 0; C_EOF[0]    = c;
+	if( (c = s->sg_werasc) == -1 ) c = 0; C_WERASE[0] = c;
+	if( NeedCheck )
+		CheckXonXoff();
+}
+
+/*
+ * Check for XON/XOFF occurences in keboard codes
+ */
+CheckXonXoff()
+{
+	register char ***ptr;
+	register char *p;
+
+	noxon = noxoff = 0;
+	for( ptr = C_Chars ; *ptr != &C_START ; ptr++ ) {
+		if( **ptr == NULL )
+			continue;
+		p = **ptr;
+		while( *p ) {
+			if( *p == startc )
+				noxon++;
+			if( *p++ == stopc )
+				noxoff++;
+		}
+	}
+}
+
+static char *sp;
+
+/*
+ * Get terminal capabilities via termcap.
+ */
+get_term()
+{
+	char termbuf[1024];
+	static char sbuf[300];
+	char *getenv();
+	struct sgttya s;
+
+	TermInitFlag = 1;
+
+	/*
+	 * Find out what kind of terminal this is.
+	 */
+	if (tgetent(termbuf, getenv("TERM")) <= 0) {
+		if( !TCQuiet )
+		printf(ediag("Unknown type of terminal\n",
+			     "Неизвестный тип терминала\n"));
+		goto Deinit;
+	}
+
+	/*
+	 * Read modes and set certain variables dependent on modes.
+	 */
+	if( ioctl(SHIN, TIOCGETA, &s) < 0 || ioctl(SHOUT, TIOCGETA, &s) < 0 ) {
+		if( !TCQuiet )
+			printf(ediag("Can not use terminal",
+				     "Терминал недоступен"));
+		goto Deinit;
+	}
+	GetTmode(&s);
+
+	/*
+	 * Get size of the screen.
+	 */
+	if ((sc_height = tgetnum("li")) < 0 || tgetflag("hc"))
+		goto Cannot;
+
+	if ( (sc_width = tgetnum("co")) < 0)
+		sc_width = 80;
+
+	auto_wrap = tgetflag("am") && !tgetflag("xn");
+	bwtty = tgetflag("bw");
+
+	/*
+	 * Get various string-valued capabilities.
+	 */
+	sp = sbuf;
+
+	sc_pad = tgetstr("pc", &sp);
+	if (sc_pad != NULL)
+		PC = *sc_pad;
+
+	sc_init = tgetstr("ti", &sp);
+	if (sc_init == NULL)
+		sc_init = "";
+
+	sc_deinit= tgetstr("te", &sp);
+	if (sc_deinit == NULL)
+		sc_deinit = "";
+
+	sc_cls = tgetstr("cl", &sp);
+	if(sc_cls == NULL)
+		sc_cls = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+
+	sc_eol_clear = tgetstr("ce", &sp);
+	if (sc_eol_clear == NULL || *sc_eol_clear == '\0') {
+		sc_eol_clear = "";
+		can_cleol = 0;
+	} else
+		can_cleol = 1;
+
+	if( ((C_UP = tgetstr("Ku", &sp)) == NULL || *C_UP == '\0') &&
+	    ((C_UP = tgetstr("ku", &sp)) == NULL || *C_UP == '\0') )
+		cannot(ediag("use \"up arrow\"","символа \"стрелка вверх\""));
+
+	if( ((C_DOWN = tgetstr("Kd", &sp)) == NULL || *C_DOWN == '\0') &&
+	    ((C_DOWN = tgetstr("kd", &sp)) == NULL || *C_DOWN == '\0') )
+		cannot(ediag("use \"down arrow\"","символа \"стрелка вниз\""));
+
+	if( ((C_LEFT = tgetstr("Kl", &sp)) == NULL || *C_LEFT == '\0') &&
+	    ((C_LEFT = tgetstr("kl", &sp)) == NULL || *C_LEFT == '\0') )
+		cannot(ediag("use \"left arrow\"","символа \"стрелка влево\""));
+
+	if( ((C_RIGHT = tgetstr("Kr", &sp)) == NULL || *C_RIGHT == '\0') &&
+	    ((C_RIGHT = tgetstr("kr", &sp)) == NULL || *C_RIGHT == '\0') )
+		cannot(ediag("use \"right arrow\"","символа \"стрелка вправо\""));
+
+	C_HOME = tgetstr("kh", &sp);
+	if (C_HOME == NULL || *C_HOME == '\0')
+		cannot(ediag("use \"home\" key", "клавиши \"home\""));
+
+	C_IC = tgetstr("kI", &sp);
+	if (C_IC == NULL || *C_IC == '\0')
+		cannot(ediag("use \"insert\" key", "клавиши \"вставить\""));
+
+	C_DC = tgetstr("kD", &sp);
+	if (C_DC == NULL || *C_DC == '\0')
+		cannot(ediag("use \"delete\" key", "клавиши \"удалить\""));
+
+	C_BTAB = tgetstr("kB", &sp);
+
+	C_CLRL = tgetstr("kE", &sp);
+	if (C_CLRL == NULL)
+		C_CLRL = tgetstr("kC", &sp);
+
+
+	sc_right = tgetstr("nd", &sp);
+	if (sc_right == NULL || *sc_right == '\0') {
+		cannot(ediag("use \"cursor right\"","движения курсора вправо"));
+		sc_right = "";
+	}
+
+	sc_up = tgetstr("up", &sp);
+	if (sc_up == NULL || *sc_up == '\0') {
+		cannot(ediag("use \"cursor up\"","движения курсора вверх"));
+		sc_up = "";
+	}
+
+	sc_move = tgetstr("cm", &sp);
+	if (sc_move == NULL || *sc_move == '\0') {
+		/*
+		 * This is not an error here, because we don't
+		 * always need sc_move.
+		 * We need it only if we don't have home or lower-left.
+		 */
+		sc_move = "";
+	}
+
+	sc_roll = tgetstr("cs", &sp);
+	if (sc_roll == NULL || *sc_roll == '\0') {
+		sc_roll = "";
+	}
+
+	sc_bell = tgetstr("bl", &sp);
+	if (sc_bell == NULL || *sc_bell == '\0' )
+		sc_bell = "\007";
+
+	sc_home = tgetstr("ho", &sp);
+	if (sc_home == NULL || *sc_home == '\0')
+	{
+		if (*sc_move == '\0') {
+			cannot(ediag("home cursor","команды HOME"));
+		} else  {
+			/*
+			 * No "home" string,
+			 * but we can use "move(0,0)".
+			 */
+			strcpy(sp, tgoto(sc_move, 0, 0));
+			sc_home = sp;
+			sp += strlen(sp) + 1;
+		}
+	}
+
+	sc_lower_left = tgetstr("ll", &sp);
+	if (sc_lower_left == NULL || *sc_lower_left == '\0') {
+		if (*sc_move == '\0') {
+			sc_lower_left = "\r";
+		} else  {
+			/*
+			 * No "lower-left" string,
+			 * but we can use "move(0,last-line)".
+			 */
+			strcpy(sp, tgoto(sc_move, 0, sc_height-1));
+			sc_lower_left = sp;
+			sp += strlen(sp) + 1;
+		}
+	}
+
+	if (tgetflag("bs"))
+		sc_backspace = "\b";
+	else {
+		sc_backspace = tgetstr("bc", &sp);
+		if (sc_backspace == NULL || *sc_backspace == '\0')
+			sc_backspace = "\b";
+	}
+
+	sc_cr = tgetstr("cr", &sp);
+	if( sc_cr == NULL || *sc_cr == '\0' )
+		sc_cr = "\r";
+
+	if( (attr_width = tgetnum("sg")) == -1 )
+		attr_width = 0;
+
+	/*
+	 * Search for occurences of XON/XOFF in keyboard codes
+	 */
+	CheckXonXoff();
+
+	if( couldnt ) {
+Cannot:
+	     if( !TCQuiet )
+	     printf(ediag("Cannot support screen mode on this terminal\n",
+			  "Не могу делать редактирование на таком терминале\n"));
+Deinit:
+		ScrFlag = 0;
+		deinihist();
+		unsetscrv();
+		unsetvq("shistory");
+		return;
+	} else
+		setscrv();
+}
+
+/*
+ * Initialize terminal
+ */
+init()
+{
+	tputs(sc_init, sc_height, PutEChar);
+}
+
+/*
+ * Deinitialize terminal
+ */
+deinit()
+{
+	tputs(sc_deinit, sc_height, PutEChar);
+}
+
+/*
+ * Ring the terminal bell.
+ */
+bell()
+{
+	tputs(sc_bell, 1, PutEChar);
+}
+
+/*
+ * Clear from the cursor to the end of the cursor's line.
+ * {{ This must not move the cursor. }}
+ */
+clear_eol()
+{
+	tputs(sc_eol_clear, 1, PutEChar);
+}
+
+/*
+ * Cursor right
+ */
+c_right()
+{
+	tputs(sc_right, 1, PutEChar);
+}
+
+/*
+ * Output a plain backspace, without erasing the previous char.
+ */
+putbs()
+{
+	tputs(sc_backspace, 1, PutEChar);
+}
+
+/*
+ * Cursor to previous line
+ */
+prev_line()
+{
+	tputs(sc_up, 1, PutEChar);
+}
+
+/*
+ * New line
+ */
+eoln()
+{
+	tputs("\n", 1, PutEChar);
+}
+
+/*
+ * Return to 1-st column in line
+ */
+resetln()
+{
+	tputs(sc_cr, 1, PutEChar);
+}
+
+struct SCVTAB {
+	char    *scv_name;
+	char    *scv_tc;
+	enum {
+		CV_CLEAR,
+		CV_ATTR,
+		CV_CLRL,
+		CV_NCOLS,
+		CV_NLINES,
+		CV_POS,
+		CV_ROLL,
+		CV_HOME,
+		CV_LL,
+		CV_BELL,
+		/* CV_COLOR,
+		   CV_BGCOLOR */
+	}       scv_type;
+	short   scv_defined;
+} scvtab[] = {
+	"_clear",       NULL,   CV_CLEAR,       0,
+	"_standout",    "so",   CV_ATTR,        0,
+	"_normal",      "me",   CV_ATTR,        0,
+	"_inverse",     "mr",   CV_ATTR,        0,
+	"_bold",        "md",   CV_ATTR,        0,
+	"_underline",   "us",   CV_ATTR,        0,
+	"_italic",      "as",   CV_ATTR,        0,
+	"_blink",       "mb",   CV_ATTR,        0,
+	"_clrline",     NULL,   CV_CLRL,        0,
+	"_home",        NULL,   CV_HOME,        0,
+	"_lowerleft",   NULL,   CV_LL,          0,
+	"_pos",         NULL,   CV_POS,         0,
+	"_roll",        NULL,   CV_ROLL,        0,
+	"_cols",        NULL,   CV_NCOLS,       0,
+	"_lines",       NULL,   CV_NLINES,      0,
+	"_bell",        NULL,   CV_BELL,        0,
+	NULL,           NULL,   0,              0
+};
+
+/*
+ * Fake putchar (for tputs), tputs into string (stputs)
+ */
+static char *xbp;
+Xputc(cp)
+register cp;
+{
+	cp &= 0377;
+	if( ucase_flag )
+		cp =  (cp >= 'A'  && cp <= 'Z') ? cp + 040  :
+		     ((cp >= 'a'  && cp <= 'z') ? cp + 0140 : cp);
+	if( lc_tty )
+		switch(cp) {
+		    case '`': cp = 'ю'; break;
+		    case '{': cp = 'ш'; break;
+		    case '|': cp = 'э'; break;
+		    case '}': cp = 'щ'; break;
+		    case '~': cp = 'ч'; break;
+		}
+	*xbp++ = cp;
+}
+
+stputs(cap, buf)
+char *cap, *buf;
+{
+	xbp = buf;
+	tputs(cap, 1, Xputc);
+	*xbp = '\0';
+}
+
+/*
+ * Returns string for set scrolling region
+ */
+char *c_roll(c1,c2)
+{
+	static char buf[30];
+
+	stputs(tgoto(sc_roll,c1,c2),buf);
+	return( buf );
+}
+
+/*
+ * Returns string for placing cursor to desired location (hor, ver)
+ */
+char *c_pos(h, v)
+{
+	static char buf[30];
+	char *p;
+
+	if( h < 0 )              h = 0;
+	else if( h >= sc_width ) h = sc_width-1;
+	if( v < 0 )              v = 0;
+	else if( h >= sc_width ) v = sc_height-1;
+	if( *sc_move ) {
+		p = tgoto(sc_move, v, h);
+		if( !eq(p, "OOPS") ) {
+			stputs(p, buf);
+			return buf;
+		}
+	}
+	xbp = buf;
+	tputs(sc_home, 1, Xputc);
+	while( v-- )
+		*xbp++ = '\n';
+	while( h-- )
+		tputs(sc_right, 1, Xputc);
+	*xbp = 0;
+	return buf;
+}
+
+
+/*
+ * Set screen function variables
+ */
+setscrv()
+{
+	register struct SCVTAB *sc;
+	char buf[80], *p;
+	int i;
+
+	for( sc = scvtab ; sc->scv_name ; sc++ ) {
+		sc->scv_defined = 1;
+		p = buf;
+		switch( sc->scv_type ) {
+		    case CV_CLEAR:
+			p = sc_cls;
+			goto BL;
+		    case CV_CLRL:
+			p = sc_eol_clear;
+			goto BL;
+		    case CV_ATTR:
+			if( (p = tgetstr(sc->scv_tc, &sp)) == NULL ) {
+				sc->scv_defined = 0;
+				buf[0] = '\0';
+			} else
+				stputs(p, buf);
+			break;
+		    case CV_NCOLS:
+			i = sc_width;
+			goto Num;
+		    case CV_NLINES:
+			i = sc_height;
+		    Num:
+			if( i <= 0 )
+				buf[0] = '0', buf[1] = 0;
+			else {
+				p = &buf[50];
+				*--p = 0;
+				while( i > 0 ) {
+					*--p = '0' + (i%10);
+					i /= 10;
+				}
+			}
+			break;
+		    case CV_POS:
+			buf[0] = '\0';
+			break;
+		    case CV_ROLL:
+			buf[0] = '\0';
+			break;
+		    case CV_HOME:
+			p = sc_home;
+			goto BL;
+		    case CV_LL:
+			p = sc_lower_left;
+			goto BL;
+		    case CV_BELL:
+			p = sc_bell;
+		    BL:
+			stputs(p, buf);
+			break;
+		}
+		setquoted(sc->scv_name, savestr(buf));
+	}
+}
+
+/*
+ * Unset screen function variables
+ */
+unsetscrv()
+{
+	register struct SCVTAB *sc;
+
+	for( sc = scvtab ; sc->scv_name ; sc++ ) {
+		sc->scv_defined = 0;
+		unsetvq(sc->scv_name);
+	}
+}
+
+/*
+ * Check for current column changing using screen variable n
+ */
+chkscrvar(n)
+char *n;
+{
+	register struct SCVTAB *sc;
+	extern int col;
+
+	for( sc = scvtab ; sc->scv_name ; sc++ ) {
+		if( eq(n, sc->scv_name) ) {
+			switch( sc->scv_type ) {
+			    case CV_LL:
+			    case CV_HOME:
+			    case CV_CLEAR:
+				col = -strlen(value(n));
+				break;
+			    case CV_BELL:
+			    case CV_CLRL:
+				col -= strlen(value(n));
+				break;
+			    case CV_ATTR:
+				if( sc->scv_defined ) {
+					col -= strlen(value(n));
+					col += attr_width;
+				}
+				break;
+			}
+			break;
+		}
+	}
+}
+@
+
+
+1.6
+log
+@Правлена обработка ucase_flag.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.screen.c,v 1.5 89/06/07 18:25:59 root Exp $";
+d12 4
+a15 1
+ * $Log:        sh.screen.c,v $
+d388 2
+a389 2
+	C_UP = tgetstr("ku", &sp);
+	if (C_UP == NULL || *C_UP == '\0')
+d392 2
+a393 2
+	C_DOWN = tgetstr("kd", &sp);
+	if (C_DOWN == NULL || *C_DOWN == '\0')
+d396 2
+a397 2
+	C_LEFT = tgetstr("kl", &sp);
+	if (C_LEFT == NULL || *C_LEFT == '\0')
+d400 2
+a401 2
+	C_RIGHT = tgetstr("kr", &sp);
+	if (C_RIGHT == NULL || *C_RIGHT == '\0')
+@
+
+
+1.5
+log
+@Исправлена перерисовка, более аккуратная работа с буфером
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.screen.c,v 1.4 89/05/04 17:04:12 avg Exp $";
+d12 4
+a15 1
+ * $Log:	sh.screen.c,v $
+d18 1
+a18 1
+ * 
+d77 1
+d192 2
+a193 2
+	lc_tty     = (s.sg_flags & LCASE) != 0;
+	ucase_flag = lc_tty && (s.sg_flags & UCASE);
+d442 5
+d600 1
+d621 1
+d632 2
+a633 1
+Xputc(c)
+d635 13
+a647 1
+	*xbp++ = c;
+d659 11
+d698 1
+d743 1
+a743 1
+			p = "";
+d745 3
+d760 1
+a760 1
+		setquoted(sc->scv_name, savestr(p));
+@
+
+
+1.4
+log
+@Сделана подстановка переменных в prompt.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.screen.c,v 1.3 89/03/22 18:30:21 avg Exp $";
+d12 4
+a15 1
+ * $Log:        sh.screen.c,v $
+d105 1
+a105 1
+void PutChar ();
+d483 1
+a483 1
+		sc_cr = "\n";
+d513 1
+a513 1
+	tputs(sc_init, sc_height, PutChar);
+d521 1
+a521 1
+	tputs(sc_deinit, sc_height, PutChar);
+d529 1
+a529 1
+	tputs(sc_bell, 1, PutChar);
+d538 1
+a538 1
+	tputs(sc_eol_clear, 1, PutChar);
+d546 1
+a546 1
+	tputs(sc_right, 1, PutChar);
+d554 1
+a554 1
+	tputs(sc_backspace, 1, PutChar);
+d562 1
+a562 1
+	tputs(sc_up, 1, PutChar);
+d570 1
+a570 1
+	tputs("\n", 1, PutChar);
+d578 1
+a578 1
+	tputs(sc_cr, 1, PutChar);
+@
+
+
+1.3
+log
+@Теперь csh корректно работает с stopc и startc.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.screen.c,v 1.2 89/03/16 12:14:07 avg Exp $";
+d13 3
+d72 2
+a73 1
+	*sc_deinit;
+d81 1
+a81 1
+int     so_width, se_width;     /* Printing width of standout sequences */
+d367 4
+d482 3
+d499 1
+d582 4
+a585 2
+		CV_STRING,
+		CV_NROWS,
+d594 1
+d596 16
+a611 16
+	"_clear",       "cl",   CV_STRING,
+	"_standout",    "so",   CV_STRING,
+	"_normal",      "me",   CV_STRING,
+	"_inverse",     "mr",   CV_STRING,
+	"_bold",        "md",   CV_STRING,
+	"_underline",   "us",   CV_STRING,
+	"_italic",      "as",   CV_STRING,
+	"_blink",       "mb",   CV_STRING,
+	"_clrline",     "ce",   CV_STRING,
+	"_home",        NULL,   CV_HOME,
+	"_lowerleft",   NULL,   CV_LL,
+	"_pos",         NULL,   CV_POS,
+	"_rows",        NULL,   CV_NROWS,
+	"_lines",       NULL,   CV_NLINES,
+	"_bell",        NULL,   CV_BELL,
+	NULL,           NULL,   0
+d670 1
+d673 9
+a681 2
+		    case CV_STRING:
+			if( (p = tgetstr(sc->scv_tc, &sp)) == NULL )
+d683 1
+a683 1
+			else
+d686 2
+a687 2
+		    case CV_NROWS:
+			i = sc_height;
+d690 1
+a690 1
+			i = sc_width;
+d718 1
+a718 1
+		set(sc->scv_name, savestr(p));
+d729 2
+a730 1
+	for( sc = scvtab ; sc->scv_name ; sc++ )
+d732 34
+@
+
+
+1.2
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.screen.c,v 1.1 89/03/05 19:29:25 avg Exp $";
+d13 3
+d185 2
+d196 1
+d204 9
+a212 5
+	s.sg_suspc  = s.sg_dsuspc = s.sg_intrc = 0;
+	if( noxon )
+		s.sg_startc = 0;
+	if( noxoff )
+		s.sg_stopc = 0;
+d247 52
+a309 2
+	char ***ptr;
+	char startc, stopc;
+d332 1
+a332 23
+	ospeed = s.sg_ospeed;
+	erase_char = s.sg_erase;
+	kill_char = s.sg_kill;
+	if( erase_char != 0 && erase_char != -1 )
+		C_DEL[0]   = erase_char;
+	if( kill_char != 0 && kill_char != -1 )
+		C_ERASE[0] = kill_char;
+	if( s.sg_lnextc != 0 && s.sg_lnextc != -1 )
+		C_SPEC[0]  = s.sg_lnextc;
+	if( s.sg_rprntc != 0 && s.sg_rprntc != -1 )
+		C_RESET[0] = s.sg_rprntc;
+	if( s.sg_intrc != 0 && s.sg_intrc != -1 )
+		C_INTR[0] = s.sg_intrc;
+	if( s.sg_eofc != 0 && s.sg_eofc != -1 )
+		C_EOF[0] = s.sg_eofc;
+	if( s.sg_werasc != 0 && s.sg_werasc != -1 )
+		C_WERASE[0] = s.sg_werasc;
+	startc = s.sg_startc;
+	stopc  = s.sg_stopc;
+	if( startc != 0 && startc != -1 )
+		C_START[0] = startc;
+	if( stopc != 0 && stopc != -1 )
+		C_STOP[0] = stopc;
+d477 1
+a477 17
+	{
+		register char *p;
+
+		noxon = noxoff = 0;
+		for( ptr = C_Chars ; *ptr != &C_START ; ptr++ ) {
+			if( **ptr == NULL )
+				continue;
+			p = **ptr;
+			while( *p ) {
+				if( *p == startc )
+					noxon++;
+				if( *p++ == stopc )
+					noxoff++;
+			}
+		}
+	}
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header$";
+d12 4
+a15 1
+ * $Log$
+d19 1
+a19 1
+#include "sh.symb.h"
+d26 24
+d51 1
+a51 1
+ * Strings passed to tputs() to do various terminal functions.
+a58 2
+	*sc_s_in,               /* Enter standout (highlighted) mode */
+	*sc_s_out,              /* Exit standout mode */
+a75 1
+extern char *C_Chars[];
+d77 1
+a77 1
+extern char C_DEL[];
+d79 5
+d97 2
+a98 1
+/* #define SDEBUG       */
+d143 2
+d169 1
+a169 1
+static struct sgttyb save_term;
+d172 1
+a172 1
+struct sgttyb *s;
+d177 3
+a179 5
+	ioctl(SHIN, TIOCGETP, s);
+
+#ifdef SDEBUG
+	printf("save_tty() sg_flags:%o\n",s->sg_flags);
+#endif
+d184 1
+a184 1
+	struct sgttyb s;
+d189 2
+a190 2
+	ioctl(SHIN, TIOCGETP, &save_term);
+	ioctl(SHIN, TIOCGETP, &s);
+a192 9
+	 * Save modes and set certain variables dependent on modes.
+	 */
+	ospeed = s.sg_ospeed;
+	erase_char = s.sg_erase;
+	kill_char = s.sg_kill;
+	C_DEL[0] = erase_char;
+	C_DEL[1] = 0;
+
+	/*
+d197 9
+a205 4
+	ioctl(SHIN, TIOCSETN, &s);
+#ifdef SDEBUG
+	printf("set_mode()   sg_flags:%o\n",s.sg_flags);
+#endif
+a209 2
+	struct sgttyb s;
+
+d213 1
+a213 4
+#ifdef SDEBUG
+	printf("reset_mode() sg_flags:%o\n",s.sg_flags);
+#endif
+	ioctl(SHIN, TIOCSETN, &save_term);
+d217 1
+a217 1
+struct sgttyb *s;
+d222 1
+a222 4
+#ifdef SDEBUG
+	printf("reset_tty() sg_flags:%o\n",s->sg_flags);
+#endif
+	ioctl(SHIN, TIOCSETN, s);
+a225 1
+
+d232 1
+d237 2
+d245 1
+a245 3
+	char *sp;
+	static char sbuf[150];
+
+d247 3
+d251 2
+d257 1
+d260 1
+a260 1
+		ScrFlag = 0;
+d264 33
+a308 8
+	 * Assumes termcap variable "sg" is the printing width of
+	 * the standout sequence and the end standout sequence.
+	 */
+	if ((se_width = tgetnum("sg")) < 0)
+		se_width = 0;
+	so_width = se_width;
+
+	/*
+a316 8
+	sc_a_on = tgetstr("ks", &sp);
+	if (sc_a_on == NULL)
+		sc_a_on = "";
+
+	sc_a_off = tgetstr("ke", &sp);
+	if (sc_a_on == NULL)
+		sc_a_off = "";
+
+d332 2
+a333 2
+	C_Chars[UP] = tgetstr("ku", &sp);
+	if (C_Chars[UP] == NULL || *(C_Chars[UP]) == '\0') {
+a334 2
+		C_Chars[UP] = "";
+	}
+d336 2
+a337 2
+	C_Chars[DOWN] = tgetstr("kd", &sp);
+	if (C_Chars[DOWN] == NULL || *(C_Chars[DOWN]) == '\0') {
+a338 2
+		C_Chars[DOWN] = "";
+	}
+d340 2
+a341 2
+	C_Chars[LEFT] = tgetstr("kl", &sp);
+	if (C_Chars[LEFT] == NULL || *(C_Chars[LEFT]) == '\0') {
+a342 2
+		C_Chars[LEFT] = "";
+	}
+d344 2
+a345 2
+	C_Chars[RIGHT] = tgetstr("kr", &sp);
+	if (C_Chars[RIGHT] == NULL || *(C_Chars[RIGHT]) == '\0') {
+a346 2
+		C_Chars[RIGHT] = "";
+	}
+d348 19
+a388 16
+	sc_s_in = tgetstr("so", &sp);
+	if (sc_s_in == NULL)
+		sc_s_in = "";
+
+	sc_s_out = tgetstr("se", &sp);
+	if (sc_s_out == NULL)
+		sc_s_out = "";
+
+	sc_u_in = tgetstr("us", &sp);
+	if (sc_u_in == NULL)
+		sc_u_in = sc_s_in;
+
+	sc_u_out = tgetstr("ue", &sp);
+	if (sc_u_out == NULL)
+		sc_u_out = sc_s_out;
+
+d436 21
+d459 1
+d462 7
+a468 2
+	     ScrFlag = 0;
+	}
+a471 6
+ * Below are the functions which perform all the
+ * terminal-specific screen manipulation.
+ */
+
+
+/*
+a487 16
+ * Home cursor (move to upper left corner of screen).
+ */
+home()
+{
+	tputs(sc_home, 1, PutChar);
+}
+
+/*
+ * Move cursor to lower left corner of screen.
+ */
+lower_left()
+{
+	tputs(sc_lower_left, 1, PutChar);
+}
+
+/*
+a504 16
+ * Begin "standout" (bold, underline, or whatever).
+ */
+so_enter()
+{
+	tputs(sc_s_in, 1, PutChar);
+}
+
+/*
+ * End "standout".
+ */
+so_exit()
+{
+	tputs(sc_s_out, 1, PutChar);
+}
+
+/*
+d542 144
+@

@@ -1,0 +1,278 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.5
+date     90.09.24.13.16.24;  author root;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.12.28.17.38.51;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.12.27.17.21.06;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.27.17.12.29;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.27.17.09.05;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile для YACC  в ДЕМОС 2.0
+@
+
+
+1.5
+log
+@
+???
+@
+text
+@#
+# $Log: Makefile,v $
+# Revision 1.4  86/12/28  17:38:51  avg
+# Добавлена сборка библиотек yacc-а.
+#
+# Revision 1.3  86/12/27  17:21:06  avg
+# Правлен i_parser.
+#
+# Revision 1.2  86/12/27  17:12:29  avg
+# Добавлено вытаскивание из RCS dextern-а.
+#
+# Revision 1.1  86/12/27  17:09:05  avg
+# Initial revision
+#
+#  Машина       TYPE            YACC    WORD    OVLY
+#
+#  СМ-4         MEDIUM          oyacc   16      -V
+#  СМ-1420             ---- / ----
+#  СМ-1600             ---- / ----
+#  Э-85                ---- / ----
+#  Э-79         MEDIUM          syacc   16
+#  СМ 1700      HUGE            syacc   32
+#  Э-82                ---- / ----
+#  ЕС Ряд 2     HUGE            syacc   32
+#
+TYPE=MEDIUM
+YACC=oyacc
+WORD=16
+OVLY=-V
+#
+# Для версии исх. текстов без архивов RCS поставьте R=X
+R=
+
+RCS=RCS
+COFLAGS=
+
+PARSER=/usr/lib/yaccpar
+DEST=/usr/bin/yacc
+LIB=/usr/lib/liby.a
+
+I=/usr/include
+
+CFLAGS=-O
+LD=ld
+SFLG=-i -s
+OFLG=-X -n -s
+
+DEFS=-D$(TYPE) -DPARSER=\"$(PARSER)\" -DWORD$(WORD) $(OVLY)
+
+OBJ=y1.o y2.o y3.o y4.o y5.o
+LIBOBJ=main.o yyerror.o
+SRC=y1.c y2.c y3.c y4.c y5.c yaccpar dextern yyerror.c main.c
+
+all: yacc liby.a yaccpar
+
+yacc:   $(YACC) Makefile
+	-rm -f yacc
+	ln $(YACC) yacc
+
+install: i_yacc i_parser i_lib
+
+i_yacc: yacc
+	-rm -f $(DEST)
+	cp yacc $(DEST)
+
+i_parser: yaccpar
+	-rm -f $(PARSER)
+	cp yaccpar $(PARSER)
+
+i_lib:  liby.a
+	-rm -f $(LIB)
+	cp liby.a $(LIB)
+	ranlib  $(LIB)
+
+syacc: $(OBJ) strings.o Makefile
+	$(LD) -o syacc ${SFLG} /lib/crt0.o $(OBJ) strings.o -lc
+
+oyacc: $(OBJ) strings.o Makefile
+	$(LD) -o oyacc ${OFLG} /lib/crt0.o -Z y1.o y4.o -Z y2.o \
+	   -L y3.o y5.o strings.o -lovc
+
+y5.o: y5.c
+	$(CC) $(CFLAGS) $(OVLY) -c y5.c
+
+.c.o:
+	xstr -c $*.c
+	$(CC) $(CFLAGS) $(DEFS) -c x.c
+	mv x.o $*.o
+
+strings.o: strings
+	xstr
+	$(CC) $(CFLAGS) -c xs.c
+	mv xs.o strings.o
+
+strings: $(OBJ)
+
+$(OBJ): dextern ${I}/stdio.h ${I}/ctype.h
+
+clear clean:
+	-rm -f *.[ob] *.bak
+	-rm -f strings x.c xs.c yacc oyacc syacc liby.a
+
+source: $(SRC) Makefile
+
+CLRSRC: clear
+	-rm -f $(SRC)
+
+liby.a: $(LIBOBJ)
+	ar rcv liby.a $(LIBOBJ)
+
+main.o:    main.c
+	$(CC) $(CFLAGS) -c main.c
+
+yyerror.o: yyerror.c ${I}/stdio.h
+	$(CC) $(CFLAGS) -c yyerror.c
+
+$(R)y1.c:       $(RCS)/y1.c,v;          co $(COFLAGS) y1.c
+$(R)y2.c:       $(RCS)/y2.c,v;          co $(COFLAGS) y2.c
+$(R)y3.c:       $(RCS)/y3.c,v;          co $(COFLAGS) y3.c
+$(R)y4.c:       $(RCS)/y4.c,v;          co $(COFLAGS) y4.c
+$(R)y5.c:       $(RCS)/y5.c,v;          co $(COFLAGS) y5.c
+$(R)dextern:    $(RCS)/dextern,v;       co $(COFLAGS) dextern
+$(R)yaccpar:    $(RCS)/yaccpar,v;       co $(COFLAGS) yaccpar
+$(R)Makefile:   $(RCS)/Makefile,v;      co $(COFLAGS) Makefile
+$(R)main.c:     $(RCS)/main.c,v;        co $(COFLAGS) main.c
+$(R)yyerror.c:  $(RCS)/yyerror.c,v;     co $(COFLAGS) yyerror.c
+@
+
+
+1.4
+log
+@Добавлена сборка библиотек yacc-а.
+@
+text
+@d3 3
+d44 3
+d76 1
+a76 1
+	ld -o syacc -i -s /lib/crt0.o $(OBJ) strings.o -lc
+d79 1
+a79 1
+	ld -o oyacc -X -n -s /lib/crt0.o -Z y1.o y4.o -Z y2.o \
+@
+
+
+1.3
+log
+@Правлен i_parser.
+@
+text
+@d3 3
+d12 1
+d14 1
+a14 4
+#
+#  Машина       TYPE            YACC    WORD    CFLAGS
+#
+#  СМ-4         MEDIUM          oyacc   16      -O -V
+d18 2
+a19 2
+#  Э-79         MEDIUM          syacc   16      -O
+#  СМ 1700      HUGE            syacc   32      -O
+d21 1
+a21 1
+#  ЕС Ряд 2     HUGE            syacc   32      -O
+d26 1
+a26 1
+CFLAGS=-O -V
+d36 1
+d38 1
+d40 1
+a40 1
+DEFS=-D$(TYPE) -DPARSER=\"$(PARSER)\" -DWORD$(WORD)
+d42 2
+d45 2
+a46 1
+SRC=y1.c y2.c y3.c y4.c y5.c yaccpar dextern
+d48 2
+d54 1
+a54 1
+install: i_yacc i_parser
+d62 1
+a62 1
+	cp yaccparr $(PARSER)
+d64 5
+d77 1
+a77 1
+	$(CC) $(CFLAGS) -c y5.c
+d91 1
+a91 1
+$(OBJ): dextern
+d95 1
+a95 1
+	-rm -f strings x.c xs.c yacc oyacc syacc
+d102 9
+d119 2
+@
+
+
+1.2
+log
+@Добавлено вытаскивание из RCS dextern-а.
+@
+text
+@d3 3
+d54 1
+a54 1
+	cp parser $(PARSER)
+d60 2
+a61 6
+	ld -o oyacc -X -n -s /lib/crt0.o -Z y1.o y4.o -Z y2.o\
+		   -L y3.o y5.o strings.o -lovc
+
+oyacc: $(OBJ) strings.o Makefile
+	ld -o oyacc -X -n -s /lib/crt0.o -Z y1.o y4.o -Z y2.o\
+		   -L y3.o y5.o strings.o -lovc
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 3
+a4 1
+# $Log$
+d7 1
+d37 1
+a37 1
+SRC=y1.c y2.c y3.c y4.c y5.c yaccpar
+d95 1
+@

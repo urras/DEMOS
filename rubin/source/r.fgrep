@@ -1,0 +1,8 @@
+#
+foreach i (ctlmod dbu decomp equel gutil h iutil libq monitor ovqp parser qrymod support)
+echo "$i start\c"
+fgrep -n -f $1 $i/*.[chy] >> TAGS.$1
+echo "   done"
+end
+
+

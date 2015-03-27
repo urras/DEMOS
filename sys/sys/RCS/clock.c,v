@@ -1,0 +1,798 @@
+head     22.3;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin abs;
+symbols  Архыз0:1.4.1;
+locks    ;
+comment  @ * @;
+
+
+22.3
+date     90.11.12.19.09.41;  author root;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.14.12.13;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.16.45;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.30.13.36.32;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.02.03.18.47.01;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.07.15.16.39.26;  author alex;  state Exp;
+branches 1.4.1.1;
+next     1.3;
+
+1.3
+date     88.06.06.14.39.01;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.03.23.13.32.49;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.49.21;  author avg;  state Stab;
+branches ;
+next     ;
+
+1.4.1.1
+date     88.11.02.11.55.32;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы.  Машинно-независимая часть.
+@
+
+
+22.3
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	clock.c,v $
+ * Revision 22.2  89/04/27  14:12:13  korotaev
+ * Изменения в связи с передвижением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  15:16:45  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/30  13:36:32  korotaev
+ * Begining DEMOS 2.2.
+ * 
+ * Revision 1.5  89/02/03  18:47:01  avg
+ * Убрана зависимость расположения регистров относительно u_ar0 от MENLO_KOV
+ * ===> не требуется более пересобирать отладчики.
+ * 
+ * Revision 1.4  88/07/15  16:39:26  alex
+ * Вставлена переменная timеclk для работы режима DO_ESCAPE
+ * в терминальном драйвере (ttynew.c).
+ *
+ * Revision 1.3  88/06/06  14:39:01  korotaev
+ * Вставлен IPK_SELECT (from TCP/IP).
+ *
+ * Revision 1.2  88/03/23  13:32:49  korotaev
+ * Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+ *
+ * Revision 1.1  86/04/19  15:49:21  avg
+ * Initial revision
+ *
+ */
+
+#include <sys/param.h>
+#include <sys/systm.h>
+#include "../include/callout.h"
+#include <sys/seg.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/proc.h>
+#include "../include/reg.h"
+#include "../include/psw.h"
+#ifdef UCB_METER
+#include <sys/text.h>
+#include <sys/vm.h>
+#endif
+#ifdef UCB_NET
+	/*
+	 * shifted to keep "make depend" from finding these for now...
+	 */
+#       include <sys/protosw.h>
+#       include <sys/socket.h>
+#       include "h/../net/if.h"
+#       include "h/../net/in_systm.h"
+#endif
+
+#ifdef UCB_FRCSWAP
+extern int      idleflg;        /* If set, allow incore forks and expands */
+				/* Set before idle(), cleared in clock.c */
+#endif
+
+#ifdef  UCB_NET
+/*
+ * Protoslow is like lbolt, but for slow protocol timeouts, counting
+ * up to (hz/PR_SLOWHZ), then causing a pfslowtimo().
+ * Protofast is like lbolt, but for fast protocol timeouts, counting
+ * up to (hz/PR_FASTHZ), then causing a pffasttimo().
+ */
+int     protoslow;
+int     protofast;
+int     ifnetslow;
+int     netoff;
+#endif
+
+#define SCHMAG  8/10
+long timeclk;
+
+/*
+ * clock is called straight from
+ * the real time clock interrupt.
+ *
+ * Functions:
+ *      reprime clock
+ *      copy *switches to display
+ *      implement callouts
+ *      maintain user/system times
+ *      maintain date
+ *      profile
+ *      lightning bolt wakeup (every second)
+ *      alarm clock signals
+ *      jab the scheduler
+ */
+
+/*ARGSUSED*/
+clock(dev, sp, r1, ov, nps, r0, pc, ps)
+dev_t dev;
+caddr_t pc;
+{
+#ifdef SCHED
+	extern short quantum;
+	extern short curlevel;
+#endif SCHED
+	register a;
+	mapinfo map;
+	extern caddr_t waitloc;
+	extern char *panicstr;
+
+	/*
+	 * restart clock
+	 */
+	if(lks)
+		*lks = 0115;
+	/*
+	 * ensure normal mapping of kernel data
+	 */
+	savemap(map);
+
+#ifdef  DISPLAY
+	/*
+	 * display register
+	 */
+	display();
+#endif
+	timeclk++;
+	/*
+	 * callouts
+	 * never after panics
+	 * if none, just continue
+	 * else update first non-zero time
+	 */
+	if (panicstr == (char *) 0) {
+		register struct callout *p1, *p2;
+
+		if(callout[0].c_func == NULL)
+			goto out;
+		p2 = &callout[0];
+		while(p2->c_time<=0 && p2->c_func!=NULL)
+			p2++;
+		p2->c_time--;
+
+#ifdef  UCB_NET
+		/*
+		 * Time moves on for protocols.
+		 */
+		if(!netoff) {
+			--protoslow; --protofast; --ifnetslow;
+			if(protoslow<=0 || protofast<=0 || ifnetslow<=0)
+				schednetisr(NETISR_CLOCK);
+		}
+#endif
+
+		/*
+		 * if ps is high, just return
+		 */
+		if (!BASEPRI(ps))
+			goto out;
+
+		/*
+		 * callout
+		 */
+		if(callout[0].c_time <= 0) {
+			p1 = &callout[0];
+			while(p1->c_func != 0 && p1->c_time <= 0) {
+				(*p1->c_func)(p1->c_arg);
+				p1++;
+			}
+			p2 = &callout[0];
+			while(p2->c_func = p1->c_func) {
+				p2->c_time = p1->c_time;
+				p2->c_arg = p1->c_arg;
+				p1++;
+				p2++;
+			}
+		}
+	}
+out:
+
+	a = (dk_busy != 0);
+	if (USERMODE(ps)) {
+		u.u_utime++;
+		if(u.u_prof.pr_scale)
+			addupc(pc, &u.u_prof, 1);
+#ifdef SCHED
+		if(u.u_procp->p_baslev < ULEVEL)
+#else  SCHED
+		if(u.u_procp->p_nice > NZERO)
+#endif SCHED
+			a += 2;
+	} else {
+		a += 4;
+		if (pc == waitloc)
+			a += 2;
+		u.u_stime++;
+	}
+	sy_time[a] += 1;
+	dk_time[dk_busy & ((1 << ndisk) - 1)] += 1;
+	{
+#ifdef SCHED
+	if (curlevel < RTLEVEL && --quantum <= 0) {
+		quantum = 0;
+		runrun = 1;
+	}
+#else
+	register struct proc *pp;
+	pp = u.u_procp;
+	if(++pp->p_cpu == 0)
+		pp->p_cpu--;
+#endif
+	}
+	/*
+	 * lightning bolt time-out
+	 * and time of day
+	 */
+	if ((++lbolt >= hz) && (BASEPRI(ps))) {
+		register struct proc *pp;
+
+		lbolt -= hz;
+#ifdef  UCB_FRCSWAP
+		idleflg = 0;
+#endif
+		++time;
+		(void) _spl1();
+#if defined(UCB_LOAD) || defined(UCB_METER)
+		meter();
+#endif
+		runrun++;
+		wakeup((caddr_t)&lbolt);
+		for(pp = &proc[0]; pp <= maxproc; pp++)
+		if (pp->p_stat && pp->p_stat<SZOMB) {
+#ifndef SCHED
+			if(pp->p_time != 127)
+				pp->p_time++;
+#endif SCHED
+#ifdef  UCB_METER
+			if (pp->p_stat == SSLEEP || pp->p_stat == SSTOP)
+				if (pp->p_slptime != 127)
+					pp->p_slptime++;
+#endif  UCB_METER
+			if (pp->p_clktim && --pp->p_clktim == 0)
+				/*
+				 * If process has clock counting down, and it
+				 * expires, set it running (if this is a
+				 * tsleep()), or give it an SIGALRM (if the user
+				 * process is using alarm signals.
+				 */
+				if (pp->p_flag & STIMO) {
+					a = spl6();
+					switch (pp->p_stat) {
+
+					case SSLEEP:
+						setrun(pp);
+						break;
+
+					case SSTOP:
+						unsleep(pp);
+						break;
+					}
+					pp->p_flag &= ~STIMO;
+					splx(a);
+				} else
+					psignal(pp, SIGALRM);
+#ifndef SCHED
+			a = (pp->p_cpu & 0377) * SCHMAG + pp->p_nice - NZERO;
+			if(a < 0)
+				a = 0;
+			if(a > 255)
+				a = 255;
+			pp->p_cpu = a;
+			if(pp->p_pri >= PUSER)
+				setpri(pp);
+#endif SCHED
+		}
+		if(runin!=0) {
+			runin = 0;
+			wakeup((caddr_t)&runin);
+		}
+	}
+	restormap(map);
+}
+
+/*
+ * timeout is called to arrange that
+ * fun(arg) is called in tim/hz seconds.
+ * An entry is sorted into the callout
+ * structure. The time in each structure
+ * entry is the number of hz's more
+ * than the previous entry.
+ * In this way, decrementing the
+ * first entry has the effect of
+ * updating all entries.
+ *
+ * The panic is there because there is nothing
+ * intelligent to be done if an entry won't fit.
+ */
+timeout(fun, arg, tim)
+int (*fun)();
+caddr_t arg;
+{
+	register struct callout *p1, *p2;
+	register int t;
+	int s;
+	extern int panicreboot;
+
+	t = tim;
+	p1 = &callout[0];
+	s = spl7();
+	while(p1->c_func != 0 && p1->c_time <= t) {
+		t -= p1->c_time;
+		p1++;
+	}
+	p1->c_time -= t;
+	p2 = p1;
+	while(p2->c_func != 0)
+		p2++;
+	if (p2 >= callNCALL) {
+		panicreboot++;
+		panic("Timeout table overflow");
+	}
+	while(p2 >= p1) {
+		(p2+1)->c_time = p2->c_time;
+		(p2+1)->c_func = p2->c_func;
+		(p2+1)->c_arg = p2->c_arg;
+		p2--;
+	}
+	p1->c_time = t;
+	p1->c_func = fun;
+	p1->c_arg = arg;
+	splx(s);
+	return;
+}
+
+#if defined(UCB_LOAD) || defined(UCB_METER)
+/*
+ * Count up various things once a second
+ */
+short avenrun[3];	/* internal load average in psuedo-floating point */
+#define ave(smooth,new,time)  (smooth) = (((time)-1) * (smooth) + (new))/ (time)
+
+#define	ctok(cliks)	(((cliks) >> 4) & 07777)	/* clicks to KB */
+
+meter()
+{
+#ifdef UCB_METER
+	register unsigned *cp, *rp;
+	register long *sp;
+
+	ave(avefree, ctok(freemem), 5);
+#endif
+
+	if (time % 5 == 0) {
+		vmtotal();
+#ifdef UCB_METER
+		cp = &cnt.v_first; rp = &rate.v_first; sp = &sum.vs_first;
+		while (cp <= &cnt.v_last) {
+			*rp = *cp;
+			*sp += *cp;
+			*cp = 0;
+			rp++, cp++, sp++;
+		}
+#endif
+	}
+}
+
+vmtotal()
+{
+	extern	char	counted[];
+	register struct proc *p;
+	register struct text *xq;
+	register nrun = 0;
+#ifdef UCB_METER
+	int nt;
+
+	total.t_vmtxt = 0;
+	total.t_avmtxt = 0;
+	total.t_rmtxt = 0;
+	total.t_armtxt = 0;
+	for (xq = text; xq < textNTEXT; xq++) {
+		counted[xq-text]=0;
+		if (xq->x_iptr) {
+			total.t_vmtxt += xq->x_size;
+			if (xq->x_ccount)
+				total.t_rmtxt += xq->x_size;
+		}
+	}
+	total.t_vm = 0;
+	total.t_avm = 0;
+	total.t_rm = 0;
+	total.t_arm = 0;
+	total.t_rq = 0;
+	total.t_dw = 0;
+	total.t_sl = 0;
+	total.t_sw = 0;
+#endif
+	for (p = &proc[1]; p <= maxproc; p++) {
+		if (p->p_stat) {
+#ifdef UCB_METER
+#ifndef	VIRUS_VFORK
+			total.t_vm += p->p_size;
+			if (p->p_flag & SLOAD)
+				total.t_rm += p->p_size;
+#else
+			total.t_vm += p->p_dsize + p->p_ssize + USIZE;
+			if (p->p_flag & SLOAD)
+				total.t_rm += p->p_dsize + p->p_ssize + USIZE;
+#endif
+#endif
+			switch (p->p_stat) {
+
+			case SSLEEP:
+			case SSTOP:
+#ifdef SCHED
+				if (p->p_level > ULEVEL)
+#else SCHED
+				if (p->p_pri <= PZERO)
+#endif SCHED
+					nrun++;
+#ifdef UCB_METER
+				if (p->p_flag & SLOAD) {
+#ifdef SCHED
+					if (p->p_level > ULEVEL)
+#else SCHED
+					if (p->p_pri <= PZERO)
+#endif SCHED
+						total.t_dw++;
+					else if (p->p_slptime < MAXSLP)
+						total.t_sl++;
+				} else if (p->p_slptime < MAXSLP)
+					total.t_sw++;
+				if (p->p_slptime < MAXSLP)
+					goto active;
+#endif
+				break;
+
+			case SRUN:
+			case SIDL:
+				nrun++;
+#ifdef UCB_METER
+				if (p->p_flag & SLOAD)
+					total.t_rq++;
+				else
+					total.t_sw++;
+active:
+#ifndef	VIRUS_VFORK
+				total.t_avm += p->p_size;
+				if (p->p_flag & SLOAD)
+					total.t_arm += p->p_size;
+#else
+				total.t_avm += p->p_dsize + p->p_ssize + USIZE;
+				if (p->p_flag & SLOAD)
+					total.t_arm +=
+						p->p_dsize + p->p_ssize + USIZE;
+#endif
+				if (p->p_textp) {
+					total.t_avmtxt += p->p_textp->x_size;
+					nt = p->p_textp-text;
+					if (counted[nt]==0) {
+						counted[nt]=1;
+						if (p->p_textp->x_ccount)
+							total.t_armtxt +=
+							    p->p_textp->x_size;
+					}
+				}
+#endif
+				break;
+			}
+		}
+	}
+#ifdef UCB_METER
+	total.t_vm += total.t_vmtxt;
+	total.t_avm += total.t_avmtxt;
+	total.t_rm += total.t_rmtxt;
+	total.t_arm += total.t_armtxt;
+	total.t_free = avefree;
+#endif
+	loadav(avenrun, nrun);
+}
+
+/*
+ * Compute Tenex style load average.  This code is adapted from similar
+ * code by Bill Joy on the Vax system.  The major change is that we
+ * avoid floating point since not all pdp-11's have it.  This makes
+ * the code quite hard to read - it was derived with some algebra.
+ *
+ * "floating point" numbers here are stored in a 16 bit short, with
+ * 8 bits on each side of the decimal point.  Some partial products
+ * will have 16 bits to the right.
+ */
+
+	/*
+	 * The Vax algorithm is:
+	 *
+	 * /*
+	 *  * Constants for averages over 1, 5, and 15 minutes
+	 *  * when sampling at 5 second intervals.
+	 *  * /
+	 * double	cexp[3] = {
+	 * 	0.9200444146293232,	/* exp(-1/12) * /
+	 * 	0.9834714538216174,	/* exp(-1/60) * /
+	 * 	0.9944598480048967,	/* exp(-1/180) * /
+	 * };
+	 * 
+	 * /*
+	 *  * Compute a tenex style load average of a quantity on
+	 *  * 1, 5 and 15 minute intervals.
+	 *  * /
+	 * loadav(avg, n)
+	 * 	register double *avg;
+	 * 	int n;
+	 * {
+	 * 	register int i;
+	 * 
+	 * 	for (i = 0; i < 3; i++)
+	 * 		avg[i] = cexp[i] * avg[i] + n * (1.0 - cexp[i]);
+	 * }
+	 */
+
+long cexp[3] = {
+	0353,	/* 256*exp(-1/12) */
+	0373,	/* 256*exp(-1/60) */
+	0376,	/* 256*exp(-1/180) */
+};
+
+loadav(avg, n)
+	register short *avg;
+	register n;
+{
+	register int i;
+
+	for (i = 0; i < 3; i++)
+		avg[i] = (cexp[i] * (avg[i]-(n<<8)) + (((long)n)<<16)) >> 8;
+}
+#endif
+@
+
+
+22.2
+log
+@Изменения в связи с передвижением каталогов и файлов
+@
+text
+@d3 3
+d33 1
+a33 1
+#include <sys/callout.h>
+d38 2
+a39 1
+#include <sys/reg.h>
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d46 2
+a47 2
+#       include "../net/if.h"
+#       include "../net/in_systm.h"
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@d3 3
+d25 1
+a25 1
+#include "param.h"
+@
+
+
+1.5
+log
+@Убрана зависимость расположения регистров относительно u_ar0 от MENLO_KOV
+===> не требуется более пересобирать отладчики.
+@
+text
+@d2 5
+a6 1
+ * $Log:        clock.c,v $
+a226 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a247 1
+#endif
+@
+
+
+1.4
+log
+@Вставлена переменная timеclk для работы режима DO_ESCAPE
+в терминальном драйвере (ttynew.c).
+@
+text
+@d2 5
+a6 1
+ * $Log:	clock.c,v $
+d9 1
+a9 1
+ * 
+a77 1
+#ifdef  MENLO_KOV
+a78 3
+#else
+clock(dev, sp, r1, nps, r0, pc, ps)
+#endif
+@
+
+
+1.4.1.1
+log
+@Сделана работа с таймером 1630.
+@
+text
+@a2 4
+ * Revision 1.4  88/07/15  16:39:26  alex
+ * Вставлена переменная timеclk для работы режима DO_ESCAPE
+ * в терминальном драйвере (ttynew.c).
+ * 
+a89 1
+	extern u_short clkmagic ;
+d95 1
+a95 1
+		*lks = clkmagic;
+@
+
+
+1.3
+log
+@Вставлен IPK_SELECT (from TCP/IP).
+@
+text
+@d2 4
+a5 1
+ * $Log:        clock.c,v $
+d55 1
+d107 1
+a107 1
+
+@
+
+
+1.2
+log
+@Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+@
+text
+@d2 4
+a5 1
+ * $Log:	clock.c,v $
+d8 1
+a8 1
+ * 
+d34 1
+a34 1
+extern int	idleflg;	/* If set, allow incore forks and expands */
+d45 3
+a47 3
+int	protoslow;
+int	protofast;
+int	ifnetslow;
+d51 1
+a51 1
+#define	SCHMAG	8/10
+d58 9
+a66 9
+ *	reprime clock
+ *	copy *switches to display
+ *	implement callouts
+ *	maintain user/system times
+ *	maintain date
+ *	profile
+ *	lightning bolt wakeup (every second)
+ *	alarm clock signals
+ *	jab the scheduler
+d70 1
+a70 1
+#ifdef	MENLO_KOV
+d83 1
+a83 1
+	mapinfo	map;
+d97 1
+a97 1
+#ifdef	DISPLAY
+d197 1
+a197 1
+#ifdef	UCB_FRCSWAP
+d213 1
+a213 1
+#ifdef	UCB_METER
+d217 1
+a217 1
+#endif	UCB_METER
+d219 1
+a219 1
+#ifdef	UCB_NET
+d283 1
+d296 2
+a297 1
+	if (p2 >= callNCALL)
+d299 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d75 4
+d159 3
+d163 1
+d174 9
+a182 3
+	  register struct proc *pp;
+	  pp = u.u_procp;
+	  if(++pp->p_cpu == 0)
+d184 1
+d206 1
+d209 1
+d240 1
+d249 1
+d386 3
+d390 1
+d394 3
+d398 1
+@

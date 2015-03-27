@@ -1,0 +1,242 @@
+head     0.0;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+0.0
+date     86.08.03.19.49.06;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Макропроцессор Мини-Макро.
+Вычисление выражений.
+@
+
+
+0.0
+log
+@Макропроцессор Мини-Макро. Автор: Флеров М.Н.
+Версия для ДЕМОС 2.0 by @@VG.
+@
+text
+@/* ВЫЧИСЛЕНИЕ ВЫРАЖЕНИЯ, ЗАДАННОГО СТРОКОЙ 'adr' ДЛИНЫ 'lgt' */
+
+/*
+ * $Log$
+ */
+#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+#include <setjmp.h>
+
+/* ТЕСТ
+main() {
+    char buf[80];
+    for(;;) {
+	gets(buf);
+	printf( "\t\t= %s\n", expr( buf, strlen(buf) ) );
+    }
+}
+*/
+
+
+static char   *eadr;
+static int     elgt;
+static jmp_buf numerr;
+
+char *expr( adr, lgt )
+    char   *adr;
+    int          lgt;
+{
+    long sexpr(), result;  char *conv10();
+
+    if( setjmp( numerr ) != 0 )  return( "ERROR" );
+    eadr = adr;  elgt = lgt;
+    result = sexpr();
+    if( get() >= 0 )  numerror();
+    return( conv10( result ) );
+}
+
+
+static long sexpr() {
+    enum {was_bin, was_opr}  state;
+    register int i, sym, sym2, sgn, sign, pre_sign;
+    long result, operand, res, convi();
+
+    result = 0;  sign = '+';  pre_sign = 0;  state = was_bin;
+
+    for(;;) {
+	sym = get();
+	switch( sym ) {
+	    case ' ':
+		break;
+
+	    case -1:
+		if( state != was_opr )  goto err;
+		return( result );
+
+	    case ')':
+		unget();
+		if( state != was_opr )  goto err;
+		return( result );
+
+	    case '(':
+		if( state != was_bin )  goto err;
+		operand = sexpr();
+		if( get() != ')' )  goto err;
+		goto op;
+
+	    case '\'':
+	    case '0': case '1': case '2': case '3': case '4':
+	    case '5': case '6': case '7': case '8': case '9':
+		if( state != was_bin )  goto err;
+		unget();
+		operand = convi();
+op:             state = was_opr;
+
+		switch( pre_sign ) {
+		    case 0:                                      break;
+		    case '-':       operand = -operand;          break;
+		    case '!':       operand = !operand;          break;
+		    case '~':       operand = ~operand;          break;
+		    default:        goto err;
+		}
+		pre_sign = 0;
+
+		switch( sign ) {
+		    case 0:                                      break;
+		    case '+':       result = result +  operand;  break;
+		    case '-':       result = result -  operand;  break;
+		    case '*':       result = result *  operand;  break;
+		    case '/':       result = result /  operand;  break;
+		    case '%':       result = result %  operand;  break;
+		    case '&':       result = result &  operand;  break;
+		    case '|':       result = result |  operand;  break;
+		    case '^':       result = result ^  operand;  break;
+		    case '&'+0200:  result = result && operand;  break;
+		    case '|'+0200:  result = result || operand;  break;
+		    case '='+0200:  result = result == operand;  break;
+		    case '>':       result = result >  operand;  break;
+		    case '<':       result = result <  operand;  break;
+		    case '>'+0200:  result = result >= operand;  break;
+		    case '<'+0200:  result = result <= operand;  break;
+		    case '>'+0400:  result = result >> operand;  break;
+		    case '<'+0400:  result = result << operand;  break;
+		    case '!'+0200:  result = result != operand;  break;
+		    case '*'+0200:
+			for( res=result, result=1; operand>0; --operand ) {
+			    result = result * res;
+			}
+			break;
+		    default:        goto err;
+		}
+		sign = 0;
+		break;
+
+	    case '+': case '-': case '/':
+	    case '%': case '^': case '~':
+		sgn = sym;
+		goto trsgn;
+
+	    case '|':  case '&':  case '=':  case '*':
+		if( get() == sym )  sgn = sym + 0200;
+		else                {unget();  sgn = sym;}
+		goto trsgn;
+
+	    case '>':  case '<':  case '!':
+		if( (i=get()) == sym )  sgn = sym + 0400;
+		else if( i == '=' )     sgn = sym + 0200;
+		else                {unget();  sgn = sym;}
+
+trsgn:          if( state == was_bin )  {
+		    if( pre_sign != 0 )  goto err;
+		    pre_sign = sgn;
+		} else {
+		    sign = sgn;  state = was_bin;
+		}
+		break;
+
+	    default:
+		goto err;
+	}
+    }
+
+err:
+    numerror();
+}
+
+
+/* ПРЕОБРАЗОВАТЕЛЬ ЦЕЛЫХ: ЧИСЛО --> ЕГО ТЕКСТОВОЕ ПРЕДСТАВЛЕНИЕ */
+
+char *conv10( value )
+    long      value;                           /* преобразуемое значение */
+{
+    register char *ptr;
+    register int minflag, i;
+    static char buf[15];
+
+    minflag = 0;
+    if( value < 0 )  minflag = value = -value;
+    ptr = &buf[14];
+
+    do {
+	*--ptr = (i=value%10)+'0';
+	value /= 10;
+    } while( value );
+    if( minflag ) *--ptr = '-';
+
+    return( ptr );
+}
+
+
+/* ВВОД ЧИСЛА В ФОРМАТЕ:  12   012  0x12  'abc' */
+
+long convi() {
+    register int toadd, base, sym;
+    long value;
+
+    value = 0;  base = 10;
+
+    sym = get();
+    if( sym == '0'  ) {                  /* определяем систему счисления */
+	base = 8;  sym=get();
+	if( sym == 'x'  ||  sym == 'X' )  {base = 16;  sym=get();}
+
+    } else if( sym == '\'' ) {                    /* строковая константа */
+	while( (sym=get())!='\'' && sym>=0 )  value = (value<<8) | sym;
+	if( sym < 0 )  numerror();
+	return( value );
+    }
+
+    while( sym >= 0 ) {
+	if     ( sym>='a' && sym<='f' )  toadd = sym - 'a' + 10;
+	else if( sym>='A' && sym<='F' )  toadd = sym - 'A' + 10;
+	else if( sym>='0' && sym<='9' )  toadd = sym - '0';
+	else                             break;
+	if( toadd >= base )              numerror();
+	value = (value * base) + toadd;
+	sym = get();
+    }
+    unget();
+
+    return( value );
+}
+
+
+/* ВВОД ОДНОГО СИМВОЛА ИЗ СТРОКИ */
+
+get()      { return( elgt-- <= 0 ? -1 : ((*eadr++)&0377) ); }
+
+unget()    { if( elgt >= 0 ) {--eadr;  ++elgt;} }
+
+
+/* ОШИБКА */
+
+static numerror() { longjmp(numerr,1); }
+@

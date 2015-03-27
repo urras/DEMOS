@@ -1,0 +1,38 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.24.01;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@extern Xfd= -1; extern long Xs0;
+
+char *Xsline( sh )
+unsigned sh;
+{
+	static char Xslin[130];
+	if( Xfd < 0  )
+		{ return( "***" ); }
+	lseek( Xfd, (long)sh+Xs0, 0 );
+	Xslin[read( Xfd, Xslin+2, 127 )] = 0;
+	return( Xslin+2 );
+}
+
+@

@@ -1,0 +1,432 @@
+head     1.4;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.2 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     87.08.01.15.45.23;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.07.10.20.45.55;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.07.20.22.32.22;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.21.35;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.18.23;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.42.42;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.11.45;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.36.23;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.4
+log
+@Теперь evalHIST обнуляется в savehist, т.к. process
+может сделать reset, что приводит к 'залипанию' evalHIST
+и ошибкам принакоплении history.
+Сия плюха замечена dmitry.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.hist.c,v 1.3 87/07/10 20:45:55 avg Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.hist.c,v $
+ * Revision 1.3  87/07/10  20:45:55  avg
+ * Добавлен ключ -h у команды eval -
+ * по нему в history запоминается не сама команда eval..., а
+ * команда - аргумент eval.
+ *
+ * Revision 1.2  86/07/20  22:32:22  avg
+ * Слито с версией alex-а из 4.2.
+ *
+ * Revision 1.1  86/06/01  20:21:35  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+
+/*
+ * C shell
+ */
+
+savehist(sp)
+	struct wordent *sp;
+{
+	register struct Hist *hp, *np;
+	int histlen;
+	register char *cp;
+	extern int evalHIST;
+
+	cp = value("history");
+	if (*cp == 0)
+		histlen = 0;
+	else {
+		while (*cp && digit(*cp))
+			cp++;
+		/* avoid a looping snafu */
+		if (*cp)
+			set("history", "10");
+		histlen = getn(value("history"));
+	}
+	/* throw away null lines */
+	if (sp->next->word[0] == '\n')
+		return;
+	for (hp = &Histlist; np = hp->Hnext;)
+		if (eventno - np->Href >= histlen || histlen == 0)
+			hp->Hnext = np->Hnext, hfree(np);
+		else
+			hp = np;
+	if(evalHIST){ /* free last chunk - this is eval command or it's alias */
+		eventno--;
+		np = Histlist.Hnext;
+		Histlist.Hnext = np->Hnext;
+		hfree(np);
+		evalHIST = 0;
+	}
+	enthist(++eventno, sp, 1);
+}
+
+struct Hist *
+enthist(event, lp, docopy)
+	int event;
+	register struct wordent *lp;
+	bool docopy;
+{
+	register struct Hist *np;
+
+	np = (struct Hist *) calloc(1, sizeof *np);
+	np->Hnum = np->Href = event;
+	if (docopy)
+		copylex(&np->Hlex, lp);
+	else {
+		np->Hlex.next = lp->next;
+		lp->next->prev = &np->Hlex;
+		np->Hlex.prev = lp->prev;
+		lp->prev->next = &np->Hlex;
+	}
+	np->Hnext = Histlist.Hnext;
+	Histlist.Hnext = np;
+	return (np);
+}
+
+hfree(hp)
+	register struct Hist *hp;
+{
+
+	freelex(&hp->Hlex);
+	xfree((char *)hp);
+}
+
+dohist(vp)
+	char **vp;
+{
+	int n, rflg = 0, hflg = 0;
+
+	if (getn(value("history")) == 0)
+		return;
+	if (setintr)
+		sigrelse(SIGINT);
+	vp++;
+	while (*vp && *vp[0] == '-') {
+		if (*vp && eq(*vp, "-h")) {
+			hflg++;
+			vp++;
+		}
+		if (*vp && eq(*vp, "-r")) {
+			rflg++;
+			vp++;
+		}
+	}
+	if (*vp)
+		n = getn(*vp);
+	else {
+		n = getn(value("history"));
+	}
+	dohist1(Histlist.Hnext, &n, rflg, hflg);
+}
+
+dohist1(hp, np, rflg, hflg)
+	struct Hist *hp;
+	int *np, rflg, hflg;
+{
+	bool print = (*np) > 0;
+top:
+	if (hp == 0)
+		return;
+	(*np)--;
+	hp->Href++;
+	if (rflg == 0) {
+		dohist1(hp->Hnext, np, rflg, hflg);
+		if (print)
+			phist(hp, hflg);
+		return;
+	}
+	if (*np >= 0)
+		phist(hp, hflg);
+	hp = hp->Hnext;
+	goto top;
+}
+
+phist(hp, hflg)
+	register struct Hist *hp;
+	int hflg;
+{
+
+	if (hflg == 0)
+	printf("%6d\t", hp->Hnum);
+	prlex(&hp->Hlex);
+}
+@
+
+
+1.3
+log
+@Добавлен ключ -h у команды eval -
+по нему в history запоминается не сама команда eval..., а
+команда - аргумент eval.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.hist.c,v 1.2 86/07/20 22:32:22 avg Exp $";
+d9 5
+d60 1
+@
+
+
+1.2
+log
+@Слито с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.hist.c,v 1.1 86/06/01 20:21:35 dmitry Exp $";
+d9 3
+d29 1
+d50 6
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.hist.c,v 0.0 86/04/20 21:24:36 root Exp $";
+
+d8 4
+a11 1
+ * $Log$
+d83 1
+a83 1
+	int n, rflg = 0;
+d90 9
+a98 3
+	if (*vp && eq(*vp, "-r")) {
+		rflg++;
+		vp++;
+d102 4
+a105 3
+	else
+		n = 1000;
+	dohist1(Histlist.Hnext, &n, rflg);
+d108 1
+a108 1
+dohist1(hp, np, rflg)
+d110 1
+a110 1
+	int *np;
+d119 1
+a119 1
+		dohist1(hp->Hnext, np, rflg);
+d121 1
+a121 1
+			phist(hp);
+d125 1
+a125 1
+		phist(hp);
+d130 1
+a130 1
+phist(hp)
+d132 1
+d135 1
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 11
+a11 1
+static	char *sccsid = "@@(#)sh.hist.c 4.1 10/9/80";
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.hist.c   2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+d76 1
+a76 1
+	xfree(hp);
+d79 2
+a80 1
+dohist()
+d82 1
+d86 12
+a97 1
+	dohist1(Histlist.Hnext);
+d100 3
+a102 2
+dohist1(hp)
+	register struct Hist *hp;
+d104 2
+a105 1
+
+d108 1
+d110 10
+a119 2
+	dohist1(hp->Hnext);
+	phist(hp);
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* static  char *sccsid = "$Header: sh.hist.c,v 2.1 86/03/12 23:47:39 alex Exp $/Kiae"; */
+
+d66 1
+a66 1
+	xfree((char *)hp);
+d69 1
+a69 2
+dohist(vp)
+	char **vp;
+d71 1
+a71 1
+	int n, rflg = 0, hflg = 0;
+d74 1
+a74 19
+	if (setintr)
+		sigrelse(SIGINT);
+	vp++;
+	while (*vp && *vp[0] == '-') {
+		if (*vp && eq(*vp, "-h")) {
+			hflg++;
+			vp++;
+		}
+		if (*vp && eq(*vp, "-r")) {
+			rflg++;
+			vp++;
+		}
+	}
+	if (*vp)
+		n = getn(*vp);
+	else {
+		n = getn(value("history"));
+	}
+	dohist1(Histlist.Hnext, &n, rflg, hflg);
+d77 2
+a78 3
+dohist1(hp, np, rflg, hflg)
+	struct Hist *hp;
+	int *np, rflg, hflg;
+d80 1
+a80 2
+	bool print = (*np) > 0;
+top:
+a82 1
+	(*np)--;
+d84 2
+a85 10
+	if (rflg == 0) {
+		dohist1(hp->Hnext, np, rflg, hflg);
+		if (print)
+			phist(hp, hflg);
+		return;
+	}
+	if (*np >= 0)
+		phist(hp, hflg);
+	hp = hp->Hnext;
+	goto top;
+d88 1
+a88 1
+phist(hp, hflg)
+a89 1
+	int hflg;
+d92 1
+a92 2
+	if (hflg == 0)
+		printf("%6d\t", hp->Hnum);
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.hist.c,v $
+ * Revision 1.1  86/02/24  20:23:21  sys
+ * Initial revision
+ * 
+a85 3
+/*************************/
+/*        goto top       */
+/*************************/
+@

@@ -1,0 +1,7 @@
+append to employee
+(number=125,
+name="Долбин А.И.",
+salary=160,
+manager=1,
+birthdate=1962,
+startdate=1984)

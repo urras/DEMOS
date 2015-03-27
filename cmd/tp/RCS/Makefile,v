@@ -1,0 +1,90 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     88.05.10.22.29.36;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.10.22.27.21;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@# Эта штука добавляется в исходный файл перед
+# запуском rcs               Давидов 04.28.88
+#
+# $Header: Makefile,v 1.1 88/05/10 22:27:21 root Exp $
+# $Log: Makefile,v $
+# Revision 1.1  88/05/10  22:27:21  root
+# Initial revision
+#
+#
+
+
+DEST=   /usr/bin
+CFLAGS= -n -O
+OBJS          = tp0.o \
+		tp1.o \
+		tp2.o \
+		tp3.o
+
+all:    tp
+
+cp:     tp
+	cp tp ${DEST}
+	strip ${DEST}/tp
+
+cmp:    tp
+	cmp tp ${DEST}/tp
+
+tp:     $(OBJS)
+	cc $(CFLAGS) -o tp $(OBJS)
+
+clean:  ;  rm -f *.o core *.bak tp
+
+###
+tp0.o: tp.h /usr/include/tp_defs.h
+tp1.o: tp.h
+tp2.o: tp.h /usr/include/stdio.h /usr/include/sys/types.h \
+	/usr/include/sys/localopts.h /usr/include/sys/stat.h \
+	/usr/include/sys/dir.h
+tp3.o: tp.h
+
+
+Makefile:       RCS/Makefile,v;         co Makefile
+tp0.c:          RCS/tp0.c,v;            co tp0.c
+tp1.c:          RCS/tp1.c,v;            co tp1.c
+tp2.c:          RCS/tp2.c,v;            co tp2.c
+tp3.c:          RCS/tp3.c,v;            co tp3.c
+tp.h:           RCS/tp.h,v;             co tp.h
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 2
+# $Header$
+# $Log$
+d9 1
+d47 1
+@

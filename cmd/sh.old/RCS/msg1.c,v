@@ -1,0 +1,57 @@
+head     0.1;
+access   ;
+symbols  MNOS:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.1
+date     86.09.24.21.53.45;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+0.1
+log
+@÷ÅÒÓÉÑ ÉÚ íîïó
+@
+text
+@#
+/*
+ *      íîïó òì 1.2 shell
+ *
+ *
+ */
+
+
+#include        "defs.h"
+#include        "sym.h"
+
+/* built in names */
+MSG     pathname        = "PATH";
+MSG     homename        = "HOME";
+MSG     mailname        = "MAIL";
+MSG     fngname         = "FILEMATCH";
+MSG     ifsname         = "IFS";
+MSG     ps1name         = "PS1";
+MSG     ps2name         = "PS2";
+MSG     meslang         = "MSG";
+
+/* string constants */
+MSG     nullstr         = "";
+MSG     sptbnl          = " \t\n";
+MSG     defpath         = ":/bin:/usr/bin";
+MSG     colon           = ": ";
+MSG     minus           = "-";
+MSG     devnull         = "/dev/null";
+MSG     execpmsg        = "+ ";
+MSG     readmsg         = "> ";
+MSG     stdprompt       = "$ ";
+MSG     supprompt       = "# ";
+MSG     profile         = ".profile";
+@

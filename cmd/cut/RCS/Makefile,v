@@ -1,0 +1,73 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.08.28.16.08.05;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+# Makefile для CUT и PASTE из System V
+#       by @@VG
+#
+# $Log$
+#
+
+# Для сборки без архивов RCS укажите R=X
+R=
+RCS=RCS
+COFLAGS=-q
+
+BIN=/bin
+CFLAGS=-O
+LDFLAGS=-s -n
+LIBES=
+
+SRC=cut.c paste.c spaste.c
+
+all: cut paste
+
+install: i_cut i_paste
+
+i_cut:  cut
+	cp cut $(BIN)/cut
+	chmod 755 $(BIN)/cut
+
+i_paste: paste
+	cp paste $(BIN)/paste
+	chmod 755 $(BIN)/paste
+
+paste: paste.o spaste.o
+	cc -o paste $(LDFLAGS) paste.o spaste.o $(LIBES)
+
+cut: cut.o
+	cc -o cut $(LDFLAGS) cut.o $(LIBES)
+
+clear clean:
+	rm -f cut paste *.[ob]
+
+CLRSRC: clean
+	rm -f *.c
+
+source: $(SRC)
+
+$(R)cut.c:      $(RCS)/cut.c,v;         co $(COFLAGS) cut.c
+$(R)paste.c:    $(RCS)/paste.c,v;       co $(COFLAGS) paste.c
+$(R)spaste.c:   $(RCS)/spaste.c,v;      co $(COFLAGS) spaste.c
+$(R)Makefile:   $(RCS)/Makefile,v;      co $(COFLAGS) Makefile
+@

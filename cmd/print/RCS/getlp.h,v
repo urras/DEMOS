@@ -1,0 +1,160 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     89.03.04.22.51.16;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.01.26.14.57.34;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.02.06.14.52.13;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.01.06.10.42.40;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.05.17.21.39.43;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Описание структуры, возвращаемой getlp.
+@
+
+
+1.5
+log
+@добавлены флажки opt и noopt
+@
+text
+@/*
+ * Структура, возвращаемая getlp
+ *
+ * Автор: Антонов В.Г.
+ *
+ * $Log:        getlp.h,v $
+ * Revision 1.4  88/01/26  14:57:34  avg
+ * Правлена обработка tstr и istr.
+ *
+ * Revision 1.3  87/02/06  14:52:13  avg
+ * Добавлена поддержка устройств на нестандартных интерфейсах (класс O).
+ *
+ * Revision 1.2  87/01/06  10:42:40  avg
+ * Разделено имя физического устройсва печати и логического
+ * устройства спулинга.
+ *
+ * Revision 1.1  86/05/17  21:39:43  avg
+ * Initial revision
+ *
+ */
+
+struct getlp {
+	char   *lp_name;        /* Имя печатающего у-ва */
+	char   *lp_dev;         /* Имя физ. у-ва печати */
+	char   *lp_type;        /* Тип печатающего у-ва */
+	char   *lp_filter;      /* Фильтр для печати на у-ве */
+	short   lp_width;       /* Ширина печати */
+	char    lp_length;      /* Длина листа */
+	char    lp_xflags;      /* Расширенное поле флагов */
+	short   lp_flags;       /* См. sys/ioctl.h / sgtty.h */
+	char   *lp_istr;        /* инициализирующая строка */
+	char   *lp_tstr;        /* завершающая строка */
+	char    lp_class;       /* Класс печатающего у-ва */
+
+	/* Для класса T */
+	char    lp_speed;       /* Скорость передачи по линии */
+	short   lp_local;       /* Локальные режимы */
+	short   lp_ldisc;       /* Дисциплина линии */
+	char    lp_crdly;       /* Задержки */
+	char    lp_nldly;
+	char    lp_vtdly;
+	char    lp_htdly;
+	char    lp_stopc;       /* Для управления потоком - стоп  */
+	char    lp_startc;      /* Для управления потоком - старт */
+}
+	*getlp();
+
+/* Классы печатающих у-в */
+#define LPC_LOCAL       'L'     /* локальное АЦПУ             */
+#define LPC_REMOTE      'R'     /* сетевая печать             */
+#define LPC_TTY         'T'     /* АЦПУ на послед. интерфейсе */
+#define LPC_OTHER       'O'     /* Другой интерфейс           */
+
+/* Имя файла lptab */
+
+#define LPTAB "/etc/lptab"
+
+/* Расширенное поле флагов */
+#define LP_XOPT         1       /* force optimization */
+#define LP_XNOOPT       2       /* suppress optimization */
+
+extern int lpslot;
+@
+
+
+1.4
+log
+@Правлена обработка tstr и istr.
+@
+text
+@d7 3
+d28 2
+a29 1
+	short   lp_length;      /* Длина листа */
+a30 1
+	char    lp_class;       /* Класс печатающего у-ва */
+d33 1
+d57 4
+@
+
+
+1.3
+log
+@Добавлена поддержка устройств на нестандартных интерфейсах (класс O).
+@
+text
+@d7 3
+d28 2
+@
+
+
+1.2
+log
+@Разделено имя физического устройсва печати и логического
+устройства спулинга.
+@
+text
+@d7 4
+d40 4
+a43 3
+#define LPC_LOCAL       'L'
+#define LPC_REMOTE      'R'
+#define LPC_TTY         'T'
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 4
+a9 1
+ * $Log$
+d14 1
+@

@@ -1,0 +1,134 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.11.11.20.41.52;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.50.46;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: e.el002.h,v 1.1 86/11/11 17:50:46 avg Exp $";*/
+#endif
+
+/*
+ * $Log:	e.el002.h,v $
+ * Revision 1.1  86/11/11  17:50:46  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * Экранный редактор eda  ver 2.2
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 25.05.1984
+ */
+
+/* Параметры для терминала 15ИЭ-002 ( перепаянный ) */
+
+#define NLIN    24
+#define SWID    80
+#define FRM     0
+#define ROLL    0
+#define BROLL  0
+
+#define F_right "\031"
+#define F_left  "\010"
+#define F_up    "\034"
+#define F_down  "\035"
+#define F_il    "\026"
+#define F_dl    "\022"
+#define F_ic    "\023"
+#define F_dc    "\024"
+#define F_del   "\177"
+#define F_tab   "\011"
+#define F_btab  "\013"
+#define F_wtab  "\012\011"
+#define F_bwtab "\012\013"
+#define F_exit  "\033\033"
+#define F_rew   "\001"
+#define F_na    "\020"
+#define F_ret   "\025"
+#define F_cr    "\015"
+#define F_aex   "\004\004\004\004"
+#define F_inter "\003"
+#define F_fsd   "\037"
+#define F_find  "\014"
+#define F_savel "\005"
+#define F_incll "\007"
+#define F_wrtex "\030\005"
+#define F_rdtex "\030\007"
+#define F_clrtx "\027"
+#define F_end   "\030\031"
+#define F_beg   "\030\010"
+#define F_pgup  "\030\034"
+#define F_pgdown "\030\035"
+#define F_shell "\030\002"
+#define F_sins  "\030\023"
+#define F_sdel  "\030\024"
+#define F_tof   "\030\015"
+#define F_eof   "\030\025"
+#define F_cat   "\002"
+#define F_rpt   "\030\030"
+#define F_store "\030\033"
+
+#define F_mdef1 "\006\036"
+#define F_mdef2 "\006\021"
+#define F_mdef3 "\006\032"
+#define F_m1    "\036"
+#define F_m2    "\021"
+#define F_m3    "\032"
+#define FS_mdend "\006"
+#define Mname1  'Д'
+#define Mname2  'М'
+#define Mname3  'С'
+
+#define S_right "\031"
+#define S_left  "\010"
+#define S_up    "\034"
+#define S_down  "\035"
+#define S_ic    "\023"
+#define S_dc    "\024"
+#define S_ret   "\015"
+#define S_cr    "\012\015"
+#define S_home  "\030"
+#define S_ru    "\022"
+#define S_rd    "\026"
+#define S_clrl  "\006"
+#define S_clrel "\006"
+#define S_erase "\030\014"
+#define S_bell  "\007"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

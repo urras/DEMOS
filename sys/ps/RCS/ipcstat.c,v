@@ -1,0 +1,605 @@
+head     1.10;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.10
+date     89.05.31.22.14.15;  author abs;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.05.31.22.09.09;  author abs;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.05.15.14.36.06;  author abs;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.05.13.15.41.07;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.05.06.19.13.30;  author root;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.05.04.15.31.54;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.04.06.15.32.08;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.03.15.17.11.35;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.03.13.20.27.12;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.13.17.30.09;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+выдача статистики про семафоры и сообщения.
+@
+
+
+1.10
+log
+@\n destroyed
+@
+text
+@#include <stdio.h>
+#include <sys/localopts.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/msg.h>
+#include <sys/proc.h>
+#include <a.out.h>
+#include <pwd.h>
+#include <time.h>
+#include <ediag.h>
+
+#undef SEMMNS
+#define SEMMNS 100
+
+#undef SEMMNI
+#define SEMMNI 100
+
+#undef MSGMNI
+#define MSGMNI 100
+
+#undef MSGTQL
+#define MSGTQL 100
+
+
+extern char *ctime();
+
+struct nlist nl[]={
+#define X_NPROC 0
+	{ "_nproc",     0,      0       },
+#define X_PROC  1
+	{ "_proc",      0,      0       },
+#define X_SEM   2
+	{ "_sem",       0,      0       },
+#define X_SEMA  3
+	{ "_sema",      0,      0       },
+#define X_MSGQUE 4
+	{ "_msgque",    0,      0       },
+#define X_MSGH   5
+	{ "_msgh",      0,      0       },
+#define X_MSGFP  6
+	{ "_msgfp",     0,      0       },
+#define X_MSGMAP 7
+	{ "_msgmap",    0,      0       },
+#define X_MSGTOTAL 8
+	{ "_msgtotal",  0,      0       },
+#define X_MSGINFO 9
+	{ "_msginfo" ,  0,      0       },
+#define X_SEMINFO 10
+	{ "_seminfo" ,  0,      0       },
+
+#define X_END
+	{ 0,            0,      0       }
+};
+
+int nproc;      /* size of the process table */
+
+	/* SEMAPHORES */
+struct sem sem[ SEMMNS ];
+struct semid_ds sema[ SEMMNI ];
+struct seminfo SINFO;
+
+	/* MESSAGES */
+struct msginfo MINFO;
+struct msqid_ds  msgque[ MSGMNI ];
+struct msg       msgh  [ MSGTQL ];
+struct msg       *msgfp;
+int              msgmap;
+long             msgtotal;
+
+int *kmem;
+struct passwd *pwd;
+
+struct proc p;
+
+char *kernel = "/demos";
+char *mem    = "/dev/kmem";     /* the memory of the kernel resident */
+
+readin( ind, size, addr )
+	char *addr;
+{
+	if( nl[ ind ].n_value ){
+		if( lseek( kmem, (off_t) nl[ind].n_value, 0 ) < 0 ||
+		    read ( kmem, addr,   size ) != size ){
+			perror( nl[ind].n_name );
+			exit(1);
+		 }
+	 }else{
+	       printf( "missing %s\n", nl[ind].n_name );
+	 }
+}
+
+int semflg = 1;         /* show semaphore groups */
+int msgflg = 1;         /* show message queues   */
+int procflg= 1;         /* show processes awaiting */
+
+int grponly = 0;        /* show groups only, not items */
+
+/* удаление ресурса */
+rmid( class, id )  char class;
+{
+	if( id < 0 ){
+		printf( "wrong id %d\n", id );
+		exit(1);
+	}
+	switch( class ){
+	case 's':
+		/* удалить группу семафоров */
+		if( semctl( id, 0, IPC_RMID, 0 ) < 0)  goto bad;
+		break;
+	case 'm':
+		/* удалить очередь сообщений */
+		if( msgctl( id, IPC_RMID, NULL ) < 0) goto bad;
+		break;
+	default:
+		printf( "wrong IPC facility\n");
+		exit(1);
+	}
+	exit(0);
+bad:
+	perror( "" );
+	exit(1);
+}
+
+main( argc, argv )
+	char *argv[];
+{
+	char *s;
+
+	while( argc > 1 ){
+		s = argv[1];
+		while( *s ){
+		     switch( *s ){
+		     case 'm':
+			msgflg = 1;
+			semflg = 0; break;
+		     case 's':
+			semflg = 1;
+			msgflg = 0; break;
+		     case 'g':
+			grponly++;  break;
+		     case 'p':
+			semflg = msgflg = 0; break;
+		     case '-':
+			if( argv[2] == NULL ){
+				printf( "\"id\" must be specifyed\n");
+				exit(1);
+			}
+			rmid( s[1], atoi( argv[2] ) ) ;
+			/* notreached */
+		     default:
+			printf( "unknown flag %c\n", *s );
+		     }
+		     s++;
+		}
+		argc--;
+		argv++;
+	}
+
+	if( (kmem = open( mem, 0)) < 0 ){
+		printf( "can't read kernel memory\n");
+		exit(0);
+	}
+	nlist( kernel, nl );
+
+	readin( X_MSGINFO, sizeof(MINFO), &MINFO);
+	readin( X_SEMINFO, sizeof(SINFO), &SINFO);
+
+	readin( X_NPROC, sizeof ( nproc ), &nproc );
+	readin( X_SEM,   sizeof ( struct sem )      * SINFO.semmns,   sem    );
+	readin( X_SEMA,  sizeof ( struct semid_ds ) * SINFO.semmni,  sema   );
+
+	readin( X_MSGQUE, sizeof( struct msqid_ds ) * MINFO.msgmni, msgque );
+	readin( X_MSGH,   sizeof( struct msg   )    * MINFO.msgtql, msgh   );
+	readin( X_MSGFP,  sizeof( msgfp  ), &msgfp );
+	readin( X_MSGMAP, sizeof( msgmap ), &msgmap);
+	readin( X_MSGTOTAL, sizeof( msgtotal ), &msgtotal);
+
+
+	if( semflg ) semreport();
+	if( msgflg ) msgreport();
+	if( procflg) procreport();
+	exit(0);
+}
+
+/* draw info table title */
+title( s ) char *s;
+{
+	register i;
+	int len;
+
+	len = strlen( s );
+	for( i=0; i < len + 8 ; i ++ )
+		putchar ('*');
+	putchar ('\n');
+	printf( "*** %s ***\n", s);
+	for( i=0; i < len + 8 ; i ++ )
+		putchar ('*');
+	putchar ('\n');
+}
+
+semreport(){
+	register i;
+	register sm;
+	int ind;
+	register struct semid_ds *s;
+	int first = 1 ;
+
+	for( i=0; i < SINFO.semmni ; i++ ){
+		s = & sema[ i ];
+		if(( s-> sem_perm.mode & IPC_ALLOC ) == 0 )
+			continue;
+		if( first ){
+			first = 0;
+			title( "S E M A P H O R E S");
+		}
+		printf( "semset[%d]\tid\tkey,seq\t\tmode\tnsems\n\t\t%d\t(%-4d,%d)\t%o\t%d\n",
+			i,
+			s->sem_perm.seq * SINFO.semmni + i,
+			s->sem_perm.key,
+			s->sem_perm.seq,
+			s->sem_perm.mode & 0777,
+			s->sem_nsems
+		);
+		if( grponly ) continue;
+
+			printf( "\tchange time:  %s" , ctime( &s->sem_ctime ));
+		if( s->sem_otime )
+			printf( "\tlast op time: %s", ctime( &s->sem_otime ));
+
+		pwd = getpwuid( s->sem_perm.uid );
+		printf( "\towner:%s ", pwd->pw_name? pwd->pw_name:"???" );
+
+		pwd = getpwuid( s->sem_perm.cuid );
+		printf( "creator:%s\n", pwd->pw_name? pwd->pw_name:"???" );
+
+		printf( "\t#\tslot\tvalue\twait!=0\twait==0\n" );
+
+		ind = ((struct sem *)s->sem_base) - ((struct sem *)nl[X_SEM].n_value);
+		for( sm=0 ; sm < s->sem_nsems ; sm++ ){
+			printf( "\t%d\t%d\t%u\t%d\t%d",
+				sm,
+				sm + ind,
+				sem[ sm+ind ].semval ,
+				sem[ sm+ind ].semncnt & 0377 ,
+				sem[ sm+ind ].semzcnt & 0377
+			);
+			if( sem[ sm + ind ].sempid )
+				printf( "\tpid=%d", sem[ sm+ind ].sempid );
+			putchar( '\n' );
+		}
+		putchar( '\n' );
+	}
+}
+
+msgreport(){
+	register i;
+	register struct msg *ms;
+	register struct msqid_ds *m;
+	int ind;
+	int first = 1;
+
+	for( i=0; i < MINFO.msgmni; i++ ){
+		m = & msgque[ i ];
+		if(( m-> msg_perm.mode & IPC_ALLOC ) == 0 )
+			continue;
+		if( first ){
+			first = 0;
+			title("M E S S A G E S");
+			printf( "msg memory = %ld bytes\n", msgtotal );
+		}
+		printf( "msgqueue[%d]\tid\tkey,seq\t\tmode\tbytes/max\tmsgs\n\
+\t\t%d\t(%-4d,%d)\t%o\t%u/%u\t\t%u\n",
+			i,
+			m->msg_perm.seq * MINFO.msgmni + i,
+			m->msg_perm.key,
+			m->msg_perm.seq,
+			m->msg_perm.mode & 0777,
+			m->msg_cbytes,
+			m->msg_qbytes,
+			m->msg_qnum
+		);
+		if( grponly ) continue;
+
+			printf( "\t       change time: %s" , ctime( &m->msg_ctime ));
+		if( m->msg_stime )
+			printf( "\tpid %4u: snd time: %s",
+				m->msg_lspid,
+				ctime( &m->msg_stime )
+			);
+		if( m->msg_stime )
+			printf( "\tpid %4u: rcv time: %s",
+				m->msg_lrpid,
+				ctime( &m->msg_rtime )
+			);
+
+		pwd = getpwuid( m->msg_perm.uid );
+		printf( "\towner:%s ", pwd->pw_name ? pwd->pw_name: "???");
+
+		pwd = getpwuid( m->msg_perm.cuid );
+		printf( "creator:%s\n", pwd->pw_name ? pwd->pw_name: "???");
+
+		/* print headers of the meesages from queue */
+		if( (ms = m->msg_first) == NULL ){
+			printf( "\tempty queue\n" );
+			continue;
+		}
+		printf( "\ttype\tsize\tclick\n");
+		do{
+			ind = ms - (struct msg *)nl[X_MSGH].n_value;
+			printf( "\t%ld\t%u\t%d\n",
+				msgh[ ind].msg_type,
+				msgh[ ind].msg_ts,
+				msgh[ ind].msg_spot
+			);
+			ms = msgh[ind].msg_next ;
+		}while( ms );
+	}
+}
+
+procreport(){
+	register int i;
+	int ind;
+	int alive = 0 ;
+	caddr_t Slo, Shi;
+	extern off_t lseek();
+
+	Slo = (caddr_t) nl[X_SEM].n_value;
+	Shi = (caddr_t) nl[X_SEM].n_value + sizeof( struct sem )* SINFO.semmns ;
+
+	if( lseek( kmem, (off_t) nl[X_PROC].n_value, 0 ) < 0 )
+		perror("lseek error");
+
+	putchar('\n');
+	for( i=0; i < nproc ; i++ ){
+		if( read( kmem, &p, sizeof p) != sizeof( struct proc ))
+			perror("read error");
+		if( p.p_flag ) alive ++;
+		/* if((p.p_flag & SSLEEP ) == 0 ) continue; */
+
+		/* process is awaiting something */
+		if( p.p_wchan >=  Slo  &&
+		    p.p_wchan <   Shi ){
+			ind = ((char *)p.p_wchan - (char *)Slo )
+					/  sizeof( struct sem );
+			printf( "process %d waits slot sem[%d] ",
+				p.p_pid, ind );
+			if     ( p.p_wchan == (caddr_t) &((struct sem *)(nl[X_SEM].n_value + ind*sizeof(struct sem))->semncnt ))
+				printf( "!=0\n");
+			else if( p.p_wchan == (caddr_t) &((struct sem *)(nl[X_SEM].n_value + ind*sizeof(struct sem))->semzcnt ))
+				printf( "==0\n");
+			else    printf( "?\n");
+		}else
+		if( p.p_wchan >= nl[X_MSGQUE].n_value &&
+		    p.p_wchan <  nl[X_MSGQUE].n_value + sizeof( struct msqid_ds )*MINFO.msgmni){
+			ind = ((char *)p.p_wchan - (char *)nl[X_MSGQUE].n_value )
+					/  sizeof( struct msqid_ds );
+			if     ( p.p_wchan == (caddr_t) &((struct msqid_ds *)(nl[X_MSGQUE].n_value + ind*sizeof(struct msqid_ds))->msg_qnum ))
+				printf( "process %d waits messages from msgqueue[%d]\n",
+					  p.p_pid , ind );
+			else if( p.p_wchan == (caddr_t) ((struct msqid_ds *)(nl[X_MSGQUE].n_value + ind*sizeof(struct msqid_ds))))
+				printf( "process %d waits cbytes reducing in msgqueue[%d]\n",
+					  p.p_pid, ind );
+		}else
+		if( p.p_wchan == nl[X_MSGFP].n_value ){
+			printf( "process %d waits for free message headers\n",
+				p.p_pid );
+		}else
+		if( p.p_wchan == nl[X_MSGMAP].n_value ){
+			printf( "process %d waits for free message text space\n",
+				p.p_pid );
+		}
+	}
+
+	printf( "\t%d/%d processes\n", alive, nproc );
+}
+@
+
+
+1.9
+log
+@если не указано <sys/localopts.h> ПЕРЕД <sys/proc.h> ,
+то неверно считается размер sizeof( struct proc ).
+@
+text
+@d346 1
+a346 1
+			printf( "process %d waits slot sem[%d]\n",
+@
+
+
+1.8
+log
+@подчистка
+@
+text
+@d2 1
+d73 1
+d325 2
+d328 6
+a333 1
+	lseek( kmem, (off_t) nl[X_PROC].n_value, 0 );
+d336 2
+a337 1
+		read( kmem, &p, sizeof( struct proc ));
+d339 1
+a339 1
+		if((p.p_flag & SSLEEP ) == 0 ) continue;
+d342 3
+a344 3
+		if( p.p_wchan >= nl[X_SEM].n_value &&
+		    p.p_wchan <  nl[X_SEM].n_value + sizeof( struct sem )*SINFO.semmns){
+			ind = ((char *)p.p_wchan - (char *)nl[X_SEM].n_value )
+@
+
+
+1.7
+log
+@размеры таблиц теперь читаются из ядра ОС.
+@
+text
+@d168 2
+a169 2
+	readin( X_SEM,   sizeof ( sem ),   sem    );
+	readin( X_SEMA,  sizeof ( sema ),  sema   );
+d171 2
+a172 2
+	readin( X_MSGQUE, sizeof( msgque ), msgque );
+	readin( X_MSGH,   sizeof( msgh   ), msgh   );
+d217 1
+a217 1
+			s->sem_perm.seq * SEMMNI + i,
+d333 1
+a333 1
+		    p.p_wchan <  nl[X_SEM].n_value + sizeof( sem )){
+d345 1
+a345 1
+		    p.p_wchan <  nl[X_MSGQUE].n_value + sizeof( msgque )){
+@
+
+
+1.6
+log
+@исправлена параша в гетпвент-е
+@
+text
+@d13 5
+a18 1
+#define SEMMNS 100
+d21 4
+d45 5
+a49 1
+	{ "_msgtotal",    0,      0       },
+d60 1
+d63 1
+d164 3
+d207 1
+a207 1
+	for( i=0; i < SEMMNI; i++ ){
+d261 1
+a261 1
+	for( i=0; i < MSGMNI; i++ ){
+d273 1
+a273 1
+			m->msg_perm.seq * MSGMNI + i,
+@
+
+
+1.5
+log
+@Зафиксированы размеры таблиц под messages и под smaphores.
+
+@
+text
+@d213 1
+a213 1
+		printf( "\towner:%s ", pwd->pw_name );
+d216 1
+a216 1
+		printf( "creator:%s\n", pwd->pw_name );
+d279 1
+a279 1
+		printf( "\towner:%s ", pwd->pw_name );
+d282 1
+a282 1
+		printf( "creator:%s\n", pwd->pw_name );
+@
+
+
+1.4
+log
+@msgtotal
+@
+text
+@d12 5
+@
+
+
+1.3
+log
+@разрешен id == 0
+@
+text
+@d31 2
+d49 1
+a68 1
+	       exit(1);
+d153 1
+d155 1
+d246 1
+@
+
+
+1.2
+log
+@добавлены ключи для удаления группы ресурсов.
+ipcstat -m id
+	удаляет очередь сообщений id
+ipcstat -s id
+	удаляет группу семафоров id
+@
+text
+@d79 1
+a79 1
+	if( id <= 0 ){
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d76 26
+d121 7
+@

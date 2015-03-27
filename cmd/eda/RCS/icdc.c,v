@@ -1,0 +1,280 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.51.42;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 26.11.1985
+ */
+
+#include NAME
+#include "glob.h"
+
+int     Zflag = 0;      /* Подавление вывода на экран */
+
+/*
+ * Вставка (PLUS) / удаление (MINUS) символа в строке
+ */
+icdc(arg,narg)
+{
+	register int  i;
+	register char *p;
+	int  j,nr,cl1,cc1,fl;
+	extern int ffault;
+	extern int texflag;
+
+	if( narg > width )
+		narg = width;
+	p = line(cl);
+	if( arg == PLUS && llen(cl)+narg >= width ) {
+		j = width - narg;
+		i = llen(cl);
+		while( i > 0 && p[i] == ' ' )
+			i--;
+		llen(cl) = i;
+		if( i >= j ) {
+			if( i < cc )
+				return( 1 );
+			if( texflag ) {
+				fl = i;
+				do {
+					while( i > 0 && p[i] != ' ' )
+						i--;
+					i++;
+					if( i > j ) {
+						while( p[i-1] == ' ' && i > j )
+							i--;
+					}
+				} while( i > j && (i--, 1) );
+				if( !share( i, fl ) ) {
+					p = line( cl );
+					goto OK1;
+				}
+			}
+#ifdef S_bell
+			printx(S_bell);
+#endif S_bell
+			ffault = 1;
+			return(0);
+		}
+	}
+OK1:
+	for( nr = narg ; nr ; nr-- ) {
+		if( arg == PLUS ) {             /* Вставка */
+			i = llen(cl);
+			if( cc <= i ) {
+				if( p[i] != ' ' )
+					i++;
+				llen(cl) = i = (i<width)? i : width1;
+				if( cc < width1 )
+					for( ; i>cc ; i-- )
+						p[i] = p[i-1];
+			}
+			p[cc] = ' ';
+#ifdef S_ic
+			if( !Zflag ) {
+				if( cc < csh+SWID-1 )
+					printx(S_ic);
+				else
+					pchar();
+			}
+#endif S_ic
+		} else {                        /* Удаление */
+			cc1 = llen(cl);
+			if( cc1 >= cc )
+				cc1 = (cc1>1) ? cc1-1 : 0;
+			for( i = cc ; i<=cc1 ; i++ )
+				p[i] = p[i+1];
+			i = cc1;
+			while( i > 0 && p[i] == ' ' )
+				i--;
+			llen( cl ) = i;
+			p[i+1] = ' ';
+#ifdef S_dc
+			if( Zflag )
+				goto Skip1;
+			if( cc < SWID-1+csh ) {
+				printx(S_dc);
+				if( width > SWID && p[SWID-1+csh] != ' ' &&
+				    llen(cl) >= SWID-1+csh ) {
+					cc1 = cc;
+					qpos(cl, SWID-1+csh);
+					pchar();
+					qpos(cl, cc1);
+				}
+			} else
+				pchar();
+		Skip1:  ;
+#endif S_dc
+		}
+#ifndef S_ic                           /* Предполагается, что S_ic  и  */
+		if( Zflag )            /* S_dc определены одновременно */
+			return(1);
+		cl1 = cl;
+		cc1 = cc;
+		i = SWID-1+csh;
+		if( width1 < i )
+			i = width1;
+		if( llen(cl) < i )
+			i = llen(cl);
+		if( arg == MINUS )
+			i++;
+		j = -1;
+		while( cc <= i && cc != j ) {
+			j = cc;
+			pchar();
+		}
+		if( j == -1 ) {
+			printx( " " );
+			printx( S_left );
+		}
+		qpos(cl1,cc1);
+#endif S_ic
+	}
+	return(1);
+}
+
+/*
+ * Перенести часть строки cl от b до e (вкл).
+ */
+share(b, e)
+{
+	register int   i, j;
+	register char *p;
+	char          *q;
+	int            eline, xz, zy, yx;
+	int            cc1, cl1;
+
+	if( cl == NLIN-1 ) {           /* Roll screen up to */
+		down( NULL, 1 );       /* avoid bug because */
+		up( NULL, 1 );         /* an IL on EOF :@@VG */
+	}
+	cc1 = cc;
+	cl1 = cl;
+	p = line(cl1);
+	for( i = b ; i >= 0 && p[i] != ' ' ; i-- );
+	if( b < 1 || i == -1 )
+		return( 1 );
+	for( i = b ; p[i] == ' ' ; i++ );
+	down( NULL, 1 );
+	if( cl == cl1 )
+		cl1--;
+	q = line(cl1+1);
+	for( j = llen(cl1+1) ; j > 0 && q[j] == ' ' ; j-- );
+	llen(cl1+1) = eline = j;
+	for( j = 0 ; j <= eline && q[j] == ' ' ; j++ );
+	if( q[0] == ' ' || q[0] == '.' ||       /* for NROFF */
+	    (yx = 2+e-i-j) > width1-eline ) {  /* надо добавить строку */
+		il( NULL, 1 );
+		xz = 1+e-i;
+		for( j = 0; j < xz ; j++, i++ )
+			q[j] = p[i];
+		llen(cl1+1) = xz-1;
+		typestr(cl1+1);
+	} else { /* Можно обойтись добавлением к следующей */
+		zy = (j == 0);
+		if( yx > 0 ) {
+			for( j = eline; j >= 0 ; j-- )
+				q[j+yx] = q[j];
+			llen(cl1+1) = yx+eline;
+		} else
+			yx = 0;
+		xz = 1+e-i;
+		for( j = 0; j < xz ; j++, i++ )
+			q[j] = p[i];
+		if( zy )
+			q[j] = ' ';
+#ifdef S_ic
+		if( eline-csh+yx > 15 ) {
+			qpos( cl1+1, csh );
+			for( j = 0; j < yx ; j++ )
+				printx( S_ic );
+			Pwrite( &q[csh], csh, xz-csh );
+		} else
+#endif S_ic
+			typestr( cl1+1 );
+	}
+	j = b-1;
+	while( j > 0 && p[j] == ' ' )
+		j--;
+	llen( cl1 ) = j;
+	if( b < csh )
+		typestr( cl1 );
+	else if( b < csh+SWID ) {
+		qpos( cl1, b );
+#ifdef S_clrel
+		printx( S_clrel );
+#else
+		j = csh+SWID-b;
+		if( j > e-b+1 )
+			j = e-b+1;
+		for(; j ; j-- )
+#ifdef S_dc
+			printx( S_dc );
+#else
+			pchar();
+#endif
+#endif
+	}
+	if( cc1 > b-1 )
+		pos( cl1+1, (j = cc1-b, (cc1 != width1) ? j: j+1) );
+	else
+		qpos( cl1, cc1 );
+	return( 0 );
+}
+
+/*
+ * DEL (забой)
+ */
+del(arg,narg)
+{
+	int  i;
+	char *p;
+	extern int  insflag;
+	register int  j;
+	i = (narg>cc)? cc : narg;
+	if( insflag ) {
+		rightleft(MINUS, i);
+		icdc(MINUS, i);
+	} else {
+		p = line(cl);
+		j = (i<SWID-1)? i : SWID-2;
+		rightleft(MINUS, i);
+		while( j-- ) {
+			writex(" ", 1);
+			cc++;
+		}
+		rightleft(MINUS, i);
+		for( j = cc+i-1 ; j>=cc ; j-- )
+			p[j] = ' ';
+	}
+}
+@

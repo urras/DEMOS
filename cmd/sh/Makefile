@@ -1,0 +1,163 @@
+#       @(#)sh.mk       1.8
+
+TESTDIR = .
+FRC =
+ROOT=
+INS = /etc/install -n $(ROOT)/bin
+INSDIR =
+#CFLAGS = -O -DNICE -DNICEVAL=4 -D"void=int" -DACCOUNT
+#CFLAGS = -O -D"void=int" -d
+
+CFLAGS = -O
+LDFLAGS =
+
+OFILES = setbrk.o blok.o stak.o cmd.o fault.o main.o word.o string.o\
+name.o args.o xec.o service.o error.o io.o print.o macro.o expand.o\
+ctype.o msg.o test.o defs.o echo.o hash.o hashserv.o pwd.o func.o
+
+all: sh
+
+sh: $(SFILES) $(OFILES)
+	$(CC) $(LDFLAGS) $(SFILES) $(OFILES) -o $(TESTDIR)/sh
+
+$(OFILES):      defs.h $(FRC)
+
+ctype.o:        ctype.h
+			$(CC) $(CFLAGS) -c ctype.c
+xec.o:          xec.c
+	$(CC) $(CFLAGS) -c xec.c
+
+service.o:      service.c
+	$(CC) $(CFLAGS) -I/usr/src/cmd/acct -c service.c
+
+blok.o fault.o main.o stak.o:   brkincr.h
+
+io.o main.o:    dup.h
+
+xec.o hash.o hashserv.o:        hash.h
+
+cwd.o:  mac.h
+
+cmd.o macro.o main.o msg.o word.o xec.o:        sym.h
+
+main.o: timeout.h
+
+
+msg.o:          msg.c $(FRC)
+			$(CC) $(CFLAGS) -c msg.c
+test:
+	  rtest $(TESTDIR)/sh
+
+install:  all
+	  $(INS) -o $(TESTDIR)/sh $(INSDIR)
+	  @if [ -f $(ROOT)/bin/rsh ]; \
+	  then \
+		mv $(ROOT)/bin/rsh $(ROOT)/bin/OLDrsh; \
+	  fi
+	  ln $(ROOT)/bin/sh $(ROOT)/bin/rsh
+	  sync
+
+clean:
+	  -rm -f *.o
+
+clobber:  clean
+	  -rm -f $(TESTDIR)/sh
+	  -rm -f $(ROOT)/bin/OLDrsh
+
+FRC:
+###
+args.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+blok.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+cmd.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h sym.h
+ctype.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+defs.o: /usr/include/setjmp.h mode.h name.h /usr/include/sys/param.h \
+	/usr/include/sys/whoami.h /usr/include/sys/localopts.h \
+	/usr/include/signal.h /usr/include/sys/psw.h /usr/include/sys/types.h \
+	/usr/include/sys/iopage.h
+echo.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+error.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+expand.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h /usr/include/sys/types.h /usr/include/sys/stat.h \
+	/usr/include/sys/dir.h
+fault.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+func.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+hash.o: hash.h defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+hashserv.o: hash.h defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h /usr/include/sys/types.h /usr/include/sys/stat.h \
+	/usr/include/errno.h
+io.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h dup.h /usr/include/sys/fcntl.h /usr/include/sys/types.h \
+	/usr/include/sys/param.h /usr/include/sys/whoami.h \
+	/usr/include/sys/psw.h /usr/include/sys/iopage.h \
+	/usr/include/sys/user.h /usr/include/errno.h /usr/include/sys/fperr.h \
+	/usr/include/sys/dir.h /usr/include/a.out.h
+macro.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h sym.h
+main.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h sym.h timeout.h /usr/include/sys/types.h \
+	/usr/include/sys/stat.h dup.h /usr/include/sys/fcntl.h \
+	/usr/include/sys/param.h /usr/include/sys/whoami.h \
+	/usr/include/sys/psw.h /usr/include/sys/iopage.h \
+	/usr/include/sys/user.h /usr/include/errno.h /usr/include/sys/fperr.h \
+	/usr/include/sys/dir.h /usr/include/a.out.h /usr/include/sgtty.h \
+	/usr/include/sys/code.h /usr/include/sys/ioctl.h \
+	/usr/include/execargs.h
+msg.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h sym.h
+name.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+print.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h /usr/include/sys/param.h /usr/include/sys/whoami.h \
+	/usr/include/sys/psw.h /usr/include/sys/types.h \
+	/usr/include/sys/iopage.h
+pwd.o: mac.h /usr/include/sys/types.h /usr/include/sys/dir.h \
+	/usr/include/sys/stat.h
+service.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h /usr/include/errno.h /usr/include/sys/wait.h \
+	/usr/include/sys/types.h /usr/include/sys/acct.h \
+	/usr/include/sys/times.h /usr/include/fcntl.h
+setbrk.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+stak.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+string.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h
+test.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h /usr/include/sys/types.h /usr/include/sys/stat.h
+word.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h sym.h
+xec.o: defs.h mac.h mode.h name.h /usr/include/signal.h \
+	/usr/include/sys/localopts.h stak.h /usr/include/setjmp.h brkincr.h \
+	ctype.h /usr/include/errno.h sym.h hash.h

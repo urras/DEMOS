@@ -1,0 +1,70 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.24.19.38.41;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.17.12.46.23;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Изменено расположение некоторых команд (в том числе и mkmf).
+@
+text
+@/*
+**
+** $Header: spms.h,v 1.1 88/05/17 12:46:23 root Exp $
+** $Log:	spms.h,v $
+ * Revision 1.1  88/05/17  12:46:23  root
+ * Initial revision
+ * 
+**
+*/
+
+/*
+ * SPMS definitions
+ */
+
+/*
+ * Nomenclature
+ */
+#define CURPROJECT      "..."           /* current project root directory */
+#define PARENTPROJECT   "...."          /* parent project root directory */
+#define PROJECTLOG      "projectlog"    /* log-file in project root dir */
+#define PROJECTRC       ".projectrc"    /* project environment file */
+#define SPMSBIN         "/usr/ucb/bin"  /* SPMS binaries */
+#define SPMSLIB         "/usr/ucb/lib"  /* SPMS data files */
+#define SPMSROOT        "/usr/ucb"      /* SPMS root directory */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 5
+a7 2
+** $Header$
+** $Log$
+d22 3
+a24 3
+#define SPMSBIN         "/usr/new"      /* SPMS binaries */
+#define SPMSLIB         "/usr/new/lib"  /* SPMS data files */
+#define SPMSROOT        "/usr/new"      /* SPMS root directory */
+@

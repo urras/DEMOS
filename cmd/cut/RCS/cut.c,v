@@ -1,0 +1,404 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.08.21.19.15.13;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.08.21.18.26.51;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Программа CUT, аналогичная cut(1) из System V.
+@
+
+
+1.2
+log
+@Сделаны русские диагностики и правлены мелкие ошибки.
+@
+text
+@/*
+ *  This acts the same as System V cut(1), except that the list of numbers
+ *  does not have to be assending.
+ *
+ * $Log:        cut.c,v $
+ * Revision 1.1  88/08/21  18:26:51  avg
+ * Initial revision
+ *
+ */
+#include <stdio.h>
+#include <ctype.h>
+#include <ediag.h>
+
+#ifndef lint
+static char rcsid[] = "$Header: cut.c,v 1.1 88/08/21 18:26:51 avg Exp $";
+#endif
+
+#ifdef pdp11
+#  ifndef lint
+#    define void int    /* PDP11 Dumb Ritchie C compiler requires it. @@VG */
+#  endif
+#endif
+
+#define MAXLINE 1024            /* The max. length of a line            */
+
+extern void exit();
+
+main(argc, argv)
+int argc;
+char *argv[];
+{
+	extern char *optarg;
+	extern int optind;
+
+	static char fields[MAXLINE];/* The field markers. True if this field */
+				   /* is to be cut, False otherwise     */
+	FILE *fp;                  /* All the input files or stdin      */
+	char buf[MAXLINE];         /* The input buffer                  */
+	int c;                     /* The command line option           */
+	int err = 0;               /* True if error in command line     */
+	int fflag = 0;             /* True if -f on command line        */
+	int cflag = 0;             /* True if -c on command line        */
+	int suppress = 0;          /* Suppress lines with no delimitor  */
+	char fs = '\t';            /* The field separator               */
+
+
+	while ((c = getopt(argc, argv, "f:d:c:s")) != EOF)
+	{
+		switch (c)
+		{
+		   case 'f':
+			/* By Field */
+			list(fields, optarg);
+			fflag++;
+			if (cflag)
+				err++;
+			break;
+
+		   case 'c':
+			/* By character */
+			list(fields, optarg);
+			/* Implied suppress */
+			suppress++;
+			cflag++;
+			if (fflag)
+				err++;
+			break;
+
+		   case 'd':
+			/* A new field spererator */
+			fs = *optarg;
+			break;
+
+		   case 's':
+			suppress++;
+			break;
+
+		   default:
+			prusage();
+		}
+	}
+
+	if (!cflag && !fflag)
+	{
+		fprintf(stderr, ediag("cut: must have one of -f or -c\n",
+				      "cut: должен быть ключ -f или -c\n"));
+		err++;
+	}
+	if (err)
+		prusage();
+
+
+	/*
+	 * Loop on all the files.
+	 */
+	do {
+		if (optind == argc)
+			fp = stdin;
+		else if ((fp = fopen(argv[optind], "r")) == (FILE *)NULL)
+		{
+			fprintf(stderr, ediag("cut: failed to open file %s\n",
+					      "cut: не могу открыть файл %s\n"),
+					argv[optind]);
+			exit(1);
+		}
+
+		/*
+		 * Loop on all lines in the file.
+		 */
+		while (fgets(buf, sizeof(buf), fp) != (char *)NULL)
+		{
+			cut(buf, fields, fs, suppress, cflag);
+		}
+		(void)fclose(fp);
+	} while (++optind < argc);
+
+	exit(0);
+/* NOTREACHED */
+}
+
+/*
+ * Cut the line. This handles both character and field cutting.
+ * For character cutting the f array gives character positions, for
+ * fields it gives the field number. It must be indexed by either the
+ * character number or the field number.
+ */
+cut(in, f, fs, sup, c_or_f)
+register char *in;              /* The input line                       */
+char f[];                       /* The field cutting flags              */
+char fs;                        /* The field seperator                  */
+int sup;                        /* Suppress lines with no-delimitor?    */
+int c_or_f;                     /* Cut by char. (true), or field (false)*/
+{
+	char obuf[MAXLINE];     /* Output buffer                        */
+	register char *optr = obuf;
+	register int i;         /* Character count                      */
+	register int fld;       /* The field count                      */
+	char *instart = in;     /* To print lines with no delimiters    */
+
+	for (fld = 0, i = 0; i < MAXLINE; i++)
+	{
+		if (*in == '\n')
+		{
+			/* End of the line */
+
+			*optr = '\0';
+			/* Any thing to cut? */
+			if (optr != obuf)
+			{
+				/* Get ride of trailing seperator */
+				if (*(optr - 1) == fs)
+					*(optr - 1) = '\0';
+				puts(obuf);
+			}
+			else if (!sup)
+				printf(instart);
+			return;
+		}
+
+		if (f[c_or_f ? i : fld])
+		{
+			*optr++ = *in;
+		}
+
+		/* End of field? */
+		if (*in++ == fs)
+			fld++;
+	}
+
+	fprintf(stderr, ediag("cut: line too long, maximum length is %d\n",
+			      "cut: слишком длинная строка, макс.длина - %d\n"), MAXLINE);
+	exit(1);
+}
+
+/*
+ * Parse the list argument. The format is:
+ *      n,n
+ * where n is either a number or a range of numbers in the format
+ *      m-l
+ * m or l  may be absent, indicating the start or end of the lines respectivly.
+ * Numbers must be in increasing order for m-l format, but not for n,n.
+ * Field numbers start at 1, but index into fields array starts at 0.
+ *
+ */
+list(f, l)
+char f[];                /* The fields                           */
+char *l;                /* The list                             */
+{
+	int low, high;  /* the low and high numbers in a m-l pair*/
+	int i;
+
+	low = 1;
+
+	while (1)
+	{
+		switch(*l)
+		{
+		   case '\0':
+			return;
+
+		   case ',':
+			l++;
+			low = 1;
+			break;
+
+		   case '-':
+			l++;
+			/* Is it m-<nothing> */
+			if (isdigit((int)*l)) {
+				high = atoi(l);
+				/* Skip the digits */
+				while (isdigit((int) *l))
+					l++;
+			} else
+				high = MAXLINE;
+
+			/* Is the range the correct way around? */
+			if (low > high)
+			{
+				fprintf(stderr, ediag("cut: bad c/f list: %d > %d\n",
+						      "cut: плохой список полей для c/f: %d > %d\n"),
+							low, high);
+				exit(1);
+			}
+			/* Set the field flags for the range */
+			for(i = low-1; i < high; i++)
+				f[i] = 1;
+			break;
+
+		    default:
+			/* either a number or an error */
+			if (!isdigit((int) *l))
+			{
+				fprintf(stderr, ediag("cut: bad c/f list at %s\n",
+						      "cut: плохой символ в списке полей для c/f: %s\n"), l);
+				exit(1);
+			}
+			low = atoi(l);
+			if (low == 0)
+			{
+				fprintf(stderr, ediag("cut: fields start at 1 not 0\n",
+						      "cut: поля нумеруются не с 0, а с 1\n"));
+				exit(1);
+			}
+			/* Skip the digits */
+			while (isdigit((int) *l))
+				l++;
+			f[low-1] = 1;
+			break;
+		}
+	}
+}
+
+prusage()
+{
+	fprintf(stderr, ediag("Usage: cut [-ddelimitor] [-s] -{c,f}fields_list [files]\n",
+			      "Вызов: cut [-dразделитель] [-s] -{c,f}список_полей [файлы]\n"));
+	exit(1);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d12 1
+d15 1
+a15 1
+static char rcsid[] = "$Header$";
+d35 1
+a35 1
+	static int fields[MAXLINE];/* The field markers. True if this field */
+d38 7
+a44 7
+	char buf[MAXLINE];	   /* The input buffer			*/
+	int c;			   /* The command line option		*/
+	int err = 0;		   /* True if error in command line	*/
+	int fflag = 0;		   /* True if -f on command line	*/
+	int cflag = 0;		   /* True if -c on command line	*/
+	int suppress = 0;	   /* Suppress lines with no delimitor	*/
+	char fs = '\t';		   /* The field separator		*/
+d46 1
+a46 1
+	
+d85 2
+a86 1
+		fprintf(stderr, "Must have one of -f or -c\n");
+d101 2
+a102 1
+			fprintf(stderr, "Failed to open file %s\n", 
+d128 5
+a132 5
+register char *in;		/* The input line			*/
+int f[];			/* The field cutting flags		*/
+char fs;			/* The field seperator			*/
+int sup;			/* Suppress lines with no-delimitor?	*/
+int c_or_f;			/* Cut by char. (true), or field (false)*/
+d134 1
+a134 1
+	char obuf[MAXLINE];	/* Output buffer			*/
+d136 3
+a138 3
+	register int i;		/* Character count			*/
+	register int fld;	/* The field count			*/
+	char *instart = in;	/* To print lines with no delimiters	*/
+d170 2
+a171 1
+	fprintf(stderr, "Line too long, maximum length is %d\n", MAXLINE);
+d177 1
+a177 1
+ *	n,n
+d179 1
+a179 1
+ *	m-l
+d183 1
+a183 1
+ * 
+d186 2
+a187 2
+int f[];		/* The fields				*/
+char *l;		/* The list				*/
+d189 1
+a189 2
+	int range = 0;	/* True if m-l format			 */
+	int low, high;	/* the low and high numbers in a m-l pair*/
+d192 1
+a192 1
+	low = high = 0;
+a198 9
+			/* Is it m-<nothing>EOL? */
+			if (range)
+			{
+				/* Select rest of fields */
+				for(i = low - 1; i < MAXLINE; i++)
+					f[i]++;
+			}
+			else
+				f[low-1]++;
+a202 3
+			if (!range)
+				f[low-1]++;
+			range = 0;
+a207 1
+			range++;
+d209 1
+a209 2
+			if (isdigit((int)*l))
+			{
+d214 1
+a214 2
+			}
+			else
+d220 2
+a221 1
+				fprintf(stderr, "Bad c/f list: %d > %d\n", 
+d226 2
+a227 2
+			for(i = low - 1; i < high; i++)
+				f[i]++;
+d234 2
+a235 1
+				fprintf(stderr, "Bad c/f list at %s\n", l);
+d241 2
+a242 1
+				fprintf(stderr, "Fields start at 1 not 0\n");
+d248 1
+d256 2
+a257 1
+	fprintf(stderr, "cut [-d<delimitor>] [-s] -c<list>|-f<list> [files]\n");
+@

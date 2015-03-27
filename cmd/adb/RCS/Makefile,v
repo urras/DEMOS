@@ -1,0 +1,104 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     89.01.31.17.36.28;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@# Для версии текстов без архивов RCS установите R=X
+R=
+
+RCS=RCS
+COFLAGS=-q
+
+I=/usr/include
+IS=${I}/sys
+CFLAGS=         -O
+FP =                    # -f for machines without floating point
+FMT =
+
+all:            adb
+
+install:        adb
+		cp adb ${DESTDIR}/bin/adb
+		-strip ${DESTDIR}/bin/adb
+
+
+cmp:            adb
+		cmp adb ${DESTDIR}/bin/adb
+
+OBJS =          access.o command.o expr.o findfn.o \
+		format.o input.o opset.o main.o \
+		message.o output.o pcs.o print.o \
+		runpcs.o setup.o sym.o
+
+SRC =           access.c command.c expr.c findfn.c \
+		format.c input.c opset.c main.c \
+		message.c output.c pcs.c print.c \
+		runpcs.c setup.c sym.c \
+		defs.h mac.h machine.h mode.h
+
+source: ${SRC} Makefile
+
+adb:            ${OBJS}
+		cc ${FP} ${FMT} -o adb ${OBJS}
+
+clean clear:
+		-rm -f *.[ob]
+
+CLRSRC: clean
+	-rm -f ${SRC} adb
+
+access.o:       defs.h machine.h mac.h mode.h
+command.o:      defs.h machine.h mac.h mode.h
+expr.o:         defs.h machine.h mac.h mode.h
+findfn.o:       defs.h machine.h mac.h mode.h
+format.o:       defs.h machine.h mac.h mode.h $(I)/ctype.h
+input.o:        defs.h machine.h mac.h mode.h
+main.o:         defs.h machine.h mac.h mode.h
+message.o:      mac.h mode.h
+opset.o:        defs.h machine.h mac.h mode.h
+output.o:       defs.h machine.h mac.h mode.h
+pcs.o:          defs.h machine.h mac.h mode.h
+print.o:        defs.h machine.h mac.h mode.h
+runpcs.o:       defs.h machine.h mac.h mode.h
+setup.o:        defs.h machine.h mac.h mode.h
+sym.o:          defs.h machine.h mac.h mode.h
+
+${R}access.c:   ${RCS}/access.c,v;   co ${COFLAGS} access.c
+${R}command.c:   ${RCS}/command.c,v;   co ${COFLAGS} command.c
+${R}expr.c:   ${RCS}/expr.c,v;   co ${COFLAGS} expr.c
+${R}findfn.c:   ${RCS}/findfn.c,v;   co ${COFLAGS} findfn.c
+${R}format.c:   ${RCS}/format.c,v;   co ${COFLAGS} format.c
+${R}input.c:   ${RCS}/input.c,v;   co ${COFLAGS} input.c
+${R}main.c:   ${RCS}/main.c,v;   co ${COFLAGS} main.c
+${R}message.c:   ${RCS}/message.c,v;   co ${COFLAGS} message.c
+${R}opset.c:   ${RCS}/opset.c,v;   co ${COFLAGS} opset.c
+${R}output.c:   ${RCS}/output.c,v;   co ${COFLAGS} output.c
+${R}pcs.c:   ${RCS}/pcs.c,v;   co ${COFLAGS} pcs.c
+${R}print.c:   ${RCS}/print.c,v;   co ${COFLAGS} print.c
+${R}runpcs.c:   ${RCS}/runpcs.c,v;   co ${COFLAGS} runpcs.c
+${R}setup.c:   ${RCS}/setup.c,v;   co ${COFLAGS} setup.c
+${R}sym.c:   ${RCS}/sym.c,v;   co ${COFLAGS} sym.c
+${R}defs.h:   ${RCS}/defs.h,v;   co ${COFLAGS} defs.h
+${R}mac.h:   ${RCS}/mac.h,v;   co ${COFLAGS} mac.h
+${R}mode.h:   ${RCS}/mode.h,v;   co ${COFLAGS} mode.h
+${R}machine.h:   ${RCS}/machine.h,v;   co ${COFLAGS} machine.h
+@

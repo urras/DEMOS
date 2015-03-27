@@ -1,0 +1,232 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.51.45;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 17.06.1986
+ */
+
+#include NAME
+#include "glob.h"
+
+#ifndef S_dl
+char    Lmap[NLIN];     /* Массив отметок о заполнении строк */
+			/* перерисовываемой части экрана     */
+#endif  S_dl
+
+
+/*
+ * Вставка строк
+ */
+il(arg, narg)
+{
+	register int  j;
+	register char *p,*q;
+	int  i,nr,fl;
+
+	fl = 0;
+	ccold = cc;
+	clold = cl;
+	if( (nr = narg) >
+#ifndef S_il
+			 20
+#else
+			 40
+#endif S_il
+			    ) {
+		minutes();
+		fl++;
+	}
+
+#ifdef S_il
+#ifdef BROLL
+	qpos(cl, 0);
+#endif BROLL
+#endif S_il
+
+	while( nr && !testinput() ) {
+		putds(NLIN-1);
+#ifndef S_il
+		if( nr == narg )
+			Lmap[NLIN-1] = lempty( NLIN-1, csh, SWID );
+#endif  S_il
+		if( cl < NLIN-1 )
+			for( i = NLIN-1 ; i>cl ; i-- ) {
+				p = line(i-1);
+				q = line(i);
+				j = llen( i-1 )+1;
+#ifdef ASSERT
+if( j < 1 ) write(1, "BAD LENGTH\n", 11 );
+#endif
+				if( j > width )
+					j = width;
+				for( ; j > 0 ; j-- )
+					*q++ = *p++;
+				llen(i) = llen(i-1);
+#ifndef S_il
+				if( nr == narg )
+				       Lmap[i-1] = lempty( i, csh, SWID );
+#endif  S_il
+			}
+		if( nr == narg ) {
+			p = line(cl);
+			for( j = width ; j ; j-- )
+				*p++ = ' ';
+			llen(cl) = 0;
+		}
+#ifdef S_il
+		if( !fl )
+			printx(S_il);
+#endif S_il
+		nr--;
+	}
+	if( fl )
+		rew();
+#ifndef S_il
+	else {
+		res();
+		qpos(clold, ccold);
+	}
+#else
+#ifdef BROLL
+	else {
+		cc = 0;
+		qpos(clold, ccold);
+	}
+#endif BROLL
+#endif S_il
+}
+
+/*
+ * Удаление строк
+ */
+dl(arg, narg)
+{
+	register char *p,*q;
+	extern char eof;
+	extern int  ffault;
+	int  i,j,nr,fl,cflg;
+
+	fl = 0;
+	cflg = -1;
+	ccold = cc;
+	clold = cl;
+	if( (nr = narg) >
+#ifdef S_dl
+			 20
+#else
+			 10
+#endif S_dl
+			   ) {
+		minutes();
+		fl++;
+	}
+
+	while( nr-- && !testinput() ) {
+		if( eof && bstack.lines == 0 ) {
+			if( cflg > 0 )
+				cflg--;
+			else if( cflg < 0 )
+				cflg = NLIN-cl;
+			else {          /* Все строки уже удалены */
+				ffault++;
+				goto out;
+			}
+		}
+#ifndef S_dl
+		if( nr == narg-1 )
+			Lmap[cl] = 1;
+#endif  S_dl
+		if( cl < NLIN-1 )
+			for( i = cl ; i<NLIN-1 ; i++ ) {
+				p = line(i+1);
+				q = line(i);
+				j = llen( i+1 )+1;
+				if( j > width )
+					j = width;
+				for( ; j ; j-- )
+					*q++ = *p++;
+				llen(i) = llen(i+1);
+#ifndef S_dl
+				if( nr == narg-1 )
+				       Lmap[i+1] = lempty( i, csh, SWID );
+#endif  S_dl
+			}
+		if( getds(NLIN-1) )
+			fl++;
+#ifdef S_dl
+		if( fl == 0 ) {
+			printx(S_dl);
+			typestr(NLIN-1);
+			qpos(clold, csh);
+		}
+#endif S_dl
+	}
+out:
+	if( fl ) {
+		cc = ccold;
+		cl = clold;
+		rew();
+	} else {
+#ifndef S_dl
+		res();
+#endif  S_dl
+		qpos(clold, ccold);
+	}
+}
+
+#ifndef S_dl
+/*
+ * Общий код для il() и dl() -перерисовка части экрана,
+ * используется, когда не определены S_il и S_dl
+ * (предполагается, что они определены одновременно)
+ */
+res()
+{
+	register int   i;
+	extern   int   Fflag;
+
+	for( i = cl ; i < NLIN ; i++ ) {
+		if( lempty( i, csh, SWID ) ) {
+			Fflag = !Lmap[i];
+			typestr( i );
+			continue;
+		}
+		if( Lmap[i] ) {
+			qpos( i, csh );
+			clrl();
+		}
+	}
+	Fflag = 0;
+}
+#endif S_dl
+@

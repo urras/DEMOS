@@ -1,0 +1,100 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     90.09.24.16.35.48;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.03.06.21.46.15;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Список сообщений об ошибках.
+@
+
+
+1.2
+log
+@???
+@
+text
+@/*
+ *
+ * f77 I/O error messages - для малого варианта
+ */
+
+char *f_errlist[] =
+{
+/* 100 */	"error in format",
+/* 101 */	"illegal unit number",
+/* 102 */	"formatted io not allowed",
+/* 103 */	"unformatted io not allowed",
+/* 104 */	"direct io not allowed",
+/* 105 */	"sequential io not allowed",
+/* 106 */	"can't backspace file",
+/* 107 */       "null name of file",
+/* 108 */	"can't stat file",
+/* 109 */       "unit not connected",
+/* 110 */	"off end of record",
+/* 111 */	"truncation failed",
+/* 112 */	"incomprehensible list input",
+/* 113 */	"out of free space",
+/* 114 */	"unit not connected",
+/* 115 */	"read unexpected character",
+/* 116 */	"blank logical input field",
+/* 117 */       "unknown system error",
+/* 117*/        "can not read",
+/* 118*/        "can not write",
+/* 119 */       "requires seek ability",
+/* 120 */       "illegal argument",
+/* 121 */       "illegal operation",
+};
+
+char *f_rerrlist[] =
+{
+/* 100 */       "ошибка в формате",
+/* 101 */       "недопустимый номер канала",
+/* 102 */       "форматный обмен запрещен",
+/* 103 */       "бесформатный обмен запрещен",
+/* 104 */       "прямой доступ запрещен",
+/* 105 */       "последовательный обмен запрещен",
+/* 106 */       "операция backspace невозможна",
+/* 107 */       "отсутствует имя файла",
+/* 108 */       "не найден файл",
+/* 109 */       "логический канал не присоединен",
+/* 110 */       "выход за запись",
+/* 111 */       "ошибка усечения",
+/* 112 */       "недопустимые данные для ввода по списку",
+/* 113 */       "исчерпана память",
+/* 114 */       "логический канал не присоединен",
+/* 115 */       "считан недопустимый символ",
+/* 116 */       "постое поле ввода",
+/* 117 */       "неизвестная ошибка",
+/* 117*/        "не могу считать ",
+/* 118*/        "не могу записать",
+/* 119 */       "требуется возможность прямого доступа",
+/* 120 */       "недопустимый аргумент",
+/* 121 */       "недопустимая операция",
+};
+
+
+int f_nerr = (sizeof(f_errlist)/sizeof(char *));
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d33 28
+@

@@ -1,0 +1,149 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.11.11.20.44.26;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.50.54;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: e.hp2623.h,v 1.1 86/11/11 17:50:54 avg Exp $";*/
+#endif
+
+/*
+ * $Log:	e.hp2623.h,v $
+ * Revision 1.1  86/11/11  17:50:54  avg
+ * Initial revision
+ * 
+ */
+
+
+/* Parameters for Hewlett-Packard 2623A terminal */
+
+#define NLIN    24
+#define SWID    80
+
+#define SYMSTRT "\
+\033&f2a1k6d2L  FIND\0021\
+\033&f2a2k13d2L  FIND    DEF\0022\
+\033&f2a3k6d2L  EXIT\0023\
+\033&f2a4k7d2LNUM ARG\0024\
+\033&f2a5k13d1L MACRO    DEF\030\
+\033&f2a6k7d2LMACRO 1\0026\
+\033&f2a7k7d2LMACRO 2\0027\
+\033&f2a8k7d2LMACRO 3\0028\
+\033&jB\033&s1A"
+
+#define SYMSTOP "\33&s0A"
+#define FRM     0
+#define ROLL    0
+
+#define F_right "\033C"
+#define F_left  "\033D"
+#define F_up    "\033A"
+#define F_down  "\033B"
+#define F_il    "\033L"
+#define F_dl    "\033M"
+#define F_ic    "\033Q"
+#define F_dc    "\033P"
+#define F_del   "\b"
+#define F_tab   "\011"
+#define F_btab  "\033i"
+#define F_wtab  "\033J"
+#define F_bwtab "\033K"
+#define F_exit  "\0023\0023"
+#define F_rew   "\001"
+#define F_na    "\0024"
+#define F_lnum  "\033H\0024"
+#define F_cnum  "\031"
+#define F_ret   "\033F"
+#define F_cr    "\015"
+#define F_aex   "\004\004\004\004"
+#define F_inter "\003"
+#define Q_inter "\177"
+#define F_flush "\027"
+#define F_fsd   "\0021"
+#define F_find  "\0022"
+#define F_savel "\005"
+#define F_incll "\007"
+#define F_wrtex "\033H\005"
+#define F_rdtex "\033H\007"
+#define F_clrtx "\025"
+#define F_end   "\033H\33C"
+#define F_beg   "\033H\33D"
+#define F_pgup  "\033V"
+#define F_pgdown "\033U"
+#define F_shell "\023"
+#define F_sins  "\033H\33Q"
+#define F_sdel  "\033H\033P"
+#define F_tof   "\033S"
+#define F_eof   "\033T"
+#define F_cat   "\024"
+#define F_rpt   "\033H\033H"
+#define F_store "\033H\0023"
+#define F_pmode "\033H\033M"
+#define F_tmode "\033H\033L"
+#define F_parup "\020"
+#define F_pardown "\014"
+#define F_mdef1 "\030\0026"
+#define F_mdef2 "\030\0027"
+#define F_mdef3 "\030\0028"
+#define F_m1    "\0026"
+#define F_m2    "\0027"
+#define F_m3    "\0028"
+#define FS_mdend "\030"
+
+#define Mname1  '1'
+#define Mname2  '2'
+#define Mname3  '3'
+
+#define S_right "\033C"
+#define S_left  "\033D"
+#define S_up    "\033A"
+#define S_down  "\033B"
+#define S_ic    "\033Q \033D\033R"
+#define S_dc    "\033P"
+#define S_ret   "\015"
+#define S_cr    "\012\015"
+#define S_home  "\033H"
+#define S_ru    "\033S"
+#define S_rd    "\033T"
+#define S_clrl  "\033K"
+#define S_clrel "\033K"
+#define S_erase "\033H\033J"
+#define S_bell  "\007"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

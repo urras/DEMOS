@@ -1,0 +1,109 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.04.10.19.10.57;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.13.16.40.30;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Сделан ediag + исправлены некоторые ошибки
+@
+text
+@#include <sys/types.h>
+#include <sys/stat.h>
+
+/*
+** Check whether the file named by fs is an ASCII file which the user may
+** access.  If it is, return the opened file. Otherwise return -1,-2,-3.
+*/
+checkf (fs)
+char *fs;
+{
+    struct stat stbuf;
+    char c;
+    int f;
+    int FirstWord;
+
+    if (stat (fs, &stbuf) == -1)
+	return -1;
+    if ((stbuf.st_mode & S_IFMT) == S_IFDIR)
+	return -3;
+    if ( (f=open(fs, 0)) == -1)
+	return -1;
+    read(f, &FirstWord, sizeof(short));
+    /* Try to see whether it is an ASCII file */
+    switch (FirstWord) {
+    case 0405:
+    case 0407:
+    case 0410:
+    case 0411:
+    case 0413:
+    case 0430:
+    case 0431:
+    case 0444:
+    case 0177545:
+	close(f);
+	return (-2);
+    }
+    lseek(f, 0l, 0);
+    return (f);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@a0 1
+#include <stdio.h>
+d3 1
+a11 1
+    FILE *F;
+d14 9
+a22 13
+    if (stat (fs, &stbuf) == -1) {
+	return (-1);
+    }
+    if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+	return (-3);
+    }
+    if ( (f=open(fs, 0)) == -1)    {
+	return (-1);
+    }
+    else        {
+	F=fdopen(f, "r");
+    }
+    c = getc(F);
+d24 1
+a24 1
+    switch ((c | *F->_ptr << 8) & 0177777) {
+d30 3
+d34 1
+a34 1
+	fclose (F);
+a35 2
+    default:
+	break;
+d37 1
+a37 1
+    ungetc (c, F);
+@

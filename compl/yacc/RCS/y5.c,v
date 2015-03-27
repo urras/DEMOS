@@ -1,0 +1,64 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.12.27.17.09.56;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.25.23.17.52;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Построитель трансляторов YACC.
+@
+
+
+1.2
+log
+@Версия, полученная слиянием из BSD 2.9 и МНОС РЛ 1.2.
+@
+text
+@/*
+ * $Log$
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * This source file added by @@VG : 05.12.84
+ */
+
+/*
+ * Fake lib routines
+ */
+char    *malloc() { return( 0 ); }
+char    *calloc() { return( 0 ); }
+cfree() {}
+free()  {}
+fseek() {}
+isatty() {return(0);}
+@
+
+
+1.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d2 8
+d14 1
+a14 1
+ * Fake malloc & calloc
+d20 2
+@

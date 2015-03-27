@@ -1,0 +1,844 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.06.21.14.55.54;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.10.21.17.24;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Добавлен поиск разных символьных устройств + русские диагностики.
+@
+text
+@/*
+ * Print system stuff
+ * Works on any number (MAXTTYS each) of kl,dh, and dz ports.
+ * Additional mods for use of /dev/kmem (except for -u),
+ * size parameters in kernel, and job control
+ *      $Log:   pstat.c,v $
+ * Revision 1.1  89/03/10  21:17:24  root
+ * Initial revision
+ *
+ * Revision 1.9  89/03/10  20:46:23  root
+ * исчез флаг FPIPE
+ *
+ * Revision 1.8  89/01/10  20:40:08  root
+ * Немного изменен формат выдачи при ключе -p (@@VG).
+ *
+ * Revision 1.7  88/09/30  17:50:25  root
+ * Исправления by AVG.
+ *
+ * Revision 1.6  88/06/23  23:06:31  ache
+ * prof закомментирован (некорректное обращение к структуре)
+ *
+ * Revision 1.5  88/06/23  22:15:29  ache
+ * + 31 оверлей
+ *
+ * Revision 1.4  87/03/19  17:08:06  alex
+ * Исправлен режим "-i"
+ *
+ * Revision 1.3  87/01/23  19:40:14  alex
+ * Вставлена выдача флага "F" в режиме "-x".
+ *
+ * Revision 1.2  86/12/09  05:15:56  alex
+ * Ошбк
+ *
+ * Revision 1.1  86/12/09  04:51:50  alex
+ * Initial revision
+ *
+ *
+ */
+static char rcsid[]="$Header: pstat.c,v 1.1 89/03/10 21:17:24 root Exp $";
+
+
+#define MAXTTYS 48
+#define mask(x) (x&0377)
+#include <whoami.h>
+#include <sys/param.h>
+#include <stdio.h>
+#include <a.out.h>
+#include <sys/conf.h>
+#include <sys/tty.h>
+#define KERNEL
+#include <sys/inode.h>
+#undef KERNEL
+#include <sys/text.h>
+#include <sys/proc.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/file.h>
+#include <fcntl.h>
+#include <ediag.h>
+
+#ifndef XFREE
+#define XFREE 040
+#endif
+
+char    *fcore  = "/dev/kmem";
+char    *fmem   = "/dev/mem";
+char    *fnlist = "/demos";
+int     fc, fm;
+
+struct nlist setup[] = {
+#define SINODE  0
+	"_inode", 0, 0,
+#define SNINODE 1
+	"_ninode", 0, 0,
+#define STEXT   2
+	"_text", 0, 0,
+#define SNTEXT  3
+	"_ntext", 0, 0,
+#define SPROC   4
+	"_proc", 0, 0,
+#define SNPROC  5
+	"_nproc", 0, 0,
+#define SFILE   6
+	"_file", 0, 0,
+#define SNFILE  7
+	"_nfile", 0, 0,
+#define SDH     8
+	"_dh11", 0, 0,
+#define SNDH    9
+	"_ndh11", 0, 0,
+#define SKL     10
+	"_kl11", 0, 0,
+#define SNKL    11
+	"_nkl11", 0, 0,
+#define SDZ     12
+	"_dz11", 0, 0,
+#define SNDZ    13
+	"_ndz11", 0, 0,
+#define SDHU    14
+	"_dhu11", 0, 0,
+#define SNDHU   15
+	"_ndhu11", 0, 0,
+#define SMPY    16
+	"_mpytty", 0, 0,
+#define SNMPY   17
+	"_nmpytty", 0, 0,
+#define SVI     18
+	"_vi11", 0, 0,
+#define SNVI    19
+	"_nvi11", 0, 0,
+#define SDJ     20
+	"_dj11", 0, 0,
+#define SNDJ    21
+	"_ndj11", 0, 0,
+#define SKX     22
+	"_kx11", 0, 0,
+#define SNKX    23
+	"_nkx11", 0, 0,
+#define SKY     24
+	"_ky11", 0, 0,
+#define SNKY    25
+	"_nky11", 0, 0,
+#define SAIS    26
+	"_ais", 0, 0,
+#define SNAIS   27
+	"_nais", 0, 0,
+#define SPTY    28
+	"_pt_tty", 0, 0,
+#define SNPTY   29
+	"_npt_tty", 0, 0,
+	0, 0, 0
+};
+
+int     inof;
+int     txtf;
+int     prcf;
+int     ttyf;
+int     usrf;
+long    ubase;
+int     filf;
+int     allflg;
+
+main(argc, argv)
+char **argv;
+{
+
+	while (--argc && **++argv == '-') {
+	    while (*++*argv)
+		switch (**argv) {
+
+		case 'a':
+			allflg++;
+			break;
+
+		case 'i':
+			inof++;
+			break;
+
+		case 'x':
+			txtf++;
+			break;
+		case 'p':
+			prcf++;
+			break;
+
+		case 't':
+			ttyf++;
+			break;
+
+		case 'u':
+			if (--argc == 0)
+				break;
+			usrf++;
+			ubase = oatoi(*++argv);
+			break;
+
+		case 'f':
+			filf++;
+			break;
+		}
+	}
+	if (argc>0)
+		fmem = fcore = argv[0];
+	if ((fc = open(fcore, FATT_RDONLY)) < 0) {
+		perror(fcore);
+		exit(1);
+	}
+	if ((fm = open(fmem, FATT_RDONLY)) < 0) {
+		perror(fmem);
+		exit(1);
+	}
+	if (argc>1)
+		fnlist = argv[1];
+	nlist(fnlist, setup);
+	if (setup[SINODE].n_type == 0) {
+		printf(ediag("%s: no namelist\n",
+			     "%s: нет таблицы имен\n"), fnlist);
+		exit(1);
+	}
+	if (inof)
+		doinode();
+	if (txtf)
+		dotext();
+	if (ttyf)
+		dotty();
+	if (prcf)
+		doproc();
+	if (usrf)
+		dousr();
+	if (filf)
+		dofil();
+}
+
+doinode()
+{
+	register struct inode *ip;
+	struct inode *xinode;
+	register int nin, loc, nall;
+	int ninode;
+
+	/*
+	 * Find number of inodes
+	 */
+	if (setup[SNINODE].n_value) {
+		lseek (fc, (off_t) setup[SNINODE].n_value, FSEEK_ABSOLUTE);
+		if (read(fc, (char *)&ninode,sizeof(ninode)) != sizeof(ninode)){
+			perror("read");
+			return;
+		}
+	} else {
+		fprintf(stderr, ediag("ninode not in namelist\n",
+				      "ninode нет в таблице имен\n"));
+		return;
+	}
+	xinode = (struct proc *)calloc(ninode, sizeof(struct inode));
+	if (xinode == NULL) {
+		printf(ediag("Not enough memory for inodes\n",
+			     "Не хватает памяти для i-узлов\n"));
+		return;
+	}
+
+	nin = 0; nall = 0;
+	lseek(fc, (long)setup[SINODE].n_value, FSEEK_ABSOLUTE);
+	read(fc, (char *)xinode, ninode * sizeof(struct inode));
+	for (ip = xinode; ip < &xinode[ninode]; ip++)
+		if(ip->i_number) {
+			 nall++;
+		if (ip->i_count)
+			nin++;
+		}
+	printf(ediag("%d active inodes, %d inodes in table\n",
+		     "%d активных i-узлов, всего в таблице %d i-узлов\n"), nin,nall);
+	printf("   LOC  FLAGS    CNT DEVICE   INO   MODE NLK UID  SIZE/DEV\n");
+	loc = setup[SINODE].n_value;
+	for (ip = xinode; ip < &xinode[ninode]; ip++, loc += sizeof(xinode[0])) {
+		if (ip->i_number == 0)
+			continue;
+		printf("%7.1o ", loc);
+		putf(ip->i_flag&ILOCK, 'L');
+		putf(ip->i_flag&IUPD, 'U');
+		putf(ip->i_flag&IACC, 'A');
+		putf(ip->i_flag&IMOUNT, 'M');
+		putf(ip->i_flag&IWANT, 'W');
+		putf(ip->i_flag&ITEXT, 'T');
+		putf(ip->i_flag&IQUOT, 'Q');
+		putf(ip->i_flag&ISHLOCK, 'S');
+		putf(ip->i_flag&IEXLOCK, 'E');
+		printf("%4d", ip->i_count&0377);
+		printf("%3d,%3d", major(ip->i_dev), minor(ip->i_dev));
+		printf("%6l", ip->i_number);
+		printf("%7o", ip->i_mode);
+		printf("%4d", ip->i_nlink);
+		printf("%4d", ip->i_uid);
+		if ((ip->i_mode&IFMT)==IFBLK || (ip->i_mode&IFMT)==IFCHR)
+			printf("%6d,%3d", major(ip->i_un.i_rdev), minor(ip->i_un.i_rdev));
+		else
+			printf("%10ld", ip->i_size);
+		printf("\n");
+	}
+	free((char *)xinode);
+}
+
+putf(v, n)
+{
+	if (v)
+		printf("%c", n);
+	else
+		printf(" ");
+}
+
+dotext()
+{
+	register struct text *xp;
+	struct text *xtext;
+	register loc;
+	int ntx;
+	int ntext;
+
+	/*
+	 * Find number of texts
+	 */
+	if (setup[SNTEXT].n_value) {
+		lseek (fc, (off_t) setup[SNTEXT].n_value, FSEEK_ABSOLUTE);
+		if (read(fc, (char *)&ntext, sizeof(ntext)) != sizeof (ntext)) {
+			perror("read");
+			return;
+		}
+	} else {
+		fprintf(stderr, ediag("ntext not in namelist\n",
+				      "ntext нет в таблице имен\n"));
+		return;
+	}
+	xtext = (struct text *)calloc(ntext, sizeof(struct text));
+	if (xtext == NULL) {
+		printf(ediag("Not enough memory for text\n",
+			     "Не хватает памяти для text\n"));
+		return;
+	}
+
+	ntx = 0;
+	lseek(fc, (long)setup[STEXT].n_value, FSEEK_ABSOLUTE);
+	read(fc, (char *)xtext, ntext * sizeof(struct text));
+	for (xp = xtext; xp < &xtext[ntext]; xp++)
+		if (xp->x_iptr!=NULL)
+			ntx++;
+	printf(ediag("%d text segments\n",
+		     "%d текстовых сегментов\n"), ntx);
+	printf("   LOC FLAGS DADDR  CADDR SIZE   IPTR  CNT CCNT\n");
+	loc = setup[STEXT].n_value;
+	for (xp = xtext; xp < &xtext[ntext]; xp++, loc+=sizeof(xtext[0])) {
+		if (xp->x_iptr == NULL)
+			continue;
+		printf("%7.1o", loc);
+		printf(" ");
+		putf(xp->x_flag&XTRC, 'T');
+		putf(xp->x_flag&XWRIT, 'W');
+		putf(xp->x_flag&XLOAD, 'L');
+		putf(xp->x_flag&XLOCK, 'K');
+		putf(xp->x_flag&XWANT, 'w');
+		putf(xp->x_flag&XFREE, 'F');
+		printf("%5u", xp->x_daddr);
+		printf("%7.1o", xp->x_caddr);
+		printf("%5d", xp->x_size);
+		printf("%8.1o", xp->x_iptr);
+		printf("%4d", xp->x_count&0377);
+		printf("%4d", xp->x_ccount);
+		printf("\n");
+	}
+	free((char *)xtext);
+}
+
+doproc()
+{
+	struct proc *xproc;
+	register struct proc *pp;
+	register loc, np;
+	int nproc;
+
+	/*
+	 * Find number of procs
+	 */
+	if (setup[SNPROC].n_value) {
+		lseek (fc, (off_t) setup[SNPROC].n_value, FSEEK_ABSOLUTE);
+		if (read(fc, (char *)&nproc, sizeof(nproc)) != sizeof (nproc)) {
+			perror("read");
+			return;
+		}
+	} else {
+		fprintf(stderr, ediag("nproc not in namelist\n",
+				      "nproc нет в таблице имен\n"));
+		return;
+	}
+	xproc = (struct proc *)calloc(nproc, sizeof(struct proc));
+	if (xproc == NULL) {
+		printf(ediag("Not enough memory for procs\n",
+			     "Не хватает памяти для proc\n"));
+		return;
+	}
+	lseek(fc, (long)setup[SPROC].n_value, FSEEK_ABSOLUTE);
+	read(fc, (char *)xproc, nproc * sizeof(struct proc));
+	np = 0;
+	for (pp=xproc; pp < &xproc[nproc]; pp++)
+		if (pp->p_stat)
+			np++;
+	printf(ediag("%d processes\n", "%d процессов\n"), np);
+#ifdef  VIRUS_VFORK
+	printf(
+"   LOC S     F  PRI SIGNAL UID TIM CPU NI  PGRP  PID  PPID  ADDR   DADR   SADR\n\
+\tDSIZ SSIZ  WCHAN   LINK  TEXTP  CLKT\n");
+#else
+	printf("   LOC S     F  PRI SIGNAL UID TIM CPU NI  PGRP   PID  PPID   ADDR SIZE  WCHAN   LINK  TEXTP  CLKT\n");
+#endif
+	for (loc=setup[SPROC].n_value,pp=xproc; pp<&xproc[nproc]; pp++,loc+=sizeof(xproc[0])) {
+		if (pp->p_stat==0 && allflg==0)
+			continue;
+		printf("%6o", loc);
+		printf("%2d", pp->p_stat);
+		printf("%6o", pp->p_flag);
+		printf("%5d", pp->p_pri);
+		printf("%7O", pp->p_sig);
+		printf("%4d", pp->p_uid&0377);
+		printf("%4d", pp->p_time&0377);
+		printf("%4d", pp->p_cpu&0377);
+		printf("%3d", pp->p_nice);
+		printf("%6d", pp->p_pgrp);
+		printf("%5d", pp->p_pid);
+		printf("%5d", pp->p_ppid);
+		printf(" %6o", pp->p_addr);
+#ifdef  VIRUS_VFORK
+		printf(" %6o", pp->p_daddr);
+		printf(" %6o", pp->p_saddr);
+		printf("\n\t");
+		printf("%5o", pp->p_dsize);
+		printf("%5o", pp->p_ssize);
+#else
+		printf("%5o", pp->p_size);
+#endif
+		printf("%7o", pp->p_wchan);
+		printf("%7o", pp->p_link);
+		printf("%7o", pp->p_textp);
+		printf(" %u", pp->p_clktim);
+		printf("\n");
+	}
+	free((char *)xproc);
+}
+
+dotty()
+{
+	struct  tty tty[MAXTTYS];
+	int ntty;
+	register struct tty *tp;
+	register char *mesg;
+	static struct tname {
+		char *tt_name;
+		char  tt_addr;
+		char  tt_qua;
+	} t[] = {
+		"kl",   SKL,    SNKL,
+		"dh",   SDH,    SNDH,
+		"dhu",  SDHU,   SNDHU,
+		"dz",   SDZ,    SNDZ,
+		"dj",   SDJ,    SNDJ,
+		"ais",  SAIS,   SNAIS,
+		"video", SVI,   SNVI,
+		"kx",   SKX,    SNKX,
+		"ky",   SKY,    SNKY,
+		"multiplex", SMPY, SNMPY,
+		"pseudo-tty", SPTY, SNPTY,
+		0,      0,      0
+	};
+	int i;
+			     /* 0    1  2   3   4   5    6    7    8    9 */
+	static char *rsuff[] = {"ов","","а","а","а","ов","ов","ов","ов","ов"};
+
+#ifdef  MPX_FILS
+	mesg = " # RAW CAN OUT   MODE   ADDR   DEL COL  STATE      PGRP  CHAN\n";
+#else
+	mesg = " # RAW CAN OUT   MODE   ADDR   DEL COL  STATE        PGRP   WSEL   RSEL\n";
+#endif
+	for( i = 0; t[i].tt_name ; i++ ) {
+		if (setup[t[i].tt_qua].n_type != 0) {
+			lseek(fc, (long)setup[t[i].tt_qua].n_value, FSEEK_ABSOLUTE);
+			read(fc, (char *)&ntty, sizeof(ntty));
+			if( ntty > MAXTTYS ) {
+				printf(ediag("too many tty ports (%d), truncated to %d\n",
+					     "слишком много структур tty (%d), ограничено до %d\n"), ntty, MAXTTYS);
+				ntty = MAXTTYS;
+			}
+			lseek(fc, (long)setup[t[i].tt_addr].n_value, FSEEK_ABSOLUTE);
+			read(fc, (char *)tty, ntty * sizeof(struct tty));
+			printf(ediag("%d %s port%s\n",
+				     "%d %s порт%s\n"), ntty, t[i].tt_name,
+			       ediag(((ntty != 1) ?  "s" : ""),
+				     ((ntty<20 && ntty>9)? "ов" : rsuff[ntty%10])));
+			printf(mesg);
+			for(tp = tty; tp < &tty[ntty]; tp++)
+				ttyprt(tp-tty, tp);
+		}
+	}
+}
+
+ttyprt(n, atp)
+struct tty *atp;
+{
+	register struct tty *tp;
+
+	tp = atp;
+	printf("%2d", n);
+	printf("%4d", tp->t_rawq.c_cc);
+	printf("%4d", tp->t_canq.c_cc);
+	printf("%4d", tp->t_outq.c_cc);
+	printf("%8.1o", tp->t_flags);
+	printf("%8.1o", tp->t_addr);
+	printf("%3d", tp->t_delct);
+	printf("%4d ", tp->t_col);
+	putf(tp->t_state&TIMEOUT, 'T');
+	putf(tp->t_state&WOPEN, 'W');
+	putf(tp->t_state&ISOPEN, 'O');
+	putf(tp->t_state&CARR_ON, 'C');
+	putf(tp->t_state&BUSY, 'B');
+	putf(tp->t_state&ASLEEP, 'A');
+	putf(tp->t_state&XCLUDE, 'X');
+	putf(tp->t_state&TTSTOP, 'S');
+	putf(tp->t_state&TBLOCK, 'M');
+	putf(tp->t_state&HUPCLS, 'H');
+	putf(tp->t_state&TS_WCOLL, 'w');
+	putf(tp->t_state&TS_RCOLL, 'r');
+	printf("%6d", tp->t_pgrp);
+#ifdef MPX_FILS
+	printf("%4.1o", tp->t_chan);
+#endif
+	printf(" %6o %6o", tp->t_wsel, tp->t_rsel);
+	printf("\n");
+}
+
+dousr()
+{
+	union {
+		struct  user rxu;
+		char    fxu[ctob(USIZE)];
+	} xu;
+	register struct user *up;
+	register i;
+
+	lseek(fm, ubase<<6, FSEEK_ABSOLUTE);
+	read(fm, (char *)&xu, sizeof(xu));
+	up = &xu.rxu;
+	dolabel("rsav", up->u_rsav);
+	printf("segflg, error %d, %d\n", up->u_segflg, up->u_error);
+	printf("uids %d,%d,%d,%d\n", up->u_uid,up->u_gid,up->u_ruid,up->u_rgid);
+	printf("procp %.1o\n", up->u_procp);
+	printf("base, count, offset %.1o %.1o %ld\n", up->u_base,
+		up->u_count, up->u_offset);
+	printf("cdir %.1o\n", up->u_cdir);
+	printf("dbuf %.14s\n", up->u_dbuf);
+	printf("dirp %.1o\n", up->u_dirp);
+	printf("dent %d %.14s\n", up->u_dent.d_ino, up->u_dent.d_name);
+	printf("pdir %.1o\n", up->u_pdir);
+	printf("dseg");
+	for (i=0; i<8; i++)
+		printf("%8.1o", up->u_uisa[i]);
+	printf("\n    ");
+	for (i=0; i<8; i++)
+		printf("%8.1o", up->u_uisd[i]);
+	if (up->u_sep) {
+		printf("\ntseg");
+		for (i=8; i<16; i++)
+			printf("%8.1o", up->u_uisa[i]);
+		printf("\n    ");
+		for (i=8; i<16; i++)
+			printf("%8.1o", up->u_uisd[i]);
+	}
+	printf("\nfile");
+	for (i=0; i<10; i++)
+		printf("%8.1o", up->u_ofile[i]);
+	printf("\n    ");
+	for (i=10; i<NOFILE; i++)
+		printf("%8.1o", up->u_ofile[i]);
+	printf("\nargs");
+	for (i=0; i<5; i++)
+		printf(" %.1o", up->u_arg[i]);
+	printf("\nsizes %.1o %.1o %.1o\n", up->u_tsize, up->u_dsize, up->u_ssize);
+	printf("sep %d\n", up->u_sep);
+	dolabel("qsav", up->u_qsav);
+	dolabel("ssav", up->u_ssav);
+	printf("sigs");
+	for (i=0; i<16; i++)
+		printf(" %.1o", up->u_signal[i]);
+	printf("\n    ");
+	for (i=17; i<NSIG; i++)
+		printf(" %.1o", up->u_signal[i]);
+	printf("\ntimes %ld %ld\n", up->u_utime/60, up->u_stime/60);
+	printf("ctimes %ld %ld\n", up->u_cutime/60, up->u_cstime/60);
+	printf("ar0 %.1o\n", up->u_ar0);
+/*
+	printf("prof");
+	for (i=0; i<4; i++)
+		printf(" %.1o", up->u_prof[i]);
+	printf("\n");
+*/
+	printf("intflg %d\n", up->u_intflg);
+	printf("ttyp %.1o\n", up->u_ttyp);
+	printf("ttydev %d,%d\n", major(up->u_ttyd), minor(up->u_ttyd));
+	printf("comm %.14s\n", up->u_comm);
+	if (up->u_ovdata.uo_curov) {
+		printf("curov, ovbase, dbase, nseg %d %.1o %.1o %d\n",
+			up->u_ovdata.uo_curov, up->u_ovdata.uo_ovbase,
+			up->u_ovdata.uo_dbase, up->u_ovdata.uo_nseg);
+		printf("offst");
+		for (i=0; i<=NOVL; i++)
+			printf(" %.1o", up->u_ovdata.uo_ov_offst[i]);
+		if (up->u_exdata.ux_mag == A_MAGIC7) {
+			for (i=NOVL+1; i<=NXOVL; i++) {
+				if (i % (NOVL+1) == 0)
+					printf("\noffst");
+				printf(" %.1o", up->u_ovdata.uo_ov_offst[i]);
+			}
+		}
+		printf("\n");
+	}
+}
+
+dolabel(s, l)
+char *s;
+label_t l;
+{
+	int i;
+
+	printf("%s", s);
+	for (i=0; i < (sizeof(label_t) / sizeof(l[0])); i++)
+		printf(" %.1o", l[i]);
+	printf("\n");
+}
+
+oatoi(s)
+char *s;
+{
+	register v;
+
+	v = 0;
+	while (*s)
+		v = (v<<3) + *s++ - '0';
+	return(v);
+}
+
+dofil()
+{
+	struct file *xfile;
+	register struct file *fp;
+	register nf;
+	unsigned loc;
+	int nfile;
+
+	/*
+	 * Find number of files
+	 */
+	if (setup[SNFILE].n_value) {
+		lseek (fc, (off_t) setup[SNFILE].n_value, FSEEK_ABSOLUTE);
+		if (read(fc, (char *)&nfile, sizeof(nfile)) != sizeof (nfile)) {
+			perror("read");
+			return;
+		}
+	} else {
+		fprintf(stderr, ediag("nfile not in namelist\n", "nfile нет в списке имен\n"));
+		return;
+	}
+	xfile = (struct file *)calloc(nfile, sizeof(struct file));
+	if (xfile == NULL) {
+		printf(ediag("Not enough memory for file table\n",
+			     "Не хватает памяти для file\n"));
+		return;
+	}
+
+	nf = 0;
+	lseek(fc, (long)setup[SFILE].n_value, FSEEK_ABSOLUTE);
+	read(fc, (char *)xfile, nfile * sizeof(struct file));
+	for (fp=xfile; fp < &xfile[nfile]; fp++)
+		if (fp->f_count)
+			nf++;
+	printf(ediag("%d open files\n", "%d открытых файлов\n"), nf);
+	printf("  LOC   FLG CNT   INO    OFFS\n");
+	for (fp=xfile,loc=setup[SFILE].n_value; fp < &xfile[nfile];
+	    fp++,loc+=sizeof(xfile[0])) {
+		if (fp->f_count==0)
+			continue;
+		printf("%7.1o ", loc);
+		putf(fp->f_flag&FREAD, 'R');
+		putf(fp->f_flag&FWRITE, 'W');
+	  /*    putf(fp->f_flag&FPIPE, 'P');            */
+		printf("%4d", mask(fp->f_count));
+		printf("%8.1o", fp->f_inode);
+		printf(" %ld\n", fp->f_un.f_offset);
+	}
+	free((char *)xfile);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 4
+a9 1
+ *      $Log:	pstat.c,v $
+d12 1
+a12 1
+ * 
+d15 1
+a15 1
+ * 
+d39 1
+a39 1
+static char rcsid[]="$Header: pstat.c,v 1.9 89/03/10 20:46:23 root Exp $";
+d58 2
+d99 33
+a131 1
+	0,
+d196 2
+a197 1
+		printf("no namelist\n");
+d231 2
+a232 1
+		fprintf(stderr, "ninode not in namelist\n");
+d237 2
+a238 1
+		printf("Not enough memory for inodes\n");
+d251 3
+a253 2
+	printf("%d active inodes, %d inodes in table\n", nin,nall);
+	printf("   LOC  FLAGS  CNT DEVICE   INO   MODE NLK UID  SIZE/DEV\n");
+a264 1
+#ifdef  UCB_QUOTAS
+d266 2
+a267 1
+#endif
+d309 2
+a310 1
+		fprintf(stderr, "ntext not in namelist\n");
+d315 2
+a316 1
+		printf("Not enough memory for text\n");
+d326 2
+a327 1
+	printf("%d text segments\n", ntx);
+d369 2
+a370 1
+		fprintf(stderr, "nproc not in namelist\n");
+d375 2
+a376 1
+		printf("Not enough memory for procs\n");
+d385 1
+a385 1
+	printf("%d processes\n", np);
+a399 1
+#ifdef  MENLO_JCL
+a400 3
+#else
+		printf("%7o", pp->p_sig);
+#endif
+d433 21
+a457 1
+#if defined (UCB_NET) || defined (IPK_SELECT)
+a458 2
+#else
+	mesg = " # RAW CAN OUT   MODE   ADDR   DEL COL  STATE      PGRP\n";
+d460 19
+a478 10
+#endif
+	if (setup[SNKL].n_type != 0) {
+		lseek(fc, (long)setup[SNKL].n_value, FSEEK_ABSOLUTE);
+		read(fc, (char *)&ntty, sizeof(ntty));
+		lseek(fc, (long)setup[SKL].n_value, FSEEK_ABSOLUTE);
+		read(fc, (char *)tty, ntty * sizeof(struct tty));
+		printf("%d kl11 port%s\n", ntty, (ntty != 1) ?  "s" : "");
+		printf(mesg);
+		for(tp = tty; tp < &tty[ntty]; tp++)
+			ttyprt(tp-tty, tp);
+a479 20
+	if (setup[SNDZ].n_type != 0) {
+		lseek(fc, (long)setup[SNDZ].n_value, FSEEK_ABSOLUTE);
+		read(fc, (char *)&ntty, sizeof(ntty));
+		lseek(fc, (long)setup[SDZ].n_value, FSEEK_ABSOLUTE);
+		read(fc, (char *)tty, ntty * sizeof(struct tty));
+		printf("\n%d dz11 port%s\n", ntty, (ntty != 1) ?  "s" : "");
+		printf(mesg);
+		for(tp = tty; tp < &tty[ntty]; tp++)
+			ttyprt(tp-tty, tp);
+	}
+	if (setup[SNDH].n_type != 0) {
+		lseek(fc, (long)setup[SNDH].n_value, FSEEK_ABSOLUTE);
+		read(fc, (char *)&ntty, sizeof(ntty));
+		lseek(fc, (long)setup[SDH].n_value, FSEEK_ABSOLUTE);
+		read(fc, (char *)tty, ntty * sizeof(struct tty));
+		printf("\n%d dh11 port%s\n", ntty, (ntty != 1) ?  "s" : "");
+		printf(mesg);
+		for(tp = tty; tp < &tty[ntty]; tp++)
+			ttyprt(tp-tty, tp);
+	}
+a505 1
+#if defined (UCB_NET) || defined (IPK_SELECT)
+a507 1
+#endif
+a511 1
+#if defined (UCB_NET) || defined (IPK_SELECT)
+a512 1
+#endif
+d519 2
+a520 2
+		struct	user rxu;
+		char	fxu[ctob(USIZE)];
+a566 1
+#ifdef	MENLO_JCL
+a571 4
+#else
+	for (i=0; i<NSIG; i++)
+		printf(" %.1o", up->u_signal[i]);
+#endif
+a584 1
+#ifdef	MENLO_OVLY
+a591 1
+#ifdef  IPK_XOVLY
+a598 1
+#endif  /*IPK_XOVLY*/
+a600 1
+#endif
+d644 1
+a644 1
+		fprintf(stderr, "nfile not in namelist\n");
+d649 2
+a650 1
+		printf("Not enough memory for file table\n");
+d660 1
+a660 1
+	printf("%d open files\n", nf);
+@

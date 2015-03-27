@@ -16,7 +16,7 @@ typedef long            time_t;         /* a time */
 typedef long            ubadr_t;        /* UNIBUS address */
 typedef unsigned int    key_t;          /* IPC id (long for VAX) */
 typedef unsigned short  u_short;
-#if !defined(void) && !defined(__VOID__) && !defined(sparc)
+#if !defined(void) && !defined(__VOID__)
 #define __VOID__
 typedef short           void;           /* Embarassing crock for Ritchie C compiler */
 #endif

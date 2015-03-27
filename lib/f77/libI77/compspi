@@ -1,0 +1,8 @@
+#
+foreach i ( $argv )
+echo "$i - begin \c"
+cc -c -O $i
+ld -x -r $i:r.o
+mv a.out $i:r.o
+echo "$i - end"
+end

@@ -1,0 +1,496 @@
+head     3.4;
+access   ;
+symbols  RED_4:3.1.2 RED_3_4:3.1.1.7 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+3.4
+date     86.09.19.19.59.23;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.55.00;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.12.48;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.06.16.21.59.33;  author alex;  state Stab;
+branches 3.1.1.1;
+next     ;
+
+3.1.1.1
+date     86.06.16.22.00.16;  author alex;  state Stab;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.16.23.35.21;  author alex;  state Stab;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.20.23.44.04;  author alex;  state Exp;
+branches ;
+next     3.1.1.4;
+
+3.1.1.4
+date     86.06.25.19.44.22;  author alex;  state Exp;
+branches ;
+next     3.1.1.5;
+
+3.1.1.5
+date     86.07.15.22.15.25;  author alex;  state Stab;
+branches ;
+next     3.1.1.6;
+
+3.1.1.6
+date     86.07.15.23.55.49;  author alex;  state Exp;
+branches ;
+next     3.1.1.7;
+
+3.1.1.7
+date     86.10.14.23.20.39;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Эмулятор пакета qs для терминала Электроника-15-ИЭ (отладка).
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@/*
+ * Имитатор функций "quick screen" для 7920.
+ * Работает на терминале Электроника-15-ИЭ-0013
+ * Пока имитирует только вывод.
+ */
+#include <stdio.h>
+#include <sgtty.h>
+#include "E.qsdefs.h"
+#define QSL 24
+#define QSC 80
+#define POSC(L,C) printf("\033Y%c%c", (L)+' ',(C)+' ')
+#define CCLEAR printf("\033H\033J")
+#define BELL printf("\07")
+#define UNSET printf("\033>")
+#define SET  printf("\033=")
+extern short cdebflag;
+
+int qskp, qsccol, qscrow;
+int qsrows=QSL, qscols=QSC;
+static struct sgttyb oldtty, newtty;
+static int flgreset;
+int qsmodf = 0;
+
+
+qsopen()
+{
+	ioctl(2, TIOCGETA, &oldtty);
+	newtty = oldtty;
+	newtty.sg_flags = (newtty.sg_flags & ~(ECHO | INDCTL | LCASE )) | CBREAK;
+	newtty.sg_length = 0;
+	newtty.sg_width = 0;
+if ( !cdebflag )
+	ioctl(2, TIOCSETA, &newtty);
+	SET;
+	CCLEAR;
+	return(1);
+
+}
+
+qsclose()
+{
+	CCLEAR;
+	UNSET;
+	ioctl(2, TIOCSETA, &oldtty);
+}
+
+static int qsc, qsl, qscc, qscl;
+qsbfinit(eau, erase, bell, lock, resetmdt)
+{
+	if ( erase) {
+		CCLEAR;
+		SET;
+		qsc = qsl = 0;
+	}
+	if ( bell) BELL;
+	flgreset = resetmdt;
+	if ( erase || eau || resetmdt ) qsmodf = 0;
+}
+
+qsbfsba(row,col)
+int col, row;
+{
+	qsc = col -1;
+	qsl = row -1;
+	POSC(qsl ,  qsc);
+}
+
+qsbuffld(at, fc, fl)
+register char *fc;
+register fl;
+{
+	if ( at != ANY ) put1c(at + '0');
+	while ( *fc && fl-- ) put1c(*fc++);
+	while ( fl-- > 0 ) put1c(' ');
+}
+
+qsbfic()
+{
+	qscc = qsc;
+	qscl = qsl;
+}
+
+/*
+ * Для имитации ввода мы нагло используем
+ * буфер экрана редактора. При этом, естественно,
+ * эмулятор может работать только как часть red,
+ * но мне не хотелось заводить еще буфер и имитировать
+ * весь 7920 - по моему, это слишком.
+ */
+#include "E.7920.h"
+
+qswrite()
+{
+	register struct oslines *qs;
+	POSC( qscl,qscc);
+	fflush(stdout);
+	if ( flgreset)
+	for(qs=oslines; (qs < oslines + QSL ); qs++)
+		if ( qs->sl_mline ) qs->sl_mline[-1] = 040;
+	flgreset = 0;
+}
+
+
+qsread(wait,nosetf)
+{
+    register int cin, cmd;
+    register struct oslines *qs; 
+    int i;
+    if ( !wait) { qskp = 100; return;}
+    while ( (cin=getchar()) == 033 || (cin > 037 ))
+    {
+	if ( cin == 033) {
+            switch ( (cin = getchar())&0177 ) {
+            case 'A':
+            case 'a': 
+                qscl--; 
+                break;
+            case 'B':
+            case 'b': 
+                qscl++; 
+                break;
+            case 'C':
+            case 'c': 
+		qscc++;
+                break;
+            case 'D':
+            case 'd': 
+		qscc--;
+                break;
+	    case '?':
+		cin = getchar()&0177;
+		if ( cin > 'Z' ) cin = cin + '0' - 'p';
+		else cin = cin +'0' -'P';
+		goto getcmd;
+            default: 
+		goto getcmd;
+            }
+            if ( qscl > QSL-1 ) qscl = 0;
+            if ( qscl < 0 ) qscl = QSL-1;
+            if ( qscc > QSC-1 ) qscc = 0;
+            if ( qscc < 0 )  qscc = QSC-1;
+	    POSC( qscl, qscc);
+	    goto next;
+        }
+	if( (qs= &oslines[qscl])->sl_mline &&
+	  (i = qscc - (qs->sl_mline - qs->sl_line )) >= 0  && i<qs->sl_mleng)
+        { 
+	    qs->sl_line[qscc++] = cin;
+            putchar(cin);
+            if ( qscc > QSC-1 ) POSC( qscl, qscc=0);
+            qs->sl_mline[-1] = 0377;
+	    qsmodf = 1;
+        } 
+        else BELL;
+next: ;
+    }
+getcmd:
+    switch (cin) {
+    case '0':
+        cmd = PF10;
+        break;
+    case '7':
+        cmd = PF1;
+        break;
+    case '8':
+        cmd = PF2;
+	break;
+    case '9':
+	cmd = PF3;
+	break;
+    case '4':
+        cmd = PF4;
+        break;
+    case '5':
+        cmd = PF5;
+        break;
+    case '6':
+        cmd = PF6;
+        break;
+    case '1':
+        cmd = PF7;
+        break;
+    case '2':
+        cmd = PF8;
+        break;
+    case '3':
+        cmd = PF9;
+        break;
+    case '.':
+        cmd = PF11;
+        break;
+    case ('M'+'0'-'P'):
+	cmd = PF12;
+	break;
+    case 011:
+        cmd = PA2;
+        break;
+    case 030:
+	cmd = PA3;
+        break;
+    case 012:
+    case 015:
+        cmd = ENTER;
+        break;
+    case ('D'&037): cmd = TESTREQ; break;
+    case ('L'&037): cmd = CLEAR;   break;
+    default:
+        cmd = 100;
+        break;
+    }
+    qskp = cmd;
+    qsccol = qscc+1;
+    qscrow = qscl+1;
+}
+
+static put1c(c)
+int c;
+{ qsc++;
+  putchar(c);
+}
+
+qsmod(s)
+char *s;
+{
+ return((unsigned)s[-1]==0377);
+}
+
+copyscreen(buf)
+char *buf;
+{
+return;
+}
+
+
+
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@@
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@d8 1
+a8 2
+#include "qsdefs.h"
+
+d12 1
+a12 1
+#define CLEAR printf("\033H\033J")
+d16 1
+d18 2
+d22 3
+a26 1
+	/*
+d32 1
+d35 1
+a35 1
+	CLEAR;*/
+d42 1
+a42 1
+	CLEAR;
+d44 1
+a44 1
+/*      ioctl(2, TIOCSETA, &oldtty);*/
+d51 1
+a51 1
+		CLEAR;
+d57 1
+d90 1
+a90 1
+#include "r.7920.h"
+d104 1
+a104 1
+qsread(now)
+d109 1
+d152 1
+d169 2
+a170 2
+        cmd = PF3;
+        break;
+d192 3
+d199 1
+a199 1
+        cmd = TESTREQ;
+d205 2
+d233 3
+@
+
+
+3.1.1.1
+log
+@Отлажена работа на ЕС без восстановления сеанса и макро.
+@
+text
+@@
+
+
+3.1.1.2
+log
+@Отлажена эмуляция на СМ (уже работающего на ЕС).
+@
+text
+@d13 1
+a13 1
+#define CCLEAR printf("\033H\033J")
+a17 2
+int qskp, qsccol, qscrow;
+int qsrows=QSL, qscols=QSC;
+d22 1
+d30 1
+a30 1
+	CCLEAR;
+d37 1
+a37 1
+	CCLEAR;
+d39 1
+a39 1
+	ioctl(2, TIOCSETA, &oldtty);
+d46 1
+a46 1
+		CCLEAR;
+@
+
+
+3.1.1.3
+log
+@Введен ключ "cdebflag".
+@
+text
+@a16 1
+extern short cdebflag;
+a28 1
+if ( !cdebflag )
+d99 1
+a99 1
+qsread(now,nosetf)
+d189 1
+a189 1
+	cmd = PA3;
+a194 2
+    case ('D'&037): cmd = TESTREQ; break;
+    case ('L'&037): cmd = CLEAR;   break;
+@
+
+
+3.1.1.4
+log
+@*** empty log message ***
+@
+text
+@d164 2
+a165 2
+	cmd = PF3;
+	break;
+a186 3
+    case ('M'+'0'-'P'):
+	cmd = PF12;
+	break;
+@
+
+
+3.1.1.5
+log
+@RED 3.3/EC.
+@
+text
+@@
+
+
+3.1.1.6
+log
+@Введены правки для чтения без ожидания ответа.
+@
+text
+@a22 3
+int qsmodf = 0;
+
+
+a54 1
+	if ( erase || eau || resetmdt ) qsmodf = 0;
+d101 1
+a101 1
+qsread(wait,nosetf)
+a105 1
+    if ( !wait) { qskp = 100; return;}
+a147 1
+	    qsmodf = 1;
+a227 3
+
+
+
+@
+
+
+3.1.1.7
+log
+@Версия 3.4
+@
+text
+@d8 2
+a9 1
+#include "E.qsdefs.h"
+d91 1
+a91 1
+#include "E.7920.h"
+@

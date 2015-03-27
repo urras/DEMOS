@@ -1,0 +1,21 @@
+/*	@(#)startup	7.2	4/26/81	*/
+{define; {editor}; /bin/re}
+{define; {shell}; /bin/csh}
+{define; {continuetrap}; {ifsame; @{tuplecount}; {tuplecount};; {ifsame; @{tuplecount}; 1; {type (1 tuple)}; {type @({tuplecount} tuples)}}}}
+{define; {begintrap}; {remove; {tuplecount}}}
+{define; printr $n; range of $n is $n\
+retrieve ($n.all)}
+{define; open $n; range of $n is $n\
+define permit all on $n to all}
+{define; perm $n; sBve $n until Dec 31 1999}
+{define; ls; help "short"}
+{define; lm; help "short","my"}
+{define; lr; help "short","real"}
+\v
+{type Новые макро: \
+printr имя - печать\
+ls [список имен] - краткий HELP, lm - то же, но только мои,\
+ lr - то же, но без VIEW   open имя   - открыть "имя" для всех\
+ perm имя   - сохранить "имя" навсегда}
+\v
+\r

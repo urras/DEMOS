@@ -1,0 +1,146 @@
+head     3.4;
+access   ;
+symbols  RED_4:3.1.2 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+3.4
+date     86.09.19.19.48.03;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.50.06;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.00.21.50;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.06.16.21.59.24;  author alex;  state Stab;
+branches 3.1.1.1;
+next     ;
+
+3.1.1.1
+date     86.06.16.23.12.10;  author alex;  state Stab;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.07.15.22.11.07;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@#define PF1   1
+#define PF2   2
+#define PF3   3
+#define PF4   4
+#define PF5   5
+#define PF6   6
+#define PF7   7
+#define PF8   8
+#define PF9   9
+#define PF10 10
+#define PF11 11
+#define PF12 12
+#define PF13 13
+#define PF14 14
+#define PF15 15
+#define PF16 16
+#define PF17 17
+#define PF18 18
+#define PF19 19
+#define PF20 20
+#define PF21 21
+#define PF22 22
+#define PF23 23
+#define PF24 24
+#define ENTER     0
+#define PA1      25
+#define PA2      26
+#define PA3      27
+#define CLEAR    28
+#define TESTREQ  29
+#define OTHER   100
+#define ON    1
+#define OL    1
+#define OH    2
+#define OI    3
+#define IN    4
+#define IL    4
+#define IH    5
+#define II    6
+#define INC   7
+#define ILC   7
+#define IHC   8
+#define IIC   9
+#define ONN   10   /* Бeз блoкиpoвки кypcopa */
+#define OLN   10
+#define OHN   11
+#define OIN   12
+#define ANY   0
+
+extern int qskp, qscrow, qsccol, qsalarm, qstrim, qsodbl, qsmodf;
+extern int qsrows, qscols;
+extern int qsmod(), qspos(), qsfrow(), qsfcol(), qscatchalarm(), qsopen();
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@@
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@d50 1
+a50 1
+extern int qskp, qscrow, qsccol, qsalarm, qstrim, qsodbl;
+@
+
+
+3.1.1.1
+log
+@*** empty log message ***
+@
+text
+@@
+
+
+3.1.1.2
+log
+@RED 3.3/EC.
+@
+text
+@d50 1
+a50 1
+extern int qskp, qscrow, qsccol, qsalarm, qstrim, qsodbl, qsmodf;
+@

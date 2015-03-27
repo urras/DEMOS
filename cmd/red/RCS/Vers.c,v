@@ -1,0 +1,27 @@
+head     4.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+4.1
+date     89.02.20.22.48.51;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+4.1
+log
+@Исправлена ошибка в команде SUSPEND 
+@
+text
+@#include "r.defs.h"
+#define VERS DIAG("Red 4.1(15 20 Feb 1989)","Red 4.1 (15  20 фев 1989)")
+char *getvers() { return(VERS);} 
+@

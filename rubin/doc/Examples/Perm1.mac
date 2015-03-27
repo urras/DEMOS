@@ -1,0 +1,4 @@
+destroy permit employee all
+range of x is employee
+define permit retrieve on x to alex
+where (x.salary < 5000)

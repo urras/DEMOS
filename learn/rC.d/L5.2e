@@ -1,0 +1,58 @@
+#print
+(Раздел 1.5)
+Напишите программу, копирующую свой ввод на вывод,
+удваивая каждый символ (т.е. каждый вводимый символ
+должен быть записан на вывод дважды).  Скомпилируйте и проверьте
+программу, после чего наберите "готов". Не забудьте поставить эту строку
+
+ #include <stdio.h>
+
+в начало программы, а для того, чтобы ее скомпилировать
+выполните следующую команду:
+
+cc x.c -lS
+
+#once #create Ref
+hoboken harrison newark roseville avenue grove street
+east orange brick church orange highland avenue
+mountain station south orange maplewood millburn short hills
+summit chatham madison convent station morristown
+new providence murray hill berkeley heights
+gillette stirling millington lyons basking ridge
+bernardsville far hills peapack gladstone
+#once #create Answer
+hhoobbookkeenn  hhaarrrriissoonn  nneewwaarrkk  rroosseevviillllee  aavveennuuee  ggrroovvee  ssttrreeeett
+
+eeaasstt  oorraannggee  bbrriicckk  cchhuurrcchh  oorraannggee  hhiigghhllaanndd  aavveennuuee
+
+mmoouunnttaaiinn  ssttaattiioonn  ssoouutthh  oorraannggee  mmaapplleewwoooodd  mmiillllbbuurrnn  sshhoorrtt  hhiillllss
+
+ssuummmmiitt  cchhaatthhaamm  mmaaddiissoonn  ccoonnvveenntt  ssttaattiioonn  mmoorrrriissttoowwnn
+
+nneeww  pprroovviiddeennccee  mmuurrrraayy  hhiillll  bbeerrkkeelleeyy  hheeiigghhttss
+
+ggiilllleettttee  ssttiirrlliinngg  mmiilllliinnggttoonn  llyyoonnss  bbaasskkiinngg  rriiddggee
+
+bbeerrnnaarrddssvviillllee  ffaarr  hhiillllss  ppeeaappaacckk  ggllaaddssttoonnee
+
+#user
+a.out <Ref >xxx
+#cmp Answer xxx
+#succeed
+/* Наш способ: */
+
+ #include <stdio.h>
+
+main()
+{
+	int c;
+
+	while ((c = getchar()) != EOF) {
+		putchar(c);
+		putchar(c);
+	}
+}
+#log
+#next
+5.1e 5
+5.3e 2

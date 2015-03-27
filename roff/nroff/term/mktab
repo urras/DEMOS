@@ -1,0 +1,10 @@
+#!/bin/sh
+for i
+do
+	if [ -f tab$i.c ]
+	then
+		cc -c tab$i.c
+		strip tab$i.o
+		mv tab$i.o tab$i
+	fi
+done

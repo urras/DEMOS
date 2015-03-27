@@ -1,0 +1,240 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     87.01.07.21.57.50;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.01.05.14.53.15;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Интерпретатор языка обработки таблиц AWK.
+@
+
+
+1.2
+log
+@Сделаны правки под русские буквы.
+- / - двуязычные диагностики.
+Исправлены некоторые ошибки.
+@
+text
+@/*
+ * $Log:        parse.c,v $
+ *Revision 1.1  87/01/05  14:53:15  avg
+ *Initial revision
+ *
+ */
+
+#include "awk.def"
+#include "awk.h"
+#include <stdio.h>
+#include <ediag.h>
+
+node *ALLOC(n)
+{       node *x;
+	x = (node *)malloc(sizeof(node)+n*sizeof(node *));
+	if (x == NULL)
+		error(FATAL, ediag("out of space in ALLOC",
+				   "ALLOC: нет памяти"));
+	return(x);
+}
+
+node *exptostat(a) node *a;
+{
+	a->ntype = NSTAT;
+	return(a);
+}
+
+node    *nullstat;
+node *node0(a)
+{       node *x;
+	x=ALLOC(0);
+	x->nnext = NULL;
+	x->nobj=a;
+	return(x);
+}
+node *node1(a,b) node *b;
+{       node *x;
+	x=ALLOC(1);
+	x->nnext = NULL;
+	x->nobj=a;
+	x->narg[0]=b;
+	return(x);
+}
+node *node2(a,b,c) node *b, *c;
+{       node *x;
+	x = ALLOC(2);
+	x->nnext = NULL;
+	x->nobj = a;
+	x->narg[0] = b;
+	x->narg[1] = c;
+	return(x);
+}
+node *node3(a,b,c,d) node *b, *c, *d;
+{       node *x;
+	x = ALLOC(3);
+	x->nnext = NULL;
+	x->nobj = a;
+	x->narg[0] = b;
+	x->narg[1] = c;
+	x->narg[2] = d;
+	return(x);
+}
+node *node4(a,b,c,d,e) node *b, *c, *d, *e;
+{       node *x;
+	x = ALLOC(4);
+	x->nnext = NULL;
+	x->nobj = a;
+	x->narg[0] = b;
+	x->narg[1] = c;
+	x->narg[2] = d;
+	x->narg[3] = e;
+	return(x);
+}
+node *stat3(a,b,c,d) node *b, *c, *d;
+{       node *x;
+	x = node3(a,b,c,d);
+	x->ntype = NSTAT;
+	return(x);
+}
+node *op2(a,b,c) node *b, *c;
+{       node *x;
+	x = node2(a,b,c);
+	x->ntype = NEXPR;
+	return(x);
+}
+node *op1(a,b) node *b;
+{       node *x;
+	x = node1(a,b);
+	x->ntype = NEXPR;
+	return(x);
+}
+node *stat1(a,b) node *b;
+{       node *x;
+	x = node1(a,b);
+	x->ntype = NSTAT;
+	return(x);
+}
+node *op3(a,b,c,d) node *b, *c, *d;
+{       node *x;
+	x = node3(a,b,c,d);
+	x->ntype = NEXPR;
+	return(x);
+}
+node *stat2(a,b,c) node *b, *c;
+{       node *x;
+	x = node2(a,b,c);
+	x->ntype = NSTAT;
+	return(x);
+}
+node *stat4(a,b,c,d,e) node *b, *c, *d, *e;
+{       node *x;
+	x = node4(a,b,c,d,e);
+	x->ntype = NSTAT;
+	return(x);
+}
+node *valtonode(a, b) cell *a;
+{       node *x;
+	x = node0(a);
+	x->ntype = NVALUE;
+	x->subtype = b;
+	return(x);
+}
+node *genjump(a)
+{       node *x;
+	x = node0(a);
+	x->ntype = NSTAT;
+	return(x);
+}
+node *pa2stat(a,b,c) node *a, *b, *c;
+{       node *x;
+	x = node3(paircnt++, a, b, c);
+	x->ntype = NPA2;
+	return(x);
+}
+node *linkum(a,b) node *a, *b;
+{       node *c;
+	if(a == NULL) return(b);
+	else if(b == NULL) return(a);
+	for(c=a; c->nnext != NULL; c=c->nnext);
+	c->nnext = b;
+	return(a);
+}
+node *genprint()
+{       node *x;
+	x = stat2(PRINT,valtonode(lookup("$record", symtab), CFLD), nullstat);
+	return(x);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d10 2
+a11 1
+#include "stdio.h"
+d17 2
+a18 1
+		error(FATAL, "out of space in ALLOC");
+d45 1
+a45 1
+{	node *x;
+d54 1
+a54 1
+{	node *x;
+d64 1
+a64 1
+{	node *x;
+d75 1
+a75 1
+{	node *x;
+d81 1
+a81 1
+{	node *x;
+d87 1
+a87 1
+{	node *x;
+d93 1
+a93 1
+{	node *x;
+d99 1
+a99 1
+{	node *x;
+d105 1
+a105 1
+{	node *x;
+d111 1
+a111 1
+{	node *x;
+d117 1
+a117 1
+{	node *x;
+d124 1
+a124 1
+{	node *x;
+d130 1
+a130 1
+{	node *x;
+d136 1
+a136 1
+{	node *c;
+d144 1
+a144 1
+{	node *x;
+@

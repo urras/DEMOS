@@ -1,0 +1,42 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.28.20;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@/* Файл промежуточных кодов 0 прохода */
+#define LLABEL 1
+#define LFORMAT 2
+#define LLINE 3
+#define LFNAME 4
+#define LTOKEN 5
+#define LDBG 6
+#define YRET 10
+#define YNEXT 11
+#define YERR 12
+#define YCASE 13
+#define MAXP0 13
+#ifdef D0P
+char *tabno[] = {
+"0", "LLABEL", "LFORMAT", "LLINE", "LFNAME", "LTOKEN",
+"LDBG", "7", "8", "9", "YRET", "YNEXT", "YERR", "YCASE" };
+#endif
+@

@@ -1,0 +1,272 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    andrew:1.1; strict;
+comment  @ * @;
+
+
+1.1
+date     87.09.14.18.34.14;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+** fmtxref.c
+**
+** format the output of the C cross referencer.
+** this program relies on the fact that its input
+** is sorted and uniq-ed.
+**
+** Андрей Чернов, МГУ ВМК 5 курс (andrew)
+** Copyright (c) 1987 Андрей Чернов.
+** All rights reserved.
+** This program may not be sold, but may be distributed
+** provided this header is included.
+*/
+
+#ifndef lint
+char rcsid[] = "$Header$";
+#endif
+
+#include <stdio.h>
+#include <ediag.h>
+#include <ctype.h>
+
+#define TRUE	1
+#define FALSE	0
+
+#define MAXID	121	/* maximum lengths of identifiers, file names, etc. */
+#define MAXFILE	15
+#define MAXLINE	121
+#define MAXNUM	7
+
+#define ID	1	/* return codes to indicate what is new on input line */
+#define NEWFILE	2
+#define LINE	3
+#define ERROR	4
+
+#define WIDTH	80	/* default line output width */
+
+int width = WIDTH;
+
+char prev_id[MAXID] = "";
+char prev_file[MAXFILE] = "";
+
+char id[MAXID] = "";
+char file[MAXFILE] = "";
+char line[MAXNUM] = "";
+
+char *name;
+char *basename();	/* strips leading path name */
+
+main(argc, argv)
+int argc;
+char **argv;
+{
+	char inline[BUFSIZ];
+	char *gets();
+	int val;
+
+	name = basename(argv[0]);
+
+	/*
+	 * since this program is ONLY called by the cxref driver,
+	 * we know that it will be called "fmtxref -w width"
+	 * so we don't have to do complicated argument parsing.
+	 * we also know that cxref makes sure we get a valid width.
+	 */
+
+	if (argc > 1)
+		if (argc == 3)
+			if (strcmp(argv[1], "-w") == 0)
+				width = atoi(argv[2]);
+			else
+				usage();
+		else
+			usage();
+	/* else
+		use default width */
+
+	if(gets(inline) == NULL)
+	{
+		fprintf(stderr, ediag (
+"%s: standard input is empty.\n",
+"%s: стандартный ввод пуст.\n"), name);
+		exit(1);
+	}
+
+	if((val = breakup(inline)) == ERROR)
+	{
+		fprintf(stderr, ediag (
+"%s: malformed input '%s'\n",
+"%s: неверный ввод '%s'\n"), name, inline);
+		exit(2);
+	}
+
+	output(val);		/* does proper formatting */
+
+	while(gets(inline) != NULL && val != ERROR)
+	{
+		val = breakup(inline);
+		output(val);
+	}
+
+	if(val == ERROR)
+	{
+		fprintf(stderr, ediag (
+"%s: malformed input '%s'\n",
+"%s: неверный ввод '%s'\n"), name, inline);
+		exit(2);
+	}
+
+	putchar('\n');
+}
+
+static breakup(text)
+char *text;
+{
+	int retval;
+	int i, j;
+
+	if(text[0] == '"' || text[0] == '\'')
+	{
+		/* quoted stuff, break the line up by hand */
+
+		i = 0;
+		id[i++] = text[0];
+
+		for(j = 1; text[j] != text[0]; i++, j++)
+		{
+			id[i] = text[j];
+			if(id[i] == '\\')
+				id[++i] = text[++j];	/* e.g. \" */
+		}
+		id[i++] = text[0];
+		id[i] = '\0';
+		j++;	/* skip close quote */
+
+		while(isspace(text[j]))
+			j++;
+		
+		for(i = 0; !isspace(text[j]); i++, j++)
+			file[i] = text[j];
+		file[i] = '\0';
+
+
+		while(isspace(text[j]))
+			j++;
+
+		for(i = 0; !isspace(text[j]) && text[j] != '\0'; i++, j++)
+			line[i] = text[j];
+		line[i] = '\0';
+	}
+	else
+	{
+		if(sscanf(text, "%s %s %s", id, file, line) != 3)
+			return(ERROR);
+	}
+
+	/* now decide about return code for formatting */
+
+	if(strcmp(prev_id, id) != 0)	/* different identifiers */
+	{
+		strcpy(prev_id, id);
+		strcpy(prev_file, file);
+		retval = ID;
+	}
+	else if(strcmp(prev_file, file) != 0)	/* different files */
+	{
+		strcpy(prev_file, file);
+		retval = NEWFILE;
+	}
+	else
+		retval = LINE;
+
+	return(retval);
+}
+
+static output(val)
+int val;
+{
+	static int curpos = 1;
+	static int first = TRUE;
+	int line_len = strlen(line);
+
+	switch(val) {
+	case ID:
+		if(! first)
+			putchar('\n');	/* finish off last line of prev id */
+		else
+			first = FALSE;
+
+		printf("%-20.20s\t%-14.14s\t%s", id, file, line);
+		curpos = 40 + line_len;
+		break;
+
+	case NEWFILE:
+		printf("\n\t\t\t%-14.14s\t%s", file, line);
+		curpos = 40 + line_len;
+		break;
+
+	case LINE:
+		if(curpos + line_len + 1 < width)
+		{
+			printf(" %s", line);   /* same output line */
+			curpos += 1 + line_len;
+		}
+		else
+		{
+			printf("\n\t\t\t\t\t%s", line);        /* new line */
+			curpos = 40 + line_len;
+		}
+		break;
+
+	case ERROR:
+		/* shouldn't come to here */
+		fprintf(stderr, ediag (
+"%s: internal error: output() called with %s\n",
+"%s: внутренняя ошибка: output() вызван со %s\n"),
+			name, ediag ("a value of ERROR", "значением ERROR"));
+		fprintf(stderr,
+"%s: id == '%s'\tfile == '%s'\tline == '%s'\n",
+			name, id, file, line);
+		break;
+
+	default:
+		/* shouldn't come to here either */
+		fprintf(stderr, ediag (
+"%s: internal error: output() called with %s %d\n",
+"%s: внутренняя ошибка: output() вызван с %s %d\n"),
+			name,
+ediag ("the unknown value", "неизвестным значением") , val);
+		fprintf(stderr,
+"%s: id == '%s'\tfile == '%s'\tline == '%s'\n",
+			name, id, file, line);
+		break;
+	}
+}
+
+static usage()
+{
+	char *basename();
+
+	fprintf(stderr, ediag (
+"usage: %s [-w width]\n",
+"вызов: %s [-w ширина]\n"), basename(name));
+	exit (1);
+}
+
+#include "basename.c"
+@

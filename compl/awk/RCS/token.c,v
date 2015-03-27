@@ -1,0 +1,53 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.01.05.17.59.26;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Интерпретатор языка обработки таблиц AWK.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+#include "awk.h"
+
+struct tok
+{       char *tnm;
+	int yval;
+} tok[] = {
+#include "token.h"
+};
+
+ptoken(n)
+{
+	if(n<128) printf("lex: %c\n",n);
+	else    if(n<=256) printf("lex:? %o\n",n);
+	else    if(n<LASTTOKEN) printf("lex: %s\n",tok[n-257].tnm);
+	else    printf("lex:? %o\n",n);
+	return;
+}
+
+char *tokname(n)
+{
+	if (n<=256 || n >= LASTTOKEN)
+		n = 257;
+	return(tok[n-257].tnm);
+}
+@

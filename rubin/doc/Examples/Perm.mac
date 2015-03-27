@@ -1,0 +1,4 @@
+destroy permit employee all
+range of x is employee
+define permit retrieve on x (salary,name) to alex from 8:00 to 16:00
+where (x.salary < 5000)

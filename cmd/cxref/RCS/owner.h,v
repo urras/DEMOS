@@ -1,0 +1,45 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.27.20.25.59;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.09.27.13.51.45;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Теперь компонента расположена в /usr/new/{lib,bin}.
+@
+text
+@/*      @@(#)owner.h     1.2     */
+/*      3.0 SID #       1.2     */
+#define OWNERBIN "/usr/new/lib/"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 3
+a3 3
+/*	@@(#)owner.h	1.2	*/
+/*	3.0 SID #	1.2	*/
+#define OWNERBIN "/usr/lib/"
+@

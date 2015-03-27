@@ -1,0 +1,357 @@
+head     0.5;
+access   ;
+symbols  DEMOS2_0:0.4 MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @# @;
+
+
+0.5
+date     88.09.20.17.44.55;  author avg;  state Exp;
+branches ;
+next     0.4;
+
+0.4
+date     86.10.14.09.19.23;  author fox;  state Rel;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.58.04;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.44.59;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.30.34;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.5
+log
+@Убраны Rsort.h и Rctype.c.
+@
+text
+@#
+#   sh - Makefile
+#
+#  Вариант sh , взятый из Демос 1.3
+#  $Header: Makefile,v 0.4 86/10/14 09:19:23 fox Rel $
+#
+VERSION=$(IAE)
+
+RL=-DRL
+IAE=
+
+#
+PUT=
+PUTF=-l $(PUT)
+GETF=
+RCSARCHIV=
+RCSPUT=ci $(PUTF)
+
+
+
+
+CFLAGS = -O $(VERSION)
+LDF    = -s -n
+SHELL  =sh7
+
+OBJS=   setbrk.o builtin.o blok.o stak.o cmd.o fault.o main.o \
+	word.o string.o name.o args.o xec.o service.o error.o io.o \
+	print.o macro.o expand.o ctype.o msg.o
+SRCS=   setbrk.c builtin.c blok.c stak.c cmd.c fault.c main.c \
+	word.c string.c name.c args.c xec.c service.c error.c io.c \
+	print.c macro.c expand.c ctype.c msg.c defs.h brkincr.h\
+	ctype.h dup.h mac.h mode.h name.h stak.h sym.h \
+	timeout.h Makefile
+
+all:     sh
+
+install: all
+	-chmod 777 /bin/$(SHELL)
+	-/bin/$(SHELL) /dev/null >/dev/null
+	-rm -f /bin/$(SHELL)
+	cp sh /bin/$(SHELL)
+	chmod 1555 /bin/$(SHELL)
+
+cmp:    sh
+	cmp sh /bin/$(SHELL)
+
+$(OBJS):        defs.h mac.h mode.h name.h stak.h sym.h brkincr.h \
+		dup.h timeout.h ctype.h
+
+sh:             $(OBJS) Makefile
+		cc -o sh $(LDF) $(OBJS)
+
+clear:
+		-rm -f sh
+		-rm -f *.o
+		-rm -f *.b
+
+put: Rcsversion
+
+get: $(SRCS)
+$(SRCS):
+	co $(GETF) $@@
+
+Rcsversion: $(SRCS) Makefile
+	$(RCSPUT) $?
+	-date >>Rcsversion
+@
+
+
+0.4
+log
+@Сборка предварительной версии shell для ДЕМОС2.0
+@
+text
+@d5 1
+a5 1
+#  $Header: Makefile,v 0.1 86/09/24 21:30:34 alex Exp $
+d9 1
+a9 1
+RL= -DUcode -DRL
+d28 1
+a28 1
+	print.o macro.o expand.o ctype.o msg.o Rctype.o
+d31 2
+a32 2
+	print.c macro.c expand.c ctype.c msg.c Rctype.c defs.h brkincr.h\
+	mac.h Rsort.h ctype.h dup.h mac.h mode.h name.h stak.h sym.h \
+d47 2
+a48 2
+$(OBJS):        defs.h
+blok.o:         brkincr.h
+a49 6
+fault.o:        brkincr.h
+
+main.o:         brkincr.h
+
+stak.o:         brkincr.h
+
+d62 1
+a62 1
+	co -rDEMOS1_3 $(GETF) $@@
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d2 1
+a2 1
+# Shkeleton for МНОС РЛ 1.2 ; last mod. : 13.02.85 @@VG
+d4 2
+a5 2
+#  If you want to compile it for МНОС ИАЭ, change
+#  VERSION from $(RL) to $(IAE)
+d7 1
+a7 1
+VERSION=$(RL)
+d12 10
+d24 1
+a24 1
+SHELL  =sh
+d28 6
+a33 1
+	print.o macro.o expand.o ctype.o msg.o msg1.o xs.o Rctype.o
+d47 2
+a48 1
+$(OBJS) : defs.h mac.h mode.h name.h stak.h ctype.h Rsort.h
+d50 1
+a50 1
+blok.o fault.o main.o stak.o:         brkincr.h
+d52 1
+a52 4
+x.c xs.c : msg.c
+	$(CC) -P $(VERSION) msg.c
+	xstr msg.i
+	-rm msg.i
+d54 1
+a54 3
+msg.o : x.c
+	$(CC) -c $(CFLAGS) x.c
+	mv x.o msg.o
+d56 2
+a57 7
+xs.o  : xs.c
+	$(CC) -S $(CFLAGS) xs.c
+	mv xs.s xy.s
+	sed <xy.s >xs.s 's/.data/.text/'
+	-rm xy.s
+	$(CC) -c xs.s
+	-rm xs.s
+d59 4
+a62 7
+msg1.o : msg1.c
+	$(CC) -S $(CFLAGS) msg1.c
+	mv msg1.s xy.s
+	sed <xy.s >msg1.s 's/.data/.text/'
+	-rm xy.s
+	$(CC) -c msg1.s
+	-rm msg1.s
+d64 1
+a64 2
+sh:     $(OBJS) Makefile
+	$(CC) -o sh $(LDF) $(OBJS)
+d66 7
+a72 3
+clear:
+	-rm -f sh x.c xs.c
+	-rm -f *.[obsi]
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d1 7
+a7 1
+CFLAGS = -n -s -O 
+d9 2
+a10 1
+all:	sh
+d12 3
+a14 3
+cp:	sh
+	cp sh ${DESTDIR}/bin/sh
+	rm sh *.o
+d16 3
+a18 3
+cmp:	sh
+	cmp sh ${DESTDIR}/bin/sh
+	rm *.o
+d20 1
+a20 11
+sh:	setbrk.o
+sh:	builtin.o blok.o stak.o
+sh:	cmd.o fault.o main.o
+sh:	word.o string.o name.o args.o
+sh:	xec.o service.o error.o io.o
+sh:	print.o macro.o expand.o
+sh:	ctype.o msg.o
+blok.o:		brkincr.h
+fault.o:	brkincr.h
+main.o:		brkincr.h
+stak.o:		brkincr.h
+d22 6
+a27 1
+sh:;		cc -o sh -n -s *.o -ljobs
+d29 2
+a30 4
+newsys:;	:newsys file=msg; make sh
+install:;	:install
+diff:;		:diff
+list:;		list Makefile *.h *.s *.c
+d32 1
+a32 2
+clean:
+	rm -f *.o
+d34 33
+a66 3
+.c.o:;	cc -O -c $<
+.c.s:;	cc -O -S -o $*.s $<
+.s.o:;	as - -o $*.o /usr/include/sys.s $<
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d1 1
+a1 7
+#
+#   sh - Makefile
+#
+#  Вариант sh , взятый из Демос 1.3
+#  $Header: Makefile,v 0.1 86/09/24 21:20:32 alex Exp $
+#
+VERSION=$(IAE)
+d3 1
+a3 3
+VERSION=-DUcode
+RL= -DUcode -DRL
+IAE=
+d5 3
+a7 6
+#
+PUT=
+PUTF=-l -r3 $(PUT)
+GETF=
+RCSARCHIV=
+RCSPUT=ci $(PUTF)
+d9 3
+d13 11
+d25 1
+d27 4
+a30 3
+CFLAGS = -O $(VERSION)
+LDF    = -s -n
+SHELL  =sh7
+d32 2
+a33 8
+OBJS=   setbrk.o builtin.o blok.o stak.o cmd.o fault.o main.o \
+	word.o string.o name.o args.o xec.o service.o error.o io.o \
+	print.o macro.o expand.o ctype.o msg.o Rctype.o
+SRCS=   setbrk.c builtin.c blok.c stak.c cmd.c fault.c main.c \
+	word.c string.c name.c args.c xec.c service.c error.c io.c \
+	print.c macro.c expand.c ctype.c msg.c Rctype.c defs.h brkincr.h\
+	mac.h Rsort.h ctype.h dup.h mac.h mode.h name.h stak.h sym.h \
+	timeout.h Makefile
+d35 3
+a37 38
+all:     sh
+
+install: all
+	-chmod 777 /bin/$(SHELL)
+	-/bin/$(SHELL) /dev/null >/dev/null
+	-rm -f /bin/$(SHELL)
+	cp sh /bin/$(SHELL)
+	chmod 1555 /bin/$(SHELL)
+
+cmp:    sh
+	cmp sh /bin/$(SHELL)
+
+$(OBJS):        defs.h
+blok.o:         brkincr.h
+
+fault.o:        brkincr.h
+
+main.o:         brkincr.h
+
+stak.o:         brkincr.h
+
+sh:             $(OBJS) Makefile
+		cc -o sh $(LDF) $(OBJS)
+
+clear:
+		-rm -f sh
+		-rm -f *.o
+		-rm -f *.b
+
+put: Rcsversion
+
+get: $(SRCS)
+$(SRCS):
+	co $(GETF) $@@
+
+Rcsversion: $(SRCS) Makefile
+	$(RCSPUT) $?
+	-date >>Rcsversion
+@

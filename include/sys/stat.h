@@ -1,8 +1,6 @@
 #ifndef _stat_h_
 #       define _stat_h_
-#ifndef _sys_types_h_
 #include <sys/types.h>
-#endif
 
 struct  stat
 {

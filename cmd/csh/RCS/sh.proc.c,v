@@ -1,0 +1,1932 @@
+head     1.11;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:1.1.0.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.11
+date     89.05.06.16.45.47;  author avg;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.11.15.23.48.15;  author ache;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.08.03.18.25.34;  author abs;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     87.10.30.14.42.16;  author andrew;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     86.07.22.16.49.37;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.07.22.13.55.19;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.07.21.23.04.20;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.07.21.22.36.46;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.21.19.32.10;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.22.15.39;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.11.16;  author dmitry;  state Exp;
+branches 1.1.0.0 1.1.2.9;
+next     ;
+
+1.1.0.0
+date     86.07.20.19.37.42;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.38.50;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.11
+log
+@В статическую область вынесен большой массив.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static char rcsid[] = "$Header: sh.proc.c,v 1.10 88/11/15 23:48:15 ache Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:	sh.proc.c,v $
+ * Revision 1.10  88/11/15  23:48:15  ache
+ * В libjobs.a добавлены из 4.2: sigsetmask, sigblock
+ * изменен в соотв. с 4.2 формат sigpause
+ * 
+ * Revision 1.9  88/08/03  18:25:34  abs
+ * Встроенная команда wait теперь может иметь 1 аргумент:
+ * 	процесс, окончания которого надо дождаться.
+ * пример:
+ *  make & ps uax & wait %ps
+ * 
+ * Revision 1.8  87/10/30  14:42:16  andrew
+ * Теперь правильно отображаются по команде jobs
+ * конструкции вида (a || b)& и (a && b)&
+ *
+ * Revision 1.7  86/07/22  16:49:37  avg
+ * Добавлен ediag в диагностике kill.
+ * ( Какого черта Билл Джой не использовал здесь perror !? ).
+ *
+ * Revision 1.6  86/07/22  13:55:19  avg
+ * Правлена dmitry's bug: некорректное обращение с ediag-ами.
+ *
+ * Revision 1.5  86/07/21  23:04:20  avg
+ * See prev revision
+ *
+ * Revision 1.4  86/07/21  22:36:46  avg
+ * Сделана правка: в МНОС 2 нет sigblock.
+ *
+ * Revision 1.3  86/07/21  19:32:10  avg
+ * Слито с версией alex-а из 4.2
+ *
+ * Revision 1.2  86/06/02  22:15:39  dmitry
+ * Добавлены русские диагностики.
+ *
+ * Revision 1.1  86/06/01  20:11:16  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+#include "sh.dir.h"
+#include "sh.proc.h"
+#ifndef U42
+# include <wait.h>
+#else
+# include <sys/wait.h>
+#endif U42
+#include <sys/ioctl.h>
+
+/*
+ * C Shell - functions that manage processes, handling hanging, termination
+ */
+
+#define BIGINDEX        9       /* largest desirable job index */
+
+/*
+ * pchild - called at interrupt level by the SIGCHLD signal
+ *      indicating that at least one child has terminated or stopped
+ *      thus at least one wait system call will definitely return a
+ *      childs status.  Top level routines (like pwait) must be sure
+ *      to mask interrupts when playing with the proclist data structures!
+ */
+pchild()
+{
+	register struct process *pp;
+	register struct process *fp;
+	register int pid;
+	union wait w;
+	int jobflags;
+#ifdef U42
+	struct rusage ru;
+#endif
+
+	if (!timesdone)
+		timesdone++, times(&shtimes);
+loop:
+#ifndef U42
+	pid = wait2(&w.w_status, (setintr ? WNOHANG|WUNTRACED:WNOHANG));
+#else
+	pid = wait3(&w.w_status, (setintr ? WNOHANG|WUNTRACED:WNOHANG), &ru);
+#endif U42
+	if (pid <= 0) {
+		if (errno == EINTR) {
+			errno = 0;
+			goto loop;
+		}
+		pnoprocesses = pid == -1;
+		return;
+	}
+	for (pp = proclist.p_next; pp != PNULL; pp = pp->p_next)
+		if (pid == pp->p_pid)
+			goto found;
+	goto loop;
+found:
+	if (pid == atoi(value("child")))
+		unsetv("child");
+	pp->p_flags &= ~(PRUNNING|PSTOPPED|PREPORTED);
+	if (WIFSTOPPED(w)) {
+		pp->p_flags |= PSTOPPED;
+		pp->p_reason = w.w_stopsig;
+	} else {
+		if (pp->p_flags & (PTIME|PPTIME) || adrof("time")) {
+			time_t oldcutimes, oldcstimes;
+			oldcutimes = shtimes.tms_cutime;
+			oldcstimes = shtimes.tms_cstime;
+#ifndef U42
+			time(&pp->p_etime);
+#else
+			gettimeofday(&pp->p_etime, (struct timezone *)0);
+#endif U42
+			times(&shtimes);
+			pp->p_utime = shtimes.tms_cutime - oldcutimes;
+			pp->p_stime = shtimes.tms_cstime - oldcstimes;
+		} else
+			times(&shtimes);
+#ifdef U42
+		pp->p_rusage = ru;
+#endif
+		if (WIFSIGNALED(w)) {
+			if (w.w_termsig == SIGINT)
+				pp->p_flags |= PINTERRUPTED;
+			else
+				pp->p_flags |= PSIGNALED;
+			if (w.w_coredump)
+				pp->p_flags |= PDUMPED;
+			pp->p_reason = w.w_termsig;
+		} else {
+			pp->p_reason = w.w_retcode;
+#ifdef IIASA
+			if (pp->p_reason >= 3)
+#else
+			if (pp->p_reason != 0)
+#endif
+				pp->p_flags |= PAEXITED;
+			else
+				pp->p_flags |= PNEXITED;
+		}
+	}
+	jobflags = 0;
+	fp = pp;
+	do {
+		if ((fp->p_flags & (PPTIME|PRUNNING|PSTOPPED)) == 0 &&
+		    !child && adrof("time") &&
+		    (fp->p_utime + fp->p_stime) / HZ >=
+		     atoi(value("time")))
+			fp->p_flags |= PTIME;
+		jobflags |= fp->p_flags;
+	} while ((fp = fp->p_friends) != pp);
+	pp->p_flags &= ~PFOREGND;
+	if (pp == pp->p_friends && (pp->p_flags & PPTIME)) {
+		pp->p_flags &= ~PPTIME;
+		pp->p_flags |= PTIME;
+	}
+	if ((jobflags & (PRUNNING|PREPORTED)) == 0) {
+		fp = pp;
+		do {
+			if (fp->p_flags&PSTOPPED)
+				fp->p_flags |= PREPORTED;
+		} while((fp = fp->p_friends) != pp);
+		while(fp->p_pid != fp->p_jobid)
+			fp = fp->p_friends;
+		if (jobflags&PSTOPPED) {
+			if (pcurrent && pcurrent != fp)
+				pprevious = pcurrent;
+			pcurrent = fp;
+		} else
+			pclrcurr(fp);
+		if (jobflags&PFOREGND) {
+			if (jobflags & (PSIGNALED|PSTOPPED|PPTIME) ||
+#ifdef IIASA
+			    jobflags & PAEXITED ||
+#endif
+			    !eq(dcwd->di_name, fp->p_cwd->di_name)) {
+				;       /* print in pjwait */
+			}
+/*
+		else if ((jobflags & (PTIME|PSTOPPED)) == PTIME)
+				ptprint(fp);
+*/
+		} else {
+			if (jobflags&PNOTIFY || adrof("notify")) {
+				printf("\215\n");
+				pprint(pp, NUMBER|NAME|REASON);
+				if ((jobflags&PSTOPPED) == 0)
+					pflush(pp);
+			} else {
+				fp->p_flags |= PNEEDNOTE;
+				neednote++;
+			}
+		}
+	}
+	goto loop;
+}
+
+pnote()
+{
+	register struct process *pp;
+	int flags;
+
+	neednote = 0;
+	for (pp = proclist.p_next; pp != PNULL; pp = pp->p_next) {
+		if (pp->p_flags & PNEEDNOTE) {
+			sighold(SIGCHLD);
+			pp->p_flags &= ~PNEEDNOTE;
+			flags = pprint(pp, NUMBER|NAME|REASON);
+			if ((flags&(PRUNNING|PSTOPPED)) == 0)
+				pflush(pp);
+			sigrelse(SIGCHLD);
+		}
+	}
+}
+
+/*
+ * pwait - wait for current job to terminate, maintaining integrity
+ *      of current and previous job indicators.
+ */
+pwait()
+{
+	register struct process *fp, *pp;
+
+	/*
+	 * Here's where dead procs get flushed.
+	 */
+	sighold(SIGCHLD);
+	for (pp = (fp = &proclist)->p_next; pp != PNULL; pp = (fp = pp)->p_next)
+		if (pp->p_pid == 0) {
+			fp->p_next = pp->p_next;
+			xfree(pp->p_command);
+			if (pp->p_cwd && --pp->p_cwd->di_count == 0)
+				if (pp->p_cwd->di_next == 0)
+					dfree(pp->p_cwd);
+			xfree((char *)pp);
+			pp = fp;
+		}
+	sigrelse(SIGCHLD);
+	if (setintr)
+		sigignore(SIGINT);
+	pjwait(pcurrjob);
+}
+
+/*
+ * pjwait - wait for a job to finish or become stopped
+ *      It is assumed to be in the foreground state (PFOREGND)
+ */
+pjwait(pp)
+	register struct process *pp;
+{
+	register struct process *fp;
+	int jobflags, reason;
+
+	while (pp->p_pid != pp->p_jobid)
+		pp = pp->p_friends;
+	fp = pp;
+	do {
+		if ((fp->p_flags&(PFOREGND|PRUNNING)) == PRUNNING)
+			printf(ediag("BUG: waiting for background job!\n",
+				     "ОШИБКА: ждем фоновой задачи!\n"));
+	} while ((fp = fp->p_friends) != pp);
+	/*
+	 * Now keep pausing as long as we are not interrupted (SIGINT),
+	 * and the target process, or any of its friends, are running
+	 */
+	fp = pp;
+	for (;;) {
+		sighold(SIGCHLD);
+		jobflags = 0;
+		do
+			jobflags |= fp->p_flags;
+		while((fp = (fp->p_friends)) != pp);
+		if ((jobflags & PRUNNING) == 0)
+			break;
+		sigpause(sigblock(0L) &~ mask(SIGCHLD));
+	}
+	sigrelse(SIGCHLD);
+	if (tpgrp > 0)
+		ioctl(FSHTTY, TIOCSPGRP, &tpgrp);       /* get tty back */
+	if ((jobflags&(PSIGNALED|PSTOPPED|PTIME)) ||
+	     !eq(dcwd->di_name, fp->p_cwd->di_name)) {
+		if (jobflags&PSTOPPED)
+			printf("\n");
+		pprint(pp, AREASON|SHELLDIR);
+	}
+	if ((jobflags&(PINTERRUPTED|PSTOPPED)) && setintr &&
+	    (!gointr || !eq(gointr, "-"))) {
+		if ((jobflags & PSTOPPED) == 0)
+			pflush(pp);
+		pintr1(0);
+		/*NOTREACHED*/
+	}
+	reason = 0;
+	fp = pp;
+	do {
+		if (fp->p_reason)
+			reason = fp->p_flags & (PSIGNALED|PINTERRUPTED) ?
+				fp->p_reason | 0200 : fp->p_reason;
+	} while ((fp = fp->p_friends) != pp);
+	set("status", putn(reason));
+	if (reason && exiterr)
+		exitstat();
+	pflush(pp);
+}
+
+/*
+ * dowait - wait for all processes to finish
+ * wait %job - wait for this job to finish
+ */
+
+/* Не ждать остановленные процессы */
+dowait(v)char **v;
+{
+	register struct process *pp;
+	int pid=0;
+	struct process *name;
+
+	v++;
+	if( *v ){  /* Есть аргумент: процесс, окончания которого
+		    * надо дождаться */
+		 if( digit ( **v ) ) pid = atoi( *v );
+		 else if( **v == '%' ){
+			name = pfind( *v);
+			if( name == 0 )return;
+			pid = name-> p_pid ;
+		 }else{
+			printf( "%s\n", ediag("Process' id needed",
+				"Требуется имя или номер процесса"));
+			return;
+		}
+	}
+
+
+	pjobs++;
+	if (setintr)
+		sigrelse(SIGINT);
+loop:
+	sighold(SIGCHLD);
+
+	for (pp = proclist.p_next; pp; pp = pp->p_next){
+		if( pid ){
+		   if( pp->p_pid == pid  && pp-> p_flags & PRUNNING )
+			goto CATCH;
+		}else
+		   if (pp->p_pid && /* pp->p_pid == pp->p_jobid && */
+		    pp->p_flags & PRUNNING && pp->p_flags & ~PSTOPPED
+		   ){
+CATCH:
+			sigpause(sigblock(0L) &~ mask(SIGCHLD));
+			goto loop;
+		    }
+	} /* ENDFOR */
+	sigrelse(SIGCHLD);
+	pjobs = 0;
+}
+
+/*
+ * pflushall - flush all jobs from list (e.g. at fork())
+ */
+pflushall()
+{
+	register struct process *pp;
+
+	for (pp = proclist.p_next; pp != PNULL; pp = pp->p_next)
+		if (pp->p_pid)
+			pflush(pp);
+}
+
+/*
+ * pflush - flag all process structures in the same job as the
+ *      the argument process for deletion.  The actual free of the
+ *      space is not done here since pflush is called at interrupt level.
+ */
+pflush(pp)
+	register struct process *pp;
+{
+	register struct process *np;
+	register int index;
+
+	if (pp->p_pid == 0) {
+		printf(ediag("BUG: process flushed twice",
+			     "ОШИБКА: процесс выкидывается дважды"));
+		return;
+	}
+	while (pp->p_pid != pp->p_jobid)
+		pp = pp->p_friends;
+	pclrcurr(pp);
+	if (pp == pcurrjob)
+		pcurrjob = 0;
+	index = pp->p_index;
+	np = pp;
+	do {
+		np->p_index = np->p_pid = 0;
+		np->p_flags &= ~PNEEDNOTE;
+	} while ((np = np->p_friends) != pp);
+	if (index == pmaxindex) {
+		for (np = proclist.p_next, index = 0; np; np = np->p_next)
+			if (np->p_index > index)
+				index = np->p_index;
+		pmaxindex = index;
+	}
+}
+
+/*
+ * pclrcurr - make sure the given job is not the current or previous job;
+ *      pp MUST be the job leader
+ */
+pclrcurr(pp)
+	register struct process *pp;
+{
+
+	if (pp == pcurrent)
+		if (pprevious != PNULL) {
+			pcurrent = pprevious;
+			pprevious = pgetcurr(pp);
+		} else {
+			pcurrent = pgetcurr(pp);
+			pprevious = pgetcurr(pp);
+		}
+	else if (pp == pprevious)
+		pprevious = pgetcurr(pp);
+}
+
+/* +4 here is 1 for '\0', 1 ea for << >& >> */
+char    command[PMAXLEN+4];
+int     cmdlen;
+char    *cmdp;
+/*
+ * palloc - allocate a process structure and fill it up.
+ *      an important assumption is made that the process is running.
+ */
+palloc(pid, t)
+	int pid;
+	register struct command *t;
+{
+	register struct process *pp;
+	int i;
+
+	pp = (struct process *)calloc(1, sizeof(struct process));
+	pp->p_pid = pid;
+	pp->p_flags = t->t_dflg & FAND ? PRUNNING : PRUNNING|PFOREGND;
+	if (t->t_dflg & FTIME)
+		pp->p_flags |= PPTIME;
+	cmdp = command;
+	cmdlen = 0;
+	padd(t);
+	*cmdp++ = 0;
+	if (t->t_dflg & FPOU) {
+		pp->p_flags |= PPOU;
+		if (t->t_dflg & FDIAG)
+			pp->p_flags |= PDIAG;
+	}
+	pp->p_command = savestr(command);
+	if (pcurrjob) {
+		struct process *fp;
+		/* careful here with interrupt level */
+		pp->p_cwd = 0;
+		pp->p_index = pcurrjob->p_index;
+		pp->p_friends = pcurrjob;
+		pp->p_jobid = pcurrjob->p_pid;
+		for (fp = pcurrjob; fp->p_friends != pcurrjob; fp = fp->p_friends)
+			;
+		fp->p_friends = pp;
+	} else {
+		pcurrjob = pp;
+		pp->p_jobid = pid;
+		pp->p_friends = pp;
+		pp->p_cwd = dcwd;
+		dcwd->di_count++;
+		if (pmaxindex < BIGINDEX)
+			pp->p_index = ++pmaxindex;
+		else {
+			struct process *np;
+
+			for (i = 1; ; i++) {
+				for (np = proclist.p_next; np; np = np->p_next)
+					if (np->p_index == i)
+						goto tryagain;
+				pp->p_index = i;
+				if (i > pmaxindex)
+					pmaxindex = i;
+				break;
+			tryagain:;
+			}
+		}
+		if (pcurrent == PNULL)
+			pcurrent = pp;
+		else if (pprevious == PNULL)
+			pprevious = pp;
+	}
+	pp->p_next = proclist.p_next;
+	proclist.p_next = pp;
+#ifndef U42
+	time(&pp->p_btime);
+#else
+	gettimeofday(&pp->p_btime, (struct timezone *)0);
+#endif U42
+}
+
+padd(t)
+	register struct command *t;
+{
+	char **argp;
+
+	if (t == 0)
+		return;
+	switch (t->t_dtyp) {
+
+	case TPAR:
+		pads("( ");
+		padd(t->t_dspr);
+		pads(" )");
+		break;
+
+	case TCOM:
+		for (argp = t->t_dcom; *argp; argp++) {
+			pads(*argp);
+			if (argp[1])
+				pads(" ");
+		}
+		break;
+
+	case TFIL:
+		padd(t->t_dcar);
+		pads(" | ");
+		padd(t->t_dcdr);
+		return;
+
+	case TLST:
+		padd(t->t_dcar);
+		pads("; ");
+		padd(t->t_dcdr);
+		return;
+
+	case TAND:
+		padd(t->t_dcar);
+		pads(" && ");
+		padd(t->t_dcdr);
+		return;
+
+	case TOR:
+		padd(t->t_dcar);
+		pads(" || ");
+		padd(t->t_dcdr);
+		return;
+	}
+	if ((t->t_dflg & FPIN) == 0 && t->t_dlef) {
+		pads((t->t_dflg & FHERE) ? " << " : " < ");
+		pads(t->t_dlef);
+	}
+	if ((t->t_dflg & FPOU) == 0 && t->t_drit) {
+		pads((t->t_dflg & FCAT) ? " >>" : " >");
+		if (t->t_dflg & FDIAG)
+			pads("&");
+		pads(" ");
+		pads(t->t_drit);
+	}
+}
+
+pads(cp)
+	char *cp;
+{
+	register int i = strlen(cp);
+
+	if (cmdlen >= PMAXLEN)
+		return;
+	if (cmdlen + i >= PMAXLEN) {
+		strcpy(cmdp, " ...");
+		cmdlen = PMAXLEN;
+		cmdp += 4;
+		return;
+	}
+	strcpy(cmdp, cp);
+	cmdp += i;
+	cmdlen += i;
+}
+
+/*
+ * psavejob - temporarily save the current job on a one level stack
+ *      so another job can be created.  Used for { } in exp6
+ *      and `` in globbing.
+ */
+psavejob()
+{
+
+	pholdjob = pcurrjob;
+	pcurrjob = PNULL;
+}
+
+/*
+ * prestjob - opposite of psavejob.  This may be missed if we are interrupted
+ *      somewhere, but pendjob cleans up anyway.
+ */
+prestjob()
+{
+
+	pcurrjob = pholdjob;
+	pholdjob = PNULL;
+}
+
+/*
+ * pendjob - indicate that a job (set of commands) has been completed
+ *      or is about to begin.
+ */
+pendjob()
+{
+	register struct process *pp, *tp;
+
+	if (pcurrjob && (pcurrjob->p_flags&(PFOREGND|PSTOPPED)) == 0) {
+		pp = pcurrjob;
+		while (pp->p_pid != pp->p_jobid)
+			pp = pp->p_friends;
+		printf("[%d]", pp->p_index);
+		tp = pp;
+		do {
+			printf(" %d", pp->p_pid);
+			pp = pp->p_friends;
+		} while (pp != tp);
+		printf("\n");
+	}
+	pholdjob = pcurrjob = 0;
+}
+
+/*
+ * pprint - print a job
+ */
+pprint(pp, flag)
+	register struct process *pp;
+{
+	register status, reason;
+	struct process *tp;
+	extern char *linp, linbuf[];
+	int jobflags, pstatus;
+	char *format;
+
+	while (pp->p_pid != pp->p_jobid)
+		pp = pp->p_friends;
+	if (pp == pp->p_friends && (pp->p_flags & PPTIME)) {
+		pp->p_flags &= ~PPTIME;
+		pp->p_flags |= PTIME;
+	}
+	tp = pp;
+	status = reason = -1;
+	jobflags = 0;
+	do {
+		jobflags |= pp->p_flags;
+		pstatus = pp->p_flags & PALLSTATES;
+		if (tp != pp && linp != linbuf && !(flag&FANCY) &&
+		    (pstatus == status && pp->p_reason == reason ||
+		     !(flag&REASON)))
+			printf(" ");
+		else {
+			if (tp != pp && linp != linbuf)
+				printf("\n");
+			if(flag&NUMBER)
+				if (pp == tp)
+					printf("[%d]%s %c ", pp->p_index,
+					    pp->p_index < 10 ? " " : "",
+					    pp==pcurrent ? '+' :
+						(pp == pprevious ? '-' : ' '));
+				else
+					printf("       ");
+			if (flag&FANCY)
+				printf("%5d ", pp->p_pid);
+			if (flag&(REASON|AREASON)) {
+				if (flag&NAME)
+					format = "%-21s";
+				else
+					format = "%s";
+				if (pstatus == status)
+					if (pp->p_reason == reason) {
+						printf(format, "");
+						goto prcomd;
+					} else
+						reason = pp->p_reason;
+				else {
+					status = pstatus;
+					reason = pp->p_reason;
+				}
+				switch (status) {
+
+				case PRUNNING:
+					printf(format, ediag("Running ",
+							     "Выполняется "));
+					break;
+
+				case PINTERRUPTED:
+				case PSTOPPED:
+				case PSIGNALED:
+					if (flag&REASON || reason != SIGINT ||
+					    reason != SIGPIPE)
+						printf(format, ediag(mesg [pp->p_reason].pname,
+								     Rmesg[pp->p_reason].pname));
+					break;
+
+				case PNEXITED:
+				case PAEXITED:
+					if (flag & REASON)
+						if (pp->p_reason)
+							printf(ediag("Exit %-16d",
+								     "Авост %-16d"), pp->p_reason);
+						else
+							printf(format, ediag("Done",
+									     "Готово"));
+					break;
+
+				default:
+					printf(ediag("BUG: status=%-9o",
+						     "ОШИБКА: status=%-9o"), status);
+				}
+			}
+		}
+prcomd:
+		if (flag&NAME) {
+			printf("%s", pp->p_command);
+			if (pp->p_flags & PPOU)
+				printf(" |");
+			if (pp->p_flags & PDIAG)
+				printf("&");
+		}
+		if (flag&(REASON|AREASON) && pp->p_flags&PDUMPED)
+			printf(ediag(" (core dumped)",
+				     " (память дампирована)"));
+		if (tp == pp->p_friends) {
+			if (flag&AMPERSAND)
+				printf(" &");
+			if (flag&JOBDIR &&
+			    !eq(tp->p_cwd->di_name, dcwd->di_name)) {
+				printf(ediag(" (wd: ",
+					     " (кат: "));
+				dtildepr(value("home"), tp->p_cwd->di_name);
+				printf(")");
+			}
+		}
+		if (pp->p_flags&PPTIME && !(status&(PSTOPPED|PRUNNING))) {
+			if (linp != linbuf)
+				printf("\n\t");
+#ifndef U42
+			ptimes(pp->p_utime, pp->p_stime, pp->p_etime-pp->p_btime);
+#else
+			{ static struct rusage zru;
+			  prusage(&zru, &pp->p_rusage, &pp->p_etime,
+			    &pp->p_btime);
+			}
+#endif U42
+		}
+		if (tp == pp->p_friends) {
+			if (linp != linbuf)
+				printf("\n");
+			if (flag&SHELLDIR && !eq(tp->p_cwd->di_name, dcwd->di_name)) {
+				printf(ediag("(wd now: ",
+					     "(нов.кат.: "));
+				dtildepr(value("home"), dcwd->di_name);
+				printf(")\n");
+			}
+		}
+	} while ((pp = pp->p_friends) != tp);
+	if (jobflags&PTIME && (jobflags&(PSTOPPED|PRUNNING)) == 0) {
+		if (jobflags & NUMBER)
+			printf("       ");
+		ptprint(tp);
+	}
+	return (jobflags);
+}
+
+ptprint(tp)
+	register struct process *tp;
+{
+	register struct process *pp = tp;
+#ifndef U42
+	time_t tetime = 0;
+	time_t tutime = 0, tstime = 0;
+
+	do {
+		tutime += pp->p_utime;
+		tstime += pp->p_stime;
+		if (pp->p_etime - pp->p_btime > tetime)
+			tetime = pp->p_etime - pp->p_btime;
+	} while ((pp = pp->p_friends) != tp);
+	ptimes(tutime, tstime, tetime);
+#else U42
+	struct timeval tetime, diff;
+	static struct timeval ztime;
+	struct rusage ru;
+	static struct rusage zru;
+
+	ru = zru;
+	tetime = ztime;
+	do {
+		ruadd(&ru, &pp->p_rusage);
+		tvsub(&diff, &pp->p_etime, &pp->p_btime);
+		if (timercmp(&diff, &tetime, >))
+			tetime = diff;
+	} while ((pp = pp->p_friends) != tp);
+	prusage(&zru, &ru, &tetime, &ztime);
+#endif U42
+}
+
+/*
+ * dojobs - print all jobs
+ */
+dojobs(v)
+	char **v;
+{
+	register struct process *pp;
+	register int flag = NUMBER|NAME|REASON;
+	int i;
+
+	if (chkstop)
+		chkstop = 2;
+	if (*++v) {
+		if (v[1] || !eq(*v, "-l"))
+			error(ediag("Usage: jobs [ -l ]",
+				    "Вызов: jobs [ -l ]"));
+		flag |= FANCY|JOBDIR;
+	}
+	for (i = 1; i <= pmaxindex; i++)
+		for (pp = proclist.p_next; pp; pp = pp->p_next)
+			if (pp->p_index == i && pp->p_pid == pp->p_jobid) {
+				pp->p_flags &= ~PNEEDNOTE;
+				if (!(pprint(pp, flag) & (PRUNNING|PSTOPPED)))
+					pflush(pp);
+				break;
+			}
+}
+
+/*
+ * dofg - builtin - put the job into the foreground
+ */
+dofg(v)
+	char **v;
+{
+	register struct process *pp;
+
+	okpcntl();
+	++v;
+	do {
+		pp = pfind(*v);
+		pstart(pp, 1);
+		if (setintr)
+			sigignore(SIGINT);
+		pjwait(pp);
+	} while (*v && *++v);
+}
+
+/*
+ * %... - builtin - put the job into the foreground
+ */
+dofg1(v)
+	char **v;
+{
+	register struct process *pp;
+
+	okpcntl();
+	pp = pfind(v[0]);
+	pstart(pp, 1);
+	if (setintr)
+		sigignore(SIGINT);
+	pjwait(pp);
+}
+
+/*
+ * dobg - builtin - put the job into the background
+ */
+dobg(v)
+	char **v;
+{
+	register struct process *pp;
+
+	okpcntl();
+	++v;
+	do {
+		pp = pfind(*v);
+		pstart(pp, 0);
+	} while (*v && *++v);
+}
+
+/*
+ * %... & - builtin - put the job into the background
+ */
+dobg1(v)
+	char **v;
+{
+	register struct process *pp;
+
+	pp = pfind(v[0]);
+	pstart(pp, 0);
+}
+
+/*
+ * dostop - builtin - stop the job
+ */
+dostop(v)
+	char **v;
+{
+
+	pkill(++v, SIGSTOP);
+}
+
+/*
+ * dokill - builtin - superset of kill (1)
+ */
+dokill(v)
+	char **v;
+{
+	register int signum;
+	register char *name;
+
+	v++;
+	if (v[0] && v[0][0] == '-') {
+		if (v[0][1] == 'l') {
+			for (signum = 1; signum <= NSIG; signum++) {
+				if (name = ediag( mesg[signum].iname,
+						 Rmesg[signum].iname) )
+					printf("%s ", name);
+				if (signum == 16)
+					printf("\n");
+			}
+			printf("\n");
+			return;
+		}
+		if (digit(v[0][1])) {
+			signum = atoi(v[0]+1);
+			if (signum < 1 || signum > NSIG)
+				bferr(ediag("Bad signal number",
+					    "Плохой номер сигнала"));
+		} else {
+			name = &v[0][1];
+			for (signum = 1; signum <= NSIG; signum++)
+			if (ediag(mesg[signum].iname,
+				 Rmesg[signum].iname) &&
+			    eq(name, ediag(mesg[signum].iname,
+					  Rmesg[signum].iname) ))
+				goto gotsig;
+			setname(name);
+			bferr(ediag("Unknown signal; kill -l lists signals",
+				    "Неизвестный сигнал; kill -l перечисляет известные"));
+		}
+gotsig:
+		v++;
+	} else
+		signum = SIGTERM;
+	pkill(v, signum);
+}
+
+pkill(v, signum)
+	char **v;
+	int signum;
+{
+	register struct process *pp, *np;
+	register int jobflags = 0;
+	int pid;
+	char *cp;
+	int err = 0;
+
+	if (setintr)
+		sighold(SIGINT);
+	sighold(SIGCHLD);
+	while (*v) {
+		cp = globone(*v);
+		if (*cp == '%') {
+			np = pp = pfind(cp);
+			do
+				jobflags |= np->p_flags;
+			while ((np = np->p_friends) != pp);
+			switch (signum) {
+
+			case SIGSTOP:
+			case SIGTSTP:
+			case SIGTTIN:
+			case SIGTTOU:
+				if ((jobflags & PRUNNING) == 0) {
+					printf(ediag("%s: Already stopped\n",
+						     "%s: Уже остановлен\n"), *v);
+					err++;
+					goto cont;
+				}
+			}
+			killpg(pp->p_jobid, signum);
+			if (signum == SIGTERM || signum == SIGHUP)
+				killpg(pp->p_jobid, SIGCONT);
+		} else if (!digit(*cp))
+			bferr(ediag("Arguments should be jobs or process id's",
+				    "Аргументы должены быть идентификаторами задач или процессов"));
+		else {
+			pid = atoi(cp);
+			if (kill(pid, signum) < 0) {
+				printf("%d", pid);
+				perror("");
+				err++;
+				goto cont;
+			}
+			if (signum == SIGTERM || signum == SIGHUP)
+				kill(pid, SIGCONT);
+		}
+cont:
+		xfree(cp);
+		v++;
+	}
+	sigrelse(SIGCHLD);
+	if (setintr)
+		sigrelse(SIGINT);
+	if (err)
+		error(NOSTR);
+}
+
+/*
+ * pstart - start the job in foreground/background
+ */
+pstart(pp, foregnd)
+	register struct process *pp;
+	int foregnd;
+{
+	register struct process *np;
+	int jobflags = 0;
+
+	sighold(SIGCHLD);
+	np = pp;
+	do {
+		jobflags |= np->p_flags;
+		if (np->p_flags&(PRUNNING|PSTOPPED)) {
+			np->p_flags |= PRUNNING;
+			np->p_flags &= ~PSTOPPED;
+			if (foregnd)
+				np->p_flags |= PFOREGND;
+			else
+				np->p_flags &= ~PFOREGND;
+		}
+	} while((np = np->p_friends) != pp);
+	if (!foregnd)
+		pclrcurr(pp);
+	pprint(pp, foregnd ? NAME|JOBDIR : NUMBER|NAME|AMPERSAND);
+	if (foregnd)
+		ioctl(FSHTTY, TIOCSPGRP, &pp->p_jobid);
+	if (jobflags&PSTOPPED)
+		killpg(pp->p_jobid, SIGCONT);
+	sigrelse(SIGCHLD);
+}
+
+panystop(neednl)
+{
+	register struct process *pp;
+
+	chkstop = 2;
+	for (pp = proclist.p_next; pp; pp = pp->p_next)
+		if (pp->p_flags & PSTOPPED)
+			error(ediag("\nThere are stopped jobs",
+				    "\nЕсть остановленные задачи")+ 1 - neednl);
+}
+
+struct process *
+pfind(cp)
+	char *cp;
+{
+	register struct process *pp, *np;
+
+	if (cp == 0 || cp[1] == 0 || eq(cp, "%%") || eq(cp, "%+")) {
+		if (pcurrent == PNULL)
+			bferr(ediag("No current job",
+				    "Нет текущей задачи"));
+		return (pcurrent);
+	}
+	if (eq(cp, "%-") || eq(cp, "%#")) {
+		if (pprevious == PNULL)
+			bferr(ediag("No previous job",
+				    "Нет предыдущей задачи"));
+		return (pprevious);
+	}
+	if (digit(cp[1])) {
+		int index = atoi(cp+1);
+		for (pp = proclist.p_next; pp; pp = pp->p_next)
+			if (pp->p_index == index && pp->p_pid == pp->p_jobid)
+				return (pp);
+		bferr(ediag("No such job",
+			    "Нет такой задачи"));
+	}
+	np = PNULL;
+	for (pp = proclist.p_next; pp; pp = pp->p_next)
+		if (pp->p_pid == pp->p_jobid) {
+			if (cp[1] == '?') {
+				register char *dp;
+				for (dp = pp->p_command; *dp; dp++) {
+					if (*dp != cp[2])
+						continue;
+					if (prefix(cp+2, dp))
+						goto match;
+				}
+			} else if (prefix(cp+1, pp->p_command)) {
+match:
+				if (np)
+					bferr(ediag("Ambiguous",
+						    "Неоднозначно"));
+				np = pp;
+			}
+		}
+	if (np)
+		return (np);
+	if (cp[1] == '?')
+		bferr(ediag("No job matches pattern",
+			    "Нет задач с такими именами"));
+	else
+		bferr(ediag("No such job",
+			    "Нет такой задачи"));
+}
+
+/*
+ * pgetcurr - find most recent job that is not pp, preferably stopped
+ */
+struct process *
+pgetcurr(pp)
+	register struct process *pp;
+{
+	register struct process *np;
+	register struct process *xp = PNULL;
+
+	for (np = proclist.p_next; np; np = np->p_next)
+		if (np != pcurrent && np != pp && np->p_pid &&
+		    np->p_pid == np->p_jobid) {
+			if (np->p_flags & PSTOPPED)
+				return (np);
+			if (xp == PNULL)
+				xp = np;
+		}
+	return (xp);
+}
+
+/*
+ * donotify - flag the job so as to report termination asynchronously
+ */
+donotify(v)
+	char **v;
+{
+	register struct process *pp;
+
+	pp = pfind(*++v);
+	pp->p_flags |= PNOTIFY;
+}
+
+/*
+ * Do the fork and whatever should be done in the child side that
+ * should not be done if we are not forking at all (like for simple builtin's)
+ * Also do everything that needs any signals fiddled with in the parent side
+ *
+ * Wanttty tells whether process and/or tty pgrps are to be manipulated:
+ *      -1:     leave tty alone; inherit pgrp from parent
+ *       0:     already have tty; manipulate process pgrps only
+ *       1:     want to claim tty; manipulate process and tty pgrps
+ * It is usually just the value of tpgrp.
+ */
+pfork(t, wanttty)
+	struct command *t;      /* command we are forking for */
+	int wanttty;
+{
+	register int pid;
+	bool ignint = 0;
+	int pgrp;
+
+	/*
+	 * A child will be uninterruptible only under very special
+	 * conditions. Remember that the semantics of '&' is
+	 * implemented by disconnecting the process from the tty so
+	 * signals do not need to ignored just for '&'.
+	 * Thus signals are set to default action for children unless:
+	 *      we have had an "onintr -" (then specifically ignored)
+	 *      we are not playing with signals (inherit action)
+	 */
+	if (setintr)
+		ignint = (tpgrp == -1 && (t->t_dflg&FINT))
+		    || (gointr && eq(gointr, "-"));
+	/*
+	 * Hold SIGCHLD until we have the process installed in our table.
+	 */
+	sighold(SIGCHLD);
+	while ((pid = fork()) < 0)
+		if (setintr == 0)
+			sleep(FORKSLEEP);
+		else {
+			sigrelse(SIGINT);
+			sigrelse(SIGCHLD);
+			error(ediag("No more processes",
+				    "Слишком много процессов"));
+		}
+	if (pid == 0) {
+		settimes();
+		pgrp = pcurrjob ? pcurrjob->p_jobid : getpid();
+		pflushall();
+		pcurrjob = PNULL;
+		timesdone = 0;
+		child++;
+		if (setintr) {
+			setintr = 0;            /* until I think otherwise */
+			sigrelse(SIGCHLD);
+			/*
+			 * Children just get blown away on SIGINT, SIGQUIT
+			 * unless "onintr -" seen.
+			 */
+			signal(SIGINT, ignint ? SIG_IGN : SIG_DFL);
+			signal(SIGQUIT, ignint ? SIG_IGN : SIG_DFL);
+			if (wanttty >= 0 && setstop) {
+				/* make stoppable */
+				signal(SIGTSTP, SIG_DFL);
+				signal(SIGTTIN, SIG_DFL);
+				signal(SIGTTOU, SIG_DFL);
+			}
+			signal(SIGTERM, parterm);
+		} else if (tpgrp == -1 && (t->t_dflg&FINT)) {
+			signal(SIGINT, SIG_IGN);
+			signal(SIGQUIT, SIG_IGN);
+		}
+		if (wanttty > 0)
+			ioctl(FSHTTY, TIOCSPGRP, &pgrp);
+		if (wanttty >= 0 && tpgrp >= 0)
+			setpgrp(0, pgrp);
+		if (tpgrp > 0)
+			tpgrp = 0;              /* gave tty away */
+		/*
+		 * Nohup and nice apply only to TCOM's but it would be
+		 * nice (?!?) if you could say "nohup (foo;bar)"
+		 * Then the parser would have to know about nice/nohup/time
+		 */
+		if (t->t_dflg & FNOHUP)
+			signal(SIGHUP, SIG_IGN);
+		if (t->t_dflg & FNICE) {
+/* sigh...
+			nice(20);
+			nice(-10);
+*/
+			nice(t->t_nice);
+		}
+
+	} else {
+		palloc(pid, t);
+		sigrelse(SIGCHLD);
+	}
+
+	return (pid);
+}
+
+okpcntl()
+{
+
+	if (tpgrp == -1)
+		error(ediag("No job control in this shell",
+			    "В этой оболочке нет управления заданиями"));
+	if (tpgrp == 0)
+		error(ediag("No job control in subshells",
+			    "В порожденных оболочках нет управления заданиями"));
+}
+@
+
+
+1.10
+log
+@В libjobs.a добавлены из 4.2: sigsetmask, sigblock
+изменен в соотв. с 4.2 формат sigpause
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.proc.c,v 1.9 88/08/03 18:25:34 abs Exp $";
+d9 4
+a957 2
+	extern char *sys_errlist[];
+	extern char *sys_rerrlist[];
+d992 2
+a993 3
+				printf("%d: ", pid);
+				printf("%s\n", ediag(sys_errlist[errno],
+						     sys_rerrlist[errno]));
+@
+
+
+1.9
+log
+@Встроенная команда wait теперь может иметь 1 аргумент:
+	процесс, окончания которого надо дождаться.
+пример:
+ make & ps uax & wait %ps
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.proc.c,v 1.8 87/10/30 14:42:16 andrew Exp $";
+d8 7
+a14 1
+ * $Log:        sh.proc.c,v $
+d275 1
+a275 5
+#ifdef U42
+		sigpause(sigblock(0) &~ mask(SIGCHLD));
+#else
+		sigpause(SIGCHLD);
+#endif U42
+d349 1
+a349 5
+#ifdef U42
+			sigpause(sigblock(0) &~ mask(SIGCHLD));
+#else
+			sigpause(SIGCHLD);
+#endif U42
+@
+
+
+1.8
+log
+@Теперь правильно отображаются по команде jobs
+конструкции вида (a || b)& и (a && b)&
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.proc.c,v 1.7 86/07/22 16:49:37 avg Exp $";
+d8 5
+a12 1
+ * $Log:	sh.proc.c,v $
+d16 1
+a16 1
+ * 
+d306 1
+d308 3
+a310 1
+dowait()
+d313 2
+d316 16
+d337 10
+a346 3
+	for (pp = proclist.p_next; pp; pp = pp->p_next)
+		if (pp->p_pid && /* pp->p_pid == pp->p_jobid && */
+		    pp->p_flags&PRUNNING) {
+d353 2
+a354 1
+		}
+@
+
+
+1.7
+log
+@Добавлен ediag в диагностике kill.
+( Какого черта Билл Джой не использовал здесь perror !? ).
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.proc.c,v 1.6 86/07/22 13:55:19 avg Exp $";
+d8 5
+a12 1
+ * $Log:        sh.proc.c,v $
+d501 12
+@
+
+
+1.6
+log
+@Правлена dmitry's bug: некорректное обращение с ediag-ами.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.proc.c,v 1.5 86/07/21 23:04:20 avg Exp $";
+d9 3
+d908 1
+d944 2
+a945 1
+				printf("%s\n", sys_errlist[errno]);
+@
+
+
+1.5
+log
+@See prev revision
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.proc.c,v 1.4 86/07/21 22:36:46 avg Exp $";
+d9 3
+d642 2
+a643 1
+						printf(format, ediag(mesg,Rmesg)[pp->p_reason].pname);
+d863 2
+a864 1
+				if (name = ediag(mesg,Rmesg)[signum].iname)
+d880 4
+a883 2
+			if (ediag(mesg,Rmesg)[signum].iname &&
+			    eq(name, ediag(mesg,Rmesg)[signum].iname))
+@
+
+
+1.4
+log
+@Сделана правка: в МНОС 2 нет sigblock.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.proc.c,v 1.3 86/07/21 19:32:10 avg Exp $";
+d9 3
+d308 1
+a308 1
+			sigpause(sigblock(0) &~ mask(SIGCHLD));
+@
+
+
+1.3
+log
+@Слито с версией alex-а из 4.2
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header$";
+d9 3
+d252 1
+d254 3
+d302 1
+d304 3
+@
+
+
+1.2
+log
+@Добавлены русские диагностики.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.proc.c,v 1.1 86/06/01 20:11:16 dmitry Exp $";
+
+d9 3
+d20 5
+a24 1
+#include <wait.h>
+d32 1
+a32 1
+int frobby;
+d47 2
+a48 2
+#ifdef VMUNIX
+	struct vtimes vt;
+d50 1
+a50 1
+frobby |= 1;
+d54 1
+a54 1
+#ifndef VMUNIX
+d57 2
+a58 3
+	pid = wait3(&w.w_status, (setintr ? WNOHANG|WUNTRACED:WNOHANG), &vt);
+#endif
+frobby |= 2;
+a66 1
+frobby |= 4;
+d83 1
+d85 3
+d93 2
+a94 2
+#ifdef VMUNIX
+		pp->p_vtimes = vt;
+a115 1
+frobby |= 8;
+a124 1
+frobby |= 16;
+a145 1
+frobby |= 32;
+a168 1
+frobby |= 64;
+d228 2
+d249 1
+a249 1
+		sigpause(SIGCHLD);
+d293 1
+a293 1
+		if (pp->p_pid && pp->p_pid == pp->p_jobid &&
+d295 1
+a295 1
+			sigpause(SIGCHLD);
+d438 1
+d440 3
+d633 1
+a633 1
+								     "Выход %-16d"), pp->p_reason);
+d662 1
+a662 1
+					     " (рк: "));
+d670 1
+a670 1
+#ifndef VMUNIX
+d673 5
+a677 2
+			pvtimes(&zvms, &pp->p_vtimes, pp->p_etime - pp->p_btime);
+#endif
+d684 1
+a684 1
+					     "(рк теперь: "));
+d701 2
+a703 3
+#ifdef VMUNIX
+	struct vtimes vmt;
+#else
+a704 2
+#endif
+	register struct process *pp = tp;
+a705 3
+#ifdef  VMUNIX
+	vmt = zvms;
+#endif
+a706 3
+#ifdef VMUNIX
+		vmsadd(&vmt, &pp->p_vtimes);
+#else
+a708 1
+#endif
+a711 3
+#ifdef VMUNIX
+	pvtimes(&zvms, &vmt, tetime);
+#else
+d713 16
+a728 1
+#endif
+d882 1
+d890 3
+a892 2
+		if (**v == '%') {
+			np = pp = pfind(*v);
+d912 1
+a912 1
+		} else if (!digit(**v))
+d916 1
+a916 1
+			pid = atoi(*v);
+d927 1
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.proc.c,v 0.0 86/04/20 21:25:07 root Exp $";
+d10 4
+a13 1
+ * $Log$
+d147 1
+a147 1
+				;	/* print in pjwait */
+d189 1
+a189 1
+ *	of current and previous job indicators.
+d217 1
+a217 1
+ *	It is assumed to be in the foreground state (PFOREGND)
+d228 2
+a229 1
+			printf("BUG: waiting for background job!\n");
+d248 1
+a248 1
+		ioctl(FSHTTY, TIOCSPGRP, &tpgrp);	/* get tty back */
+d267 1
+a267 1
+				fp->p_reason | QUOTE : fp->p_reason;
+d302 1
+a302 1
+	register struct process	*pp;
+d311 2
+a312 2
+ *	the argument process for deletion.  The actual free of the
+ *	space is not done here since pflush is called at interrupt level.
+d315 1
+a315 1
+	register struct process	*pp;
+d321 2
+a322 1
+		printf("BUG: process flushed twice");
+d346 1
+a346 1
+ *	pp MUST be the job leader
+d365 3
+a367 3
+char	command[PMAXLEN+4];
+int	cmdlen;
+char	*cmdp;
+d370 1
+a370 1
+ *	an important assumption is made that the process is running.
+d376 1
+a376 1
+	register struct process	*pp;
+d422 1
+a422 1
+				break;			
+d504 2
+a505 2
+ *	so another job can be created.  Used for { } in exp6
+ *	and `` in globbing.
+d516 1
+a516 1
+ *	somewhere, but pendjob cleans up anyway.
+d527 1
+a527 1
+ *	or is about to begin.
+d552 1
+a552 1
+	register struct process	*pp;
+d567 1
+a567 1
+	status = reason = -1; 
+d607 2
+a608 1
+					printf(format, "Running ");
+d616 1
+a616 1
+						printf(format, mesg[pp->p_reason].pname);
+d623 2
+a624 1
+							printf("Exit %-16d", pp->p_reason);
+d626 2
+a627 1
+							printf(format, "Done");
+d631 2
+a632 1
+					printf("BUG: status=%-9o", status);
+d645 2
+a646 1
+			printf(" (core dumped)");
+d652 2
+a653 1
+				printf(" (wd: ");
+d671 2
+a672 1
+				printf("(wd now: ");
+d697 1
+a697 1
+#ifdef	VMUNIX
+d731 2
+a732 1
+			error("Usage: jobs [ -l ]");
+d831 1
+a831 1
+				if (name = mesg[signum].iname)
+d842 2
+a843 1
+				bferr("Bad signal number");
+d847 2
+a848 2
+			if (mesg[signum].iname &&
+			    eq(name, mesg[signum].iname))
+d851 2
+a852 1
+			bferr("Unknown signal; kill -l lists signals");
+d887 2
+a888 1
+					printf("%s: Already stopped\n", *v);
+d897 2
+a898 1
+			bferr("Arguments should be jobs or process id's");
+d960 2
+a961 1
+			error("\nThere are stopped jobs" + 1 - neednl);
+d972 2
+a973 1
+			bferr("No current job");
+d978 2
+a979 1
+			bferr("No previous job");
+d987 2
+a988 1
+		bferr("No such job");
+d1004 2
+a1005 1
+					bferr("Ambiguous");
+d1012 2
+a1013 1
+		bferr("No job matches pattern");
+d1015 2
+a1016 1
+		bferr("No such job");
+d1058 3
+a1060 3
+ *	-1:	leave tty alone; inherit pgrp from parent
+ *	 0:	already have tty; manipulate process pgrps only
+ *	 1:	want to claim tty; manipulate process and tty pgrps
+d1064 1
+a1064 1
+	struct command *t;	/* command we are forking for */
+d1077 2
+a1078 2
+	 *	we have had an "onintr -" (then specifically ignored)
+	 *	we are not playing with signals (inherit action)
+d1093 2
+a1094 1
+			error("No more processes");
+d1104 1
+a1104 1
+			setintr = 0;		/* until I think otherwise */
+d1128 1
+a1128 1
+			tpgrp = 0;		/* gave tty away */
+d1156 2
+a1157 1
+		error("No job control in this shell");
+d1159 2
+a1160 1
+		error("No job control in subshells");
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.proc.c	4.6 (Berkeley) 81/05/03";
+d4 9
+d23 1
+a23 1
+#define BIGINDEX	9	/* largest desirable job index */
+d27 4
+a30 4
+ *	indicating that at least one child has terminated or stopped
+ *	thus at least one wait system call will definitely return a
+ *	childs status.  Top level routines (like pwait) must be sure
+ *	to mask interrupts when playing with the proclist data structures!
+d35 1
+a35 1
+	register struct process	*fp;
+@
+
+
+1.1.0.0
+log
+@VAX BSD4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 1
+/* static  char *sccsid = "@@(#)$Header: sh.proc.c,v 1.3 86/07/20 19:27:17 avg Exp $ /Kiae";   */
+d4 9
+d16 1
+a16 1
+#include <sys/wait.h>
+d23 2
+a24 2
+#define BIGINDEX	9	/* largest desirable job index */
+
+d27 4
+a30 4
+ *	indicating that at least one child has terminated or stopped
+ *	thus at least one wait system call will definitely return a
+ *	childs status.  Top level routines (like pwait) must be sure
+ *	to mask interrupts when playing with the proclist data structures!
+d35 1
+a35 1
+	register struct process	*fp;
+d39 4
+a42 2
+	struct rusage ru;
+
+d46 6
+a51 2
+	pid = wait3(&w.w_status, (setintr ? WNOHANG|WUNTRACED:WNOHANG),
+	    &ru);
+d60 1
+d77 1
+a77 1
+			gettimeofday(&pp->p_etime, (struct timezone *)0);
+d83 3
+a85 1
+		pp->p_rusage = ru;
+d96 3
+d100 1
+d106 1
+d116 1
+d138 1
+d162 1
+a221 2
+	while (pp->p_pid != pp->p_jobid)
+		pp = pp->p_friends;
+d240 1
+a240 1
+		sigpause(sigblock(0) &~ mask(SIGCHLD));
+d263 1
+a263 1
+				fp->p_reason | 0200 : fp->p_reason;
+d284 1
+a284 1
+		if (pp->p_pid && /* pp->p_pid == pp->p_jobid && */
+d286 1
+a286 1
+			sigpause(sigblock(0) &~ mask(SIGCHLD));
+d428 1
+a428 1
+	gettimeofday(&pp->p_btime, (struct timezone *)0);
+d650 5
+a654 4
+			{ static struct rusage zru;
+			  prusage(&zru, &pp->p_rusage, &pp->p_etime,
+			    &pp->p_btime);
+			}
+d677 6
+a682 4
+	struct timeval tetime, diff;
+	static struct timeval ztime;
+	struct rusage ru;
+	static struct rusage zru;
+d685 3
+a687 2
+	ru = zru;
+	tetime = ztime;
+d689 8
+a696 4
+		ruadd(&ru, &pp->p_rusage);
+		tvsub(&diff, &pp->p_etime, &pp->p_btime);
+		if (timercmp(&diff, &tetime, >))
+			tetime = diff;
+d698 5
+a702 1
+	prusage(&zru, &ru, &tetime, &ztime);
+a852 1
+	char *cp;
+d860 2
+a861 3
+		cp = globone(*v);
+		if (*cp == '%') {
+			np = pp = pfind(cp);
+d872 1
+a872 1
+					printf("%s: Already stopped\n", cp);
+d880 1
+a880 1
+		} else if (!digit(*cp))
+d883 1
+a883 1
+			pid = atoi(cp);
+a893 1
+		xfree(cp);
+d1087 1
+a1087 1
+			if (wanttty >= 0) {
+@

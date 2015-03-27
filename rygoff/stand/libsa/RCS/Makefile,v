@@ -1,0 +1,254 @@
+head     1.6;
+access   ;
+symbols  Архыз0:1.3.1;
+locks    rygoff:1.6;
+comment  @# @;
+
+
+1.6
+date     90.01.12.15.24.48;  author rygoff;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.06.06.17.30.33;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.03.28.13.45.05;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.03.28.13.25.40;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.03.03.22.29.05;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.14.20.50.10;  author root;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile для библиотеки libsa.
+@
+
+
+1.6
+log
+@Добавлена работа с RCS при сборке
+@
+text
+@#
+# Makefile для библиотеки libsa
+#
+# $Log:	Makefile,v $
+#
+#
+# Для версии исх. текстов без архивов RCS установите R=X
+R=
+RCS=RCS
+COFLAGS=-l
+
+INCLUDES=       -I.. -I/usr/include
+CCFLAGS=        -O ${INCLUDES}
+
+SRC=    SYS.c   ais.c   dvhp.c  fd.c    hk.c    \
+	ht.c    lprf.c  pcopy.s prf.c   rk.c    \
+	rl.c    rm.c    rp.c    rw.c    tm.c    \
+	ts.c    uda.c   video.c xp.c
+
+
+DRIVERS=        prf.o xp.o ht.o rk.o rm.o rl.o rp.o dvhp.o\
+		hk.o ts.o tm.o rw.o fd.o uda.o video.o pcopy.o lprf.o
+
+../libsa.a:     SYS.o ${DRIVERS} font1.o
+		ar rv ../libsa.a $?
+		ranlib ../libsa.a
+
+font1.o: ../../dev/font1.cm ../../dev/font1.mm ../../dev/font1fix.c
+	mm ../../dev/font1.mm < ../../dev/font1.cm  >font1.c
+	cc -S font1.c
+	mv font1.s f.s
+	sed 's/data/text/' < f.s >font1.s
+	cc -c font1.s ../../dev/font1fix.c
+	ld -r -o f.o font1.o font1fix.o
+	mv f.o font1.o
+	-rm -f f.s font1.s font1.c font1fix.o
+
+clear clean:
+	-rm -f *.[ob]
+
+CLRSRC: clear
+	-rm -f *.c
+
+
+SYS.o   : SYS.c
+ais.o   : ais.c
+dvhp.o  : dvhp.c
+fd.o    : fd.c
+hk.o    : hk.c
+ht.o    : ht.c
+lprf.o  : lprf.c
+pcopy.o : pcopy.s
+prf.o   : prf.c
+rk.o    : rk.c
+rl.o    : rl.c
+rm.o    : rm.c
+rp.o    : rp.c
+rw.o    : rw.c
+tm.o    : tm.c
+ts.o    : ts.c
+uda.o   : uda.c
+video.o : video.c
+xp.o    : xp.c
+
+
+
+.DEFAULT:
+	co ${COFLAGS} $@@,v
+
+
+@
+
+
+1.5
+log
+@Убрано все лишнее.
+@
+text
+@d4 7
+d15 6
+d43 28
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@a3 11
+# $Log:	Makefile,v $
+# Revision 1.3  88/03/28  13:25:40  korotaev
+# После слияния с AZLK.
+# 
+# Revision 1.2  87/03/03  22:29:05  avg
+# Восстановлены потерянные правки для Электроники-85.
+#
+# Revision 1.1  86/07/14  20:50:10  root
+# Initial revision
+#
+#
+a4 5
+# Для версии исходных текстов без архивов RCS установите R=X
+R=
+RCS=RCS
+COFLAGS=
+
+d6 1
+a6 1
+CFLAGS=         -O ${INCLUDES}
+a14 29
+source: prf.c xp.c ht.c rk.c rm.c rl.c rp.c dvhp.c hk.c ts.c \
+	tm.c rw.c fd.c uda.c video.c pcopy.s lprf.c SYS.c Makefile
+
+$(R)lprf.c:     $(RCS)/lprf.c,v       ; co $(COFLAGS) lprf.c
+$(R)prf.c:      $(RCS)/prf.c,v        ; co $(COFLAGS) prf.c
+$(R)xp.c:       $(RCS)/xp.c,v         ; co $(COFLAGS) xp.c
+$(R)ht.c:       $(RCS)/ht.c,v         ; co $(COFLAGS) ht.c
+$(R)rk.c:       $(RCS)/rk.c,v         ; co $(COFLAGS) rk.c
+$(R)rm.c:       $(RCS)/rm.c,v         ; co $(COFLAGS) rm.c
+$(R)rl.c:       $(RCS)/rl.c,v         ; co $(COFLAGS) rl.c
+$(R)rp.c:       $(RCS)/rp.c,v         ; co $(COFLAGS) rp.c
+$(R)hk.c:       $(RCS)/hk.c,v         ; co $(COFLAGS) hk.c
+$(R)ts.c:       $(RCS)/ts.c,v         ; co $(COFLAGS) ts.c
+$(R)tm.c:       $(RCS)/tm.c,v         ; co $(COFLAGS) tm.c
+$(R)rw.c:       $(RCS)/rw.c,v         ; co $(COFLAGS) rw.c
+$(R)fd.c:       $(RCS)/fd.c,v         ; co $(COFLAGS) fd.c
+$(R)video.c:    $(RCS)/video.c,v      ; co $(COFLAGS) video.c
+$(R)SYS.c:      $(RCS)/SYS.c,v        ; co $(COFLAGS) SYS.c
+$(R)pcopy.s:    $(RCS)/pcopy.s,v      ; co $(COFLAGS) pcopy.s
+$(R)Makefile:   $(RCS)/Makefile,v     ; co $(COFLAGS) Makefile
+$(R)uda.c:      $(RCS)/uda.c,v        ; co $(COFLAGS) uda.c
+$(R)dvhp.c:     $(RCS)/dvhp.c,v       ; co $(COFLAGS) dvhp.c
+
+clear clean:
+	-rm -f *.[ob]
+
+CLRSRC: clear
+	-rm -f *.c
+
+d24 6
+@
+
+
+1.3
+log
+@После слияния с AZLK.
+@
+text
+@d4 4
+a7 1
+# $Log: Makefile,v $
+d65 1
+a65 1
+	cc -c font1.s ../dev/font1fix.c
+@
+
+
+1.2
+log
+@Восстановлены потерянные правки для Электроники-85.
+@
+text
+@d5 3
+d21 2
+a22 2
+DRIVERS=        prf.o xp.o ht.o rk.o rm.o rl.o rp.o\
+		hk.o ts.o tm.o rw.o video.o pcopy.o
+d28 2
+a29 2
+source: prf.c xp.c ht.c rk.c rm.c rl.c rp.c hk.c ts.c \
+	tm.c rw.c video.c SYS.c Makefile
+d31 1
+d43 1
+d48 2
+d57 9
+a65 4
+font1.o:        ../../85
+	rm -f font1.o
+	cd ../../85 ; make font1.o
+	ln ../../85/font1.o font1.o
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 3
+a6 1
+# $Log$
+d8 1
+d19 1
+a19 1
+		hk.o ts.o tm.o
+d21 1
+a21 1
+../libsa.a:     SYS.o ${DRIVERS}
+d25 2
+a26 1
+source: prf.c xp.c ht.c rk.c rm.c rl.c rp.c hk.c ts.c tm.c Makefile
+d38 4
+d49 5
+@

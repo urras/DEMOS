@@ -1,0 +1,80 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.14.16.54.30;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.08.18.18.20.44;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+вызывалка подходящего фильтра.
+@
+
+
+1.2
+log
+@/usr/plot переехал в /usr/lib/plot
+@
+text
+@#include <stdio.h>
+#include <ediag.h>
+
+char programm[ 256];
+char *device=NULL;
+
+main( argc, argv ) char **argv;
+{
+	char *newargv[ 256 ];
+	int i=1;
+
+	argv++;
+	while( *argv ){
+		if( !strncmp("-T", *argv, 2 )){
+		/* DEVICE NAME */
+			device = (*argv)+2;
+		}else{
+			newargv[ i++ ] = *argv;
+		}
+		argv++;
+	}
+	newargv[ i ] = 0;
+
+	if( device == NULL )
+		device = getenv("TERM");
+	newargv[ 0 ] = "***PLOT filter***";
+
+	sprintf( programm, "/usr/lib/plot/%s", device );
+/* debug
+printf( "%s,%s\n", programm, device );
+for( i=0; newargv[ i] ; i++ )printf( "%s\n", newargv[i] );
+*/
+	execv( programm, newargv );
+
+	fprintf( stderr, ediag( "plot: filter %s for %s not found\n",
+				"plot: фильтр %s для %s не найден\n" ),
+				programm, device );
+	exit( 1 );
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d28 1
+a28 1
+	sprintf( programm, "/usr/plot/%s", device );
+@

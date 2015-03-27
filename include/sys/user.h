@@ -3,8 +3,8 @@
 
 #include        <errno.h>
 #include        <sys/fperr.h>
-#include        <sys/dir.h>   /* struct direct для тек. каталога */
-#include        <a.out.h>     /* NXOVL */
+#include        <sys/dir.h>
+#include        <a.out.h>
 
 /*
  * The user structure.

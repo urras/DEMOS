@@ -1,0 +1,40 @@
+#print
+Напишите программу, которая со своего ввода копирует
+на вывод строки, содержащие букву 'p'.
+Скомпилируйте и прогоните ее, после чего наберите "готов".
+#once #create Ref
+mountain station south orange maplewood millburn short hills
+new providence murray hill berkeley heights
+bernardsville far hills peapack gladstone
+#once #create badin
+hoboken harrison newark roseville avenue grove street
+east orange brick church orange highland avenue
+mountain station south orange maplewood millburn short hills
+summit chatham madison convent station morristown
+new providence murray hill berkeley heights
+gillette stirling millington lyons basking ridge
+bernardsville far hills peapack gladstone
+#once cp %s/getline.o .
+#user
+a.out <badin >xxx
+#cmp Ref xxx
+#succeed
+/* Один из способов найти строки с буквой 'p': */
+ #include <stdio.h>
+
+main()
+{
+	char line[500];
+	int k;
+
+	while (getline(line, 500) > 0)
+		for (k = 0; line[k] != '\0'; k++)
+			if (line[k] == 'p') {
+				printf("%s", line);
+				break;
+			}
+}
+#log
+#next
+16.2c 5
+17.1a 10

@@ -1,0 +1,69 @@
+#print
+Файл "decl" начинался с ".PP".  Все файлы, посылаемые на обработку -ms
+ДОЛЖНЫ начинаться с командной строки для "-ms" . Их можно
+называть командными строками, т.к. они начинаются с точки
+и состоят только из заглавных букв.
+Команда ".PP" обозначает новый параграф.
+Для того, чтобы добавить новый параграф в файл, перед ним нужно
+поставить ".PP" и начать вводить новый текст.  Вот новый параграф
+Декларации независимости. Добавьте его в конец
+файла "decl" с которым Вы работали. Самое простое - взять текст из
+файла "para2" или напечатать его заново. Нет необходимости
+печатать слова в точности на той строке, на которой они должны
+стоять, т.к. программа разместит их заново в установленном порядке.
+Но ".PP" должна стоять на отдельной строке. После чего
+запустите новую версию.
+
+
+#create Ref
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#once nroff -ms Ref >X2 &
+#create decl
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+#create para2
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#print para2
+#copyout
+#user
+#uncopyout
+tail -66 .ocopy >X1
+#cmp X1 X2
+#log
+#next
+4.1a 10

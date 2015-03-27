@@ -1,0 +1,196 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.52.05;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 09.07.1986
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+int  txt    = -1;   /* Дескриптор файла текстового буфера */
+int  txtflg = 0;    /* Флаг -   0 - текст не определен
+			       >0 - состояние определения текста
+			       <0 - текст уже использован */
+
+/*
+ * Сохранить строки в буфере
+ */
+savel(arg, narg)
+{
+	int n,nr,fl;
+	extern char *tname;
+	register int i,j;
+	char *p,*q;
+	extern int insflag;
+
+	fl = 0;
+	if( insflag && narg >
+#ifdef S_dl
+		20
+#endif S_dl
+#ifndef S_dl
+		5
+#endif S_dl
+		    ) {
+		minutes();
+		fl++;
+	}
+	if( txtflg <= 0 ) {
+		close(txt);
+		if( (txt = creat(tname, 0600)) == -1 )
+		   return;
+		close(txt);
+		txt = open(tname, 2);
+		txtflg = 0;
+	}
+	nr = narg;
+	txtflg++;
+	while( nr-- && !testinput() ) {
+		p = line(cl);
+		i = llen(cl);
+		if( i > width )
+			i = width;
+		for(; i >= 0 && p[i] == ' ' ; i-- );
+		write(txt, p, i+1); write(txt, "\n", 1 );
+		if( fl == 0 ) {
+			if( insflag )
+				dl(NULL, 1);
+			else
+				down(NULL, 1);
+		} else {
+			if( cl < NLIN-1 )
+				for( i = cl ; i<NLIN-1 ; i++ ) {
+					p = line(i+1);
+					q = line(i);
+					for( j = width ; j ; j-- )
+						*q++ = *p++;
+					llen(i) = llen(i+1);
+				}
+			getds(NLIN-1);
+		}
+	}
+	if( fl )
+		rew();
+}
+
+/*
+ * Вставить строку из буфера
+ */
+incll(arg, narg)
+{
+	char IBUF[512];
+	register char *p, *q;
+	int  nr, i, zz, outf;
+	char     *j;
+	register int Xcnt;
+
+	if( txt == -1 || txtflg == 0 )
+		return;
+	nr = narg;
+	i = cc;
+	txtflg = -1;
+	while( nr-- ) {
+		lseek(txt, 0L, 0);
+		Xcnt = 0;
+		outf = 0;
+		for(; !outf ;) {
+			if( testinput() )
+				goto out;
+			if( Xcnt <= 0 ) {
+				q = IBUF;
+				if( (Xcnt = read(txt, IBUF, 512)) <= 0 )
+					break;
+			}
+			il(0, 1);
+			p = line(cl);
+			do {
+				while( *q != '\n' && Xcnt-- > 0 )
+					if((*p++ = *q++) != ' ')
+						j = p;
+				if( Xcnt <= 0 ) {
+					q = IBUF;
+					if( (Xcnt = read(txt, IBUF, 512)) <= 0 ) {
+						*q = '\n';
+						outf++;
+					}
+				}
+			} while( *q != '\n' );
+			q++; Xcnt--;
+			zz = (j-(char *)(line(cl)))-1;
+			if( zz < 0 )
+				zz = 0;
+			llen(cl) = zz;
+			typestr(cl);
+			down(NULL, 1);
+		}
+	}
+out:
+	qpos(cl, i);
+}
+
+/*
+ * Очистить текстовый буфер
+ */
+clrtxt()
+{
+	int co, lo;
+
+	co = cc; lo = cl;
+	txtflg = 0;
+#ifdef S_bell
+	printx(S_bell);
+#endif S_bell
+	qpos( 0, csh );
+	clrl();
+#ifdef VS
+	printx( VS );
+#endif VS
+	printx( ediag( "*** Buffer cleaned ***",
+		       "*** Буфер очищен ***  " ));
+#ifdef VE
+	printx( VE );
+#endif VE
+	cc += 22;
+	qpos( lo, co );
+	fflush( stdout );
+#if !defined(HPUX) && !defined(V2)
+	sleep( -50 );   /* 1 sec */
+#else
+	sleep( 2 );
+#endif
+	typestr( 0 );
+	qpos( lo, co );
+}
+@

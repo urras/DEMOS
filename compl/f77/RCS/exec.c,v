@@ -1,0 +1,296 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.25.01;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@#include "defs"
+
+/*   Logical IF codes
+*/
+
+
+exif(p)
+expptr p;
+{
+pushctl(CTLIF);
+ctlstack->elselabel = newlabel();
+putif(p, ctlstack->elselabel);
+}
+
+
+
+exelif(p)
+expptr p;
+{
+if(ctlstack->ctltype == CTLIF)
+	{
+	if(ctlstack->endlabel == 0)
+		ctlstack->endlabel = newlabel();
+	putgoto(ctlstack->endlabel);
+	putlabel(ctlstack->elselabel);
+	ctlstack->elselabel = newlabel();
+	putif(p, ctlstack->elselabel);
+	}
+
+else	execerr("elseif out of place", 0);
+}
+
+
+
+
+
+exelse()
+{
+if(ctlstack->ctltype==CTLIF)
+	{
+	if(ctlstack->endlabel == 0)
+		ctlstack->endlabel = newlabel();
+	putgoto( ctlstack->endlabel );
+	putlabel(ctlstack->elselabel);
+	ctlstack->ctltype = CTLELSE;
+	}
+
+else	execerr("else out of place", 0);
+}
+
+
+exendif()
+{
+if(ctlstack->ctltype == CTLIF)
+	{
+	putlabel(ctlstack->elselabel);
+	if(ctlstack->endlabel)
+		putlabel(ctlstack->endlabel);
+	popctl();
+	}
+else if(ctlstack->ctltype == CTLELSE)
+	{
+	putlabel(ctlstack->endlabel);
+	popctl();
+	}
+
+else
+	execerr("endif out of place", 0);
+}
+
+
+
+
+
+/*  BRANCHING CODE
+*/
+
+exgoto(lab)
+struct labelblock *lab;
+{
+putgoto(lab->labelno);
+}
+
+
+
+
+
+
+mkstfunct(lp, rp)
+struct primblock *lp;
+expptr rp;
+{
+register struct primblock *p;
+register struct nameblock *np;
+chainp args;
+
+np = lp->namep;
+if(np->vclass == CLUNKNOWN)
+	np->vclass = CLPROC;
+else
+	{
+	dclerr("redeclaration of statement function", np);
+	return;
+	}
+np->vprocclass = PSTFUNCT;
+np->vstg = STGSTFUNCT;
+impldcl(np);
+args = (lp->argsp ? lp->argsp->listp : NULL);
+np->vardesc.vstfdesc = mkchain(args , rp );
+
+for( ; args ; args = args->nextp)
+	if( (p = args->datap)->tag!=TPRIM ||
+		p->argsp || p->fcharp || p->lcharp)
+		err("non-variable argument in statement function definition");
+	else
+		{
+		vardcl(args->datap = p->namep);
+		free(p);
+		}
+}
+
+
+
+excall(name, args, nstars, labels)
+struct hashentry *name;
+struct listblock *args;
+int nstars;
+struct labelblock *labels[ ];
+{
+register expptr p;
+
+settype(name, TYSUBR, NULL);
+p = mkfunct( mkprim(name, args, NULL, NULL) );
+p->vtype = p->leftp->vtype = TYINT;
+if(nstars > 0)
+	putcmgo(p, nstars, labels);
+else putexpr(p);
+}
+
+
+
+exstop(stop, p)
+int stop;
+register expptr p;
+{
+char *q;
+int n;
+struct constblock *mkstrcon();
+
+if(p)
+	{
+	if( ! ISCONST(p) )
+		{
+		execerr("pause/stop argument must be constant", 0);
+		frexpr(p);
+		p = mkstrcon(0, 0);
+		}
+	else if( ISINT(p->vtype) )
+		{
+		q = convic(p->const.ci);
+		n = strlen(q);
+		if(n > 0)
+			{
+			p->const.ccp = copyn(n, q);
+			p->vtype = TYCHAR;
+			p->vleng = ICON(n);
+			}
+		else
+			p = mkstrcon(0, 0);
+		}
+	else if(p->vtype != TYCHAR)
+		{
+		execerr("pause/stop argument must be integer or string", 0);
+		p = mkstrcon(0, 0);
+		}
+	}
+else	p = mkstrcon(0, 0);
+			       /*NOXXSTR*/ /*NOXSTR*/
+putexpr( call1(TYSUBR, (stop ? "s_stop" : "s_paus"), p) );
+}                               /*YESXSTR*/
+
+exassign(vname, labelval)
+struct nameblock *vname;
+struct labelblock *labelval;
+{
+struct addrblock *p;
+struct constblock *mkaddcon();
+
+p = mklhs(mkprim(vname,0,0,0));
+if( ! ONEOF(p->vtype, MSKINT|MSKADDR) )
+	err("noninteger assign variable");
+else
+	puteq(p, mkaddcon(labelval->labelno) );
+}
+
+
+
+exarif(expr, neglab, zerlab, poslab)
+expptr expr;
+struct labelblock *neglab, *zerlab, *poslab;
+{
+register int lm, lz, lp;
+
+lm = neglab->labelno;
+lz = zerlab->labelno;
+lp = poslab->labelno;
+expr = fixtype(expr);
+
+if( ! ONEOF(expr->vtype, MSKINT|MSKREAL) )
+	{
+	err("invalid type of arithmetic if expression");
+	frexpr(expr);
+	}
+else
+	{
+	if(lm == lz)
+		exar2(OPLE, expr, lm, lp);
+	else if(lm == lp)
+		exar2(OPNE, expr, lm, lz);
+	else if(lz == lp)
+		exar2(OPGE, expr, lz, lm);
+	else
+		prarif(expr, lm, lz, lp);
+	}
+}
+
+
+
+LOCAL exar2(op, e, l1, l2)
+int op;
+expptr e;
+int l1, l2;
+{
+putif( mkexpr(op, e, ICON(0)), l2);
+putgoto(l1);
+}
+
+
+exreturn(p)
+register expptr p;
+{
+if(procclass != CLPROC)
+	warn("RETURN statement in main or block data");
+if(p && (proctype!=TYSUBR || procclass!=CLPROC) )
+	{
+	err("alternate return in nonsubroutine");
+	p = 0;
+	}
+
+if(p)
+	{
+	putforce(TYINT, p);
+	putgoto(retlabel);
+	}
+else
+	putgoto(proctype==TYSUBR ? ret0label : retlabel);
+}
+
+
+
+exasgoto(labvar)
+struct hashentry *labvar;
+{
+register struct addrblock *p;
+
+p = mklhs( mkprim(labvar,0,0,0) );
+if( ! ISINT(p->vtype) )
+	err("assigned goto variable must be integer");
+else
+	putbranch(p);
+}
+@

@@ -1,0 +1,28 @@
+head     0.1;
+access   ;
+symbols  DEMOS1_3:0.1;
+locks    root:0.1;
+comment  @ * @;
+
+
+0.1
+date     86.09.24.21.20.24;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+SHELL
+@
+
+
+
+0.1
+log
+@
+@
+text
+@#define BRKINCR 01000
+#define BRKMAX 04000
+@

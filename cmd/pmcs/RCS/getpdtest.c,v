@@ -1,0 +1,43 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.01.09.15.56.31;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Система рассылки почты проектам.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#include "projdesc.h"
+#include <stdio.h>
+
+
+main()
+{
+	struct projdesc *p;
+	register char **pp;
+
+	while( (p = getpd(stdin)) != NULL ) {
+		printf( "Proj name: '%s'\n", p->pd_pname );
+		printf( "Proj desc: '%s'\n", p->pd_desc );
+		printf( "N sig mem: %d\n", p->pd_nusig );
+		printf( "Users:" );
+		for( pp = p->pd_usig; *pp ; pp++ )
+			printf( "\t'%s'\n", *pp );
+	}
+}
+@

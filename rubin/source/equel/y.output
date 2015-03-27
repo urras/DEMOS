@@ -1,0 +1,5097 @@
+
+состояние 0
+	$accept : _program $end 
+	program : _    (2)
+
+	.  свертка 2
+
+	program	переход	1
+
+состояние 1
+	$accept :  program_$end 
+	program :  program_statement 
+	startquel : _    (9)
+
+	$end	accept
+	error	сдвиг 6
+	APPEND	свертка	9
+	COPY	свертка	9
+	CREATE	свертка	9
+	DEFINE	свертка	9
+	DELETE	свертка	9
+	DESTROY	свертка	9
+	HELP	свертка	9
+	INDEX	свертка	9
+	MODIFY	свертка	9
+	PRINT	свертка	9
+	RANGE	свертка	9
+	REPLACE	свертка	9
+	RETRIEVE	свертка	9
+	SAVE	свертка	9
+	RUBIN	свертка	9
+	EXIT	свертка	9
+	PARAM	свертка	9
+	TYPE	сдвиг 16
+	ALLOC	сдвиг 17
+	STRUCT	сдвиг 20
+	C_CODE	сдвиг 7
+	LBRACE	сдвиг 11
+	RBRACE	сдвиг 12
+	.  error
+
+	endblock	переход	9
+	statement	переход	2
+	startquel	переход	3
+	c_code	переход	4
+	declaration	переход	5
+	beginblock	переход	8
+	decl_specifer	переход	10
+	type_specifier	переход	13
+	sc_specifier	переход	14
+	struct_dec	переход	15
+	struct_name	переход	18
+	struct_key	переход	19
+
+состояние 2
+	program :  program statement_    (1)
+
+	.  свертка 1
+
+
+состояние 3
+	statement :  startquel_quel_statement 
+	statement :  startquel_equel_statement 
+	statement :  startquel_rubin_statement 
+
+	APPEND	сдвиг 75
+	COPY	сдвиг 76
+	CREATE	сдвиг 77
+	DEFINE	сдвиг 82
+	DELETE	сдвиг 78
+	DESTROY	сдвиг 79
+	HELP	сдвиг 80
+	INDEX	сдвиг 81
+	MODIFY	сдвиг 83
+	PRINT	сдвиг 84
+	RANGE	сдвиг 85
+	REPLACE	сдвиг 86
+	RETRIEVE	сдвиг 87
+	SAVE	сдвиг 88
+	RUBIN	сдвиг 90
+	EXIT	сдвиг 73
+	PARAM	сдвиг 72
+	.  error
+
+	quel_statement	переход	21
+	equel_statement	переход	22
+	rubin_statement	переход	23
+	append	переход	24
+	copy	переход	25
+	create	переход	26
+	delete	переход	27
+	destroy	переход	28
+	help	переход	29
+	index	переход	30
+	integrity	переход	31
+	modify	переход	32
+	permit	переход	33
+	print	переход	34
+	range	переход	35
+	replace	переход	36
+	retrieve	переход	37
+	save	переход	38
+	view	переход	39
+	lets	переход	40
+	append_p	переход	41
+	copy_p	переход	42
+	create_p	переход	43
+	replace_p	переход	44
+	retrieve_p	переход	45
+	tupret	переход	46
+	view_p	переход	47
+	exit	переход	48
+	rubin	переход	49
+	append_key	переход	50
+	copy_key	переход	51
+	create_key	переход	52
+	delete_key	переход	53
+	destroy_key	переход	54
+	help_key	переход	55
+	index_key	переход	56
+	define_key	переход	57
+	modify_key	переход	58
+	def_perm	переход	59
+	print_key	переход	60
+	range_of	переход	61
+	replace_key	переход	62
+	retrieve_key	переход	63
+	save_key	переход	64
+	append_p_key	переход	65
+	copy_p_key	переход	66
+	create_p_key	переход	67
+	rubin_key	переход	74
+	replace_p_key	переход	68
+	retrieve_p_key	переход	69
+	tupret_keyw	переход	70
+	tupret_p	переход	71
+	tupret_p_key	переход	89
+
+состояние 4
+	statement :  c_code_    (6)
+
+	.  свертка 6
+
+
+состояние 5
+	statement :  declaration_    (7)
+
+	.  свертка 7
+
+
+состояние 6
+	statement :  error_    (8)
+
+	.  свертка 8
+
+
+состояние 7
+	c_code :  C_CODE_    (10)
+
+	.  свертка 10
+
+
+состояние 8
+	c_code :  beginblock_    (11)
+
+	.  свертка 11
+
+
+состояние 9
+	c_code :  endblock_    (12)
+
+	.  свертка 12
+
+
+состояние 10
+	declaration :  decl_specifer_declarator_list end_decl 
+	declaration :  decl_specifer_SEMICOL 
+
+	NAME	сдвиг 95
+	SEMICOL	сдвиг 92
+	BOP	сдвиг 97
+	.  error
+
+	cvarx	переход	94
+	ptr	переход	96
+	declarator_list	переход	91
+	cvar_dec	переход	93
+
+состояние 11
+	beginblock :  LBRACE_    (13)
+
+	.  свертка 13
+
+
+состояние 12
+	endblock :  RBRACE_    (14)
+
+	.  свертка 14
+
+
+состояние 13
+	decl_specifer :  type_specifier_    (149)
+	decl_specifer :  type_specifier_sc_specifier 
+
+	ALLOC	сдвиг 17
+	.  свертка 149
+
+	sc_specifier	переход	98
+
+состояние 14
+	decl_specifer :  sc_specifier_    (150)
+	decl_specifer :  sc_specifier_type_specifier 
+	decl_specifer :  sc_specifier_struct_dec 
+
+	TYPE	сдвиг 16
+	STRUCT	сдвиг 20
+	.  свертка 150
+
+	type_specifier	переход	99
+	struct_dec	переход	100
+	struct_name	переход	18
+	struct_key	переход	19
+
+состояние 15
+	decl_specifer :  struct_dec_    (153)
+
+	.  свертка 153
+
+
+состояние 16
+	type_specifier :  TYPE_    (156)
+
+	.  свертка 156
+
+
+состояние 17
+	sc_specifier :  ALLOC_    (155)
+
+	.  свертка 155
+
+
+состояние 18
+	struct_dec :  struct_name_field_declaration 
+	struct_dec :  struct_name_    (158)
+
+	LBRACE	сдвиг 103
+	.  свертка 158
+
+	field_declaration	переход	101
+	lbrace	переход	102
+
+состояние 19
+	struct_dec :  struct_key_field_declaration 
+	struct_name :  struct_key_NAME 
+
+	NAME	сдвиг 105
+	LBRACE	сдвиг 103
+	.  error
+
+	field_declaration	переход	104
+	lbrace	переход	102
+
+состояние 20
+	struct_key :  STRUCT_    (276)
+
+	.  свертка 276
+
+
+состояние 21
+	statement :  startquel quel_statement_    (3)
+
+	.  свертка 3
+
+
+состояние 22
+	statement :  startquel equel_statement_    (4)
+
+	.  свертка 4
+
+
+состояние 23
+	statement :  startquel rubin_statement_    (5)
+
+	.  свертка 5
+
+
+состояние 24
+	quel_statement :  append_    (15)
+
+	.  свертка 15
+
+
+состояние 25
+	quel_statement :  copy_    (16)
+
+	.  свертка 16
+
+
+состояние 26
+	quel_statement :  create_    (17)
+
+	.  свертка 17
+
+
+состояние 27
+	quel_statement :  delete_    (18)
+
+	.  свертка 18
+
+
+состояние 28
+	quel_statement :  destroy_    (19)
+
+	.  свертка 19
+
+
+состояние 29
+	quel_statement :  help_    (20)
+
+	.  свертка 20
+
+
+состояние 30
+	quel_statement :  index_    (21)
+
+	.  свертка 21
+
+
+состояние 31
+	quel_statement :  integrity_    (22)
+
+	.  свертка 22
+
+
+состояние 32
+	quel_statement :  modify_    (23)
+
+	.  свертка 23
+
+
+состояние 33
+	quel_statement :  permit_    (24)
+
+	.  свертка 24
+
+
+состояние 34
+	quel_statement :  print_    (25)
+
+	.  свертка 25
+
+
+состояние 35
+	quel_statement :  range_    (26)
+
+	.  свертка 26
+
+
+состояние 36
+	quel_statement :  replace_    (27)
+
+	.  свертка 27
+
+
+состояние 37
+	quel_statement :  retrieve_    (28)
+
+	.  свертка 28
+
+
+состояние 38
+	quel_statement :  save_    (29)
+
+	.  свертка 29
+
+
+состояние 39
+	quel_statement :  view_    (30)
+
+	.  свертка 30
+
+
+состояние 40
+	quel_statement :  lets_    (31)
+
+	.  свертка 31
+
+
+состояние 41
+	equel_statement :  append_p_    (32)
+
+	.  свертка 32
+
+
+состояние 42
+	equel_statement :  copy_p_    (33)
+
+	.  свертка 33
+
+
+состояние 43
+	equel_statement :  create_p_    (34)
+
+	.  свертка 34
+
+
+состояние 44
+	equel_statement :  replace_p_    (35)
+
+	.  свертка 35
+
+
+состояние 45
+	equel_statement :  retrieve_p_    (36)
+
+	.  свертка 36
+
+
+состояние 46
+	equel_statement :  tupret_    (37)
+
+	.  свертка 37
+
+
+состояние 47
+	equel_statement :  view_p_    (38)
+
+	.  свертка 38
+
+
+состояние 48
+	rubin_statement :  exit_    (39)
+
+	.  свертка 39
+
+
+состояние 49
+	rubin_statement :  rubin_    (40)
+
+	.  свертка 40
+
+
+состояние 50
+	append :  append_key_apclause tlclause qualclause 
+	apkword : _    (284)
+
+	INTO	сдвиг 108
+	ON	сдвиг 111
+	ONTO	сдвиг 109
+	TO	сдвиг 110
+	.  свертка 284
+
+	apclause	переход	106
+	apkword	переход	107
+
+состояние 51
+	copy :  copy_key_id lparen ctl rparen cp_kword filename 
+	copy :  copy_key_id lparen rparen cp_kword filename 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	112
+
+состояние 52
+	create :  create_key_id lparen ctl rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	120
+
+состояние 53
+	delete :  delete_key_delclause qualclause 
+	delnoise : _    (291)
+
+	FROM	сдвиг 125
+	IN	сдвиг 123
+	ON	сдвиг 124
+	.  свертка 291
+
+	delclause	переход	121
+	delnoise	переход	122
+
+состояние 54
+	destroy :  destroy_key_idlist 
+	destroy :  destroy_key_integ_permit id int_list_all 
+
+	INTEGRITY	сдвиг 131
+	PERMIT	сдвиг 132
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	128
+	idlist	переход	126
+	integ_permit	переход	127
+	integ_key	переход	129
+	permit_key	переход	130
+
+состояние 55
+	help :  help_key_    (56)
+	help :  help_key_all 
+	help :  help_key_hlist 
+	help :  help_key_int_perm_view idlist 
+
+	INTEGRITY	сдвиг 131
+	PERMIT	сдвиг 132
+	VIEW	сдвиг 142
+	STRUCT_VAR	сдвиг 119
+	ALL	сдвиг 136
+	NAME	сдвиг 95
+	SCONST	сдвиг 143
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  свертка 56
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	140
+	sconst	переход	141
+	integ_permit	переход	138
+	integ_key	переход	129
+	permit_key	переход	130
+	all	переход	133
+	hlist	переход	134
+	int_perm_view	переход	135
+	hparam	переход	137
+	view_key	переход	139
+
+состояние 56
+	index :  index_key_id is id lparen idlist rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	144
+
+состояние 57
+	integrity :  define_key_integ_key integnoise id isnoise qual 
+	def_perm :  define_key_permit_key 
+	view :  define_key_view_key id tlclause qualclause 
+	lets :  define_key_id is integer 
+
+	INTEGRITY	сдвиг 131
+	PERMIT	сдвиг 132
+	VIEW	сдвиг 142
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	148
+	integ_key	переход	145
+	permit_key	переход	146
+	view_key	переход	147
+
+состояние 58
+	modify :  modify_key_id to id on modkeylist density 
+	modify :  modify_key_id to id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	149
+
+состояние 59
+	permit :  def_perm_permit_list on_of_to id perm_tl perm_who perm_term perm_time perm_day qualclause 
+
+	APPEND	сдвиг 153
+	DELETE	сдвиг 154
+	REPLACE	сдвиг 155
+	RETRIEVE	сдвиг 152
+	ALL	сдвиг 136
+	.  error
+
+	all	переход	156
+	permit_list	переход	150
+	permlistelm	переход	151
+
+состояние 60
+	print :  print_key_idlist 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	128
+	idlist	переход	157
+
+состояние 61
+	range :  range_of_id is id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	158
+
+состояние 62
+	replace :  replace_key_repclause tlclause qualclause 
+	repkword : _    (308)
+
+	IN	сдвиг 162
+	INTO	сдвиг 161
+	ON	сдвиг 163
+	.  свертка 308
+
+	repclause	переход	159
+	repkword	переход	160
+
+состояние 63
+	retrieve :  retrieve_key_resclause tlclause qualclause 
+	tupret_keyw :  retrieve_key_unique c_tlclause qualclause 
+	unique : _    (131)
+	retkword : _    (313)
+
+	UNIQUE	сдвиг 167
+	INTO	сдвиг 168
+	TO	сдвиг 169
+	LPAREN	свертка	131
+	.  свертка 313
+
+	resclause	переход	164
+	retkword	переход	166
+	unique	переход	165
+
+состояние 64
+	save :  save_key_id until date 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	170
+
+состояние 65
+	append_p :  append_p_key_apclause param_tl qualclause 
+	apkword : _    (284)
+
+	INTO	сдвиг 108
+	ON	сдвиг 111
+	ONTO	сдвиг 109
+	TO	сдвиг 110
+	.  свертка 284
+
+	apclause	переход	171
+	apkword	переход	107
+
+состояние 66
+	copy_p :  copy_p_key_id param_tl fr_in_id filename 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	172
+
+состояние 67
+	create_p :  create_p_key_id param_tl 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	173
+
+состояние 68
+	replace_p :  replace_p_key_repclause param_tl qualclause 
+	repkword : _    (308)
+
+	IN	сдвиг 162
+	INTO	сдвиг 161
+	ON	сдвиг 163
+	.  свертка 308
+
+	repclause	переход	174
+	repkword	переход	160
+
+состояние 69
+	retrieve_p :  retrieve_p_key_resclause param_tl qualclause 
+	retkword : _    (313)
+
+	INTO	сдвиг 168
+	TO	сдвиг 169
+	.  свертка 313
+
+	resclause	переход	175
+	retkword	переход	166
+
+70: конфликт сдвиг/свертка (сдвиг 177, свертка 139) при LBRACE
+состояние 70
+	tupret :  tupret_keyw_xc_code 
+	gen_while : _    (139)
+
+	LBRACE	сдвиг 177
+	.  свертка 139
+
+	xc_code	переход	176
+	gen_while	переход	178
+
+71: конфликт сдвиг/свертка (сдвиг 180, свертка 142) при LBRACE
+состояние 71
+	tupret :  tupret_p_o_xc_code 
+	o_gen_while : _    (142)
+
+	LBRACE	сдвиг 180
+	.  свертка 142
+
+	o_xc_code	переход	179
+	o_gen_while	переход	181
+
+состояние 72
+	view_p :  PARAM_define_key view_key id param_tl qualclause 
+	append_p_key :  PARAM_APPEND 
+	copy_p_key :  PARAM_COPY 
+	create_p_key :  PARAM_CREATE 
+	replace_p_key :  PARAM_REPLACE 
+	retrieve_p_key :  PARAM_RETRIEVE 
+	tupret_p_key :  PARAM_RETRIEVE 
+
+	APPEND	сдвиг 183
+	COPY	сдвиг 184
+	CREATE	сдвиг 185
+	DEFINE	сдвиг 82
+	REPLACE	сдвиг 186
+	RETRIEVE	сдвиг 187
+	.  error
+
+	define_key	переход	182
+
+состояние 73
+	exit :  EXIT_    (119)
+
+	.  свертка 119
+
+
+состояние 74
+	rubin :  rubin_key_param_list 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 191
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	190
+	param_list	переход	188
+	param	переход	189
+
+состояние 75
+	append_key :  APPEND_    (251)
+
+	.  свертка 251
+
+
+состояние 76
+	copy_key :  COPY_    (252)
+
+	.  свертка 252
+
+
+состояние 77
+	create_key :  CREATE_    (256)
+
+	.  свертка 256
+
+
+состояние 78
+	delete_key :  DELETE_    (259)
+
+	.  свертка 259
+
+
+состояние 79
+	destroy_key :  DESTROY_    (260)
+
+	.  свертка 260
+
+
+состояние 80
+	help_key :  HELP_    (261)
+
+	.  свертка 261
+
+
+состояние 81
+	index_key :  INDEX_ON 
+
+	ON	сдвиг 192
+	.  error
+
+
+состояние 82
+	define_key :  DEFINE_    (258)
+
+	.  свертка 258
+
+
+состояние 83
+	modify_key :  MODIFY_    (267)
+
+	.  свертка 267
+
+
+состояние 84
+	print_key :  PRINT_    (269)
+
+	.  свертка 269
+
+
+состояние 85
+	range_of :  RANGE_OF 
+
+	OF	сдвиг 193
+	.  error
+
+
+состояние 86
+	replace_key :  REPLACE_    (271)
+
+	.  свертка 271
+
+
+состояние 87
+	retrieve_key :  RETRIEVE_    (273)
+
+	.  свертка 273
+
+
+состояние 88
+	save_key :  SAVE_    (275)
+
+	.  свертка 275
+
+
+состояние 89
+	tupret_p :  tupret_p_key_unique param_tl qualclause 
+	unique : _    (131)
+
+	UNIQUE	сдвиг 167
+	.  свертка 131
+
+	unique	переход	194
+
+состояние 90
+	rubin_key :  RUBIN_    (263)
+
+	.  свертка 263
+
+
+состояние 91
+	declaration :  decl_specifer declarator_list_end_decl 
+	declarator_list :  declarator_list_comma cvar_dec 
+
+	IS	сдвиг 198
+	COMMA	сдвиг 199
+	SEMICOL	сдвиг 197
+	.  error
+
+	end_decl	переход	195
+	comma	переход	196
+
+состояние 92
+	declaration :  decl_specifer SEMICOL_    (146)
+
+	.  свертка 146
+
+
+состояние 93
+	declarator_list :  cvar_dec_    (166)
+
+	.  свертка 166
+
+
+состояние 94
+	cvar_dec :  cvarx_    (168)
+	cvarx :  cvarx_arraysub 
+
+	LBRKT	сдвиг 201
+	.  свертка 168
+
+	arraysub	переход	200
+
+состояние 95
+	cvarx :  NAME_    (182)
+
+	.  свертка 182
+
+
+состояние 96
+	cvarx :  ptr_cvarx 
+
+	NAME	сдвиг 95
+	BOP	сдвиг 97
+	.  error
+
+	cvarx	переход	202
+	ptr	переход	96
+
+состояние 97
+	ptr :  BOP_    (185)
+
+	.  свертка 185
+
+
+состояние 98
+	decl_specifer :  type_specifier sc_specifier_    (151)
+
+	.  свертка 151
+
+
+состояние 99
+	decl_specifer :  sc_specifier type_specifier_    (152)
+
+	.  свертка 152
+
+
+состояние 100
+	decl_specifer :  sc_specifier struct_dec_    (154)
+
+	.  свертка 154
+
+
+состояние 101
+	struct_dec :  struct_name field_declaration_    (157)
+
+	.  свертка 157
+
+
+состояние 102
+	field_declaration :  lbrace_field_seq RBRACE 
+	field_seq : _    (163)
+
+	.  свертка 163
+
+	field_seq	переход	203
+
+состояние 103
+	lbrace :  LBRACE_    (300)
+
+	.  свертка 300
+
+
+состояние 104
+	struct_dec :  struct_key field_declaration_    (159)
+
+	.  свертка 159
+
+
+состояние 105
+	struct_name :  struct_key NAME_    (160)
+
+	.  свертка 160
+
+
+состояние 106
+	append :  append_key apclause_tlclause qualclause 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	tlclause	переход	204
+	lparen	переход	205
+
+состояние 107
+	apclause :  apkword_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	207
+
+состояние 108
+	apkword :  INTO_    (280)
+
+	.  свертка 280
+
+
+состояние 109
+	apkword :  ONTO_    (281)
+
+	.  свертка 281
+
+
+состояние 110
+	apkword :  TO_    (282)
+
+	.  свертка 282
+
+
+состояние 111
+	apkword :  ON_    (283)
+
+	.  свертка 283
+
+
+состояние 112
+	copy :  copy_key id_lparen ctl rparen cp_kword filename 
+	copy :  copy_key id_lparen rparen cp_kword filename 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	lparen	переход	208
+
+состояние 113
+	id :  c_variable_    (187)
+
+	.  свертка 187
+
+
+состояние 114
+	c_variable :  cvarx_    (169)
+	cvarx :  cvarx_arraysub 
+
+	LBRKT	сдвиг 201
+	.  свертка 169
+
+	arraysub	переход	200
+
+состояние 115
+	c_variable :  NONREF_NAME 
+	c_variable :  NONREF_STRUCT_VAR 
+
+	STRUCT_VAR	сдвиг 210
+	NAME	сдвиг 209
+	.  error
+
+
+состояние 116
+	c_variable :  struct_var_    (172)
+	struct_var :  struct_var_arraysub 
+
+	LBRKT	сдвиг 201
+	.  свертка 172
+
+	arraysub	переход	211
+
+состояние 117
+	struct_var :  ptr_struct_var 
+	cvarx :  ptr_cvarx 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	BOP	сдвиг 97
+	.  error
+
+	cvarx	переход	202
+	struct_var	переход	212
+	ptr	переход	117
+	str_var_key	переход	118
+
+состояние 118
+	struct_var :  str_var_key_selector_part 
+
+	PERIOD	сдвиг 216
+	LBRKT	сдвиг 201
+	POINTER	сдвиг 217
+	.  error
+
+	selector_part	переход	213
+	arraysub	переход	214
+	select_op	переход	215
+
+состояние 119
+	str_var_key :  STRUCT_VAR_    (176)
+
+	.  свертка 176
+
+
+состояние 120
+	create :  create_key id_lparen ctl rparen 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	lparen	переход	218
+
+состояние 121
+	delete :  delete_key delclause_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	219
+	where	переход	220
+
+состояние 122
+	delclause :  delnoise_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	222
+
+состояние 123
+	delnoise :  IN_    (288)
+
+	.  свертка 288
+
+
+состояние 124
+	delnoise :  ON_    (289)
+
+	.  свертка 289
+
+
+состояние 125
+	delnoise :  FROM_    (290)
+
+	.  свертка 290
+
+
+состояние 126
+	destroy :  destroy_key idlist_    (50)
+	idlist :  idlist_comma id 
+
+	COMMA	сдвиг 199
+	.  свертка 50
+
+	comma	переход	223
+
+состояние 127
+	destroy :  destroy_key integ_permit_id int_list_all 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	224
+
+состояние 128
+	idlist :  id_    (188)
+
+	.  свертка 188
+
+
+состояние 129
+	integ_permit :  integ_key_    (52)
+
+	.  свертка 52
+
+
+состояние 130
+	integ_permit :  permit_key_    (53)
+
+	.  свертка 53
+
+
+состояние 131
+	integ_key :  INTEGRITY_    (264)
+
+	.  свертка 264
+
+
+состояние 132
+	permit_key :  PERMIT_    (268)
+
+	.  свертка 268
+
+
+состояние 133
+	help :  help_key all_    (57)
+
+	.  свертка 57
+
+
+состояние 134
+	help :  help_key hlist_    (58)
+	hlist :  hlist_comma hparam 
+
+	COMMA	сдвиг 199
+	.  свертка 58
+
+	comma	переход	225
+
+состояние 135
+	help :  help_key int_perm_view_idlist 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	128
+	idlist	переход	226
+
+состояние 136
+	all :  ALL_    (279)
+
+	.  свертка 279
+
+
+состояние 137
+	hlist :  hparam_    (60)
+
+	.  свертка 60
+
+
+состояние 138
+	int_perm_view :  integ_permit_    (64)
+
+	.  свертка 64
+
+
+состояние 139
+	int_perm_view :  view_key_    (65)
+
+	.  свертка 65
+
+
+состояние 140
+	hparam :  id_    (62)
+
+	.  свертка 62
+
+
+состояние 141
+	hparam :  sconst_    (63)
+
+	.  свертка 63
+
+
+состояние 142
+	view_key :  VIEW_    (278)
+
+	.  свертка 278
+
+
+состояние 143
+	sconst :  SCONST_    (209)
+
+	.  свертка 209
+
+
+состояние 144
+	index :  index_key id_is id lparen idlist rparen 
+
+	IS	сдвиг 228
+	.  error
+
+	is	переход	227
+
+состояние 145
+	integrity :  define_key integ_key_integnoise id isnoise qual 
+
+	IN	сдвиг 232
+	OF	сдвиг 233
+	ON	сдвиг 230
+	ONTO	сдвиг 231
+	.  error
+
+	integnoise	переход	229
+
+состояние 146
+	def_perm :  define_key permit_key_    (81)
+
+	.  свертка 81
+
+
+состояние 147
+	view :  define_key view_key_id tlclause qualclause 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	234
+
+состояние 148
+	lets :  define_key id_is integer 
+
+	IS	сдвиг 228
+	.  error
+
+	is	переход	235
+
+состояние 149
+	modify :  modify_key id_to id on modkeylist density 
+	modify :  modify_key id_to id 
+
+	TO	сдвиг 237
+	.  error
+
+	to	переход	236
+
+состояние 150
+	permit :  def_perm permit_list_on_of_to id perm_tl perm_who perm_term perm_time perm_day qualclause 
+	permit_list :  permit_list_comma permlistelm 
+
+	OF	сдвиг 244
+	ON	сдвиг 243
+	TO	сдвиг 237
+	COMMA	сдвиг 199
+	.  error
+
+	comma	переход	239
+	to	переход	242
+	on	переход	240
+	on_of_to	переход	238
+	of	переход	241
+
+состояние 151
+	permit_list :  permlistelm_    (82)
+
+	.  свертка 82
+
+
+состояние 152
+	permlistelm :  RETRIEVE_    (84)
+
+	.  свертка 84
+
+
+состояние 153
+	permlistelm :  APPEND_    (85)
+
+	.  свертка 85
+
+
+состояние 154
+	permlistelm :  DELETE_    (86)
+
+	.  свертка 86
+
+
+состояние 155
+	permlistelm :  REPLACE_    (87)
+
+	.  свертка 87
+
+
+состояние 156
+	permlistelm :  all_    (88)
+
+	.  свертка 88
+
+
+состояние 157
+	print :  print_key idlist_    (104)
+	idlist :  idlist_comma id 
+
+	COMMA	сдвиг 199
+	.  свертка 104
+
+	comma	переход	223
+
+состояние 158
+	range :  range_of id_is id 
+
+	IS	сдвиг 228
+	.  error
+
+	is	переход	245
+
+состояние 159
+	replace :  replace_key repclause_tlclause qualclause 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	tlclause	переход	246
+	lparen	переход	205
+
+состояние 160
+	repclause :  repkword_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	247
+
+состояние 161
+	repkword :  INTO_    (305)
+
+	.  свертка 305
+
+
+состояние 162
+	repkword :  IN_    (306)
+
+	.  свертка 306
+
+
+состояние 163
+	repkword :  ON_    (307)
+
+	.  свертка 307
+
+
+состояние 164
+	retrieve :  retrieve_key resclause_tlclause qualclause 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	tlclause	переход	248
+	lparen	переход	205
+
+состояние 165
+	tupret_keyw :  retrieve_key unique_c_tlclause qualclause 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	lparen	переход	250
+	c_tlclause	переход	249
+
+состояние 166
+	resclause :  retkword_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	251
+
+состояние 167
+	unique :  UNIQUE_    (130)
+
+	.  свертка 130
+
+
+состояние 168
+	retkword :  INTO_    (311)
+
+	.  свертка 311
+
+
+состояние 169
+	retkword :  TO_    (312)
+
+	.  свертка 312
+
+
+состояние 170
+	save :  save_key id_until date 
+
+	UNTIL	сдвиг 253
+	.  error
+
+	until	переход	252
+
+состояние 171
+	append_p :  append_p_key apclause_param_tl qualclause 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	254
+
+состояние 172
+	copy_p :  copy_p_key id_param_tl fr_in_id filename 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	256
+
+состояние 173
+	create_p :  create_p_key id_param_tl 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	257
+
+состояние 174
+	replace_p :  replace_p_key repclause_param_tl qualclause 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	258
+
+состояние 175
+	retrieve_p :  retrieve_p_key resclause_param_tl qualclause 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	259
+
+состояние 176
+	tupret :  tupret_keyw xc_code_    (127)
+
+	.  свертка 127
+
+
+состояние 177
+	xc_code :  LBRACE_gen_while c_code RBRACE 
+	gen_while : _    (139)
+
+	.  свертка 139
+
+	gen_while	переход	260
+
+состояние 178
+	xc_code :  gen_while_    (138)
+
+	.  свертка 138
+
+
+состояние 179
+	tupret :  tupret_p o_xc_code_    (128)
+
+	.  свертка 128
+
+
+состояние 180
+	o_xc_code :  LBRACE_o_gen_while c_code RBRACE 
+	o_gen_while : _    (142)
+
+	.  свертка 142
+
+	o_gen_while	переход	261
+
+состояние 181
+	o_xc_code :  o_gen_while_    (141)
+
+	.  свертка 141
+
+
+состояние 182
+	view_p :  PARAM define_key_view_key id param_tl qualclause 
+
+	VIEW	сдвиг 142
+	.  error
+
+	view_key	переход	262
+
+состояние 183
+	append_p_key :  PARAM APPEND_    (250)
+
+	.  свертка 250
+
+
+состояние 184
+	copy_p_key :  PARAM COPY_    (253)
+
+	.  свертка 253
+
+
+состояние 185
+	create_p_key :  PARAM CREATE_    (257)
+
+	.  свертка 257
+
+
+состояние 186
+	replace_p_key :  PARAM REPLACE_    (272)
+
+	.  свертка 272
+
+
+состояние 187
+	retrieve_p_key :  PARAM RETRIEVE_    (274)
+	tupret_p_key :  PARAM RETRIEVE_    (277)
+
+	UNIQUE	свертка	277
+	LPAREN	свертка	277
+	.  свертка 274
+
+
+состояние 188
+	rubin :  rubin_key param_list_    (120)
+
+	.  свертка 120
+
+
+состояние 189
+	param_list :  param_    (121)
+	param_list :  param_param_list 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 191
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  свертка 121
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	190
+	param_list	переход	263
+	param	переход	189
+
+состояние 190
+	param :  id_    (123)
+
+	.  свертка 123
+
+
+состояние 191
+	param :  SCONST_    (124)
+
+	.  свертка 124
+
+
+состояние 192
+	index_key :  INDEX ON_    (262)
+
+	.  свертка 262
+
+
+состояние 193
+	range_of :  RANGE OF_    (270)
+
+	.  свертка 270
+
+
+состояние 194
+	tupret_p :  tupret_p_key unique_param_tl qualclause 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	264
+
+состояние 195
+	declaration :  decl_specifer declarator_list end_decl_    (145)
+
+	.  свертка 145
+
+
+состояние 196
+	declarator_list :  declarator_list comma_cvar_dec 
+
+	NAME	сдвиг 95
+	BOP	сдвиг 97
+	.  error
+
+	cvarx	переход	94
+	ptr	переход	96
+	cvar_dec	переход	265
+
+состояние 197
+	end_decl :  SEMICOL_    (147)
+
+	.  свертка 147
+
+
+состояние 198
+	end_decl :  IS_    (148)
+
+	.  свертка 148
+
+
+состояние 199
+	comma :  COMMA_    (287)
+
+	.  свертка 287
+
+
+состояние 200
+	cvarx :  cvarx arraysub_    (184)
+
+	.  свертка 184
+
+
+состояние 201
+	arraysub :  LBRKT_    (186)
+
+	.  свертка 186
+
+
+состояние 202
+	cvarx :  ptr cvarx_    (183)
+	cvarx :  cvarx_arraysub 
+
+	.  свертка 183
+
+	arraysub	переход	200
+
+состояние 203
+	field_declaration :  lbrace field_seq_RBRACE 
+	field_seq :  field_seq_field 
+
+	TYPE	сдвиг 16
+	C_CODE	сдвиг 269
+	RBRACE	сдвиг 266
+	.  error
+
+	type_specifier	переход	268
+	field	переход	267
+
+состояние 204
+	append :  append_key apclause tlclause_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	270
+	where	переход	220
+
+состояние 205
+	tlclause :  lparen_tlist rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	273
+	tlist	переход	271
+	tlelm	переход	272
+	attrib	переход	274
+
+состояние 206
+	lparen :  LPAREN_    (301)
+
+	.  свертка 301
+
+
+состояние 207
+	apclause :  apkword id_    (42)
+
+	.  свертка 42
+
+
+состояние 208
+	copy :  copy_key id lparen_ctl rparen cp_kword filename 
+	copy :  copy_key id lparen_rparen cp_kword filename 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	RPAREN	сдвиг 278
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	277
+	ctl	переход	275
+	rparen	переход	276
+
+состояние 209
+	c_variable :  NONREF NAME_    (170)
+
+	.  свертка 170
+
+
+состояние 210
+	c_variable :  NONREF STRUCT_VAR_    (171)
+
+	.  свертка 171
+
+
+состояние 211
+	struct_var :  struct_var arraysub_    (174)
+
+	.  свертка 174
+
+
+состояние 212
+	struct_var :  ptr struct_var_    (173)
+	struct_var :  struct_var_arraysub 
+
+	.  свертка 173
+
+	arraysub	переход	211
+
+состояние 213
+	struct_var :  str_var_key selector_part_    (175)
+
+	.  свертка 175
+
+
+состояние 214
+	selector_part :  arraysub_selector_part 
+
+	PERIOD	сдвиг 216
+	LBRKT	сдвиг 201
+	POINTER	сдвиг 217
+	.  error
+
+	selector_part	переход	279
+	arraysub	переход	214
+	select_op	переход	215
+
+состояние 215
+	selector_part :  select_op_NAME 
+
+	NAME	сдвиг 280
+	.  error
+
+
+состояние 216
+	select_op :  PERIOD_    (179)
+
+	.  свертка 179
+
+
+состояние 217
+	select_op :  POINTER_    (180)
+
+	.  свертка 180
+
+
+состояние 218
+	create :  create_key id lparen_ctl rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	277
+	ctl	переход	281
+
+состояние 219
+	delete :  delete_key delclause qualclause_    (48)
+
+	.  свертка 48
+
+
+220: конфликт сдвиг/свертка (сдвиг 283, свертка 204) при PARAM
+состояние 220
+	qualclause :  where_qual 
+	qualclause :  where_PARAM param_tl 
+	qualclause :  where_c_variable 
+	qual : _    (204)
+
+	PARAM	сдвиг 283
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	LUOP	сдвиг 288
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  свертка 204
+
+	c_variable	переход	284
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	285
+	qual	переход	282
+	cvar	переход	302
+	afcn	переход	289
+	luop	переход	286
+	clause	переход	287
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 221
+	where :  WHERE_    (315)
+
+	.  свертка 315
+
+
+состояние 222
+	delclause :  delnoise id_    (49)
+
+	.  свертка 49
+
+
+состояние 223
+	idlist :  idlist comma_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	308
+
+состояние 224
+	destroy :  destroy_key integ_permit id_int_list_all 
+
+	STRUCT_VAR	сдвиг 119
+	ALL	сдвиг 136
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	int_list_all	переход	309
+	int_list	переход	310
+	all	переход	311
+	integer	переход	312
+
+состояние 225
+	hlist :  hlist comma_hparam 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 143
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	140
+	sconst	переход	141
+	hparam	переход	316
+
+состояние 226
+	help :  help_key int_perm_view idlist_    (59)
+	idlist :  idlist_comma id 
+
+	COMMA	сдвиг 199
+	.  свертка 59
+
+	comma	переход	223
+
+состояние 227
+	index :  index_key id is_id lparen idlist rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	317
+
+состояние 228
+	is :  IS_    (297)
+
+	.  свертка 297
+
+
+состояние 229
+	integrity :  define_key integ_key integnoise_id isnoise qual 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	318
+
+состояние 230
+	integnoise :  ON_    (293)
+
+	.  свертка 293
+
+
+состояние 231
+	integnoise :  ONTO_    (294)
+
+	.  свертка 294
+
+
+состояние 232
+	integnoise :  IN_    (295)
+
+	.  свертка 295
+
+
+состояние 233
+	integnoise :  OF_    (296)
+
+	.  свертка 296
+
+
+состояние 234
+	view :  define_key view_key id_tlclause qualclause 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	tlclause	переход	319
+	lparen	переход	205
+
+состояние 235
+	lets :  define_key id is_integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	320
+
+состояние 236
+	modify :  modify_key id to_id on modkeylist density 
+	modify :  modify_key id to_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	321
+
+состояние 237
+	to :  TO_    (310)
+
+	.  свертка 310
+
+
+состояние 238
+	permit :  def_perm permit_list on_of_to_id perm_tl perm_who perm_term perm_time perm_day qualclause 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	322
+
+состояние 239
+	permit_list :  permit_list comma_permlistelm 
+
+	APPEND	сдвиг 153
+	DELETE	сдвиг 154
+	REPLACE	сдвиг 155
+	RETRIEVE	сдвиг 152
+	ALL	сдвиг 136
+	.  error
+
+	all	переход	156
+	permlistelm	переход	323
+
+состояние 240
+	on_of_to :  on_    (89)
+
+	.  свертка 89
+
+
+состояние 241
+	on_of_to :  of_    (90)
+
+	.  свертка 90
+
+
+состояние 242
+	on_of_to :  to_    (91)
+
+	.  свертка 91
+
+
+состояние 243
+	on :  ON_    (303)
+
+	.  свертка 303
+
+
+состояние 244
+	of :  OF_    (302)
+
+	.  свертка 302
+
+
+состояние 245
+	range :  range_of id is_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	324
+
+состояние 246
+	replace :  replace_key repclause tlclause_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	325
+	where	переход	220
+
+состояние 247
+	repclause :  repkword id_    (107)
+
+	.  свертка 107
+
+
+состояние 248
+	retrieve :  retrieve_key resclause tlclause_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	326
+	where	переход	220
+
+состояние 249
+	tupret_keyw :  retrieve_key unique c_tlclause_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	327
+	where	переход	220
+
+состояние 250
+	c_tlclause :  lparen_c_tlist rparen 
+	reduc : _    (136)
+
+	.  свертка 136
+
+	c_tlist	переход	328
+	c_tlelm	переход	329
+	reduc	переход	330
+
+состояние 251
+	resclause :  retkword id_    (109)
+
+	.  свертка 109
+
+
+состояние 252
+	save :  save_key id until_date 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	332
+	date	переход	331
+
+состояние 253
+	until :  UNTIL_    (314)
+
+	.  свертка 314
+
+
+состояние 254
+	append_p :  append_p_key apclause param_tl_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	333
+	where	переход	220
+
+состояние 255
+	param_tl :  LPAREN_    (195)
+
+	.  свертка 195
+
+
+состояние 256
+	copy_p :  copy_p_key id param_tl_fr_in_id filename 
+
+	STRUCT_VAR	сдвиг 119
+	FROM	сдвиг 338
+	INTO	сдвиг 337
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	336
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	cp_kword	переход	335
+	fr_in_id	переход	334
+
+состояние 257
+	create_p :  create_p_key id param_tl_    (118)
+
+	.  свертка 118
+
+
+состояние 258
+	replace_p :  replace_p_key repclause param_tl_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	339
+	where	переход	220
+
+состояние 259
+	retrieve_p :  retrieve_p_key resclause param_tl_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	340
+	where	переход	220
+
+состояние 260
+	xc_code :  LBRACE gen_while_c_code RBRACE 
+
+	C_CODE	сдвиг 7
+	LBRACE	сдвиг 11
+	RBRACE	сдвиг 12
+	.  error
+
+	endblock	переход	9
+	c_code	переход	341
+	beginblock	переход	8
+
+состояние 261
+	o_xc_code :  LBRACE o_gen_while_c_code RBRACE 
+
+	C_CODE	сдвиг 7
+	LBRACE	сдвиг 11
+	RBRACE	сдвиг 12
+	.  error
+
+	endblock	переход	9
+	c_code	переход	342
+	beginblock	переход	8
+
+состояние 262
+	view_p :  PARAM define_key view_key_id param_tl qualclause 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	343
+
+состояние 263
+	param_list :  param param_list_    (122)
+
+	.  свертка 122
+
+
+состояние 264
+	tupret_p :  tupret_p_key unique param_tl_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	344
+	where	переход	220
+
+состояние 265
+	declarator_list :  declarator_list comma cvar_dec_    (167)
+
+	.  свертка 167
+
+
+состояние 266
+	field_declaration :  lbrace field_seq RBRACE_    (161)
+
+	.  свертка 161
+
+
+состояние 267
+	field_seq :  field_seq field_    (162)
+
+	.  свертка 162
+
+
+состояние 268
+	field :  type_specifier_declarator_list SEMICOL 
+
+	NAME	сдвиг 95
+	BOP	сдвиг 97
+	.  error
+
+	cvarx	переход	94
+	ptr	переход	96
+	declarator_list	переход	345
+	cvar_dec	переход	93
+
+состояние 269
+	field :  C_CODE_    (165)
+
+	.  свертка 165
+
+
+состояние 270
+	append :  append_key apclause tlclause qualclause_    (41)
+
+	.  свертка 41
+
+
+состояние 271
+	tlclause :  lparen tlist_rparen 
+
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	346
+
+состояние 272
+	tlist :  tlelm_    (211)
+	tlist :  tlelm_comma tlist 
+
+	COMMA	сдвиг 199
+	.  свертка 211
+
+	comma	переход	347
+
+состояние 273
+	tlelm :  id_is_key afcn 
+	attrib :  id_period id 
+	attrib :  id_period all 
+
+	BY	сдвиг 351
+	IS	сдвиг 350
+	PERIOD	сдвиг 352
+	.  error
+
+	is_key	переход	348
+	period	переход	349
+
+состояние 274
+	tlelm :  attrib_    (214)
+
+	.  свертка 214
+
+
+состояние 275
+	copy :  copy_key id lparen ctl_rparen cp_kword filename 
+	ctl :  ctl_comma id is id 
+
+	COMMA	сдвиг 199
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	353
+	comma	переход	354
+
+состояние 276
+	copy :  copy_key id lparen rparen_cp_kword filename 
+
+	FROM	сдвиг 338
+	INTO	сдвиг 337
+	.  error
+
+	cp_kword	переход	355
+
+состояние 277
+	ctl :  id_is id 
+
+	IS	сдвиг 228
+	.  error
+
+	is	переход	356
+
+состояние 278
+	rparen :  RPAREN_    (309)
+
+	.  свертка 309
+
+
+состояние 279
+	selector_part :  arraysub selector_part_    (177)
+
+	.  свертка 177
+
+
+состояние 280
+	selector_part :  select_op NAME_    (178)
+
+	.  свертка 178
+
+
+состояние 281
+	create :  create_key id lparen ctl_rparen 
+	ctl :  ctl_comma id is id 
+
+	COMMA	сдвиг 199
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	357
+	comma	переход	354
+
+состояние 282
+	qualclause :  where qual_    (196)
+	qual :  qual_lbop qual 
+
+	LBOP	сдвиг 359
+	.  свертка 196
+
+	lbop	переход	358
+
+состояние 283
+	qualclause :  where PARAM_param_tl 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	360
+
+состояние 284
+	cvar :  c_variable_    (181)
+	id :  c_variable_    (187)
+	qualclause :  where c_variable_    (198)
+
+	IS	свертка	181
+	LPAREN	свертка	187
+	PERIOD	свертка	187
+	UOP	свертка	181
+	BOP	свертка	181
+	BDOP	свертка	181
+	EOP	свертка	181
+	.  свертка 198
+
+
+состояние 285
+	qual :  lparen_qual rparen 
+	afcn :  lparen_afcn rparen 
+	qual : _    (204)
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	LUOP	сдвиг 288
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  свертка 204
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	285
+	qual	переход	361
+	cvar	переход	302
+	afcn	переход	362
+	luop	переход	286
+	clause	переход	287
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 286
+	qual :  luop_qual 
+	qual : _    (204)
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	LUOP	сдвиг 288
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  свертка 204
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	285
+	qual	переход	364
+	cvar	переход	302
+	afcn	переход	289
+	luop	переход	286
+	clause	переход	287
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 287
+	qual :  clause_    (203)
+
+	.  свертка 203
+
+
+состояние 288
+	luop :  LUOP_    (238)
+
+	.  свертка 238
+
+
+состояние 289
+	clause :  afcn_rop afcn 
+	clause :  afcn_rop afcn bdop afcn 
+	afcn :  afcn_bop afcn 
+
+	IS	сдвиг 369
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	BDOP	сдвиг 368
+	EOP	сдвиг 367
+	.  error
+
+	rop	переход	365
+	bop	переход	366
+
+состояние 290
+	afcn :  aggrfcn_    (215)
+
+	.  свертка 215
+
+
+состояние 291
+	afcn :  aggr_    (216)
+
+	.  свертка 216
+
+
+состояние 292
+	afcn :  attribfcn_    (217)
+
+	.  свертка 217
+
+
+состояние 293
+	afcn :  uop_afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	372
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 294
+	afcn :  fop_lparen afcn rparen 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	lparen	переход	374
+
+состояние 295
+	afcn :  fbop_lparen afcn comma afcn rparen 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	lparen	переход	375
+
+состояние 296
+	afcn :  id_lparen afcn rparen 
+	afcn :  id_lparen afcn comma afcn rparen 
+	attrib :  id_period id 
+	attrib :  id_period all 
+
+	LPAREN	сдвиг 206
+	PERIOD	сдвиг 352
+	.  error
+
+	lparen	переход	376
+	period	переход	349
+
+состояние 297
+	aggr :  aop_lparen afcn qualclause rparen 
+	aggrfcn :  aop_lparen afcn by aseq qualclause rparen 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	lparen	переход	377
+
+состояние 298
+	attribfcn :  I2CONST_    (227)
+
+	.  свертка 227
+
+
+состояние 299
+	attribfcn :  I4CONST_    (228)
+
+	.  свертка 228
+
+
+состояние 300
+	attribfcn :  F8CONST_    (229)
+
+	.  свертка 229
+
+
+состояние 301
+	attribfcn :  SCONST_    (230)
+
+	.  свертка 230
+
+
+состояние 302
+	attribfcn :  cvar_    (231)
+
+	.  свертка 231
+
+
+состояние 303
+	attribfcn :  attrib_    (232)
+
+	.  свертка 232
+
+
+состояние 304
+	uop :  UOP_    (243)
+
+	.  свертка 243
+
+
+состояние 305
+	fop :  FOP_    (244)
+
+	.  свертка 244
+
+
+состояние 306
+	fbop :  FBOP_    (245)
+
+	.  свертка 245
+
+
+состояние 307
+	aop :  AOP_    (249)
+
+	.  свертка 249
+
+
+состояние 308
+	idlist :  idlist comma id_    (189)
+
+	.  свертка 189
+
+
+состояние 309
+	destroy :  destroy_key integ_permit id int_list_all_    (51)
+
+	.  свертка 51
+
+
+состояние 310
+	int_list_all :  int_list_    (54)
+	int_list :  int_list_comma integer 
+
+	COMMA	сдвиг 199
+	.  свертка 54
+
+	comma	переход	378
+
+состояние 311
+	int_list_all :  all_    (55)
+
+	.  свертка 55
+
+
+состояние 312
+	int_list :  integer_    (193)
+
+	.  свертка 193
+
+
+состояние 313
+	integer :  I2CONST_    (190)
+
+	.  свертка 190
+
+
+состояние 314
+	integer :  I4CONST_    (191)
+
+	.  свертка 191
+
+
+состояние 315
+	integer :  c_variable_    (192)
+
+	.  свертка 192
+
+
+состояние 316
+	hlist :  hlist comma hparam_    (61)
+
+	.  свертка 61
+
+
+состояние 317
+	index :  index_key id is id_lparen idlist rparen 
+
+	LPAREN	сдвиг 206
+	.  error
+
+	lparen	переход	379
+
+состояние 318
+	integrity :  define_key integ_key integnoise id_isnoise qual 
+	isnoise : _    (299)
+
+	IS	сдвиг 381
+	.  свертка 299
+
+	isnoise	переход	380
+
+состояние 319
+	view :  define_key view_key id tlclause_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	382
+	where	переход	220
+
+состояние 320
+	lets :  define_key id is integer_    (113)
+
+	.  свертка 113
+
+
+состояние 321
+	modify :  modify_key id to id_on modkeylist density 
+	modify :  modify_key id to id_    (69)
+
+	ON	сдвиг 243
+	.  свертка 69
+
+	on	переход	383
+
+состояние 322
+	permit :  def_perm permit_list on_of_to id_perm_tl perm_who perm_term perm_time perm_day qualclause 
+	perm_tl : _    (93)
+
+	LPAREN	сдвиг 206
+	.  свертка 93
+
+	lparen	переход	385
+	perm_tl	переход	384
+
+состояние 323
+	permit_list :  permit_list comma permlistelm_    (83)
+
+	.  свертка 83
+
+
+состояние 324
+	range :  range_of id is id_    (105)
+
+	.  свертка 105
+
+
+состояние 325
+	replace :  replace_key repclause tlclause qualclause_    (106)
+
+	.  свертка 106
+
+
+состояние 326
+	retrieve :  retrieve_key resclause tlclause qualclause_    (108)
+
+	.  свертка 108
+
+
+состояние 327
+	tupret_keyw :  retrieve_key unique c_tlclause qualclause_    (129)
+
+	.  свертка 129
+
+
+состояние 328
+	c_tlclause :  lparen c_tlist_rparen 
+
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	386
+
+состояние 329
+	c_tlist :  c_tlelm_    (133)
+	c_tlist :  c_tlelm_comma c_tlist 
+
+	COMMA	сдвиг 199
+	.  свертка 133
+
+	comma	переход	387
+
+состояние 330
+	c_tlelm :  reduc_cvar is_key afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	389
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	cvar	переход	388
+
+состояние 331
+	save :  save_key id until date_    (110)
+
+	.  свертка 110
+
+
+состояние 332
+	date :  id_integer integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	390
+
+состояние 333
+	append_p :  append_p_key apclause param_tl qualclause_    (114)
+
+	.  свертка 114
+
+
+состояние 334
+	copy_p :  copy_p_key id param_tl fr_in_id_filename 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 143
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	393
+	filename	переход	391
+	sconst	переход	392
+
+состояние 335
+	fr_in_id :  cp_kword_    (116)
+
+	.  свертка 116
+
+
+состояние 336
+	fr_in_id :  c_variable_    (117)
+
+	.  свертка 117
+
+
+состояние 337
+	cp_kword :  INTO_    (254)
+
+	.  свертка 254
+
+
+состояние 338
+	cp_kword :  FROM_    (255)
+
+	.  свертка 255
+
+
+состояние 339
+	replace_p :  replace_p_key repclause param_tl qualclause_    (125)
+
+	.  свертка 125
+
+
+состояние 340
+	retrieve_p :  retrieve_p_key resclause param_tl qualclause_    (126)
+
+	.  свертка 126
+
+
+состояние 341
+	xc_code :  LBRACE gen_while c_code_RBRACE 
+
+	RBRACE	сдвиг 394
+	.  error
+
+
+состояние 342
+	o_xc_code :  LBRACE o_gen_while c_code_RBRACE 
+
+	RBRACE	сдвиг 395
+	.  error
+
+
+состояние 343
+	view_p :  PARAM define_key view_key id_param_tl qualclause 
+
+	LPAREN	сдвиг 255
+	.  error
+
+	param_tl	переход	396
+
+состояние 344
+	tupret_p :  tupret_p_key unique param_tl qualclause_    (143)
+
+	.  свертка 143
+
+
+состояние 345
+	field :  type_specifier declarator_list_SEMICOL 
+	declarator_list :  declarator_list_comma cvar_dec 
+
+	COMMA	сдвиг 199
+	SEMICOL	сдвиг 397
+	.  error
+
+	comma	переход	196
+
+состояние 346
+	tlclause :  lparen tlist rparen_    (210)
+
+	.  свертка 210
+
+
+состояние 347
+	tlist :  tlelm comma_tlist 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	273
+	tlist	переход	398
+	tlelm	переход	272
+	attrib	переход	274
+
+состояние 348
+	tlelm :  id is_key_afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	399
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 349
+	attrib :  id period_id 
+	attrib :  id period_all 
+
+	STRUCT_VAR	сдвиг 119
+	ALL	сдвиг 136
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	400
+	all	переход	401
+
+состояние 350
+	is_key :  IS_    (265)
+
+	.  свертка 265
+
+
+состояние 351
+	is_key :  BY_    (266)
+
+	.  свертка 266
+
+
+состояние 352
+	period :  PERIOD_    (304)
+
+	.  свертка 304
+
+
+состояние 353
+	copy :  copy_key id lparen ctl rparen_cp_kword filename 
+
+	FROM	сдвиг 338
+	INTO	сдвиг 337
+	.  error
+
+	cp_kword	переход	402
+
+состояние 354
+	ctl :  ctl comma_id is id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	403
+
+состояние 355
+	copy :  copy_key id lparen rparen cp_kword_filename 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 143
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	393
+	filename	переход	404
+	sconst	переход	392
+
+состояние 356
+	ctl :  id is_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	405
+
+состояние 357
+	create :  create_key id lparen ctl rparen_    (47)
+
+	.  свертка 47
+
+
+состояние 358
+	qual :  qual lbop_qual 
+	qual : _    (204)
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	LUOP	сдвиг 288
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  свертка 204
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	285
+	qual	переход	406
+	cvar	переход	302
+	afcn	переход	289
+	luop	переход	286
+	clause	переход	287
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 359
+	lbop :  LBOP_    (237)
+
+	.  свертка 237
+
+
+состояние 360
+	qualclause :  where PARAM param_tl_    (197)
+
+	.  свертка 197
+
+
+состояние 361
+	qual :  lparen qual_rparen 
+	qual :  qual_lbop qual 
+
+	RPAREN	сдвиг 278
+	LBOP	сдвиг 359
+	.  error
+
+	rparen	переход	407
+	lbop	переход	358
+
+состояние 362
+	clause :  afcn_rop afcn 
+	clause :  afcn_rop afcn bdop afcn 
+	afcn :  afcn_bop afcn 
+	afcn :  lparen afcn_rparen 
+
+	IS	сдвиг 369
+	RPAREN	сдвиг 278
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	BDOP	сдвиг 368
+	EOP	сдвиг 367
+	.  error
+
+	rparen	переход	408
+	rop	переход	365
+	bop	переход	366
+
+состояние 363
+	cvar :  c_variable_    (181)
+	id :  c_variable_    (187)
+
+	LPAREN	свертка	187
+	PERIOD	свертка	187
+	.  свертка 181
+
+
+состояние 364
+	qual :  luop qual_    (201)
+	qual :  qual_lbop qual 
+
+	.  свертка 201
+
+	lbop	переход	358
+
+состояние 365
+	clause :  afcn rop_afcn 
+	clause :  afcn rop_afcn bdop afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	409
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 366
+	afcn :  afcn bop_afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	410
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 367
+	rop :  EOP_    (240)
+
+	.  свертка 240
+
+
+состояние 368
+	rop :  BDOP_    (241)
+
+	.  свертка 241
+
+
+состояние 369
+	rop :  IS_    (242)
+
+	.  свертка 242
+
+
+состояние 370
+	bop :  BOP_    (246)
+
+	.  свертка 246
+
+
+состояние 371
+	bop :  UOP_    (247)
+
+	.  свертка 247
+
+
+состояние 372
+	afcn :  afcn_bop afcn 
+	afcn :  uop afcn_    (220)
+
+	.  свертка 220
+
+	bop	переход	366
+
+состояние 373
+	afcn :  lparen_afcn rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	411
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 374
+	afcn :  fop lparen_afcn rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	412
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 375
+	afcn :  fbop lparen_afcn comma afcn rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	413
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 376
+	afcn :  id lparen_afcn rparen 
+	afcn :  id lparen_afcn comma afcn rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	414
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 377
+	aggr :  aop lparen_afcn qualclause rparen 
+	aggrfcn :  aop lparen_afcn by aseq qualclause rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	415
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 378
+	int_list :  int_list comma_integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	416
+
+состояние 379
+	index :  index_key id is id lparen_idlist rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	128
+	idlist	переход	417
+
+состояние 380
+	integrity :  define_key integ_key integnoise id isnoise_qual 
+	qual : _    (204)
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	LUOP	сдвиг 288
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  свертка 204
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	285
+	qual	переход	418
+	cvar	переход	302
+	afcn	переход	289
+	luop	переход	286
+	clause	переход	287
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 381
+	isnoise :  IS_    (298)
+
+	.  свертка 298
+
+
+состояние 382
+	view :  define_key view_key id tlclause qualclause_    (112)
+
+	.  свертка 112
+
+
+состояние 383
+	modify :  modify_key id to id on_modkeylist density 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	421
+	modkeylist	переход	419
+	modkey	переход	420
+
+состояние 384
+	permit :  def_perm permit_list on_of_to id perm_tl_perm_who perm_term perm_time perm_day qualclause 
+	perm_who : _    (96)
+
+	TO	сдвиг 237
+	.  свертка 96
+
+	to	переход	423
+	perm_who	переход	422
+
+состояние 385
+	perm_tl :  lparen_idlist rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	128
+	idlist	переход	424
+
+состояние 386
+	c_tlclause :  lparen c_tlist rparen_    (132)
+
+	.  свертка 132
+
+
+состояние 387
+	c_tlist :  c_tlelm comma_c_tlist 
+	reduc : _    (136)
+
+	.  свертка 136
+
+	c_tlist	переход	425
+	c_tlelm	переход	329
+	reduc	переход	330
+
+состояние 388
+	c_tlelm :  reduc cvar_is_key afcn 
+
+	BY	сдвиг 351
+	IS	сдвиг 350
+	.  error
+
+	is_key	переход	426
+
+состояние 389
+	cvar :  c_variable_    (181)
+
+	.  свертка 181
+
+
+состояние 390
+	date :  id integer_integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	427
+
+состояние 391
+	copy_p :  copy_p_key id param_tl fr_in_id filename_    (115)
+
+	.  свертка 115
+
+
+состояние 392
+	filename :  sconst_    (45)
+
+	.  свертка 45
+
+
+состояние 393
+	filename :  id_    (46)
+
+	.  свертка 46
+
+
+состояние 394
+	xc_code :  LBRACE gen_while c_code RBRACE_    (137)
+
+	.  свертка 137
+
+
+состояние 395
+	o_xc_code :  LBRACE o_gen_while c_code RBRACE_    (140)
+
+	.  свертка 140
+
+
+состояние 396
+	view_p :  PARAM define_key view_key id param_tl_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	428
+	where	переход	220
+
+состояние 397
+	field :  type_specifier declarator_list SEMICOL_    (164)
+
+	.  свертка 164
+
+
+состояние 398
+	tlist :  tlelm comma tlist_    (212)
+
+	.  свертка 212
+
+
+состояние 399
+	tlelm :  id is_key afcn_    (213)
+	afcn :  afcn_bop afcn 
+
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  свертка 213
+
+	bop	переход	366
+
+состояние 400
+	attrib :  id period id_    (235)
+
+	.  свертка 235
+
+
+состояние 401
+	attrib :  id period all_    (236)
+
+	.  свертка 236
+
+
+состояние 402
+	copy :  copy_key id lparen ctl rparen cp_kword_filename 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 143
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	393
+	filename	переход	429
+	sconst	переход	392
+
+состояние 403
+	ctl :  ctl comma id_is id 
+
+	IS	сдвиг 228
+	.  error
+
+	is	переход	430
+
+состояние 404
+	copy :  copy_key id lparen rparen cp_kword filename_    (44)
+
+	.  свертка 44
+
+
+состояние 405
+	ctl :  id is id_    (207)
+
+	.  свертка 207
+
+
+состояние 406
+	qual :  qual_lbop qual 
+	qual :  qual lbop qual_    (202)
+
+	.  свертка 202
+
+	lbop	переход	358
+
+состояние 407
+	qual :  lparen qual rparen_    (200)
+
+	.  свертка 200
+
+
+состояние 408
+	afcn :  lparen afcn rparen_    (219)
+
+	.  свертка 219
+
+
+состояние 409
+	clause :  afcn rop afcn_    (205)
+	clause :  afcn rop afcn_bdop afcn 
+	afcn :  afcn_bop afcn 
+
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	BDOP	сдвиг 432
+	.  свертка 205
+
+	bdop	переход	431
+	bop	переход	366
+
+состояние 410
+	afcn :  afcn_bop afcn 
+	afcn :  afcn bop afcn_    (218)
+
+	UOP	сдвиг 371
+	.  свертка 218
+
+	bop	переход	366
+
+состояние 411
+	afcn :  afcn_bop afcn 
+	afcn :  lparen afcn_rparen 
+
+	RPAREN	сдвиг 278
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  error
+
+	rparen	переход	408
+	bop	переход	366
+
+состояние 412
+	afcn :  afcn_bop afcn 
+	afcn :  fop lparen afcn_rparen 
+
+	RPAREN	сдвиг 278
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  error
+
+	rparen	переход	433
+	bop	переход	366
+
+состояние 413
+	afcn :  afcn_bop afcn 
+	afcn :  fbop lparen afcn_comma afcn rparen 
+
+	COMMA	сдвиг 199
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  error
+
+	comma	переход	434
+	bop	переход	366
+
+состояние 414
+	afcn :  afcn_bop afcn 
+	afcn :  id lparen afcn_rparen 
+	afcn :  id lparen afcn_comma afcn rparen 
+
+	COMMA	сдвиг 199
+	RPAREN	сдвиг 278
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  error
+
+	rparen	переход	435
+	comma	переход	436
+	bop	переход	366
+
+состояние 415
+	afcn :  afcn_bop afcn 
+	aggr :  aop lparen afcn_qualclause rparen 
+	aggrfcn :  aop lparen afcn_by aseq qualclause rparen 
+	qualclause : _    (199)
+
+	BY	сдвиг 439
+	WHERE	сдвиг 221
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  свертка 199
+
+	qualclause	переход	437
+	where	переход	220
+	bop	переход	366
+	by	переход	438
+
+состояние 416
+	int_list :  int_list comma integer_    (194)
+
+	.  свертка 194
+
+
+состояние 417
+	index :  index_key id is id lparen idlist_rparen 
+	idlist :  idlist_comma id 
+
+	COMMA	сдвиг 199
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	440
+	comma	переход	223
+
+состояние 418
+	integrity :  define_key integ_key integnoise id isnoise qual_    (67)
+	qual :  qual_lbop qual 
+
+	LBOP	сдвиг 359
+	.  свертка 67
+
+	lbop	переход	358
+
+состояние 419
+	modify :  modify_key id to id on modkeylist_density 
+	modkeylist :  modkeylist_comma modkey 
+	density : _    (75)
+
+	WHERE	сдвиг 221
+	COMMA	сдвиг 199
+	.  свертка 75
+
+	comma	переход	442
+	density	переход	441
+	where	переход	443
+
+состояние 420
+	modkeylist :  modkey_    (70)
+
+	.  свертка 70
+
+
+состояние 421
+	modkey :  id_    (72)
+	modkey :  id_colon id 
+
+	COLON	сдвиг 445
+	.  свертка 72
+
+	colon	переход	444
+
+состояние 422
+	permit :  def_perm permit_list on_of_to id perm_tl perm_who_perm_term perm_time perm_day qualclause 
+	perm_term : _    (99)
+
+	AT	сдвиг 448
+	.  свертка 99
+
+	perm_term	переход	446
+	at	переход	447
+
+состояние 423
+	perm_who :  to_id 
+	perm_who :  to_all 
+
+	STRUCT_VAR	сдвиг 119
+	ALL	сдвиг 136
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	449
+	all	переход	450
+
+состояние 424
+	perm_tl :  lparen idlist_rparen 
+	idlist :  idlist_comma id 
+
+	COMMA	сдвиг 199
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	451
+	comma	переход	223
+
+состояние 425
+	c_tlist :  c_tlelm comma c_tlist_    (134)
+
+	.  свертка 134
+
+
+состояние 426
+	c_tlelm :  reduc cvar is_key_afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	452
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 427
+	date :  id integer integer_    (111)
+
+	.  свертка 111
+
+
+состояние 428
+	view_p :  PARAM define_key view_key id param_tl qualclause_    (144)
+
+	.  свертка 144
+
+
+состояние 429
+	copy :  copy_key id lparen ctl rparen cp_kword filename_    (43)
+
+	.  свертка 43
+
+
+состояние 430
+	ctl :  ctl comma id is_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	453
+
+состояние 431
+	clause :  afcn rop afcn bdop_afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	454
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 432
+	bdop :  BDOP_    (239)
+
+	.  свертка 239
+
+
+состояние 433
+	afcn :  fop lparen afcn rparen_    (221)
+
+	.  свертка 221
+
+
+состояние 434
+	afcn :  fbop lparen afcn comma_afcn rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	455
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 435
+	afcn :  id lparen afcn rparen_    (223)
+
+	.  свертка 223
+
+
+состояние 436
+	afcn :  id lparen afcn comma_afcn rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	456
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 437
+	aggr :  aop lparen afcn qualclause_rparen 
+
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	457
+
+состояние 438
+	aggrfcn :  aop lparen afcn by_aseq qualclause rparen 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	459
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+	aseq	переход	458
+
+состояние 439
+	by :  BY_    (248)
+
+	.  свертка 248
+
+
+состояние 440
+	index :  index_key id is id lparen idlist rparen_    (66)
+
+	.  свертка 66
+
+
+состояние 441
+	modify :  modify_key id to id on modkeylist density_    (68)
+
+	.  свертка 68
+
+
+состояние 442
+	modkeylist :  modkeylist comma_modkey 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	421
+	modkey	переход	460
+
+состояние 443
+	density :  where_modfill 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	462
+	modfill	переход	461
+
+состояние 444
+	modkey :  id colon_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	463
+
+состояние 445
+	colon :  COLON_    (286)
+
+	.  свертка 286
+
+
+состояние 446
+	permit :  def_perm permit_list on_of_to id perm_tl perm_who perm_term_perm_time perm_day qualclause 
+	perm_time : _    (101)
+
+	FROM	сдвиг 466
+	.  свертка 101
+
+	perm_time	переход	464
+	from	переход	465
+
+состояние 447
+	perm_term :  at_id 
+	perm_term :  at_all 
+
+	STRUCT_VAR	сдвиг 119
+	ALL	сдвиг 136
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	467
+	all	переход	468
+
+состояние 448
+	at :  AT_    (285)
+
+	.  свертка 285
+
+
+состояние 449
+	perm_who :  to id_    (94)
+
+	.  свертка 94
+
+
+состояние 450
+	perm_who :  to all_    (95)
+
+	.  свертка 95
+
+
+состояние 451
+	perm_tl :  lparen idlist rparen_    (92)
+
+	.  свертка 92
+
+
+состояние 452
+	c_tlelm :  reduc cvar is_key afcn_    (135)
+	afcn :  afcn_bop afcn 
+
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  свертка 135
+
+	bop	переход	366
+
+состояние 453
+	ctl :  ctl comma id is id_    (208)
+
+	.  свертка 208
+
+
+состояние 454
+	clause :  afcn rop afcn bdop afcn_    (206)
+	afcn :  afcn_bop afcn 
+
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  свертка 206
+
+	bop	переход	366
+
+состояние 455
+	afcn :  afcn_bop afcn 
+	afcn :  fbop lparen afcn comma afcn_rparen 
+
+	RPAREN	сдвиг 278
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  error
+
+	rparen	переход	469
+	bop	переход	366
+
+состояние 456
+	afcn :  afcn_bop afcn 
+	afcn :  id lparen afcn comma afcn_rparen 
+
+	RPAREN	сдвиг 278
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  error
+
+	rparen	переход	470
+	bop	переход	366
+
+состояние 457
+	aggr :  aop lparen afcn qualclause rparen_    (225)
+
+	.  свертка 225
+
+
+состояние 458
+	aggrfcn :  aop lparen afcn by aseq_qualclause rparen 
+	aseq :  aseq_comma afcn 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	COMMA	сдвиг 199
+	.  свертка 199
+
+	qualclause	переход	471
+	comma	переход	472
+	where	переход	220
+
+состояние 459
+	afcn :  afcn_bop afcn 
+	aseq :  afcn_    (234)
+
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  свертка 234
+
+	bop	переход	366
+
+состояние 460
+	modkeylist :  modkeylist comma modkey_    (71)
+
+	.  свертка 71
+
+
+состояние 461
+	density :  where modfill_    (74)
+	modfill :  modfill_comma id is mod_var 
+
+	COMMA	сдвиг 199
+	.  свертка 74
+
+	comma	переход	473
+
+состояние 462
+	modfill :  id_is mod_var 
+
+	IS	сдвиг 228
+	.  error
+
+	is	переход	474
+
+состояние 463
+	modkey :  id colon id_    (73)
+
+	.  свертка 73
+
+
+состояние 464
+	permit :  def_perm permit_list on_of_to id perm_tl perm_who perm_term perm_time_perm_day qualclause 
+	perm_day : _    (103)
+
+	ON	сдвиг 243
+	.  свертка 103
+
+	on	переход	476
+	perm_day	переход	475
+
+состояние 465
+	perm_time :  from_integer colon integer to integer colon integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	477
+
+состояние 466
+	from :  FROM_    (292)
+
+	.  свертка 292
+
+
+состояние 467
+	perm_term :  at id_    (97)
+
+	.  свертка 97
+
+
+состояние 468
+	perm_term :  at all_    (98)
+
+	.  свертка 98
+
+
+состояние 469
+	afcn :  fbop lparen afcn comma afcn rparen_    (222)
+
+	.  свертка 222
+
+
+состояние 470
+	afcn :  id lparen afcn comma afcn rparen_    (224)
+
+	.  свертка 224
+
+
+состояние 471
+	aggrfcn :  aop lparen afcn by aseq qualclause_rparen 
+
+	RPAREN	сдвиг 278
+	.  error
+
+	rparen	переход	478
+
+состояние 472
+	aseq :  aseq comma_afcn 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	SCONST	сдвиг 301
+	I2CONST	сдвиг 298
+	I4CONST	сдвиг 299
+	F8CONST	сдвиг 300
+	LPAREN	сдвиг 206
+	NONREF	сдвиг 115
+	UOP	сдвиг 304
+	BOP	сдвиг 97
+	FOP	сдвиг 305
+	FBOP	сдвиг 306
+	AOP	сдвиг 307
+	.  error
+
+	c_variable	переход	363
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	296
+	lparen	переход	373
+	cvar	переход	302
+	afcn	переход	479
+	attrib	переход	303
+	aggrfcn	переход	290
+	aggr	переход	291
+	attribfcn	переход	292
+	uop	переход	293
+	fop	переход	294
+	fbop	переход	295
+	aop	переход	297
+
+состояние 473
+	modfill :  modfill comma_id is mod_var 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	480
+
+состояние 474
+	modfill :  id is_mod_var 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 482
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	483
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	mod_var	переход	481
+
+состояние 475
+	permit :  def_perm permit_list on_of_to id perm_tl perm_who perm_term perm_time perm_day_qualclause 
+	qualclause : _    (199)
+
+	WHERE	сдвиг 221
+	.  свертка 199
+
+	qualclause	переход	484
+	where	переход	220
+
+состояние 476
+	perm_day :  on_id to id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	485
+
+состояние 477
+	perm_time :  from integer_colon integer to integer colon integer 
+
+	COLON	сдвиг 445
+	.  error
+
+	colon	переход	486
+
+состояние 478
+	aggrfcn :  aop lparen afcn by aseq qualclause rparen_    (226)
+
+	.  свертка 226
+
+
+состояние 479
+	afcn :  afcn_bop afcn 
+	aseq :  aseq comma afcn_    (233)
+
+	UOP	сдвиг 371
+	BOP	сдвиг 370
+	.  свертка 233
+
+	bop	переход	366
+
+состояние 480
+	modfill :  modfill comma id_is mod_var 
+
+	IS	сдвиг 228
+	.  error
+
+	is	переход	487
+
+состояние 481
+	modfill :  id is mod_var_    (76)
+
+	.  свертка 76
+
+
+состояние 482
+	mod_var :  I2CONST_    (78)
+
+	.  свертка 78
+
+
+состояние 483
+	mod_var :  c_variable_    (79)
+
+	.  свертка 79
+
+
+состояние 484
+	permit :  def_perm permit_list on_of_to id perm_tl perm_who perm_term perm_time perm_day qualclause_    (80)
+
+	.  свертка 80
+
+
+состояние 485
+	perm_day :  on id_to id 
+
+	TO	сдвиг 237
+	.  error
+
+	to	переход	488
+
+состояние 486
+	perm_time :  from integer colon_integer to integer colon integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	489
+
+состояние 487
+	modfill :  modfill comma id is_mod_var 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 482
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	483
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	mod_var	переход	490
+
+состояние 488
+	perm_day :  on id to_id 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	113
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	id	переход	491
+
+состояние 489
+	perm_time :  from integer colon integer_to integer colon integer 
+
+	TO	сдвиг 237
+	.  error
+
+	to	переход	492
+
+состояние 490
+	modfill :  modfill comma id is mod_var_    (77)
+
+	.  свертка 77
+
+
+состояние 491
+	perm_day :  on id to id_    (102)
+
+	.  свертка 102
+
+
+состояние 492
+	perm_time :  from integer colon integer to_integer colon integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	493
+
+состояние 493
+	perm_time :  from integer colon integer to integer_colon integer 
+
+	COLON	сдвиг 445
+	.  error
+
+	colon	переход	494
+
+состояние 494
+	perm_time :  from integer colon integer to integer colon_integer 
+
+	STRUCT_VAR	сдвиг 119
+	NAME	сдвиг 95
+	I2CONST	сдвиг 313
+	I4CONST	сдвиг 314
+	NONREF	сдвиг 115
+	BOP	сдвиг 97
+	.  error
+
+	c_variable	переход	315
+	cvarx	переход	114
+	struct_var	переход	116
+	ptr	переход	117
+	str_var_key	переход	118
+	integer	переход	495
+
+состояние 495
+	perm_time :  from integer colon integer to integer colon integer_    (100)
+
+	.  свертка 100
+
+
+71/127 терминалов, 172/300 нетерминалов
+316/600 правил, 496/750 состояний
+Конфликты: 3 сдвиг/свертка, 0 сдвиг/сдвиг
+172/350 рабочих множеств
+Память: состояния и т.п. 2406/12000, анализатор 1316/12000
+280/600 множеств символов-след.
+222 замыканий
+830 сдвигов, 30 исключений
+432 переходов
+667 переходов по умолчанию

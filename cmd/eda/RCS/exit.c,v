@@ -1,0 +1,235 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.01.19.16.54.14;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.19.11.46.10;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.24;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.3
+log
+@Если при записи нет свободного места на дисках, редактор
+теперь останавливается и после перезапуска повторяет обмен.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: exit.c,v 1.2 88/01/19 11:46:10 avg Exp $";
+#endif
+
+/*
+ * $Log:        exit.c,v $
+ * Revision 1.2  88/01/19  11:46:10  avg
+ * Добавлен nice перед idle.
+ *
+ * Revision 1.1  86/11/11  17:51:24  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 26.03.1985
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+/*
+ * Выход из редактора
+ *  arg = PLUS   - нормальный выход
+ *        MINUS  - аварийный выход
+ */
+rexit(arg)
+{
+	extern char *bname,*wname,*tname,*bfn,*ofn,*sfn;
+	extern int fmode;
+#ifndef V2
+	extern int  tmode[];
+#else
+	extern struct sgttyb1 tmode;
+#endif V2
+
+ /* Закрыть файлы редактора */
+	if( arg == PLUS ) {
+		minutes();
+		copyout();
+		unlink(bfn);            /* Переименование исходного */
+		link(sfn, bfn);         /*        файла в back файл */
+		unlink(sfn);
+		link(ofn, sfn);         /* Переименование выходного */
+		unlink(ofn);            /*   файла                  */
+		chmod(sfn, fmode);
+	} else {
+		sclose(&bstack, bname);
+		sclose(&wstack, wname);
+		printx(S_erase);
+		unlink(ofn);
+	}
+	unlink(tname);
+
+/* Восстановить параметры терминала */
+#ifdef SYMSTOP
+	printx(SYMSTOP);
+#endif SYMSTOP
+	fflush( stdout );
+#ifdef V2
+	ioctl( 0, TIOCSETA, &tmode );
+#else
+	stty(0, tmode);
+#endif V2
+	exit(0);
+}
+
+/*
+ * Минуточку ...
+ */
+minutes()
+{
+	printx(S_erase);
+	printx(ediag( "\n\n            Just a minute ...\r\n\n",
+		      "\n\n               Минуточку ...\r\n\n"));
+	fflush( stdout );
+}
+
+#include <errno.h>
+/*
+ * Ошибка ввода/вывода -- аварийный выход без уничтожения
+ *   временных файлов
+ */
+diskerror()
+{
+#ifndef V2
+	extern int tmode[];
+#else
+	extern struct sgttyb1 tmode;
+#endif V2
+	extern errno, ErrFlag;
+
+	printx(S_erase);
+	if( errno == ENOSPC ) {
+		ErrFlag++;
+		printx( ediag( " !!! No space left on device, remove garbage.\r\n",
+			       " !!! Нет места на диске, сотрите лишние файлы.\r\n" ) );
+		Unix();
+		return;
+	}
+	printx( ediag(
+ "\n\n   INPUT/OUTPUT ERROR !!!\r\n\
+ Immediately inform your Sysop.\r\n\n",
+ "\n\n   ОШИБКА ВВОДА/ВЫВОДА !!!\r\n\
+ Срочно обратитесь к системному программисту.\r\n\n" ));
+
+/* Восстановить параметры терминала */
+#ifdef SYMSTOP
+	printx(SYMSTOP);
+#endif SYMSTOP
+	fflush( stdout );
+#ifdef V2
+	ioctl(0, TIOCSETA, &tmode );
+#else
+	stty(0, tmode);
+#endif V2
+	signal( 2, 0 );
+	nice(40);
+	for( ;; );              /* IDLE */
+}
+
+/*
+ * Спасение изменений в исходном файле
+ */
+copy()
+{
+	extern char *bname,*wname,*tname,*bfn,*ofn,*sfn;
+	extern int  tmode[],fmode,pline;
+	extern char eof,sfile;
+	extern FILE *sbuf,*obuf;
+
+	int  lin,col,clin;
+
+	minutes();
+	lin = wstack.lines;
+	clin = cl;
+	col = cc;
+	copyout();
+	unlink(bfn);            /* Переименование исходного */
+	link(sfn, bfn);         /*        файла в back файл */
+	unlink(sfn);
+	link(ofn, sfn);         /* Переименование выходного */
+	unlink(ofn);            /*   файла                  */
+	chmod(sfn, fmode);
+
+	eof = 0;
+	pline = 0;
+	sfile = 0;
+	sbuf = fopen(sfn, "r");
+	obuf = fopen(ofn, "w");
+	stinit(&bstack, bname);
+	stinit(&wstack, wname);
+	fillline();
+	fillscr();
+	while( lin ) {
+		lin--;
+		putus(0);
+		scr.roll = (scr.roll+1) % NLIN;
+		getds(NLIN-1);
+	}
+	cl = clin;
+	cc = col;
+	rew();
+}
+@
+
+
+1.2
+log
+@Добавлен nice перед idle.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: exit.c,v 1.1 86/11/11 17:51:24 avg Exp $";
+d7 3
+d82 1
+d94 1
+d97 7
+d106 1
+a106 1
+ Immediately inform your system manager.\r\n\n",
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d109 1
+@

@@ -1,0 +1,378 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.01.25.19.26.41;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header$
+ * $Log$
+ */
+#ifndef lint
+static char RCS_ID[] = "$Header$";
+#endif
+#include <stdio.h>
+#include <ediag.h>
+#define NSTGS 256
+
+/*      call:   ctc opts tc arg1 arg2
+		opts:
+		    -d - list only differences.
+		arg1, arg2 may be +, indicating the TERMCAP environ variable;
+			   may be files (the termcap is selected);
+			   if arg2 is missing, the right column will contain
+			   entry explanations.
+		tc - the termcap to be compared;
+
+	The output is a side-by-side listing of the termcaps.
+*/
+
+struct entry {
+    char *t_name;
+    char *t_e_line;
+    char *t_r_line;
+};
+
+extern struct entry interp[];
+
+extern char *getenv();
+char lbuf[1024], rbuf[1024];
+int dflag = 0;
+int expflag = 0;
+int cols;
+
+main (argc, argv)
+
+    int argc;
+    char **argv;
+{
+    char *arg, buf[1024];
+    static char *tcp = (char *) 0;
+    static char *larg = (char *) 0;
+    static char *rarg = (char *) 0;
+    char c;
+    char *lstgs[NSTGS], *rstgs[NSTGS];
+    int ls, rs, i, j;
+    int argcnt = 1;
+
+    while (--argc) {
+	arg = *(++argv);
+	if (*arg == '-') {
+	    arg++;
+	    while ((c = *arg++) != 0) {
+		switch (c) {
+		case 'd':
+		    dflag = 1;
+		    break;
+		default:
+		    goto uerr;
+		}
+	    }
+	} else {
+	    switch (argcnt++) {
+	    case 1:
+		tcp = arg;
+		break;
+	    case 2:
+		larg = arg;
+		break;
+	    case 3:
+		rarg = arg;
+		break;
+	    default:
+		goto uerr;
+	    }
+	}
+    }
+    if (tgetent(buf, getenv("TERM"), "") != 1)
+	cols = 80;
+    else
+	cols = tgetnum("co");
+    if (!larg) larg = "+";
+    if (!tcp) tcp = getenv ("TERM");
+    i = gettc (tcp, larg, lbuf, &ls, lstgs);
+    j = gettc (tcp, rarg, rbuf, &rs, rstgs);
+    printf (ediag(
+"Termcap entry for %s terminal:\n",
+"Описание терминала %s:\n"),
+tcp);
+    prtln (lbuf, rbuf);
+    printf (
+	((rs==0 && j ==0)?
+ediag(
+"%-4d bytes in %-4d strings\n",
+"%-4d байтов в %-4d строках\n")
+			:
+ediag(
+"%-4d bytes in %-4d strings          %-4d bytes in %-4d strings\n",
+"%-4d байтов в %-4d строках          %-4d байтов в %-4d строках\n")),
+	ls, i, rs, j);
+    printf ("----------------------------------- -----------------------------------\n");
+    present (lstgs, i, rstgs, j);
+    exit (0);
+
+uerr:
+    fprintf (stderr, ediag(
+"Usage: ctc [-d] [term] [tc1|+ [tc2|+]]\n",
+"Вызов: ctc [-d] [терминал] [файл1|+ [файл2|+]]\n"));
+    exit (1);
+}
+
+int
+gettc (tc, arg, buf, s, stgs)
+    char *tc, *arg, *buf;
+    char *stgs[NSTGS];
+    int *s;
+{
+    char *i, bbuf[1024];
+    int n;
+
+    if (arg == (char *) 0) {
+	expflag++;
+	*s = 0;
+	return 0;
+    }
+    if (*arg == '+')
+	*arg = 0;
+    i = arg;
+    if( *i == '\0' ) {
+	i = getenv("TERMCAP");
+	if( i == NULL )
+		i = "/etc/termcap";
+	else if (*i != '/')
+		i = ediag ("TERMCAP variable",
+			   "переменной TERMCAP");
+    }
+    if (tgetent (bbuf, tc, arg) != 1) {
+	fprintf (stderr, ediag(
+			"ctc: can't find term %s in %s\n",
+			"ctc: нет терминала %s в %s\n"), tc, i);
+	exit (1);
+    }
+    *s = strlen (bbuf);
+    wrtermcap (bbuf, buf);
+    for (i = buf; *i != ':'; i++)
+	;
+    *i = 0;
+    for (n = 0, i++; n < NSTGS; n++) {
+	stgs[n] = i;
+	    for (; *i != ':' && *i != 0; i++)
+		;
+	if (*i == 0)
+	    break;
+	*i++ = 0;
+    }
+    sort (stgs, n);
+    return n;
+}
+
+sort (s, n)      /* right from the Book */
+    char **s;
+    int n;
+{
+    int gap, i, j;
+    char *temp;
+
+    for (gap = n/2; gap > 0; gap /= 2)
+	for (i = gap; i < n; i++)
+	    for (j = i - gap; j >= 0; j -= gap) {
+		if (strlcmp (s[j], s[j+gap]) <= 0)
+		    break;
+		temp = s[j];
+		s[j] = s[j+gap];
+		s[j+gap] = temp;
+	    }
+}
+
+present (lstgs, i0, rstgs, j0)
+    char **lstgs, **rstgs;
+    int i0, j0;
+{
+    int i, j, n;
+    char lbuf[80];
+    i = j = 0;
+    do {
+	if (expflag) {
+	    explan (lstgs[i], lbuf);
+	    prtln (lstgs[i++], lbuf);
+	} else {
+	    if ((n = comp (lstgs[i], i == i0, rstgs[j], j == j0)) == 0) {
+		if (!dflag || strlcmp (lstgs[i], rstgs[j]) != 0)
+			prtln (lstgs[i], rstgs[j]);
+		i++; j++;
+	    } else if (n < 0)
+		prtln (lstgs[i++], "");
+	    else
+		prtln ("", rstgs[j++]);
+	}
+    } while (i < i0 || (j < j0 && ! expflag));
+}
+
+int comp (ls, ie, rs, je)
+    char *ls, *rs;
+    int ie, je;
+{
+    if (ie) return (1);
+    if (je) return (-1);
+    do {
+	if (*ls == *rs) continue;
+	if (*ls < *rs) return (-1);
+	else return (1);
+    } while (*ls && *ls != '=' && *ls++ != '#' &&
+	     *rs && *rs != '=' && *rs++ != '#'    );
+    return (0);
+}
+
+explan (instg, outstg)
+    char *instg, *outstg;
+{
+    struct entry *i;
+    char *k, *j;
+
+    for (i = interp; i->t_name; i++) {
+	k = i->t_name;
+	for (j = instg; *j != 0 && *j != '=' && *j != '#'; j++)
+	    if (*j != *k++) goto nextstg;
+	strcpy (outstg, ediag(i->t_e_line,i->t_r_line));
+	return;
+nextstg:;
+    }
+    strcpy (outstg, ediag("unknown capability","неизвестный описатель"));
+}
+
+prtln (s1, s2)
+char *s1, *s2;
+{
+    static int inited = 0;
+    static char f1[40], f2[40];
+
+    if (!inited) {
+	sprintf(f1, "%%-.%ds\n", cols);
+	sprintf(f2, "%%-%d.%ds %%-.%ds\n", cols/2-1, cols/2-1, cols/2-1);
+	inited = 1;
+    }
+    if (strlen (s2) == 0)
+	printf (f1, s1);
+    else
+	printf (f2, s1, s2);
+    prtpln (strlen (s1) > cols/2-1 ? &s1[cols/2-1] : "",
+	    strlen (s2) > cols/2-1 ? &s2[cols/2-1] : "");
+}
+
+prtpln (s1, s2)
+char *s1, *s2;
+{
+    static int inited = 0;
+    static char f1[40], f2[80];
+
+    if (!inited) {
+	sprintf(f1, "     %%-.%ds\n", cols-5);
+	sprintf(f2, "     %%-%d.%ds     %%-.%ds\n",
+			  cols/2-6, cols/2-6, cols/2-6);
+	inited = 1;
+    }
+    if (strlen (s1) + strlen (s2) == 0) return;
+    if (strlen (s2) == 0)
+	printf (f1, s1);
+    else
+	printf (f2, s1, s2);
+    prtpln (strlen (s1) > cols/2-6 ? &s1[cols/2-6] : "",
+	    strlen (s2) > cols/2-6 ? &s2[cols/2-6] : "");
+}
+
+#define NO 0
+#define YES 1
+#define WHITE(c)        (c == ' ' || c == '\t')
+
+static int ncap;
+
+int wrtermcap(bp, p)
+char *bp;
+char *p;
+{
+	register int i;
+	char *tp;
+	int space, empty;
+
+	ncap = 0;
+	while (*bp && *bp != ':') {
+		if (*bp == '|') {
+			tp = bp+1;
+			space = NO;
+			while (*tp && *tp != '|' && *tp != ':') {
+				space = (space || WHITE(*tp) );
+				tp++;
+			}
+			if (space) {
+				bp = tp;
+				continue;
+			}
+		}
+		*p++ = *bp++;
+	}
+/**/
+
+	while (*bp) {
+		switch (*bp) {
+		case ':':       /* discard empty, cancelled  or dupl fields */
+			/* discard empty, cancelled  or dupl fields */
+			tp = bp+1;
+			empty = YES;
+			while (*tp && *tp != ':') {
+				empty = (empty && WHITE(*tp) );
+				tp++;
+			}
+			if (empty || cancelled(bp+1)) {
+				bp = tp;
+				continue;
+			}
+			break;
+
+		case '\\':
+		case '^':       /* anything following is OK */
+			*p++ = *bp++;
+		}
+		*p++ = *bp++;
+contin:         ;
+	}
+	*p++ = ':';     /* we skipped the last : with the : lookahead hack */
+	*p++ = '\0';
+	return 1;
+}
+
+static  int cancelled(cap)
+char    *cap;
+{
+	static char delcap[128][2];
+	register int i;
+
+	for (i = 0; i < ncap; i++)
+	{
+		if (cap[0] == delcap[i][0] && cap[1] == delcap[i][1])
+			return (YES);
+	}
+	/* delete a second occurrance of the same capability */
+	delcap[ncap][0] = cap[0];
+	delcap[ncap][1] = cap[1];
+	ncap++;
+	return (cap[2] == '@@');
+}
+@

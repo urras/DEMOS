@@ -1,0 +1,58 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.14.13.48.24;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * getproject() saves the contents of the PROJECT environment variable.
+ * If the PROJECT variable is undefined or a null string, null is returned.
+ */
+#include "null.h"
+#include <sys/types.h>
+char *_PROJECT = NULL;                  /* project root directory pathname */
+
+void
+getproject()
+{
+	register char *pv;              /* ptr to start of PROJECT variable */
+	char *getenv();                 /* get environment variable */
+	char *strsav();                 /* save a string somewhere */
+
+	if ((pv = getenv("PROJECT")) != NULL && *pv != '\0')
+		_PROJECT = strsav(pv);
+}
+@

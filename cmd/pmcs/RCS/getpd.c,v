@@ -1,0 +1,156 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.01.09.15.56.28;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Система рассылки почты проектам.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#include <stdio.h>
+#include "projdesc.h"
+
+#define WORKSIZE         1500
+#define MAXUSIG          200
+
+/*
+ * Процедура getpd
+ * Выбирает структуру projdesc из файла fd
+ * Если tfd != NULL, то копирует в него комментарии
+ */
+struct projdesc *getpd(fd, tfd)
+register FILE *fd;
+FILE *tfd;
+{
+	static struct projdesc P;
+	register char *p, *q;
+	register c;
+	static char  worka[WORKSIZE];
+	static char *usigs[MAXUSIG];
+	int nusig = 0;
+	enum {
+		begin_of_line,
+		reading_proj_name,
+		reading_head_of_description,
+		reading_description,
+		reading_user_list
+	} state;
+
+Again:
+	state = begin_of_line;
+	p = worka;
+	while( (c = getc(fd)) != EOF ) {
+		if( c == '\t' ) c = ' ';
+		switch( state ) {
+		case begin_of_line:
+			if( c == '\n' || c == ' ' ) {
+				if( tfd != NULL )
+					putc(c, tfd);
+				continue;
+			}
+			if( c == '#' ) {
+				if( tfd == NULL ) {
+					while( (c = getc(fd)) != EOF &&
+						c != '\n' ) ;
+					if( c == EOF )
+						goto FOUND;
+				} else {
+					putc('#', tfd);
+					do {
+						c = getc(fd);
+						if( c == EOF )
+							goto FOUND;
+						putc(c, tfd);
+					} while( c != '\n' );
+				}
+				continue;
+			}
+			P.pd_pname = p;
+			state = reading_proj_name;
+		case reading_proj_name:
+			if( c == ':' ) {
+				q = p-1;
+				while( *q == ' ' )
+					*q-- = 0;
+				*p++ = 0;
+				P.pd_desc = p;
+				state = reading_head_of_description;
+				continue;
+			}
+			if( c == '\n' )
+				goto Again;
+			break;
+		case reading_head_of_description:
+			if( c == ' ' )
+				continue;
+			state = reading_description;
+		case reading_description:
+			if( c == ':' ) {
+				q = p-1;
+				while( *q == ' ' )
+					*q-- = 0;
+				*p++ = 0;
+				state = reading_user_list;
+				usigs[nusig++] = p;
+				continue;
+			}
+			if( c == '\\' ) {
+				c = getc(fd);       /* escapes next char */
+				if( c == EOF )
+					return NULL;
+				if( c == '\n' )
+					continue;
+			} else
+			if( c == '\n' )
+				goto Again;
+			break;
+		case reading_user_list:
+			if( c == ',' ) {
+				*p++ = 0;
+				if( p[-2] == '\0' )
+					nusig--;
+				usigs[nusig++] = p;
+				continue;
+			}
+			if( c == ' ' )
+				continue;
+			if( c == '\\' ) {
+				c = getc(fd);       /* escapes next char */
+				if( c == EOF )
+					return NULL;
+				if( c == '\n' )
+					continue;
+			} else
+			if( c == '\n' )
+				goto FOUND;
+		}
+		*p++ = c;
+	}
+
+FOUND:
+	if( state != reading_user_list )
+		return NULL;
+	*p = 0;
+	if( p[-1] == '\0' )
+		nusig--;
+	usigs[nusig] = NULL;
+	P.pd_usig  = usigs;
+	P.pd_nusig = nusig;
+	return &P;
+}
+@

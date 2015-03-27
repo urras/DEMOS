@@ -1,0 +1,491 @@
+head     1.6;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.6
+date     89.03.16.12.07.48;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.07.06.22.29.09;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.09.05.22.27.39;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.20.22.56.02;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.19.30.11;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.22.42;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.19.03;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.44.36;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.13.20;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.37.46;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.6
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@/*
+ *      $Log:	sh.local.h,v $
+ * Revision 1.5  87/07/06  22:29:09  alex
+ * Внесены правки для уменьшения занимаемой памяти
+ * 
+ * Revision 1.4  86/09/05  22:27:39  root
+ * Добавлено определение для СУБД РУБИН.
+ * 
+ * Revision 1.3  86/07/20  22:56:02  avg
+ * Слито с версией alex-а из 4.2.
+ *
+ * Revision 1.2  86/06/02  19:30:11  dmitry
+ * Слегка подчищен.
+ *
+ * Revision 1.1  86/06/01  20:22:42  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+/*
+ * This file defines certain local parameters
+ * A symbol should be defined in Makefile for local conditional
+ * compilation, e.g. IIASA or ERNIE, to be tested here and elsewhere.
+ */
+
+/*
+ * Fundamental definitions which may vary from system to system.
+ *
+ *      BUFSIZ          The i/o buffering size; also limits word size
+ *      SHELLPATH       Where the shell will live; initalizes $shell
+ *      MAILINTVL       How often to mailcheck; more often is more expensive
+ *      HZ              Cycle of ac power
+ *      OTHERSH         Shell for scripts which don't start with #
+ */
+
+#ifdef pdp11
+#include <whoami.h>
+#endif
+
+#ifndef RUBIN
+# define RUBIN 1                /* We use RUBIN DBMS   @@VG */
+#endif
+
+#ifndef BUFSIZ
+#    define     BUFSIZ  1024    /* default buffer size */
+#endif
+#define HZ      50              /* for division into seconds */
+
+#define SHELLPATH       "/bin/csh"
+#define OTHERSH         "/bin/sh"
+#define FORKSLEEP       10      /* delay loop on non-interactive fork failure */
+#ifndef U42
+# define MAILINTVL      60     /* 1 minute */
+#else *
+# define MAILINTVL      600     /* 10 minutes */
+#endif
+
+/*
+ * NCARGS and NOFILE are from <sys/param.h> which we choose not
+ * to wholly include
+ */
+#ifndef U42
+# define NCARGS  5120           /* Max. chars in an argument list */
+#else
+# define NCARGS  10240          /* Max. chars in an argument list */
+#endif
+
+/*
+ * The shell moves std in/out/diag and the old std input away from units
+ * 0, 1, and 2 so that it is easy to set up these standards for invoked
+ * commands.  If possible they should go into descriptors closed by exec.
+ */
+#define NOFILE  20              /* Max number of open files */
+#define FSHTTY  15              /* /dev/tty when manip pgrps */
+#define FSHIN   16              /* Preferred desc for shell input */
+#define FSHOUT  17              /* ... shell output */
+#define FSHDIAG 18              /* ... shell diagnostics */
+#define FOLDSTD 19              /* ... old std input */
+
+#define V7
+
+#ifndef U42
+# define  SRCHPATH        ".", "/usr/ucb", "/bin", "/usr/bin"
+#else
+# include <pagsiz.h>
+# undef BUFSIZ
+# define BUFSIZ  BSIZE
+# define VFORK
+#endif
+
+#ifdef  VIRUS_VFORK
+# define VFORK
+#endif
+
+#ifdef U42
+# ifdef IIASA
+#  undef  HZ
+#  define HZ      60
+#  undef  OTHERSH
+# endif
+#endif
+
+#define TELL
+
+#define COMMANDEDIT
+@
+
+
+1.5
+log
+@Внесены правки для уменьшения занимаемой памяти
+@
+text
+@d3 3
+d102 1
+d104 2
+@
+
+
+1.4
+log
+@Добавлено определение для СУБД РУБИН.
+@
+text
+@d2 4
+a5 1
+ *      $Log:   sh.local.h,v $
+d99 1
+@
+
+
+1.3
+log
+@Слито с версией alex-а из 4.2.
+@
+text
+@d3 3
+d34 4
+d87 1
+@
+
+
+1.2
+log
+@Слегка подчищен.
+@
+text
+@d3 3
+d35 1
+d39 5
+a43 1
+#define MAILINTVL       60     /* 1 minute */
+d49 5
+a53 1
+#define NCARGS  5120            /* Max. chars in an argument list */
+d69 7
+a75 7
+#define  SRCHPATH        ".", "/usr/ucb", "/bin", "/usr/bin"
+
+#ifdef VMUNIX
+#include <pagsiz.h>
+#undef BUFSIZ
+#define BUFSIZ  BSIZE
+#define VFORK
+d79 8
+a86 1
+#define VFORK
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d3 3
+d57 1
+a57 5
+#ifdef IIASA
+#undef  HZ
+#define HZ      60
+#undef  OTHERSH
+#endif
+d62 2
+a63 2
+#define	BUFSIZ	BSIZE
+#define	VFORK
+d66 2
+a67 2
+#ifdef	VIRUS_VFORK
+#define	VFORK
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 3
+a3 1
+/* sh.local.h 4.1 10/9/80 */
+d14 5
+a18 5
+ *	BUFSIZ		The i/o buffering size; also limits word size
+ *	SHELLPATH	Where the shell will live; initalizes $shell
+ *	MAILINTVL	How often to mailcheck; more often is more expensive
+ *	HZ		Cycle of ac power
+ *	OTHERSH		Shell for scripts which don't start with #
+d25 2
+a26 2
+#ifndef	BUFSIZ
+#    define	BUFSIZ	1024	/* default buffer size */
+d28 5
+a32 5
+#define HZ	60		/* for division into seconds */
+#define	SHELLPATH	"/bin/csh"
+#define	OTHERSH		"/bin/sh"
+#define FORKSLEEP	10	/* delay loop on non-interactive fork failure */
+#define	MAILINTVL	600	/* 10 minutes */
+d38 1
+a38 1
+#define	NCARGS	5120		/* Max. chars in an argument list */
+d45 6
+a50 6
+#define	NOFILE	20		/* Max number of open files */
+#define	FSHTTY	15		/* /dev/tty when manip pgrps */
+#define	FSHIN	16		/* Preferred desc for shell input */
+#define	FSHOUT	17		/* ... shell output */
+#define	FSHDIAG	18		/* ... shell diagnostics */
+#define	FOLDSTD	19		/* ... old std input */
+d52 1
+a52 1
+#define	V7
+d55 3
+a57 3
+#undef	HZ
+#define	HZ	60
+#undef	OTHERSH
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@a0 2
+/*      @@(#)sh.local.h  2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+d2 4
+d7 2
+a8 3
+ * A symbol should be defined in Makefile for conditional
+ * compilation, e.g. CORY for U.C.B. Cory Hall 11/70 and
+ * tested here and elsewhere.
+a15 1
+ *      SRCHPATH        The directories in the default search path
+d17 2
+d21 2
+a22 8
+#ifdef VMUNIX
+#include <pagsiz.h>
+#define BUFSIZ          BSIZE
+#define VFORK
+#else
+# ifndef BUFSIZ
+#  define BUFSIZ                512
+# endif
+d25 2
+a26 2
+#ifdef  VIRUS_VFORK
+#define VFORK
+d28 2
+a29 2
+
+#define SHELLPATH       "/bin/oldcsh"
+d31 2
+a32 9
+/*
+ * Note that the first component of SRCHPATH is set to /etc for root
+ * in the file sh.c.
+ *
+ * Note also that the SRCHPATH is meaningless unless you are on a v6
+ * system since the default path will be imported from the environment.
+ */
+#define SRCHPATH        ".", "/usr/ucb", "/bin", "/usr/bin"
+#define MAILINTVL       300                             /* 10 minutes */
+d46 1
+d54 4
+a57 10
+#ifdef  V69
+#undef  V7
+#define V6
+#include <retrofit.h>
+#define NCARGS  3100
+#define NOFILE  15
+#define FSHIN   3
+#define FSHOUT  4
+#define FSHDIAG 5
+#define FOLDSTD 6
+d60 5
+a64 10
+#ifdef  NORMAL6
+#undef  V7
+#define V6
+#include <retrofit.h>
+#define NCARGS  510
+#define NOFILE  15
+#define FSHIN   3
+#define FSHOUT  4
+#define FSHDIAG 5
+#define FOLDSTD 6
+d67 2
+a68 2
+#ifdef  CC
+#define NCARGS  5120
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 10
+a10 11
+/* $Header: sh.local.h,v 2.2 86/03/13 00:27:28 alex Exp $
+ * $Log:	sh.local.h,v $
+ * Revision 2.2  86/03/13  00:27:28  alex
+ * *** empty log message ***
+ * 
+ * Revision 2.1  86/03/12  23:47:13  alex
+ * *** empty log message ***
+ * 
+ * Revision 1.1  86/03/12  23:46:30  alex
+ * Initial revision
+ * 
+d13 4
+a16 5
+ *	BUFSIZ		The i/o buffering size; also limits word size
+ *	SHELLPATH	Where the shell will live; initalizes $shell
+ *	MAILINTVL	How often to mailcheck; more often is more expensive
+ *	HZ		Cycle of ac power
+ *	OTHERSH		Shell for scripts which don't start with #
+d19 9
+a27 6
+#define	BUFSIZ	1024		/* default buffer size */
+#define HZ	100		/* for division into seconds */
+#define	SHELLPATH	"/bin/csh"
+#define	OTHERSH		"/bin/sh"
+#define FORKSLEEP	10	/* delay loop on non-interactive fork failure */
+#define	MAILINTVL	600	/* 10 minutes */
+d29 6
+d36 10
+d49 1
+a49 1
+#define	NCARGS	10240		/* Max. chars in an argument list */
+d56 5
+a60 6
+#define	NOFILE	20		/* Max number of open files */
+#define	FSHTTY	15		/* /dev/tty when manip pgrps */
+#define	FSHIN	16		/* Preferred desc for shell input */
+#define	FSHOUT	17		/* ... shell output */
+#define	FSHDIAG	18		/* ... shell diagnostics */
+#define	FOLDSTD	19		/* ... old std input */
+d62 1
+a62 1
+#define	V7
+d64 26
+a89 4
+#ifdef IIASA
+#undef	HZ
+#define	HZ	60
+#undef	OTHERSH
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a3 8
+ * C shell
+ *
+ * $Log:	sh.local.h,v $
+ * Revision 1.1  86/02/24  20:23:36  sys
+ * Initial revision
+ * 
+ *
+ *
+d22 1
+d24 3
+a26 1
+#define BUFSIZ          512
+d29 5
+a33 1
+#define SHELLPATH       "/bin/csh"
+a62 22
+
+#ifdef  МНОС
+#
+#       undef   NCARGS
+#       define  NCARGS  512
+#
+#       undef   NOFILE
+#       undef   FSHIN
+#       undef   FSHOUT
+#       undef   FSHDIAG
+#       undef   FOLDSTD
+#
+#       define  NOFILE  15
+#       define  FSHIN   11              /* Preferred desc for shell input */
+#       define  FSHOUT  12              /* ... shell output */
+#       define  FSHDIAG 13              /* ... shell diagnostics */
+#       define  FOLDSTD 14              /* ... old std input */
+#
+#       undef   SRCHPATH
+#       define  SRCHPATH        ".", "/bin", "/usr/bin"
+#
+#endif  МНОС
+@

@@ -1,0 +1,11 @@
+root:aa:0:0:000001::://.rubin::
+toor:ab:0:0:000001::://.rubin::
+bin:ac:0:0:000001::://.rubin::
+daemon:ad:1:1:000001:::/usr/spool/.rubin::
+uucp:ae:2:1:000001:::/usr/spool/uucppublic/.rubin::
+stop:af:0:0:000001:::/etc/.rubin::
+halt:ag:0:0:000001:::/etc/.rubin::
+ache:ah:112:2:000001:::/usr/users/ache/.rubin::
+korotay:ai:51:0:000001:::/usr/users/korotaev/.rubin::
+korotaev:aj:51:0:000001:::/usr/users/korotaev/.rubin::
+rubin:ak:99:5:177777:::/mnt/src/src/rubin/.rubin::

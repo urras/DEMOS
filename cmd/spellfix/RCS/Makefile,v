@@ -1,0 +1,61 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.07.09.20.41.52;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Интерактивное исправление ошибок при помощи spell.
+Makefile.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+# Интерактивное исправление ошибок при помощи spell
+#
+# $Log$
+#
+
+DESTDIR=/usr/ucb
+LIB=/usr/lib
+
+# Для версии исходных текстов без архивов RCS установите R=X
+R=
+RCS=RCS
+
+CFLAGS=-O -s
+
+all: spellfix.sh spellFIX
+
+install: all
+	cp spellfix.sh ${DESTDIR}/spellfix
+	cp spellFIX ${LIB}/spellFIX
+
+spellFIX: spellFIX.c
+	$(CC) $(CFLAGS) -o spellFIX spellFIX.c
+
+$(R)spellfix.sh: $(RCS)/spellfix.sh,v
+	co $(COFLAGS) spellfix.sh
+
+$(R)spellFIX.c: $(RCS)/spellFIX.c,v
+	co $(COFLAGS) spellFIX.c
+
+clean clear:
+	-rm -f *.[ob] spellFIX
+
+CLRSRC: clean
+	-rm -f spellFIX.c spellfix.sh
+@

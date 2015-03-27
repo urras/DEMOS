@@ -1,0 +1,57 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.14.13.50.40;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * warn() places an error message on the standard error output stream
+ * stderr.
+ */
+#include <stdio.h>
+
+extern char *PGN;                       /* program name */
+
+/* VARARGS1 */
+warn(fmt, args)
+	char *fmt;
+{
+	if (*PGN != '\0')
+		fprintf(stderr, "%s: ", PGN);
+	_doprnt(fmt, &args, stderr);
+	putc('\n', stderr);
+}
+@

@@ -1,0 +1,1530 @@
+head     3.4;
+access   ;
+symbols  RED_4:3.1.2 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+3.4
+date     86.09.19.19.56.53;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.53.33;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.06.07;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.06.04.23.58.54;  author alex;  state Exp;
+branches 3.1.1.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.07.02;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.05.18.56.50;  author alex;  state Exp;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.16.21.55.00;  author alex;  state Stab;
+branches ;
+next     3.1.1.4;
+
+3.1.1.4
+date     86.06.16.22.20.41;  author alex;  state Exp;
+branches ;
+next     3.1.1.5;
+
+3.1.1.5
+date     86.06.17.19.27.21;  author alex;  state Exp;
+branches ;
+next     3.1.1.6;
+
+3.1.1.6
+date     86.06.19.00.11.17;  author alex;  state Exp;
+branches ;
+next     3.1.1.7;
+
+3.1.1.7
+date     86.06.20.23.38.04;  author alex;  state Exp;
+branches ;
+next     3.1.1.8;
+
+3.1.1.8
+date     86.06.25.19.42.26;  author alex;  state Exp;
+branches ;
+next     3.1.1.9;
+
+3.1.1.9
+date     86.07.15.22.14.33;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@/*
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+ *       $Header: E.ttyio.c,v 3.3 86/08/04 20:53:33 alex Exp $
+ *
+ *      $Log:	E.ttyio.c,v $
+ * Revision 3.3  86/08/04  20:53:33  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  19:06:07  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.9  86/07/15  22:14:33  alex
+ * RED 3.3/EC.
+ * 
+ * Revision 3.1.1.8  86/06/25  19:42:26  alex
+ * Введено автоматическое смещение экрана
+ * 
+ * Revision 3.1.1.7  86/06/20  23:38:04  alex
+ * Исправлена ошибка в putblanks
+ * 
+ * Revision 3.1.1.6  86/06/19  00:11:17  alex
+ * Отлажен на модели повтор сеанса
+ * 
+ * Revision 3.1.1.5  86/06/17  19:27:21  alex
+ * Доделан примитивный повтор сеанса.
+ * 
+ * Revision 3.1.1.4  86/06/16  22:20:41  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.2  86/06/05  18:56:50  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1.1.1  86/06/05  00:07:02  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/06/04  23:58:54  alex
+ * *** empty log message ***
+ * 
+ * Revision 3.1  86/04/20  23:43:21  alex
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:43:21  alex
+ * *** empty log message ***
+ * 
+ *      Работа с терминалом : установка/снятие режимов, ввод/вывод.
+ *      Ввод управляющих клавиш.
+ *      Физический уровень
+ *      Вариант для ЕС - 7920.
+ */
+
+
+#include "r.defs.h"
+#include "E.7920.h"
+#include <sgtty.h>
+/*
+ * ttstartup()
+ * Установить режимы терминала
+ */
+ttstartup()
+{
+	register int i;
+	register char *c;
+	register struct oslines *op;
+	int m, nlines0, linel0;
+	struct sgttyb dtty;
+	gtty(2, &dtty);
+	speccase = lcasef = ((dtty.sg_flags & LCASE) == LCASE);
+	latf = 0;
+	if ( qsopen() < 0 )
+	{
+		printf(DIAG("Can not open tube\n", "Не удается открыть терминал в экранном режиме\n"));
+		exit(1);
+	}
+	/*
+	 * Определяем параметры терминала
+	 */
+	 nlines0 = NLINES = 24 /* qsrows */;
+	 linel0 =  LINEL =  80 /* qscols */;
+	 if ( LINEL >  LINELM ) LINEL = LINELM;
+	 if ( NLINES > NLINESM ) NLINES = NLINESM;
+	 if ( LINEL <= 60 ||  NLINES < 8 ) {
+	    printf(DIAG("Red can not work on this tty\n", "RED не может работать на таком терминале\n"));
+	    qsclose();
+	    exit(1);
+	  }
+	/*
+	 * Инициализация массивов
+	 */
+	  oscreen = salloc(linel0 * (nlines0+1));
+	  oslines = (struct oslines *)salloc((NLINES+1) * ( sizeof (struct oslines)) );
+	  m = linel0 * nlines0;
+	  c = oscreen;
+	  for ( i=0; i < m; i++) *c++ = ' ';
+	  for ( i=0, op = oslines; i < NLINES; i++, op++)
+	  {
+		op-> sl_mod = 1;
+		op-> sl_line = oscreen + i*linel0;
+		op-> sl_mline = NULL;
+		op-> sl_mleng = 0;
+	  }
+	pcursor(0,0);
+	omod = 1;
+	obell = 0;
+	oclearmod = 1;
+	olock = 1;
+	oclrmdt = 1;
+	qstrim = 0;
+	qsodbl = 0;
+	return;
+}
+
+
+/*
+ * ttcleanup()
+ * Восстановить режимы терминала
+ */
+ttcleanup()
+{
+	qsclose();
+}
+
+/*
+ * pcursor(col,lin) -
+ * установить курсор в физические координаты на
+ * экране.
+ */
+pcursor(col,lin)
+int col,lin;
+{ 
+	if ( lin != otline - oslines )
+	otline = & oslines[lin];
+	otchar = & (otline->sl_line[col]);
+	/* Для пpaвильнoй paбoты кoмaнд чepeз ПД2 ПД3 */
+	return(1);
+}
+
+/*
+ * putcha(c) - выдать символ "c".
+ * "c" может быть кодом управления.
+ *  Отрабатываются коды COSTART, COERASE, COHO, COBELL, COCURS.
+ * Возвращается 0, если запрошенная операция невозможна
+ */
+putcha(c)
+char c;
+{
+    if ( c & 0340 ) {
+wchar:
+	if ( *otchar != c ) {
+	* otchar   = c;
+        otline->sl_mod = 1;
+	}
+	otchar++;
+	return(0);
+    }
+    switch(c) {
+    case COHO: 
+        pcursor(0,0); 
+        break;
+    case COSTART:
+    case COERASE: 
+        oclearmod++; 
+        omod = 1;
+        { 
+            register int i;
+            register char *cp;
+            for ( cp = oscreen, i=0; i < LINEL * NLINES; i++) *cp++ = ' ';
+        }
+        break;
+    case COBELL:    
+        obell =  1; 
+        break;
+    case COCURS:    
+	c = '@@';
+        goto wchar;
+    default:        
+        return(0);
+    }
+    return(1);
+}
+
+
+/*
+ * putblanks(k) -
+ * Вывод строки пробелов
+ */
+putblanks(k)
+register int k;
+{       
+	register char *sy = otchar, olmod=0;
+	cursorcol += k;
+	while ( k-- ) { 
+		if ( *sy != ' ') *sy = ' ',olmod =1;
+		sy++; 
+	}
+	otchar = sy;
+	if ( olmod ) otline->sl_mod = 1;
+}
+
+/*
+ * editwind(port, fun, nozero)
+ * Открыть окно w на редактирование оператором.
+ * При изменении строк в окне будет вызываться
+ * функция fun с аргументами fun(nline, string)
+ * где nline - номер строки в окне, string - содержимое
+ * самой этой строки
+ * nozero = 1 - пустые символы считаются пробелами, иначе игнорируются
+ */
+editwind(w, fun, nozero)
+register struct viewport *w;
+int (*fun)();
+int nozero;
+{
+    register struct oslines *pol;
+    char *field; 
+    int lfield;
+    int nl;
+    nozerows = nozero;
+    curedit = fun;
+    cureport = w;
+    if ( w == (struct viewport *)0 ) {
+        for ( pol = oslines; pol < oslines + NLINES; pol++)
+            if ( pol-> sl_mline != NULL )
+            { 
+                pol-> sl_mline = NULL; 
+                pol-> sl_mod = 1;
+                pol-> sl_mleng = 0;
+            }
+        return;
+    }
+    for ( pol = oslines, nl = 0; nl < NLINES; nl++, pol++)
+    {
+	if ( nl < w->tedit + w->ttext || nl > w->ttext + w->bedit )
+            field = NULL, lfield = 0;
+        else
+            field = &pol->sl_line[w->ltext + w->ledit],
+	    lfield= w->redit - w->ledit + 1;
+        if ( pol->sl_mline != field || pol->sl_mleng != lfield)
+        {
+	    pol->sl_mod = 1;
+            pol->sl_mline = field;
+            pol->sl_mleng = lfield;
+        }
+    }
+}
+
+static short qsorow, qsocol;
+/*
+ * dumpcbuf(i) -
+ * выдать информацию из буфера на экран.
+ * i = 0 - на 7920 ничего не делать;
+ * i = 1 - только вывод, без ввода;
+ * i = 2 - вывод в режиме ввода.
+ * i = 3 - вывод в режиме доввода команды.
+ */
+extern short dconflag;
+static char endfield[]="";/* т.кaк нyжнo xoтя бы oднo пoлe ввoдa */
+dumpcbuf(flagd)
+int flagd;
+{ 
+    register struct oslines *op;
+    int begif, endif;
+    int outmod,lmarg;
+    if ( flagd == 0 ) return;
+    if ( omod) oclearmod = 1;
+    qsbfinit(0,oclearmod, obell, 0, oclrmdt);
+    oclearmod = obell = oclrmdt = 0;
+    for ( op = oslines; op < oslines+NLINES; op++)
+        if ( omod || op->sl_mod )
+        {
+	    outmod = (op == oslines + NLINES - 1?OH:(op==oslines?ONN:(op==oslines?ONN:ANY)));
+	    lmarg = (outmod != ANY);
+            qsbfsba(op-oslines+1,1);
+            if ( op->sl_mline == NULL ) {
+		qsbuffld(outmod,op->sl_line+lmarg, LINEL-lmarg*2);
+		if ( lmarg ) qsbuffld(ONN,"",0);
+            } 
+            else {
+		begif = op->sl_mline - op->sl_line-1;
+		endif = begif + op->sl_mleng + 2-lmarg;
+		qsbuffld(outmod, op->sl_line+lmarg, begif-lmarg);
+		qsbfsba((op-oslines)+1,1+begif);
+                { 
+                    register char *sy = & op->sl_mline[op->sl_mleng];
+                    char *syend;
+                    syend = sy;
+                    while ( --sy != op->sl_mline )
+                    { 
+                        if ( *sy == ' ' || *sy == 0 ) *sy = 0;
+                        else break;
+                    }
+		    qsbuffld(IN,op->sl_mline, op->sl_mleng);
+                    while ( ++sy != syend ) *sy = ' ';
+                }
+		qsbfsba(op-oslines+1,endif);
+		qsbuffld(outmod==ANY?ONN:outmod,op->sl_line + endif, LINEL - endif);
+            }
+            op->sl_mod = 0;
+	    if ( op == oslines + NLINES-1) qsbfsba(NLINES,LINEL-1),qsbuffld(ONN,endfield,0);
+        }
+    omod = 0;
+    if ( flagd != 3 ) {
+	qsbfsba((qsorow=qscrow= cursorline + curport->ttext+ 1),(qsocol=qsccol=cursorcol + curport->ltext + 1));
+	qsbfic();
+    }
+    qswrite();
+}
+
+
+/*
+ * Ввод команд и измененных строк с 7920.
+ * Таблицы вынесены в файл r.r7920.h
+ */
+#include "E.r7920.h"
+
+/*
+ * read1() -
+ * Ввод очередной команды.
+ * Команда или символ (если это было макро) записывается в переменную
+ * "lread1". При этом, если там было не -1, то считается, что
+ * предыдущий символ не был использован, и значение lread1 не
+ * выдается еще раз.
+ * Если изменяемые поля были модифицированы, то сначала для каждого
+ * поля вызывается функция редактирования (см. "editwind").
+ */
+extern char *rmacl();
+static int i_reg = 0, i_fix = 0;
+static short sc_copied;extern short learnflag;
+static short lastscmd = -1; /* Koмaндa, выдaвaeмaя пpи cбpoce экpaнa */
+int read1()
+{
+    register int i;
+    int cmd;
+    int dflag=2;
+    if ( lread1 != -1 ) return(lread1);
+rmac:
+    if (symac) {
+        lread1= *symac++;
+        if(*symac==0) symac=0;
+        return(lread1);
+    }
+    /*
+         * Здесь должно стоять чтение из протокола -
+         * пока не реализовано!!!
+         */
+    if ( inputfile && readfc()) goto readyicmd;
+    i_reg = i_fix;
+    if ( dconflag ) qsopen(), omod = 1;
+new_r:
+    dumpcbuf(dflag);
+    sc_copied = 0;
+    if ( qsread(1,nozerows) <= 0 || intrflag)
+    { 
+        cmd = CCENTER; 
+        intrflag = 0; 
+        goto readycmd;
+    }
+    cmd = -1;
+    for ( i=0; i < CMDSIZ; i++)
+        if ( intcmd[i].in_key == qskp )
+        { 
+            cmd = intcmd[i].in_cmd[i_reg];
+            break;
+        }
+    if ( cmd == -1 ) cmd = CCSET0;
+    if ( cmd == CCCLEAR )
+    { 
+	if ((cmd = lastscmd) == -1 ) { cmd = CCRESCREEN; goto readycmd; }
+	rescreen(-1);
+        dflag=2;
+    }
+    /*
+         * На следующем этапе проверим, не изменялись ли
+         * вводимые поля.
+         */
+    if ( qsmodf && curedit )
+    {
+        char *var;
+        register struct oslines *os;
+	int ibege, iende; int lnos;
+        ibege = cureport->ttext;
+        iende = ibege + cureport->bedit;
+        for ( os = oslines + ibege,i=0; os <= oslines + iende; i++, os++)
+            if ((var = os->sl_mline ) && qsmod(var))
+            { 
+                if ( nozerows && sc_copied == 0 ) copyscreen(oscreen), sc_copied=1;
+                PUTP(CCILINE); 
+                PUTP(i+ibege);
+		lnos = Pputs(var,os->sl_mleng);
+                PUTP(CCELINE);
+		(*curedit)(i, var,lnos);
+            }
+	oclrmdt = 1; qsmodf = 0;
+    }
+    if ( cmd >= 040 && cmd < 0176 ) /* Внутренние команды */
+    {
+        switch ( cmd ) {
+        case CCSET0: 
+            i_reg = i_fix = 0;
+            break;
+	case CCWAIT:
+	case CCSLEEP:
+	if ( qsocol != qsccol || qsorow != qscrow )
+	    PUTP(CCICURSOR),PUTP(qsccol), PUTP(qscrow), qsocol = qsccol,
+	    qsorow = qscrow;
+	    PUTP(cmd);
+	    i_reg = 0;
+            break;
+        case CCSET1: 
+            i_reg = 1; 
+            break;
+        case CCSET2: 
+            i_reg = 2; 
+            break;
+        case CCFIX1:
+            i_reg = i_fix = 1;
+            break;
+        case CCFIX2:
+            i_reg = i_fix = 2;
+            break;
+        default: 
+            i_reg = i_fix = 0;
+            break;
+        }
+        dflag = 3;
+        goto new_r;
+    }
+    /*
+     * Пoлyчeнa кoмaндa c тepминaлa.
+     */
+readycmd:
+    if ( cmd == CCPLPAGE || cmd == CCMIPAGE ||
+        cmd == CCPLLINE || cmd == CCMILINE ||
+        cmd == CCRPORT  || cmd == CCLPORT ) lastscmd = cmd;
+    else lastscmd = -1;
+    lread1 = cmd;
+    /*
+         * Здесь место записи команды в протокол
+         * Зaпиcывaeм пoлoжeниe кypcopa, ecли oнo измeнилocь.
+         * зaтeм пишeм caмy кoмaндy. Зaмeтим, чтo кoмaндa
+         * пишeтcя eщe дo мaкpo-пoдcтaнoвки
+         */
+    if ( qsocol != qsccol || qsorow != qscrow )
+        PUTP(CCICURSOR),PUTP(qsccol), PUTP(qscrow);
+	PUTP(lread1);
+readyicmd:
+    if ( dconflag ) qsclose();
+    qsocol = qsccol; 
+    qsorow = qscrow;
+    poscursor(qsccol-1-curport->ltext, qscrow-1-curport->ttext);
+    /*
+         * Здecь мecтo для пoиcкa мaкpo
+         */
+retnsy:
+    return(lread1);
+}
+
+/*
+ * writefile -
+ * Записать команду с аргументами в файл протокола
+ */
+
+writefile(code1,str,code2)
+int code1, code2;
+char *str;
+{ register char *s;
+	PUTP(code1);
+	s = str; while(*s++);
+	PUTP(CCILINE);PUTP(paramport.ttext);
+	Pputs(str,(s - str));
+	PUTP(CCELINE);
+	PUTP(code2);
+}
+
+
+/*
+ * readfc() -
+ * Чтeниe cимвoлa пpи вoccтaнoвлeнии
+ * ceaнca. Ocнoвнaя ocoбeннocть - читaeм тaк,
+ * чтoбы нe выдaвaть пocлeднюю кoмaндy.
+ * Oтвeт = 0 - пoвтop oкoнчeн.
+ * isy0f = -2 - дaй cимвoл, -1 - кoнeц, >=0 - cлeд. cимвoл
+ *
+ * Пpoтoкoл: "CИMBOЛ",
+ *           "CCICURSOR,кoлoнкa,cтpoкa",
+ *           "CCILINE, нoмep_cтpoки_нa_экpaнe,длинa,тeкcт...,CCELINE"
+ */
+
+
+
+int isy0f = -2;
+#define GETP(I) ((I=isy0f), (isy0f = get1c(inputfile)))
+#define GETP0(I) ((I= (isy0f==-2?get1c(inputfile):isy0f)) , isy0f = -2)
+readfc()
+{
+	register struct oslines *os;
+	register int i;int l,k;
+	char *var; short waitflag = 3;
+	if ( isy0f == -2 ) GETP(i);
+#define ENDI goto endifile
+	if ( !silentflag ) {
+		qsread(0,1);
+		if ( qskp == PA1 || qskp == TESTREQ ) ENDI;
+		dumpcbuf(1);
+		}
+	while ( lread1 == -1 && (GETP(i), isy0f) != -1 )
+	{
+		switch (i) {
+		case -1: 
+			ENDI;
+		case CCICURSOR: 
+			GETP(qsccol); 
+			GETP(qscrow); 
+			qsocol = qsccol;
+			qsorow = qscrow;
+			poscursor(qsccol-1-curport->ltext, qscrow-1-curport->ttext);
+			break;
+		case CCILINE:
+			GETP0(i);
+			if ( i < 0 || i >= NLINES || !curedit ) ENDI;
+			os = oslines+i; 
+			i -= cureport->ttext;
+			var = os->sl_mline;
+			if ( !var ) ENDI;
+			l = Pgets(var,os->sl_mleng);
+			if ( (GETP0(k),k)!=CCELINE)
+				ENDI;
+			(*curedit)(i, var,l);
+			break;
+		case CCSLEEP:
+			dumpcbuf(1);   /* Жди 5 ceкyнд */
+			sleep(5);
+			break;
+		case CCWAIT:
+			putcha(COBELL);
+			dumpcbuf(1);    /* Жди пoдтвepждeния c тepминaлa */
+			qsread(1,1);
+			if ( qskp != ENTER ) ENDI;
+			break;
+		default: 
+			lread1 = i; 
+			break;
+		}
+	if ( isy0f == -2 ) GETP(i);
+	}
+	if ( lread1 != -1 ) {  
+		return(1);
+	}
+endifile:
+	if ( inputfile != ttyfile) close(inputfile);
+	else lseek(ttyfile,(long)-1, 1);
+	inputfile = 0;
+	intrflag = 0;
+	putcha(COBELL);
+	return(0);
+}
+
+/*
+ * intrup() -
+ *       опрос, не было ли прерывания.
+ */
+intrup()
+{       
+    char sy1;
+    if( inputfile ){
+        if(isy0f == CCINTRUP ){
+	    isy0f= -2;
+            return(1);
+        }
+        else return(0);
+    }
+    else
+    {
+        if(intrflag){
+            intrflag=0;
+            sy1=CCINTRUP;
+            write(ttyfile,&sy1,1);
+            return(1);
+        }
+        return(0);
+    }
+}
+
+#define CCDEL 0177
+/* read2() -
+ *     функция, читающая входные символы
+ *     без их анализа.  Используется при
+ *     переопределении клавиш.
+ * !!!ЗАТЫЧКА!!!
+ */
+read2()
+{
+return(CCDEL);
+}
+
+/*
+ * addkey(cmd,key) -
+ * добавления новой управляющей клавиши
+ *      в таблицу кодов
+ * !!!ЗАТЫЧКА!!!
+ */
+addkey(cmd,key)
+int cmd;
+char *key;
+{ return(0); }
+
+/*
+ * Pputs(var,l) = l без пробелов в хвосте
+ * - запись строки в файл протокола.
+ */
+Pputs(sp,ln)
+char *sp;
+int ln;
+{ 
+    register char *s;
+    short l;
+    register char *se;
+    for ( s = se = sp; s-sp < ln; s++)
+    { 
+        if ( *s != ' ') se  = s+1;
+        if ( ! *s ) break;
+    }
+    l = se - sp;
+    PUTP(l);
+    if ( l )
+        write(ttyfile, sp,l);
+    return(l);
+}
+
+/*
+ * Pgets(s,ln) = l без пробелов в хвосте
+ * считывание строки из протокола.
+ */
+Pgets(sp,ln)
+char *sp; 
+int ln;
+{
+	register char *s;
+	short l;
+	GETP0(l);
+	if ( l ) read(inputfile, sp,l);
+	if ( l < ln ) for ( s = sp+l;s < sp+ln;) *s++ = ' ';
+	return(l);
+}
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d3 1
+a3 1
+ *       $Header: E.ttyio.c,v 3.2 86/07/24 19:06:07 alex Exp $
+d6 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.9 86/07/15 22:14:33 alex Exp $
+d5 4
+a8 1
+ *      $Log:	r.Ettyio.c,v $
+@
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.ttyio.c,v 3.1 86/04/20 23:43:21 alex Exp $
+d5 28
+a32 1
+ *      $Log:	r.ttyio.c,v $
+d47 1
+a47 1
+#include "r.7920.h"
+a48 1
+
+d60 2
+a61 2
+	gtty(0, &dtty);
+	lcasef = ((dtty.sg_flags & LCASE) == LCASE);
+a69 1
+	 **ZATYK*
+d71 2
+a72 2
+	 nlines0 = NLINES = 24;
+	 linel0 =  LINEL =  80;
+d83 1
+a83 1
+	  oscreen = salloc(linel0 * nlines0 + 2);
+d87 1
+a87 1
+	  for ( i=0; i < m; i++) *c++ = '  ';
+d127 1
+d147 1
+d167 1
+a167 1
+        c = '@@'; 
+d184 1
+a189 1
+	cursorcol += k;
+d214 1
+a214 1
+    if ( w == NULL ) {
+d240 1
+d249 2
+a253 1
+    register char *sy;
+d259 1
+a259 1
+    qsbfinit(0,oclearmod, obell, flagd != 1, oclrmdt);
+d264 2
+a265 2
+            outmod = (op == oslines + NLINES - 1?OH:ON);
+	    lmarg = (outmod != ON);
+d269 1
+d275 1
+a275 1
+		qsbfsba(op-oslines+1,1+begif);
+d285 1
+a285 1
+                    qsbuffld(IN, op->sl_mline, op->sl_mleng);
+d288 2
+a289 2
+		qsbfsba(op-oslines+1,1+endif);
+		qsbuffld(outmod, op->sl_line + endif, LINEL - endif);
+d292 1
+d296 2
+a297 2
+	qsbfsba(cursorline + curport->ttext+ 1, cursorcol + curport->ltext + 1);
+	qsbifc();
+d302 1
+d307 2
+a308 1
+#include "r.r7920.h"
+d320 3
+a322 3
+static char knocckdown;
+static int i_reg = 0;
+static short sc_copied;
+d326 3
+a328 2
+    int cmd;int dflag=2;
+    if ( lread1 != -1 ) return;
+d333 1
+a333 1
+        goto retnsy;
+d336 6
+a341 4
+     * Здесь должно стоять чтение из протокола -
+     * пока не реализовано!!!
+     */
+    i_reg = 0;
+d345 6
+a350 1
+    qsread(0);
+d358 2
+a359 1
+    if ( cmd == -1 )
+d361 3
+a363 3
+        rescreen(0);
+	dflag=2;
+        goto rmac;
+d365 23
+d392 1
+a392 1
+            i_reg = 0; 
+d394 8
+d408 6
+d415 1
+a415 1
+            i_reg = 0; 
+d418 1
+a418 1
+	dflag = 3;
+d422 1
+a422 2
+     * На следующем этапе проверим, не изменялись ли
+     * вводимые поля.
+d424 6
+a429 19
+    if ( curedit )
+    {
+        char *var;
+        register struct oslines *os;
+        char tc, *c;
+        int ibege, iende;
+        ibege = cureport->ttext;
+        iende = ibege + cureport->bedit;
+	for ( os = oslines + ibege,i=0; os <= oslines + iende; i++, os++)
+            if ((var = os->sl_mline ) && qsmod(var))
+            { 
+                if ( nozerows && sc_copied == 0 ) copyscreen(oscreen), sc_copied=1;
+		tc = *(c = var+os->sl_mleng);
+                *c = 0;
+                (*curedit)(i, var);
+                *c = tc;
+            }
+        oclrmdt = 1;
+    }
+d431 16
+a446 5
+     * Здесь место записи команды в протокол
+     * (пока не сделано).
+     */
+    poscursos(qsccol-1-curport->ltext, qscrow-1-curport->ttext);
+    lread1 = cmd;
+d451 4
+d456 13
+d470 82
+d557 18
+a574 8
+	char sy1;
+	if(intrflag){
+		intrflag=0;
+		sy1=CCINTRUP;
+		write(ttyfile,&sy1,1);
+		return(1);
+	}
+	return(0);
+d599 39
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1 86/06/04 23:58:54 alex Exp $
+d5 1
+a5 4
+ *      $Log:	r.Ettyio.c,v $
+ * Revision 3.1  86/06/04  23:58:54  alex
+ * *** empty log message ***
+ * 
+@
+
+
+3.1.1.2
+log
+@Отлажено_на_модели
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.1 86/06/05 00:07:02 alex Exp $
+a5 3
+ * Revision 3.1.1.1  86/06/05  00:07:02  alex
+ * Отлажено_на_модели
+ * 
+d190 1
+a190 1
+    if ( w == (struct viewport *)0 ) {
+d227 1
+d248 1
+a248 1
+		qsbfsba((op-oslines)+1,1+begif);
+a273 1
+
+d290 1
+d297 1
+a297 1
+    if ( lread1 != -1 ) return(lread1);
+@
+
+
+3.1.1.3
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.2 86/06/05 18:56:50 alex Exp $
+a5 3
+ * Revision 3.1.1.2  86/06/05  18:56:50  alex
+ * Отлажено_на_модели
+ * 
+d28 1
+d40 1
+a40 1
+	gtty(2, &dtty);
+d50 1
+d52 2
+a53 2
+	 nlines0 = NLINES = 24 /* qsrows */;
+	 linel0 =  LINEL =  80 /* qscols */;
+d64 1
+a64 1
+	  oscreen = salloc(linel0 * (nlines0+1));
+d68 1
+a68 1
+	  for ( i=0; i < m; i++) *c++ = ' ';
+a107 1
+	/* Для пpaвильнoй paбoты кoмaнд чepeз ПД2 ПД3 */
+a126 1
+	return(0);
+d146 1
+a146 1
+	c = '@@';
+a226 2
+extern short dconflag;
+static char endfield[]="";/* т.кaк нyжнo xoтя бы oднo пoлe ввoдa */
+d232 1
+a232 1
+    int outmod,lmarg;char ckeep;
+d235 1
+a235 1
+    qsbfinit(0,oclearmod, obell, 0, oclrmdt);
+d240 2
+a241 2
+	    outmod = (op == oslines + NLINES - 1?OH:(op==oslines?ONN:(op==oslines?ONN:ANY)));
+	    lmarg = (outmod != ANY);
+a244 1
+		if ( lmarg ) qsbuffld(ONN,"",0);
+d260 1
+a260 1
+		    qsbuffld(IN,op->sl_mline, op->sl_mleng);
+d263 2
+a264 2
+		qsbfsba(op-oslines+1,endif);
+		qsbuffld(outmod==ANY?ONN:outmod,op->sl_line + endif, LINEL - endif);
+a266 1
+	    if ( op == oslines + NLINES-1) qsbfsba(NLINES,LINEL-1),qsbuffld(ONN,endfield,0);
+d270 2
+a271 2
+	qsbfsba((qscrow= cursorline + curport->ttext+ 1),(qsccol=cursorcol + curport->ltext + 1));
+	qsbfic();
+d293 1
+a293 1
+static int i_reg = 0, i_fix = 0;
+a294 1
+static short lastscmd = CCSET0; /* Koмaндa, выдaвaeмaя пpи cбpoce экpaнa */
+d310 1
+a310 2
+    i_reg = i_fix;
+    if ( dconflag ) qsopen(), omod = 1;
+d314 1
+a314 2
+    if ( qsread(1) <= 0 || intrflag)
+	{ cmd = CCENTER; intrflag = 0; goto readycmd;}
+d322 1
+a322 2
+    if ( cmd == -1 ) cmd = CCSET0;
+    if ( cmd == CCCLEAR )
+d324 1
+a324 2
+	cmd = lastscmd;
+	rescreen(cmd == CCSET0?0:-1);
+d326 1
+d328 19
+d351 1
+a351 1
+    if ( (qskp < PA1||qskp == TESTREQ) && curedit )
+a369 30
+    if ( cmd >= 040 && cmd < 0176 ) /* Внутренние команды */
+    {
+        switch ( cmd ) {
+        case CCSET0: 
+	    i_reg = i_fix = 0;
+            break;
+        case CCSET1: 
+            i_reg = 1; 
+            break;
+        case CCSET2: 
+            i_reg = 2; 
+            break;
+	case CCFIX1:
+	    i_reg = i_fix = 1;
+            break;
+	case CCFIX2:
+	    i_reg = i_fix = 2;
+            break;
+        default: 
+	    i_reg = i_fix = 0;
+            break;
+        }
+	dflag = 3;
+        goto new_r;
+    }
+readycmd:
+    if ( cmd == CCPLPAGE || cmd == CCMIPAGE ||
+	 cmd == CCPLLINE || cmd == CCMILINE ||
+	 cmd == CCRPORT  || cmd == CCLPORT ) lastscmd = cmd;
+    else lastscmd = CCSET0;
+d374 1
+a374 1
+    poscursor(qsccol-1-curport->ltext, qscrow-1-curport->ttext);
+a375 1
+    if ( dconflag ) qsclose();
+@
+
+
+3.1.1.4
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@d237 1
+a237 1
+    int outmod,lmarg;
+a288 1
+
+a302 1
+static short qsorow, qsocol;
+d306 1
+a306 2
+    int cmd;
+    int dflag=2;
+d312 1
+a312 1
+        return(lread1);
+d315 3
+a317 4
+         * Здесь должно стоять чтение из протокола -
+         * пока не реализовано!!!
+         */
+    if ( inputfile && readfc()) goto readyicmd;
+d324 1
+a324 5
+    { 
+        cmd = CCENTER; 
+        intrflag = 0; 
+        goto readycmd;
+    }
+d335 3
+a337 3
+        cmd = lastscmd;
+        rescreen(cmd == CCSET0?0:-1);
+        dflag=2;
+d340 3
+a342 3
+         * На следующем этапе проверим, не изменялись ли
+         * вводимые поля.
+         */
+d351 1
+a351 1
+        for ( os = oslines + ibege,i=0; os <= oslines + iende; i++, os++)
+d355 1
+a355 6
+                tc = *(c = var+os->sl_mleng);
+                PUTP(CCILINE); 
+                PUTP(i+ibege);
+		PUTP(os->sl_mleng);
+                write(ttyfile,var,os->sl_mleng);
+                PUTP(CCELINE);
+d366 1
+a366 1
+            i_reg = i_fix = 0;
+d374 2
+a375 2
+        case CCFIX1:
+            i_reg = i_fix = 1;
+d377 2
+a378 2
+        case CCFIX2:
+            i_reg = i_fix = 2;
+d381 1
+a381 1
+            i_reg = i_fix = 0;
+d384 1
+a384 1
+        dflag = 3;
+a386 3
+    /*
+     * Пoлyчeнa кoмaндa c тepминaлa.
+     */
+d389 2
+a390 2
+        cmd == CCPLLINE || cmd == CCMILINE ||
+        cmd == CCRPORT  || cmd == CCLPORT ) lastscmd = cmd;
+d392 5
+a397 10
+    /*
+         * Здесь место записи команды в протокол
+         * Зaпиcывaeм пoлoжeниe кypcopa, ecли oнo измeнилocь.
+         * зaтeм пишeм caмy кoмaндy. Зaмeтим, чтo кoмaндa
+         * пишeтcя eщe дo мaкpo-пoдcтaнoвки
+         */
+    if ( qsocol != qsccol || qsorow != qscrow )
+        PUTP(CCICURSOR),PUTP(qsccol), PUTP(qscrow);
+    PUTP(lread1);
+readyicmd:
+a398 6
+    qsocol = qsccol; 
+    qsorow = qscrow;
+    poscursor(qsccol-1-curport->ltext, qscrow-1-curport->ttext);
+    /*
+         * Здecь мecтo для пoиcкa мaкpo
+         */
+a402 4
+/*
+ * writefile -
+ * Записать команду с аргументами в файл протокола
+ */
+a403 14
+writefile(code1,str,code2)
+int code1, code2;
+char *str;
+{ register char *s;
+	PUTP(code1);
+	s = str; while(*s++);
+	PUTP(CCILINE);PUTP(paramport.ttext);
+	PUTP(s - str);
+	write(ttyfile,str,s-str);
+	PUTP(CCELINE);
+	PUTP(code2);
+}
+
+
+a404 71
+ * readfc() -
+ * Чтeниe cимвoлa пpи вoccтaнoвлeнии
+ * ceaнca. Ocнoвнaя ocoбeннocть - читaeм тaк,
+ * чтoбы нe выдaвaть пocлeднюю кoмaндy.
+ * Oтвeт = 0 - пoвтop oкoнчeн.
+ * isy0f = -2 - дaй cимвoл, -1 - кoнeц, >=0 - cлeд. cимвoл
+ *
+ * Пpoтoкoл: "CИMBOЛ",
+ *           "CCCURSOR,кoлoнкa,cтpoкa",
+ *           "CCILINE, нoмep_cтpoки_нa_экpaнe,длинa,тeкcт...,CCELINE"
+ */
+
+
+
+int isy0f = -2;
+#define GETP(I) ((I=isy0f), (isy0f = get1c(inputfile)))
+#define GETP0(I) ((I= (isy0f==-2?get1c(inputfile):isy0f)) , isy0f = -2)
+readfc()
+{
+	register struct oslines *os;
+	register int i;int l;
+	char *var, tc, *c;
+	if ( isy0f == -2 ) GETP(i);
+#define ENDI goto endifile
+	while ( lread1 == -1 && (GETP(i), isy0f) != -1 )
+	{
+		switch (i) {
+		case -1: 
+			ENDI;
+		case CCICURSOR: 
+			GETP(qsccol); 
+			GETP(qscrow); 
+			break;
+		case CCILINE:
+			GETP0(i);
+			GETP0(l);
+		       setbuf(stdout,0);
+		       printf("i= %d l=%d\n",i,l);
+			if ( i < 0 || i >= NLINES || !curedit ) ENDI;
+			os = oslines+i; 
+			i -= cureport->ttext;
+			var = os->sl_mline;
+			if ( !var ) ENDI;
+			if (read(inputfile,var,l)!=l||(GETP0(i),i)!=CCELINE)
+				ENDI;
+			tc = *(c = var+os->sl_mleng);
+			*c = 0;
+			printf("%s\n",var);
+			(*curedit)(i, var);
+			*c = tc;
+			break;
+		default: 
+			lread1 = i; 
+			break;
+		}
+	if ( isy0f == -2 ) GETP(i);
+	}
+	if ( lread1 != -1 ) {  
+		if ( !silentflag ) dumpcbuf(1); 
+		return(1);
+	}
+endifile:
+	if ( inputfile != ttyfile) close(inputfile);
+	else lseek(ttyfile,(long)-1, 1);
+	inputfile = 0;
+	intrflag = 0;
+	putcha(COBELL);
+	return(0);
+}
+
+/*
+d410 8
+a417 18
+    char sy1;
+    if( inputfile ){
+        if(isy0f == CCINTRUP ){
+	    isy0f= -2;
+            return(1);
+        }
+        else return(0);
+    }
+    else
+    {
+        if(intrflag){
+            intrflag=0;
+            sy1=CCINTRUP;
+            write(ttyfile,&sy1,1);
+            return(1);
+        }
+        return(0);
+    }
+@
+
+
+3.1.1.5
+log
+@Доделан примитивный повтор сеанса.
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.4 86/06/16 22:20:41 alex Exp $
+a5 3
+ * Revision 3.1.1.4  86/06/16  22:20:41  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+d486 2
+d493 1
+a493 1
+			if (read(inputfile,var,l)!=l||(GETP0(l),l)!=CCELINE)
+d497 1
+@
+
+
+3.1.1.6
+log
+@Отлажен на модели повтор сеанса
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.5 86/06/17 19:27:21 alex Exp $
+a5 3
+ * Revision 3.1.1.5  86/06/17  19:27:21  alex
+ * Доделан примитивный повтор сеанса.
+ * 
+a224 1
+static short qsorow, qsocol;
+d280 1
+a280 1
+	qsbfsba((qsorow=qscrow= cursorline + curport->ttext+ 1),(qsocol=qsccol=cursorcol + curport->ltext + 1));
+d306 2
+a307 1
+static short lastscmd = -1; /* Koмaндa, выдaвaeмaя пpи cбpoce экpaнa */
+d346 2
+a347 2
+	if ((cmd = lastscmd) == -1 ) { cmd = CCRESCREEN; goto readycmd; }
+	rescreen(-1);
+d358 2
+a359 1
+	int ibege, iende; int lnos;
+d366 1
+d369 2
+a370 1
+		lnos = Pputs(var,os->sl_mleng);
+d372 3
+a374 1
+		(*curedit)(i, var,lnos);
+d410 1
+a410 1
+    else lastscmd = -1;
+d420 1
+a420 1
+	PUTP(lread1);
+d445 2
+a446 1
+	Pputs(str,(s - str));
+d461 1
+a461 1
+ *           "CCICURSOR,кoлoнкa,cтpoкa",
+d473 1
+a473 1
+	register int i;int l,k;
+a476 1
+	if ( !silentflag ) dumpcbuf(1);
+d488 1
+d494 1
+a494 2
+			l = Pgets(var,os->sl_mleng);
+			if ( (GETP0(k),k)!=CCELINE)
+d496 4
+a499 1
+			(*curedit)(i, var,l);
+d508 1
+a567 39
+
+/*
+ * Pputs(var,l) = l без пробелов в хвосте
+ * - запись строки в файл протокола.
+ */
+Pputs(sp,ln)
+char *sp;
+int ln;
+{ 
+    register char *s;
+    short l;
+    register char *se;
+    for ( s = se = sp; s-sp < ln; s++)
+    { 
+        if ( *s != ' ') se  = s+1;
+        if ( ! *s ) break;
+    }
+    l = se - sp;
+    PUTP(l);
+    if ( l )
+        write(ttyfile, sp,l);
+    return(l);
+}
+
+/*
+ * Pgets(s,ln) = l без пробелов в хвосте
+ * считывание строки из протокола.
+ */
+Pgets(sp,ln)
+char *sp; 
+int ln;
+{
+	register char *s;
+	short l;
+	GETP0(l);
+	if ( l ) read(inputfile, sp,l);
+	if ( l < ln ) for ( s = sp+l;s < sp+ln;) *s++ = ' ';
+	return(l);
+}
+@
+
+
+3.1.1.7
+log
+@Исправлена ошибка в putblanks
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.6 86/06/19 00:11:17 alex Exp $
+a5 3
+ * Revision 3.1.1.6  86/06/19  00:11:17  alex
+ * Отлажен на модели повтор сеанса
+ * 
+a171 1
+	cursorcol += k;
+d177 1
+@
+
+
+3.1.1.8
+log
+@Введено автоматическое смещение экрана
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.7 86/06/20 23:38:04 alex Exp $
+a5 3
+ * Revision 3.1.1.7  86/06/20  23:38:04  alex
+ * Исправлена ошибка в putblanks
+ * 
+d312 1
+a312 1
+static short sc_copied;extern short learnflag;
+a384 8
+	case CCWAIT:
+	case CCSLEEP:
+	if ( qsocol != qsccol || qsorow != qscrow )
+	    PUTP(CCICURSOR),PUTP(qsccol), PUTP(qscrow), qsocol = qsccol,
+	    qsorow = qscrow;
+	    PUTP(cmd);
+	    i_reg = 0;
+            break;
+a497 9
+			break;
+		case CCSLEEP:
+			dumpcbuf(2);    /* Жди 5 секунд */
+			sleep(5);
+			break;
+		case CCWAIT:
+			putcha(COBELL);
+			dumpcbuf(2);    /* Жди подтверждения с терминала */
+			qsread(1);
+@
+
+
+3.1.1.9
+log
+@RED 3.3/EC.
+@
+text
+@d3 1
+a3 1
+ *       $Header: r.Ettyio.c,v 3.1.1.8 86/06/25 19:42:26 alex Exp $
+a5 3
+ * Revision 3.1.1.8  86/06/25  19:42:26  alex
+ * Введено автоматическое смещение экрана
+ * 
+d55 1
+a55 1
+	speccase = lcasef = ((dtty.sg_flags & LCASE) == LCASE);
+d339 1
+a339 1
+    if ( qsread(1,nozerows) <= 0 || intrflag)
+d363 1
+a363 1
+    if ( qsmodf && curedit )
+d380 1
+a380 1
+	oclrmdt = 1; qsmodf = 0;
+d485 1
+a485 1
+	char *var; short waitflag = 3;
+d488 1
+a488 5
+	if ( !silentflag ) {
+		qsread(0,1);
+		if ( qskp == PA1 || qskp == TESTREQ ) ENDI;
+		dumpcbuf(1);
+		}
+a496 3
+			qsocol = qsccol;
+			qsorow = qscrow;
+			poscursor(qsccol-1-curport->ltext, qscrow-1-curport->ttext);
+d511 1
+a511 1
+			dumpcbuf(1);   /* Жди 5 ceкyнд */
+d516 2
+a517 3
+			dumpcbuf(1);    /* Жди пoдтвepждeния c тepминaлa */
+			qsread(1,1);
+			if ( qskp != ENTER ) ENDI;
+@

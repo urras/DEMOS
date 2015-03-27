@@ -1,0 +1,698 @@
+head     2.6;
+access   avg dmitry flerov davidov alex fox;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+2.6
+date     89.03.04.22.37.10;  author avg;  state Exp;
+branches ;
+next     2.5;
+
+2.5
+date     88.09.21.22.06.46;  author avg;  state Exp;
+branches ;
+next     2.4;
+
+2.4
+date     88.01.26.14.58.53;  author avg;  state Exp;
+branches ;
+next     2.3;
+
+2.3
+date     86.09.22.20.59.33;  author avg;  state Exp;
+branches ;
+next     2.2;
+
+2.2
+date     86.05.17.21.54.42;  author avg;  state Exp;
+branches ;
+next     2.1;
+
+2.1
+date     86.04.18.21.29.44;  author root;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Разбор строки флагов для программы getty.
+Выполняет функции, аналогичные функциям программы stty.
+@
+
+
+2.6
+log
+@Добавлены ключи opt и noopt.
+@
+text
+@/*
+ * gtty -- установить параметры линии
+ * Автор: Антонов В.Г.
+ *
+ * Функции разбора строки флагов.
+ *
+ * $Log:        gtty.c,v $
+ * Revision 2.5  88/09/21  22:06:46  avg
+ * Добавлены режимы cbits8q и csisoq.
+ *
+ * Revision 2.4  88/01/26  14:58:53  avg
+ * Правлена обработка tstr и istr.
+ *
+ * Revision 2.3  86/09/22  20:59:33  avg
+ * Добавлены флажки dstops и frame7.
+ *
+ * Revision 2.2  86/05/17  21:54:42  avg
+ * Правки под использование в спулинге LP.
+ *
+ * Revision 2.1  86/04/18  21:29:44  root
+ * Вынесена часть разбора флагов в отдельный файл.
+ *
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: gtty.c,v 2.5 88/09/21 22:06:46 avg Exp $";
+#endif
+
+#include <whoami.h>
+#include <sgtty.h>
+#include "getlp.h"
+
+#define CTRL(c)  ('c'&037)
+
+/*
+ * Флаги из sg_flags и sg_local
+ */
+struct MODE {
+	char   *Mname;
+	short   Mset;
+	short   Mreset;
+	short   Lset;
+	short   Lreset;
+} Modes[] = {
+
+"even",         EVENP,          0,              0,              0,
+"-even",        0,              EVENP,          0,              0,
+"odd",          ODDP,           0,              0,              0,
+"-odd",         0,              ODDP,           0,              0,
+"any",          EVENP+ODDP,     0,              0,              0,
+"raw",          RAW,            0,              0,              0,
+"-raw",         0,              RAW,            0,              0,
+"cooked",       0,              RAW,            0,              0,
+"-nl",          CRMOD,          0,              0,              0,
+"nl",           0,              CRMOD,          0,              0,
+"lcase",        LCASE,          CSTYLE,         0,              0,
+"-lcase",       CEL15,          LCASE+CSTYLE,   0,              0,
+"-tabs",        XTABS,          0,              0,              0,
+"tabs",         0,              XTABS,          0,              0,
+"tandem",       TANDEM,         0,              0,              0,
+"-tandem",      0,              TANDEM,         0,              0,
+"cbreak",       CBREAK,         0,              0,              0,
+"-cbreak",      0,              CBREAK,         0,              0,
+"dstops",       DSTOPS,         0,              0,              0,
+"-dstops",      0,              DSTOPS,         0,              0,
+"frame7",       FRAME7,         0,              0,              0,
+"-frame7",      0,              FRAME7,         0,              0,
+"tilde",        0,              0,              LTILDE,         0,
+"-tilde",       0,              0,              0,              LTILDE,
+"mdmbuf",       0,              0,              LMDMBUF,        0,
+"-mdmbuf",      0,              0,              0,              LMDMBUF,
+"litout",       0,              0,              LLITOUT,        0,
+"-litout",      0,              0,              0,              LLITOUT,
+"flusho",       0,              0,              LFLUSHO,        0,
+"-flusho",      0,              0,              0,              LFLUSHO,
+"nohang",       0,              0,              LNOHANG,        0,
+"-nohang",      0,              0,              0,              LNOHANG,
+"znak",         0,              0,              LZNAK,          0,
+"-znak",        0,              0,              0,              LZNAK,
+"intrup",       0,              0,              LINTRUP,        0,
+"-intrup",      0,              0,              0,              LINTRUP,
+"ctlecho",      0,              0,              LCTLECH,        0,
+"-ctlecho",     0,              0,              0,              LCTLECH,
+"pendin",       0,              0,              LPENDIN,        0,
+"-pendin",      0,              0,              0,              LPENDIN,
+"decctlq",      0,              0,              LDECCTQ,        0,
+"-decctlq",     0,              0,              0,              LDECCTQ,
+"noflsh",       0,              0,              LNOFLSH,        0,
+"-noflsh",      0,              0,              0,              LNOFLSH,
+"cyrill",       CYRILL+CEL15,   CSTYLE,         0,              0,
+"-cyrill",      0,              CYRILL+CSTYLE,  0,              0,
+"cbits8",       CBITS8+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cel15",        CEL15+CYRILL,   CSTYLE+LCASE,   0,              0,
+"cel15i",       CEL15I+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cel15k",       CEL15K+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cbits8q",      CBITS8Q+CYRILL, CSTYLE+LCASE,   0,              0,
+"csisoq",       CSISOQ+CYRILL,  CSTYLE+LCASE,   0,              0,
+"cbmkbd",       CBMKBD+CYRILL,  CSTYLE+LCASE,   0,              0,
+"ucase",        UCASE+LCASE,    CSTYLE-SISO,    0,              0,
+"-ucase",       LCASE,          CSTYLE-SISO,    0,              0,
+"esch",         0,              0,              LESCH,          0,
+"-esch",        0,              0,              0,              LESCH,
+0
+};
+
+char *speeds[] = {
+	"0",
+	"50",
+	"75",
+	"110",
+	"134",
+	"150",
+	"200",
+	"300",
+	"600",
+	"1200",
+	"1800",
+	"2400",
+	"4800",
+	"9600",
+	"19200",
+	"38400",
+	0
+};
+
+/*
+ * Установить моду
+ */
+setmode( m, R )
+char   *m;
+struct getlp *R;
+{
+	register struct MODE *p;
+	register i;
+	char    *q;
+	char   **spx;
+
+	/* Искать режим в таблице */
+	for( p = Modes ; p->Mname != 0 ; p++ ) {
+		if( !strcmp( m, p->Mname ) ) {
+			R->lp_flags &= ~(p->Mreset);
+			R->lp_flags |=   p->Mset;
+			R->lp_local &= ~(p->Lreset);
+			R->lp_local |=   p->Lset;
+			return;
+		}
+	}
+
+	/* Искать в таблице скоростей */
+	for( spx = speeds ; *spx != 0 ; spx++ ) {
+		if( !strcmp( m, *spx ) ) {
+			R->lp_speed = spx-speeds;
+			return;
+		}
+	}
+
+	if( !strncmp( m, "start=", 6 ) ) {
+		R->lp_startc = Xchar(m+6);
+		return;
+	}
+	if( !strncmp( m, "stop=", 5 ) ) {
+		R->lp_stopc = Xchar(m+5);
+		return;
+	}
+	if( !strncmp( m, "istr=", 5 ) ) {
+		static char ISB[64];
+		Xstring( R->lp_istr = ISB, m+5 );
+		return;
+	}
+	if( !strncmp( m, "tstr=", 5 ) ) {
+		static char TSB[64];
+		Xstring( R->lp_tstr = TSB, m+5 );
+		return;
+	}
+
+	/* Задержки */
+	if( !strncmp( m, "crdelay=", 8 ) ||
+	    !strncmp( m, "nldelay=", 8 ) ||
+	    !strncmp( m, "vtdelay=", 8 ) ||
+	    !strncmp( m, "htdelay=", 8 ) ) {
+		q = m+8;
+		i = 0;
+		if( *q == 'c' ) {
+			i = 0200;
+			q++;
+		}
+		i |= atoi( q ) & 0177;
+		switch( *m ) {
+		case 'c':
+			R->lp_crdly = i;
+			break;
+		case 'n':
+			R->lp_nldly = i;
+			break;
+		case 'v':
+			R->lp_vtdly = i;
+			break;
+		case 'h':
+			R->lp_htdly = i;
+		}
+		return;
+	}
+
+	if( !strcmp( m, "new" ) ) {
+		R->lp_ldisc = NTTYDISC;
+		return;
+	}
+
+	if( !strcmp( m, "old" ) ) {
+		R->lp_ldisc = OTTYDISC;
+		return;
+	}
+
+	if( !strcmp( m, "opt" ) ) {
+		R->lp_xflags |=  LP_XOPT;
+		R->lp_xflags &= ~LP_XNOOPT;
+		return;
+	}
+
+	if( !strcmp( m, "noopt" ) ) {
+		R->lp_xflags |=  LP_XNOOPT;
+		R->lp_xflags &= ~LP_XOPT;
+		return;
+	}
+
+	/* UNKNOWN MODE -- IGNORE */
+}
+
+/*
+ * Генерировать значение спецсимвола
+ */
+Xchar( s )
+char *s;
+{
+	register c;
+
+	if( *s == '^' ) {
+		if( *++s == '?' )
+			return( 0177 );
+		return( *s & 037 );
+	}
+	if( *s == 'u' )
+		return( 0377 );         /* UNDEFINED */
+	if( *s == '\\' ) {
+		c = 0;
+		if( *++s == 'E' )
+			return '\033';
+		if( *s < '0' || *s > '7' )
+			return( *s );
+		c = 0;
+		while( '0' <= *s && *s <= '7' )
+			c = (c<<3) | (*s++ - '0');
+		return( c );
+	}
+	return( *s );
+}
+
+/*
+ * Прочитать значение хитрой строки
+ */
+Xstring( to, s )
+register char *to, *s;
+{
+	register c;
+
+	while( *s ) {
+		if( *s == '\\' ) {
+			if( !*++s )
+				break;
+			switch( *s ) {
+			    case 'E': c = '\033'; break;
+			    case 'n': c = '\n';   break;
+			    case 't': c = '\r';   break;
+			    case 'b': c = '\b';   break;
+			    case 'r': c = '\r';   break;
+			    case '0': case '1':
+			    case '2': case '3':
+			    case '4': case '5':
+			    case '6': case '7':
+				c = 0;
+				while( '0' <= *s && *s <= '7' )
+					c = (c<<3) | (*s++ - '0');
+				s--;
+				break;
+			    default:
+				c = *s;
+			}
+		} else if( *s == '^' ) {
+			if( !*++s )
+				break;
+			c = (*s == '?') ? 0177 : (*s & 037);
+		} else
+			c = *s;
+		s++;
+		*to++ = c;
+	}
+	*to = '\0';
+}
+
+/*
+ * Установить значения по умолчанию
+ */
+defmodes( R )
+struct getlp *R;
+{
+	register struct SPECIAL *spec;
+
+	R->lp_ldisc = NTTYDISC;
+	R->lp_flags = CRMOD|XTABS|ANYP;
+	R->lp_local = LDECCTQ;
+	R->lp_startc= CTRL(q);
+	R->lp_stopc = CTRL(s);
+	R->lp_crdly = 0;
+	R->lp_nldly = 0;
+	R->lp_htdly = 0;
+	R->lp_vtdly = 0;
+	R->lp_width = 0;
+	R->lp_istr  = (char *)0;
+	R->lp_tstr  = (char *)0;
+	R->lp_xflags = 0;
+}
+@
+
+
+2.5
+log
+@Добавлены режимы cbits8q и csisoq.
+@
+text
+@d8 3
+d26 1
+a26 1
+static char rcsid[] = "$Header: gtty.c,v 2.4 88/01/26 14:58:53 avg Exp $";
+d214 12
+d320 1
+@
+
+
+2.4
+log
+@Правлена обработка tstr и istr.
+@
+text
+@d8 3
+d23 1
+a23 1
+static char rcsid[] = "$Header: gtty.c,v 2.3 86/09/22 20:59:33 avg Exp $";
+d93 2
+@
+
+
+2.3
+log
+@Добавлены флажки dstops и frame7.
+@
+text
+@d8 3
+d20 1
+a20 1
+static char rcsid[] = "$Header: gtty.c,v 2.2 86/05/17 21:54:42 avg Exp $";
+d157 10
+d215 2
+d224 11
+d239 42
+d298 2
+@
+
+
+2.2
+log
+@Правки под использование в спулинге LP.
+@
+text
+@d8 3
+d17 1
+a17 1
+static char rcsid[] = "$Header: gtty.c,v 2.1 86/04/18 21:29:44 root Stab $";
+d55 4
+@
+
+
+2.1
+log
+@Вынесена часть разбора флагов в отдельный файл.
+@
+text
+@a0 1
+#
+d2 1
+a2 1
+ * getty -- установить параметры терминала и вызвать login
+d7 4
+a10 1
+ * $Log$
+d14 1
+a14 1
+static char rcsid[] = "$Header$";
+d19 1
+a22 6
+extern struct sgttyb1 xmode;
+extern int            ldisc;
+extern int            hupflag;
+extern int            era1200;
+extern int            kil1200;
+
+a23 26
+ * Установить моды терминала (аналогично stty)
+ */
+ttymodes( istr )
+char   *istr;
+{
+	register char *p, *q, *r;
+	char           mbuf[40];
+
+	defmodes();
+	q = p = istr;
+	while( *p != ':' && *p != '\n' && *p ) {
+		p++;
+		while( *p != ',' && *p != ':' && *p != '\n' && *p )
+			p++;
+		if( q == p )
+			break;
+		r = mbuf;
+		while( q < p )
+			*r++ = *q++;
+		*r = 0;
+		setmode( mbuf );
+		q = p+1;
+	}
+}
+
+/*
+a43 2
+"echo",         ECHO,           0,              0,              0,
+"-echo",        0,              ECHO,           0,              0,
+a51 8
+"crtbs",        0,              0,              LCRTBS,         LPRTERA,
+"-crtbs",       0,              0,              0,              LCRTBS,
+"prterase",     0,              0,              LPRTERA,        LCRTBS+LCRTKIL+LCRTERA,
+"-prterase",    0,              0,              0,              LPRTERA,
+"crterase",     0,              0,              LCRTERA,        LPRTERA,
+"-crterase",    0,              0,              0,              LCRTERA,
+"crtkill",      0,              0,              LCRTKIL,        LPRTERA,
+"-crtkill",     0,              0,              0,              LCRTKIL,
+a57 2
+"tostop",       0,              0,              LTOSTOP,        0,
+"-tostop",      0,              0,              0,              LTOSTOP,
+a82 2
+"siso",         SISO+LCASE,     CSTYLE-UCASE,   0,              0,
+"-siso",        LCASE,          CSTYLE-UCASE,   0,              0,
+d88 18
+a105 20
+struct  SPECIAL {
+        char    *Sname;
+        char    *Scp;
+        char     Sdef;
+} special[] = {
+        "erase=",       &xmode.sg_erase,         0177,
+        "kill=",        &xmode.sg_kill,          CTRL(u),
+        "intr=",        &xmode.sg_intrc,         CTRL(c),
+        "quit=",        &xmode.sg_quitc,         CTRL(\\\\),
+        "start=",       &xmode.sg_startc,        CTRL(q),
+        "stop=",        &xmode.sg_stopc,         CTRL(s),
+        "eof=",         &xmode.sg_eofc,          CTRL(d),
+        "brk=",         &xmode.sg_brkc,          0377,
+        "susp=",        &xmode.sg_suspc,         CTRL(z),
+        "dsusp=",       &xmode.sg_dsuspc,        CTRL(y),
+        "rprnt=",       &xmode.sg_rprntc,        CTRL(r),
+        "flush=",       &xmode.sg_flushc,        CTRL(t),
+        "werase=",      &xmode.sg_werasc,        CTRL(w),
+        "lnext=",       &xmode.sg_lnextc,        CTRL(v),
+        0
+a107 1
+
+d111 1
+a111 1
+setmode( m )
+d113 1
+d115 4
+a118 4
+        register struct MODE *p;
+        register struct SPECIAL *spec;
+        register i;
+        char    *q;
+d120 10
+a129 10
+        /* Искать режим в таблице */
+        for( p = Modes ; p->Mname != 0 ; p++ ) {
+                if( !strcmp( m, p->Mname ) ) {
+                        xmode.sg_flags &= ~(p->Mreset);
+                        xmode.sg_flags |=   p->Mset;
+                        xmode.sg_local &= ~(p->Lreset);
+                        xmode.sg_local |=   p->Lset;
+                        return;
+                }
+        }
+d131 7
+a137 7
+        /* В таблице флагов нет, искать в таблице символов */
+        for( spec = special ; spec->Sname != 0 ; spec++ ) {
+                if( !strncmp( m, spec->Sname, i = strlen( spec->Sname )) ) {
+                        *(spec->Scp) = Xchar( &m[i] );
+                        return;
+                }
+        }
+d139 8
+a146 27
+        /* Задержки */
+        if( !strncmp( m, "crdelay=", 8 ) ||
+            !strncmp( m, "nldelay=", 8 ) ||
+            !strncmp( m, "vtdelay=", 8 ) ||
+            !strncmp( m, "htdelay=", 8 ) ) {
+                q = m+8;
+                i = 0;
+                if( *q == 'c' ) {
+                        i = 0200;
+                        q++;
+                }
+                i |= atoi( q ) & 0177;
+                switch( *m ) {
+                case 'c':
+                        xmode.sg_crdly = i;
+                        break;
+                case 'n':
+                        xmode.sg_nldly = i;
+                        break;
+                case 'v':
+                        xmode.sg_vtdly = i;
+                        break;
+                case 'h':
+                        xmode.sg_htdly = i;
+                }
+                return;
+        }
+d148 27
+a174 5
+        /* Длина строки */
+        if( !strncmp( m, "width=", 6 ) ) {
+                xmode.sg_width = atoi( &m[6] );
+                return;
+        }
+d176 4
+a179 12
+        /* Прочие моды */
+        if( !strcmp( m, "dec" ) ) {
+                ldisc = NTTYDISC;
+                xmode.sg_erase = 0177;
+                xmode.sg_kill  = CTRL(u);
+                xmode.sg_intrc = CTRL(c);
+                xmode.sg_local &= ~LPRTERA;
+                xmode.sg_local |=  LCRTBS|LCTLECH|LDECCTQ;
+                era1200++;
+                kil1200++;
+                return;
+        }
+d181 4
+a184 7
+        if( !strcmp( m, "crt" ) ) {
+            CRT:
+                xmode.sg_local &= ~LPRTERA;
+                xmode.sg_local |= LCRTBS|LCTLECH|LCRTERA;
+                kil1200++;
+                return;
+        }
+d186 1
+a186 21
+        if( !strcmp( m, "ek" ) ) {
+                xmode.sg_erase = '#';
+                xmode.sg_kill  = '@@';
+                return;
+        }
+
+        if( !strcmp( m, "old" ) ) {
+                ldisc = OTTYDISC;
+                return;
+        }
+
+        if( !strcmp( m, "newcrt" ) ) {
+                ldisc = NTTYDISC;
+                goto CRT;
+        }
+
+        if( !strcmp( m, "hup" ) ) {
+                hupflag++;
+                return;
+        }
+        /* UNKNOWN MODE -- IGNORE */
+d195 8
+a202 8
+        if( *s == '^' ) {
+                if( *++s == '?' )
+                        return( 0177 );
+                return( *s & 037 );
+        }
+        if( *s == 'u' )
+                return( 0377 );         /* UNDEFINED */
+        return( *s );
+d208 2
+a209 1
+defmodes()
+d211 1
+a211 1
+        register struct SPECIAL *spec;
+d213 10
+a222 10
+        ldisc = NTTYDISC;
+        xmode.sg_flags = ECHO|CRMOD|XTABS|ANYP;
+        xmode.sg_local = LPRTERA|LCTLECH;
+        for( spec = special ; spec->Sname != 0 ; spec++ )
+                *(spec->Scp) = spec->Sdef;
+        xmode.sg_crdly = 0;
+        xmode.sg_nldly = 0;
+        xmode.sg_htdly = 0;
+        xmode.sg_vtdly = 0;
+        xmode.sg_width = 0;
+a223 31
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@

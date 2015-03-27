@@ -1,0 +1,486 @@
+head     22.2;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin abs;
+symbols  Архыз0:1.2.1;
+locks    ;
+comment  @ * @;
+
+
+22.2
+date     90.11.12.19.15.16;  author root;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.29.03;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.30.16.08.10;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.01.07.20.48.51;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.23.18.57.59;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.50.51;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы.  Машинно-независимая часть.
+@
+
+
+22.2
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	pipe.c,v $
+ * Revision 22.1  89/04/12  15:29:03  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/30  16:08:10  korotaev
+ * Begining DEMOS 2.2.
+ * 
+ * Revision 1.3  89/01/07  20:48:51  korotaev
+ * Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+ * 
+ * (from VAX/UTS SV.2)
+ * 
+ * Revision 1.2  88/01/23  18:57:59  korotaev
+ * Состояние перед сливанием с AVG-Э-85.
+ * 
+ * Revision 1.1  86/04/19  15:50:51  avg
+ * Initial revision
+ *
+ */
+
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/inode.h>
+#include <sys/file.h>
+#include "../include/reg.h"
+#include "../include/inline.h"
+
+/*
+ * Max allowable buffering per write on a pipe.
+ * This is also roughly the max size of the
+ * file created to implement the pipe.
+ * If this size is bigger than 4096
+ * (5120 without UCB_NKB),
+ * pipes will be implemented with large
+ * files, which is probably not good.
+ */
+
+/*
+ * The sys-pipe entry.
+ * Allocate an inode on the root device.
+ * Allocate 2 file structures.
+ * Put it all together with flags.
+ */
+pipe()
+{
+	register struct inode *ip;
+	register struct file *rf, *wf;
+	register int r;
+
+	ip = ialloc(pipedev);
+	if(ip == NULL) {
+		/*
+		 * Someone may not have mounted pipedev so we
+		 * try to get an inode from rootdev.
+		 * Getfs() will have already printed a message
+		 * about its inability to find pipedev in the
+		 * mount table, so don't complain.
+		 */
+		ip = ialloc(rootdev);
+		if (ip == NULL)
+			return;
+		/*
+		 * This is necessary because the ialloc(pipedev) above
+		 * set u.u_error to ENOSPC.
+		 */
+		else
+			u.u_error = 0;
+	}
+	rf = falloc();
+	if(rf == NULL) {
+		iput(ip);
+		return;
+	}
+	r = u.u_r.r_val1;
+	wf = falloc();
+	if(wf == NULL) {
+		rf->f_count = 0;
+		u.u_ofile[r] = NULL;
+		iput(ip);
+		return;
+	}
+	u.u_r.r_val2 = u.u_r.r_val1;
+	u.u_r.r_val1 = r;
+	wf->f_flag = FWRITE;
+	wf->f_inode = rf->f_inode = ip;
+	rf->f_flag = FREAD;
+	ip->i_count = 2;
+	ip->i_frptr = ip->i_fwptr = 0;
+	ip->i_frcnt = ip->i_fwcnt = 1;
+	ip->i_mode = IFIFO;
+	ip->i_flag = IACC|IUPD|ICHG;
+	prele(ip);
+}
+
+/*
+ *      FROM SVR2
+ */
+
+/*
+ * Open a pipe
+ * Check read and write counts, delay as necessary
+ */
+
+openp(ip, mode)
+register struct inode *ip;
+register mode;
+{
+	if (mode&FREAD) {
+		if( (ip->i_frcnt++ == 0) && (ip->i_flag&IFIR) ){
+			ip->i_flag &= ~IFIR;
+			wakeup((caddr_t)&ip->i_frcnt);
+		}
+	}
+	if (mode&FWRITE) {
+		if (mode&FNDELAY && ip->i_frcnt == 0) {
+			u.u_error = ENXIO;
+			return;
+		}
+		if( (ip->i_fwcnt++ == 0) && (ip->i_flag&IFIW) ){
+			ip->i_flag &= ~IFIW;
+			wakeup((caddr_t)&ip->i_fwcnt);
+		}
+	}
+	if (mode&FREAD) {
+		while (ip->i_fwcnt == 0) {
+			if (mode&FNDELAY || ip->i_size)
+				return;
+			ip->i_flag |= IFIW;
+			sleep(&ip->i_fwcnt, PPIPE);
+		}
+	}
+	if (mode&FWRITE) {
+		while (ip->i_frcnt == 0){
+			ip->i_flag |= IFIR;
+			sleep(&ip->i_frcnt, PPIPE);
+		}
+	}
+}
+
+/*
+ * Close a pipe
+ * Update counts and cleanup
+ */
+closep(ip, mode)
+register struct inode *ip;
+register mode;
+{
+	register i;
+	daddr_t bn;
+
+	if (mode&FREAD) {
+		if ((--ip->i_frcnt == 0) && (ip->i_flag&IFIW)) {
+			ip->i_flag &= ~IFIW;
+			wakeup((caddr_t)&ip->i_fwcnt);
+		}
+	}
+	if (mode&FWRITE) {
+		if ((--ip->i_fwcnt == 0) && (ip->i_flag&IFIR)) {
+			ip->i_flag &= ~IFIR;
+			wakeup((caddr_t)&ip->i_frcnt);
+		}
+	}
+	if ((ip->i_frcnt == 0) && (ip->i_fwcnt == 0)) {
+		for( i = NADDR-4 ; i >= 0 ; i-- ){
+			bn = ip->i_un.i_addr[i];
+			if( bn == (daddr_t)0 )
+				continue;
+			ip->i_un.i_addr[i] = (daddr_t)0;
+#ifdef  UCB_QUOTAS
+			qfree(ip, bn);
+#else
+			free(ip->i_dev, bn);
+#endif
+		}
+		ip->i_frptr = ip->i_fwptr = 0;
+		ip->i_size = 0;
+		ip->i_flag |= IUPD|ICHG;
+	}
+}
+
+#ifdef  plock
+#undef  plock
+#endif
+#ifdef  prele
+#undef  prele
+#endif
+/*
+ * Lock a pipe.
+ * If its already locked,
+ * set the WANT bit and sleep.
+ */
+plock(ip)
+register struct inode *ip;
+{
+	register s = spl6();
+
+	while(ip->i_flag&ILOCK) {
+		ip->i_flag |= IWANT;
+		sleep((caddr_t)ip, PINOD);
+	}
+	ip->i_flag |= ILOCK;
+	splx(s);
+}
+
+/*
+ * Unlock a pipe.
+ * If WANT bit is on,
+ * wakeup.
+ * This routine is also used
+ * to unlock inodes in general.
+ */
+prele(ip)
+register struct inode *ip;
+{
+
+	ip->i_flag &= ~ILOCK;
+	if(ip->i_flag&IWANT) {
+		ip->i_flag &= ~IWANT;
+		wakeup((caddr_t)ip);
+	}
+}
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d28 2
+a29 2
+#include <sys/reg.h>
+#include <sys/inline.h>
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@d3 3
+d19 1
+a19 1
+#include "param.h"
+@
+
+
+1.3
+log
+@Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+
+(from VAX/UTS SV.2)
+@
+text
+@d3 5
+@
+
+
+1.2
+log
+@Состояние перед сливанием с AVG-Э-85.
+@
+text
+@d2 4
+a5 1
+ * $Log:        pipe.c,v $
+a28 1
+#define PIPSIZ  4096
+d76 3
+a78 4
+	wf->f_flag = FWRITE|FPIPE;
+	wf->f_inode = ip;
+	rf->f_flag = FREAD|FPIPE;
+	rf->f_inode = ip;
+d80 5
+a84 2
+	ip->i_mode = IFREG;
+	ip->i_flag = IACC|IUPD|ICHG|IPIPE;
+d88 1
+a88 1
+ * Read call directed to a pipe.
+a89 4
+readp(fp)
+register struct file *fp;
+{
+	register struct inode *ip;
+d91 4
+a94 1
+	ip = fp->f_inode;
+d96 13
+a108 17
+loop:
+	/*
+	 * Very conservative locking.
+	 */
+
+	plock(ip);
+	/*
+	 * If nothing in the pipe, wait.
+	 */
+	if (ip->i_size == 0) {
+		/*
+		 * If there are not both reader and
+		 * writer active, return without
+		 * satisfying read.
+		 */
+		prele(ip);
+		if(ip->i_count < 2)
+d110 5
+a114 3
+		ip->i_mode |= IREAD;
+		sleep((caddr_t)ip+2, PPIPE);
+		goto loop;
+d116 6
+a121 18
+
+	/*
+	 * Read and return
+	 */
+
+	u.u_offset = fp->f_un.f_offset;
+	readi(ip);
+	fp->f_un.f_offset = u.u_offset;
+	/*
+	 * If reader has caught up with writer, reset
+	 * offset and size to 0.
+	 */
+	if (fp->f_un.f_offset == ip->i_size) {
+		fp->f_un.f_offset = 0;
+		ip->i_size = 0;
+		if(ip->i_mode & IWRITE) {
+			ip->i_mode &= ~IWRITE;
+			wakeup((caddr_t)ip+1);
+d124 6
+a129 1
+	prele(ip);
+d133 2
+a134 1
+ * Write call directed to a pipe.
+d136 3
+a138 2
+writep(fp)
+register struct file *fp;
+d140 2
+a141 2
+	register c;
+	register struct inode *ip;
+d143 5
+a147 14
+	ip = fp->f_inode;
+	c = u.u_count;
+
+loop:
+
+	/*
+	 * If all done, return.
+	 */
+
+	plock(ip);
+	if(c == 0) {
+		prele(ip);
+		u.u_count = 0;
+		return;
+d149 5
+a153 12
+
+	/*
+	 * If there are not both read and
+	 * write sides of the pipe active,
+	 * return error and signal too.
+	 */
+
+	if(ip->i_count < 2) {
+		prele(ip);
+		u.u_error = EPIPE;
+		psignal(u.u_procp, SIGPIPE);
+		return;
+d155 15
+a169 12
+
+	/*
+	 * If the pipe is full,
+	 * wait for reads to deplete
+	 * and truncate it.
+	 */
+
+	if(ip->i_size >= PIPSIZ) {
+		ip->i_mode |= IWRITE;
+		prele(ip);
+		sleep((caddr_t)ip+1, PPIPE);
+		goto loop;
+a170 19
+
+	/*
+	 * Write what is possible and
+	 * loop back.
+	 * If writing less than PIPSIZ, it always goes.
+	 * One can therefore get a file > PIPSIZ if write
+	 * sizes do not divide PIPSIZ.
+	 */
+
+	u.u_offset = ip->i_size;
+	u.u_count = MIN((unsigned)c, (unsigned)PIPSIZ);
+	c -= u.u_count;
+	writei(ip);
+	prele(ip);
+	if(ip->i_mode&IREAD) {
+		ip->i_mode &= ~IREAD;
+		wakeup((caddr_t)ip+2);
+	}
+	goto loop;
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d209 2
+a210 2
+#ifdef	plock
+#undef	plock
+d212 2
+a213 2
+#ifdef	prele
+#undef	prele
+d223 1
+d230 1
+@

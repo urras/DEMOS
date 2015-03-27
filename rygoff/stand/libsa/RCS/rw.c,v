@@ -1,0 +1,196 @@
+head     1.4;
+access   ;
+symbols  Архыз0:1.3.1;
+locks    rygoff:1.4;
+comment  @ * @;
+
+
+1.4
+date     89.03.10.13.29.55;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.03.04.15.03.17;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.03.03.22.29.35;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.09.01.21.45.41;  author avg;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Драйвер Винчестера.
+@
+
+
+1.4
+log
+@Убран начальный сброс контроллера, т.к. он иногда приводил к падению
+по Trap с Bus Error-ом по причине крайнего му..зма авторов контроллера
+(регистры исчезают с шины на время выполнения операции)>
+>
+@
+text
+@/*
+ * RW disk driver
+ *
+ * $Log:	rw.c,v $
+ * Revision 1.3  87/03/04  15:03:17  avg
+ * Немножко правлена диагностика.
+ * 
+ * Revision 1.2  87/03/03  22:29:35  avg
+ * Восстановлены потерянные правки для Электроники-85.
+ *
+ * Revision 1.1  86/09/01  21:45:41  avg
+ * Initial revision
+ *
+ *
+ */
+
+#include <sys/param.h>
+#include <sys/inode.h>
+#include "../saio.h"
+
+#define R(x) (*((int *)(x)))
+
+char worka[512];     /* рабочая область */
+
+rwstrategy(io, func)
+register struct iob *io;
+{
+	daddr_t bn;
+	int  cn, sn, tn;
+	unsigned ma, seg = segflag & 3;
+	register *wwp, i;
+	register unsigned cc;
+
+	ma = io->i_ma;
+	bn = io->i_bn;
+	sn = bn%16;
+	bn /= 16;
+	tn = bn%4;
+	cn = bn/4;
+	cc = io->i_cc;
+
+	while( cc > 0 ) {
+		if( func != READ ) {
+			/* Читать блок из ОЗУ */
+			i = cc;
+			if( i > 512 ) i = 512;
+			cop_from( seg, ma, i/2, worka );
+			cc -= i;
+			if( ma+i < ma ) seg++;
+			ma += i;
+		}
+
+		/* Ждать готовность контроллера */
+ELoop:
+		while( R(0174020) & 0100000 );
+		wwp = worka;
+
+		/* Запустить операцию */
+		R(0174006) = sn;
+		R(0174012) = cn;
+		R(0174014) = tn;
+		R(0174016) = (func==READ) ? 040 : 060;
+
+		if( func == READ ) {
+			for ( i = 256 ; i ; i-- ) {
+				while( (R(0174020) & 0200) == 0 );
+				*wwp++ = R(0174010);
+			}
+		} else {
+			for ( i = 256 ; i ; i-- ) {
+				while( (R(0174020) & 0200) == 0 );
+				R(0174010) = *wwp++;
+			}
+		}
+		while( R(0174020) & 0100000 );
+		if( R(0174016) & 020400 ) {
+			printf( "RW ERR BN %d ER=%o\n", (int)(io->i_bn), R(0174004) );
+			goto ELoop;
+		}
+
+		if( func == READ ) {
+			/* Писать блок в ОЗУ */
+			i = cc;
+			if( i > 512 ) i = 512;
+			cop_to( seg, ma, i/2, worka );
+			cc -= i;
+			if( ma+i < ma ) seg++;
+			ma += i;
+		}
+		if( ++sn == 16 ) {
+			sn = 0;
+			if( ++tn == 4 )
+				tn = 0, cn++;
+		}
+	}
+	return(io->i_cc);
+}
+@
+
+
+1.3
+log
+@Немножко правлена диагностика.
+@
+text
+@d4 4
+a7 1
+ * $Log:        rw.c,v $
+a54 1
+		bn = R(0174000);
+@
+
+
+1.2
+log
+@Восстановлены потерянные правки для Электроники-85.
+@
+text
+@d5 3
+d20 2
+a25 1
+	static char worka[512];     /* рабочая область */
+d75 1
+a75 1
+			printf( "RW ERR: ER=%o RKS2=%o\n", R(0174004), R(0174016) );
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 3
+a6 1
+ * $Log$
+d8 1
+d21 1
+a21 1
+	char    worka[512];     /* рабочая область */
+d26 1
+a27 1
+
+d36 1
+a36 1
+		if( func == READ ) {
+d47 1
+a48 1
+		R(0174020) = 010;
+d70 4
+d75 1
+a75 1
+		if( func != READ ) {
+@

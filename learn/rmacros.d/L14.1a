@@ -1,0 +1,104 @@
+#print
+А что, если авторов несколько?  Ну, тогда используйте несколько команд .AU .
+Допустим, мы хотим включить Ричарда Генри Ли в качестве соавтора для нашего
+файла "decl".  Тогда нужно набрать в начале файла:
+  .TM номера сообщения и темы
+  .ND липовая дата
+  .TL
+  Declaration of Independence
+  .AU комната и телефон Джефферсона
+  Thomas Jefferson
+  .AU комната и телефон Ли
+  Richard Henry Lee
+  .AI
+  как прежде...
+Преобразуйте "decl" таким образом и получите его.
+После чего ответьте "готов".
+Установите для Ли номер комнаты - MH 2B-222 и его телефон - 1824.
+#create Ref
+.TM 75-1776-1 12345 12345
+.ND July 4, 1776
+.TL
+Declaration of Independence
+.AU "MH 2A-111" 1776
+Thomas Jefferson
+.AU "MH 2B-222" 1824
+Richard Henry Lee
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.OK
+tyranny
+democracy
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.CS 1 2 3 4 5 6
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#once nroff -ms Ref >X1 &
+#create decl
+.TM 75-1776-1 12345 12345
+.ND July 4, 1776
+.TL
+Declaration of Independence
+.AU "MH 2A-111" 1776
+Thomas Jefferson
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.OK
+tyranny
+democracy
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.CS 1 2 3 4 5 6
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#copyout
+#user
+#uncopyout
+tail -132 .ocopy >X2
+#cmp X1 X2
+#log
+#next
+15.1a 10

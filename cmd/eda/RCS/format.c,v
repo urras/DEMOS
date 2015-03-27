@@ -1,0 +1,514 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.51.34;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г., ВМК МГУ
+ *   Последняя модификация: 24.03.85
+ */
+
+#include NAME
+#include "glob.h"
+
+/*
+ * Вверх (PLUS) / вниз (MINUS) на параграф
+ */
+parud(arg, narg)
+{
+	int     nr;
+
+	for( nr = 0 ; nr < narg ; nr++ ) {
+		if( arg == PLUS ) {
+			if( !zerolen( cl ) )
+				up( NULL, 1 );
+			if( zerolen( cl ) ) {
+				do {
+					if( cl == 0 )
+						return;
+					up( NULL, 1 );
+				} while( zerolen( cl ) );
+			}
+			while( cl > 0 && !zerolen( cl-1 ) )
+				up( NULL, 1 );
+			if( cl == 0 )
+				return;
+		} else {
+			while( !zerolen( cl ) )
+				down( NULL, 1 );
+			do {
+				down( NULL, 1 );
+			} while( cl < NLIN-1 && zerolen( cl ) );
+			if( cl == NLIN-1 )
+				return;
+		}
+	}
+}
+
+/*
+ * Проверка на нулевую длину строки
+ */
+zerolen( l )
+{
+	register char *p, *q;
+
+	p = line( l );
+	q = p + llen( l );
+	while( q >= p && *q == ' ' ) q--;
+	return( q < p );
+}
+
+#ifdef F_format
+
+#define ABZ     5       /* Отступ */
+
+/*
+ * Форматирование абзаца
+ */
+format(arg, narg)
+{
+	int     nr, xf, k, j, sf, uf, Xf, IND, ccold;
+	register int i, l;
+	register char *p;
+	extern int texflag, insflag, Zflag, ffault;
+	char   *q;
+
+	if( cl > 0 && !zerolen( cl-1 ) )
+		parud( PLUS, 1 );
+	if( zerolen( cl ) ) {
+		parud( MINUS, 1 );
+		return;
+	}
+	IND = cc;
+	if( width1-IND < (ABZ*4) )
+		IND = width1-(ABZ*4);
+	if( IND < 0 )
+		IND = 0;
+	ccold = IND;
+	for( nr = 0; nr < narg ; nr++ ) {
+		if( zerolen( cl ) )
+			return;
+		pos( cl, 0 );
+		Xf = 0;
+		do {
+			/*
+			 * Выделение поля слева
+			 */
+			k = (Xf? 0: ABZ) + IND;
+			p = line( cl );
+			j = llen( cl );
+			for( i = 0 ; i < j && p[i] == ' ' ; i++ );
+			if( i < k ) {
+				Zflag = 2;
+				xf = texflag;
+				texflag = 0;
+				do {
+					if( icdc( PLUS, 1 ) )
+						i++;
+					else if( fshr() )
+						break;
+				} while( i < k );
+				ffault = 0;
+				texflag = xf;
+				Zflag = 0;
+			}
+			p = line( cl );
+			j = llen( cl );
+			while( j > 0 && p[j] == ' ' )
+				j--;
+# ifdef DEBUG
+DBF( "До выравнивания по левой границе", j, p );
+# endif
+			/*
+			 * Выравнивание по левой границе
+			 */
+			for( i = 0 ; i <= j ; i++ )
+				if( p[i] != ' ' )
+					break;
+			i -= IND;
+			if( !Xf )
+				i -= ABZ;
+			if( i > 0 ) {
+				for( l = 0 ; l <= j-i ; l++ )
+					p[l] = p[l+i];
+				j -= i;
+			}
+			Xf = 1;
+			if( j < width1 )
+				p[j+1] = ' ';
+
+# ifdef DEBUG
+DBF( "Выравнивание по левой границе ...", j, p );
+# endif
+			/*
+			 * Уплотнение строки
+			 */
+			sf = 0;
+			for( i = k ; i <= j ; i++ ) {
+				if( p[i] == ' ' ) {
+					if( sf > 0 ) {
+						for( l = i ; l < j ; l++ )
+							p[l] = p[l+1];
+						p[j--] = ' ';
+						i--;
+					} else
+						sf++;
+				} else if( alnum( p, i ) )
+					sf = 0;
+				else {
+					sf = 0;
+					if( i > 0 && p[i-1] == ' ' ) {
+						if( p[i] == '-' || p[i] == '.' ) {
+							p[i-1] = p[i];
+							p[i] = ' ';
+						} else {
+							for( l = i-1 ; l < j ; l++ )
+								p[l] = p[l+1];
+							p[j--] = ' ';
+							i--;
+						}
+						i--;
+					}
+				}
+			}
+# ifdef DEBUG
+DBF( "Уплотнение строки...", j, p );
+# endif
+
+			/*
+			 * Добавление ' ' после знаков
+			 */
+			for( i = k ; i <= j ; i++ )
+				if(  p[i] != ' ' && !alnum(p, i) &&
+				     i < width1 && alnum(p, i+1) ) {
+					if( j >= width1 ) {
+						llen(cl) = j;
+						fshr();
+						j = llen(cl);
+					}
+					for( l = j ; l > i ; l-- )
+						p[l+1] = p[l];
+					j++;
+					p[i+1] = ' ';
+				}
+
+			llen(cl) = j;
+# ifdef DEBUG
+DBF( "Добавление ' ' после знаков...", j, p );
+# endif
+			if( cl == NLIN-1 || zerolen( cl+1 ) )
+				goto LASTS;
+
+			/*
+			 * Дополнить из следующей строки
+			 */
+# ifdef DEBUG
+DBF( "*** Дополнение из след. строки", j, p );
+# endif
+			q =  line( cl+1 );
+			sf = llen( cl+1 );
+ARM:
+			if( sf < width1 )
+				q[sf+1] = ' ';
+			l = 0;
+			while( q[l] == ' ' && l <= sf )
+				l++;
+			if( l > sf ) {
+				llen( cl+1 ) = 0;
+				llen( cl ) = j;
+				goto ARMS;
+			}
+			while( j > 0 && p[j] == ' ' )
+				j--;
+			i = j+1;
+			uf = 0;
+			if( alnum(q, l) )
+				i++, uf++;
+			if( i <= width1 ) {
+				xf = l;
+				l++;
+				if( uf ) {
+					p[i-1] = ' ';
+					while( l <= sf && alnum( q, l ) )
+						l++, uf++;
+				} else
+					uf++;
+				while( l <= sf && q[l] == ' ' )
+					l++;
+				while( l <= sf && rmars( q[l] ) )
+					l++, uf++;
+				if( uf <= width-i ) {
+					j = i+uf-1;
+					while( i <= j ) {
+						while( q[xf] == ' ' )
+							xf++;
+						p[i++] = q[xf++];
+					}
+					for( i = l ; i <= sf ; i++ )
+						q[i-l] = q[i];
+					sf -= l;
+					if( sf < 0 )
+						sf = 0, q[0] = ' ';
+					if( sf == 0 && *q == ' ' ) {
+						down( NULL, 1 );
+						dl( NULL, 1 );
+						up( NULL, 1 );
+# ifdef DEBUG
+DBF( "Удаление уже опустошенной строки...", j, p );
+# endif
+						sf = llen( cl+1 );
+						q  = line( cl+1 );
+						p  = line( cl );
+					}
+					goto ARM;
+				}
+			}
+			llen( cl+1 ) = sf;
+
+# ifdef DEBUG
+DBF( "Дополнение из след. строки...", j, p );
+# endif
+			/*
+			 * Проверка на наличие нехорошего знака в начале
+			 * следующей строки
+			 */
+			llen(cl) = j;
+			l = 0;
+			while( l <= sf && q[l] == ' ' )
+				l++;
+			if( l <= sf && rmars( q[l] ) )
+				fshr();
+# ifdef DEBUG
+DBF( "Проверка на плохой знак...", j, p );
+# endif
+
+ARMS:
+			/*
+			 * Выравнивание по правому краю
+			 */
+				/******/
+LASTS:
+			/*
+			 * Вывод строки
+			 */
+			l = cl;
+# ifdef DEBUG
+DBF( "Вывод строки", j, p );
+# endif
+
+			typestr( cl );
+			qpos( l, csh );
+			down( NULL, 1 );
+		} while( !zerolen( cl ) );
+		pos( cl, ccold );
+		if( cl == NLIN-1 )
+			return;
+		parud( MINUS, 1 );
+	}
+}
+
+# ifdef DEBUG
+DBF( s, j, p )
+char    *s;
+{
+	register i;
+	char    b[160];
+
+	sprintf( b, "%s\n    cl=%d   j=%d   llen[cl]=%d  llen[cl+1]=%d    p=%o\n LLENS:",
+			s, cl, j, llen(cl), llen(cl+1), p );
+	write( 1, b, strlen(b) );
+	for( i = 0 ; i < NLIN ; i++ ) {
+		sprintf( b, " %2d", llen(i) );
+		write( 1,b, strlen(b) );
+	}
+	write( 1, "\n LINE(cl)  ='", 14 );
+	write( 1, line(cl), llen(cl)+1 );
+	write( 1, "'\n LINE(cl+1)='",15 );
+	write( 1, line(cl+1), llen(cl+1)+1 );
+	write( 1, "'\n\n", 3 );
+}
+# endif
+
+/*
+ * Fake share ( see icdc.c )
+ */
+fshr()
+{
+	extern int Zflag;
+	register int l, m;
+	register char *p;
+	int     i, nl, z;
+	char   *q;
+
+	i = l = llen(cl);
+# ifdef DEBUG
+DBF( " -- Начало fshr --", l, Zflag );
+# endif
+	l--;
+	p = line(cl);
+	while( l>0 && p[l] != ' ' && (!Zflag || alnum(p,l)) )
+		l--;
+	if( l <= 0 )
+# ifdef DEBUG
+{ write (1, "FSHR FAILS\n", 11 );
+# endif
+		return( 1 );
+# ifdef DEBUG
+}
+# endif
+	if( !Zflag )
+		l++;
+	if( cl != NLIN-1 ) {
+		if( !zerolen( cl+1 ) ) {
+			nl = llen( cl+1 );
+			q  = line( cl+1 );
+			while( q[nl] == ' ' )
+				nl--;           /* nl обязательно >=0 */
+			llen( cl+1 ) = nl;
+			if( width1-nl >= (z = i-l+2) ) {
+				for( m = nl ; m >= 0 ; m-- )
+					q[z+m] = q[m];
+				llen( cl+1 ) = nl+z;
+				z--;
+				goto out;
+			}
+		}
+		down( NULL, 1 );
+		il( NULL, 1 );
+	} else
+		down( NULL, 1 );
+	up( NULL, 1 );
+	z = i-l+1;
+	q = line( cl+1 );
+	llen( cl+1 ) = z-1;
+out:
+	nl = l;
+	p = line(cl);
+	for( m = 0 ; m < z ; m++ )
+		q[m] = p[l++];
+	q[m] = ' ';
+	while( nl > 0 && p[nl] == ' ' );
+		nl--;
+	llen(cl) = nl;
+	p[nl+1] = ' ';  /* nl обязательно < width1 */
+# ifdef DEBUG
+DBF( " -- Конец fshr --", nl, 0 );
+# endif
+	return( 0 );
+}
+
+/*
+ * Предикат - символ есть буква
+ */
+ALPHA(s)
+{
+	return((s&0300)==0300||(s>='A'&&s<='Z')||(s>='a'&&s<='z')||
+		s=='_'||s=='@@'||s=='~');
+}
+
+/*
+ * Предикат - символ есть цифра
+ */
+DIGIT(s)
+{
+	return((s>='0'&&s<='9')||s=='#'||s=='$'||s=='%');
+}
+
+/*
+ * Предикат - символ входит в слово
+ */
+alnum(p, cc)
+char   *p;
+{
+	register char s, c;
+
+	s = p[cc];
+	if( ALPHA(s) || DIGIT(s) || s=='\\' )
+		return(1);
+	switch( s ) {
+	    case '"':
+	    case '\'':
+		if( cc > 0 && cc < width1 ) {
+			s = p[cc-1];
+			c = p[cc+1];
+			return((ALPHA(s)||DIGIT(s)) && ALPHA(c));
+		}
+		break;
+	    case '-':
+	    case '/':
+		if( cc > 0 && cc < width1 ) {
+			s = p[cc-1];
+			c = p[cc+1];
+			return((ALPHA(s) &&  ALPHA(c)) ||
+			       (DIGIT(c) && !DIGIT(s)));
+		} else if( cc == 0 && s != '/' ) {
+			c = p[cc+1];
+			return( !DIGIT(c) );
+		}
+		break;
+	    case '.':
+		if( cc < width1 && p[cc+1] == '.' )
+			return(1);
+	    case ',':
+		if( cc > 0 && cc < width1 ) {
+			s = p[cc-1];
+			c = p[cc+1];
+			return( DIGIT(c) && DIGIT(s) );
+		}
+		break;
+	    case '+':
+		if( cc == width1 )
+			return(0);
+		c = p[cc+1];
+		if( !DIGIT(c) )
+			return(0);
+		if( cc == 0 )
+			return(1);
+		s = p[cc-1];
+		return( !DIGIT(s) );
+	}
+	return(0);
+}
+
+/*
+ * Предикат - символ не может быть в начале строки
+ */
+rmars( c )
+register char c;
+{
+	register char *q = "?.,!;:^";
+
+	while( *q )
+		if( *q++ == c )
+			return(1);
+	return(0);
+}
+#endif F_format
+@

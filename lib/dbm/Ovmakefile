@@ -1,0 +1,12 @@
+CFLAGS=		-V -O
+
+libovdbm.a:	dbm.c
+		cc -c ${CFLAGS} dbm.c
+		mv dbm.o libovdbm.a
+
+cp:		libovdbm.a
+		cp libovdbm.a ${DESTDIR}/usr/lib/libovdbm.a
+		ranlib ${DESTDIR}/usr/lib/libovdbm.a
+
+clean:
+		-rm -f *.o libovdbm.a

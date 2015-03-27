@@ -1,0 +1,42 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    abs:1.1; strict;
+comment  @# @;
+
+
+1.1
+date     88.08.18.18.20.16;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+командный файл для вызова подходящего фильтра.
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@PATH=/usr/plot:/lib:/lib/plot
+case $1 in
+-T*)    t=$1
+	shift ;;
+*)      t=-T$TERM
+esac
+case $t in
+-Te85)  exec e85  $*;;
+-Teplot) exec eplot $*;;
+-Ts5400) exec s5400 $*;;
+-Tt4014) exec t4014 $*;;
+-Thpgl)  exec hpgl  $*;;
+*)  PATH=/bin:/usr/bin
+    echo "plot: нет фильтра для $t" 1>&2; exit 1
+    ;;
+esac
+@

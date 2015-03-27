@@ -1,0 +1,39 @@
+Dired commands (* may preceded by count):
+	ESC		cancel count or sort
+	<space>		clear bottom half of screen, show dir name
+ *      <crlf>,+,j      go to next entry (may be preceded by a count)
+ *      ^,y,-,k,<bs>,^P go to previous entry (may be preceded by a count)
+	! cmd		execute 'cmd', replacing % by full pathname, # by tail
+	.		executes last '!' cmd, substituting current filename
+	\		toggle split-screen mode
+	/		select file matching regular expression
+	a		aborts out of current directory
+	A		aborts out completely
+ *      b               backward a window (may be preceded by a count)
+	c		refresh current line
+	d		mark current entry for deletion
+	e		edit current entry via editor or via dired if directory
+	E		goes up to parent dir
+ *      f               forward a window (may be preceded by a count)
+	^G		display file number, total # of files.
+ *      G               goto last file. When preceded by a count, goes
+			to that file number as in "vi".
+ *      g               same, as G, goto first file
+	h, ?		display this help blurb
+	l, ^L, ^A       refresh current window
+	m		Use 'more' to display the current entry.
+	n		next instance matching the pattern prev defined
+	N		same as 'n' except going up
+	P		print current entry on line printer 
+	p		display full pathname of current selection
+	q		exit.  Prompts for deletion of marked files
+	Q		exit, pushd's you into the dir of the current
+			file
+	r [n,r,s,w]	reverse sort by name/read date/size/write date
+	R		re-read dir. Prompts for deletion of marked files
+	s		same as r but normal sort
+	t               type current entry on terminal;
+			pause in 2 window mode,
+			abort with 'q' or interrupt (^C).
+	T		type current entry on terminal, no pause.
+	u		undelete current entry

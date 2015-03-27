@@ -1,0 +1,160 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.03.21.18.31.01;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+1-часть администратора
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Администратор - обслуживание бюджетов
+ *  Автор: Антонов В.Г. ( ВМК МГУ, ИПК Минавтопрома )
+ *  Последнее изменение: 28.06.85
+ *
+ */
+
+#include "adm.h"
+
+/*
+ * Справочная информация по командам adm
+ */
+Help()
+{
+	if( _ediag ) {
+		printf( "%s%s%s%s%s%s",
+"  ADM has the following commands:\n",
+"    look    [user...] - prints users quotes on tty\n",
+"    pri     [user...] - prints users quotes on line printer\n",
+"    set      user...  - set users quotes\n",
+"    res     [user...] - reset all restrictions, remove user[s]\n",
+"    lock     user...  - lock up login entry for user\n" );
+		printf( "%s%s%s%s%s",
+"    open     user...  - unlock login entry\n",
+"    !command          - to perform a shell command\n",
+"    clr     [user...] - clear statistics\n",
+"    dostat            - collect statistic of disk usage\n",
+"    timstat           - collect statistic of tty time usage\n",
+"    lu      [user...] - print list of users on tty\n" );
+		printf( "%s%s%s%s%s%s",
+"    cu       user...  - change user associated information\n",
+"    pu      [user...] - print users list on line printer\n",
+"    exit              - exit from ADM\n",
+"    help              - prints on tty this text\n\n",
+"  The set command will add new user if there was not his before\n",
+"  Well, as user name you may use his uid.\n\n" );
+	} else {
+		printf( "%s%s%s%s%s%s",
+"  Команды АДМ :\n",
+"    look(дай)  [польз...] - выдать бюджеты пользователей\n",
+"    pri(печ)   [польз...] - выдать бюджеты на печать\n",
+"    set(уст)    польз...  - установить бюджеты пользователей\n",
+"    res(снять) [польз...] - снять бюджетирование, удалить пользователя\n",
+"    lock(закр)  польз...  - закрыть вход в систему\n" );
+		printf( "%s%s%s%s%s",
+"    open(откр)  польз...  - открыть вход в систему\n",
+"    !команда              - выполнить команду shell-а\n",
+"    clr(очс)   [польз...] - очистить статистику\n",
+"    dostat(дстат)         - провести сбор статистики по дисковой памяти\n",
+"    timstat(tстат)  -  провести сбор статистики по использ.терм. времени\n",
+"    lu(сп)     [польз...] - выдать список пользователей\n" );
+		printf( "%s%s%s%s%s%s",
+"    cu(ип)      польз...  - изменить информацию о пользователе\n",
+"    pu(пп)     [польз...] - выдать на печать список пользователей\n",
+"    exit(вых)             - выход\n",
+"    help(инф)             - выдача этой информации\n\n",
+"  Если до выполнения команды set пользователя не было, он заводится.\n",
+"  Имя пользователя можно заменять на его uid.\n\n" );
+	}
+}
+
+/*
+ * Установить имя вычислительной системы
+ */
+setupSYSTEM()
+{
+	static char Sbuff[80];
+	char    *t;
+	int     sf;
+
+	Sbuff[0] = '\0';
+	sf = 0;
+	if( (t = getenv( "MACHINE" )) != NULL ) {
+		strcpy( Sbuff, ediag( "COMPUTER ", "ЭВМ " ) );
+		strcat( Sbuff, t );
+		sf++;
+	}
+	if( (t = getenv( "ORG" )) != NULL ) {
+		if( sf ) strcat( Sbuff, "  " );
+		strcat( Sbuff, t );
+		sf++;
+	}
+	if( (t = getenv( "SYSTEM" )) != NULL ) {
+		if( sf ) strcat( Sbuff, "    " );
+		strcat( Sbuff, t );
+	}
+	SYSTEM = Sbuff;
+}
+
+/*
+ * Выделение главного имени
+ */
+Basename( s )
+char *s;
+{
+	if( index( s, '/' ) )
+		return( 1+(char *)rindex( s, '/' ) );
+	else
+		return( s );
+}
+
+/*
+ * Печать списка пользователей в длинном формате
+ */
+printUlist( lines )
+int    *lines;
+{
+	if( *lines == 0 ) {
+		fprintf( OPR, ediag(
+			" *** List of users : %s *** page %d       %s%s",
+			" *** Список пользователей %s *** страница %d        %s%s"),
+			SYSTEM, ++Npage, ctime( &timey ),
+"+------------------------------------------------------------------------------------------------------------------------+\n" );
+		if( _ediag )
+			fprintf( OPR, "%s\n%s\n%s\n",
+"! User     ! Group    ! UID ! GID !      Home directory             ! Default     !          --- USER ---                !",
+"!     name !     name !     !     !                                 !     shell   !                                      !",
+"!----------+----------+-----+-----+---------------------------------+-------------+--------------------------------------!" );
+		else
+			fprintf( OPR, "%s\n%s\n%s\n",
+"! Имя      ! Имя      ! UID ! GID !      Начальный каталог          ! Интерпр.    !          ПОЛЬЗОВАТЕЛЬ                !",
+"!   польз. !   группы !     !     !                                 ! ком. языка  !                                      !",
+"!----------+----------+-----+-----+---------------------------------+-------------+--------------------------------------!" );
+		*lines = 5;
+	}
+	fprintf( OPR, "! %-8.8s ! %-8.8s ! %3d ! %3d ! %-31.31s ! %-11.11s ! %-36.36s !\n",
+		 upass->pw_name, gpass->gr_name, upass->pw_uid, upass->pw_gid, upass->pw_dir, Basename(upass->pw_shell), GFIO( upass->pw_gecos) );
+	(*lines)++;
+	if( *lines == 65 ) {
+		fprintf( OPR,
+"+-----------------------------------------------------------------------------------------------------------------------+\n" );
+                *lines = 0;
+        }
+}
+@

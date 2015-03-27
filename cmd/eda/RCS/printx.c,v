@@ -1,0 +1,284 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.01.19.11.54.54;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.58;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Сделана ветвь на случай отсутствия S_ru.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: printx.c,v 1.1 86/11/11 17:51:58 avg Exp $";
+#endif
+
+/*
+ * $Log:        printx.c,v $
+ * Revision 1.1  86/11/11  17:51:58  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 28.02.1986
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+int     XOUT = 0;       /* Подавление вывода */
+
+/*
+ * Печатать строку, ограниченную '\0'
+ */
+printx(i)
+char *i;
+{
+	register char *ip;
+
+	if( XOUT )
+		return;
+	ip = i;
+	while( *ip )
+		putc( *ip++, stdout );
+}
+
+/*
+ * Печатать n символов
+ */
+writex( p, n )
+register char *p;
+register       n;
+{
+	if( XOUT )
+		return;
+	while( n-- > 0 )
+		putc( *p++, stdout );
+}
+
+int     Fflag = 0;      /* Не очищать предварительно строку */
+
+/*
+ * Печать одной строки из буфера экрана
+ */
+typestr( l )
+{
+	/*register*/ int   i, sh;
+	/*register*/ char *p;
+	int            xsh;
+
+#ifndef S_pos
+	qpos(l, csh);
+#endif  S_pos
+	if( !Fflag ) {
+#ifdef S_pos
+		qpos(l, csh);
+#endif S_pos
+		clrl();
+	}
+	i = llen(l);
+	if( i < csh )
+		return;
+	i = (i > width1)? width1 : i;
+	i = (i > csh+(SWID-1)) ? csh+(SWID-1) : i;
+	p = line(l);
+	while( i >= csh && p[i] == ' ' )
+		i--;
+
+	if( i >= csh ) {
+#ifdef S_pos
+		sh = csh;
+		do {
+			xsh = sh;
+			while( p[sh] == ' ' ) {
+				if( sh >= i )
+					return;
+				sh++;
+			}
+			qpos( l, sh );
+			xsh = cc;
+			while( p[sh] != ' ' && sh < i )
+				sh++;
+			if( sh >= xsh )
+				Pwrite( &p[xsh], xsh, sh-xsh+1 );
+		} while( sh < i );
+#else
+		Pwrite( &p[csh], csh, i+1-csh );
+#endif S_pos
+	}
+}
+
+/*
+ * Выдача части строки на экран
+ */
+Pwrite( x, c, l )
+char   *x;
+register l;
+{
+	register i;
+
+	i = l;
+	if( c-csh+l >= SWID )
+		i--;
+	if( i > 0 )
+		writex( x, i );
+	cc += i;
+	if( i < l )
+		pchar();
+}
+
+/*
+ * Проверить - пуста ли строка ?
+ *   0 - пуста; 1 - не пуста
+ */
+lempty( l, c, len )
+{
+	register int   j;
+	register char *p;
+
+	j = llen( l );
+	if( j < c )
+		return( 0 );
+	if( len > width )       /* СААПЛЯ */
+		len = width;
+	if( j > c+len-1 )
+		j = c+len-1;
+	p = line( l );
+	while( j >= c && p[j] == ' ' )
+		j--;
+	return( j >= c );
+}
+
+/*
+ * Печать символа из буфера экрана в текущем положении курсора
+ */
+pchar()
+{
+	char *p;
+#ifdef BROLL
+	int  cc1;
+#endif BROLL
+	char c0,c1;
+
+	if( cc<csh || cc-csh>SWID-1 )
+		return;
+	p = line(cl);
+	c0 = p[cc];
+	if( cc )
+		c1 = p[cc-1];
+	if( cc > width ) {
+		c1 = ' ';
+		if( cc > width1 )
+			c0 = ' ';
+	}
+
+/* Случай, когда символ - не последний в строке */
+	if( cc-csh < SWID-1 ) {
+		writex(&c0, 1);
+		if( cc == width1 && width < SWID )
+			printx(S_left);
+		else
+			cc++;
+		return;
+	}
+
+/* Печать последнего символа строки -- трудная часть */
+#ifndef FRM
+	writex(&c0, 1);       /* No problem... */
+#else
+# ifdef FRM2
+	writex(&c0, 1);       /* No problem... */
+	printx(S_left);
+# else
+#  ifndef FRM1
+#   ifdef ROLL
+#    ifdef BROLL
+	cc1 = cc;
+#    endif BROLL
+	if( cl == NLIN-1 ) {
+#    ifdef S_ic
+		printx(S_left);
+		writex(&c0, 1);
+		printx(S_left);
+		printx(S_ic);
+		writex(&c1, 1);
+#    else
+#     ifdef S_ru
+		printx(S_up);
+		printx(S_ru);
+#     else
+		printx(S_down);
+		printx(S_up);
+		printx(S_up);
+#     endif S_ru
+#     ifdef BROLL
+		cl = 0;
+		cc = csh;
+		qpos( NLIN-2, cc1 );
+#     endif BROLL
+		writex(&c0, 1);
+		printx(S_left);
+		printx(S_rd);
+#     ifdef BROLL
+		cl = 0;
+		cc = csh;
+		qpos( NLIN-1, cc1 );
+#     else
+		printx(S_down);
+#     endif BROLL
+#    endif S_ic
+	} else {
+#   endif ROLL
+		writex(&c0, 1);
+		printx(S_left);
+#   ifdef ROLL
+	}
+#   endif ROLL
+#  else
+	printx(S_left);
+	writex(&c0, 1);
+	printx(S_left);
+	printx(S_ic);
+	writex(&c1, 1);
+#  endif FRM1
+# endif FRM2
+#endif FRM
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d199 1
+d202 5
+@

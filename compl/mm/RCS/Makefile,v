@@ -1,0 +1,184 @@
+head     0.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+0.3
+date     88.10.24.20.05.24;  author abs;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     88.10.24.20.02.39;  author abs;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     88.10.24.19.16.10;  author abs;  state Exp;
+branches ;
+next     0.0;
+
+0.0
+date     86.08.03.19.49.34;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Макропроцессор Мини-Макро.
+@
+
+
+0.3
+log
+@*** empty log message ***
+@
+text
+@##########################################################################
+#                                                                        #
+# Ж   Ж    Ж  ЖЖ  ЖЖЖ   ЖЖ  ЖЖЖ  ЖЖЖ   ЖЖ   ЖЖ  ЖЖЖЖ  ЖЖЖ  ЖЖЖ  ЖЖ  ЖЖЖ  #
+# ЖЖ ЖЖ   ЖЖ Ж  Ж Ж  Ж Ж  Ж Ж  Ж Ж  Ж Ж  Ж Ж  Ж Ж    Ж    Ж    Ж  Ж Ж  Ж #
+# Ж Ж Ж  Ж Ж Ж    Ж  Ж Ж  Ж Ж  Ж Ж  Ж Ж  Ж Ж    ЖЖЖ   ЖЖ   ЖЖ  Ж  Ж Ж  Ж #
+# Ж   Ж ЖЖЖЖ Ж    ЖЖЖ  Ж  Ж ЖЖЖ  ЖЖЖ  Ж  Ж Ж    Ж       Ж    Ж Ж  Ж ЖЖЖ  #
+# Ж   Ж Ж  Ж Ж  Ж Ж  Ж Ж  Ж Ж    Ж  Ж Ж  Ж Ж  Ж Ж       Ж    Ж Ж  Ж Ж  Ж #
+# Ж   Ж Ж  Ж  ЖЖ  Ж  Ж  ЖЖ  Ж    Ж  Ж  ЖЖ   ЖЖ  ЖЖЖЖ ЖЖЖ  ЖЖЖ   ЖЖ  Ж  Ж #
+#                                                                        #
+#                           ДЕМОС 2.0                                    #
+#                                                                        #
+#               Автор: Флеров М.Н. (ИПК Минавтопрома) 1985 г.            #
+#                                                                        #
+##########################################################################
+
+#
+# $Log: Makefile,v $
+# Revision 0.2  88/10/24  20:02:39  abs
+# выгнан из /bin/mm в /usr/ucb/bin/mm
+#
+# Revision 0.1  88/10/24  19:16:10  abs
+# Добавление для ключей отладки.
+#
+# Revision 0.0  86/08/03  19:49:34  avg
+# Версия Makefile для ДЕМОС 2.0 (с архивами RCS) by @@VG.
+#
+#
+
+# Для версии исх. текстов без архивов RCS, включите R=X
+R       =
+
+RCS     = RCS
+CO      = co
+COFLAGS =
+
+# если CFLAGS = -DSCREEN, то включается мигалка числа строк
+
+CFLAGS  = -O -DDEBUGGING
+LDFLAGS = -n
+OBJS    = match.o conv.o mm.o expr.o
+SRC     = match.c conv.c mm.c expr.c
+NAME    = mm
+IS      = /usr/include/sys
+
+
+####
+all:    $(NAME)
+
+########
+$(NAME):  Makefile       $(OBJS)
+	$(CC) $(LDFLAGS) $(OBJS) -o $(NAME)
+
+########
+install: /usr/ucb/bin/$(NAME)
+
+/usr/ucb/bin/$(NAME): $(NAME)
+	-chmod 700   /usr/ucb/bin/$(NAME)
+	-/usr/ucb/bin/$(NAME)</dev/null >/dev/null
+	rm    /usr/ucb/bin/$(NAME)
+	cp    $(NAME) /usr/ucb/bin/$(NAME)
+	strip         /usr/ucb/bin/$(NAME)
+	chmod 1755    /usr/ucb/bin/$(NAME)
+
+######
+clear clean:
+	-rm -f *.[ob]
+	-rm -f $(NAME)
+
+
+match.o: $(IS)/code.h
+
+#######
+source: $(SRC) Makefile
+
+$(R)match.c : $(RCS)/match.c,v   ; $(CO) $(COFLAGS) match.c
+$(R)conv.c  : $(RCS)/conv.c,v    ; $(CO) $(COFLAGS) conv.c
+$(R)mm.c    : $(RCS)/mm.c,v      ; $(CO) $(COFLAGS) mm.c
+$(R)expr.c  : $(RCS)/expr.c,v    ; $(CO) $(COFLAGS) expr.c
+$(R)Makefile: $(RCS)/Makefile,v  ; $(CO) $(COFLAGS) Makefile
+
+
+#######
+CLRSRC: clear
+	-rm -f $(SRC)
+@
+
+
+0.2
+log
+@выгнан из /bin/mm в /usr/ucb/bin/mm
+@
+text
+@d18 3
+d59 1
+a59 1
+	rm    /bin/$(NAME)
+@
+
+
+0.1
+log
+@Добавление для ключей отладки.
+@
+text
+@d18 3
+d51 1
+a51 1
+install: /bin/$(NAME)
+d53 3
+a55 3
+/bin/$(NAME): $(NAME)
+	-chmod 700    /bin/$(NAME)
+	-/bin/$(NAME)</dev/null >/dev/null
+d57 3
+a59 3
+	cp    $(NAME) /bin/$(NAME)
+	strip         /bin/$(NAME)
+	chmod 1755    /bin/$(NAME)
+@
+
+
+0.0
+log
+@Версия Makefile для ДЕМОС 2.0 (с архивами RCS) by @@VG.
+@
+text
+@d3 6
+a8 6
+# M   M    M  MM  MMM   MM  MMM  MMM   MM   MM  MMMM  MMM  MMM  MM  MMM  #
+# MM MM   MM M  M M  M M  M M  M M  M M  M M  M M    M    M    M  M M  M #
+# M M M  M M M    M  M M  M M  M M  M M  M M    MMM   MM   MM  M  M M  M #
+# M   M MMMM M    MMM  M  M MMM  MMM  M  M M    M       M    M M  M MMM  #
+# M   M M  M M  M M  M M  M M    M  M M  M M  M M       M    M M  M M  M #
+# M   M M  M  MM  M  M  MM  M    M  M  MM   MM  MMMM MMM  MMM   MM  M  M #
+d17 3
+a19 1
+# $Log$
+d21 1
+d24 1
+a24 1
+R=
+d32 1
+a32 1
+CFLAGS  = -O
+@

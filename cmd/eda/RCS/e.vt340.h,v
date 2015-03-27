@@ -1,0 +1,133 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.11.11.20.45.22;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.05;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: e.vt340.h,v 1.1 86/11/11 17:51:05 avg Exp $";*/
+#endif
+
+/*
+ * $Log:	e.vt340.h,v $
+ * Revision 1.1  86/11/11  17:51:05  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * Экранный редактор eda  ver 2.2
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 04.07.1984
+ */
+
+/* Параметры для терминала VT-340 */
+
+#define NLIN    16
+#define SWID    80
+#define FRM     0
+#define ROLL    0
+#define SCNTRL  0
+#define UPPERONLY 0
+
+#define F_right "\030"
+#define F_left  "\010"
+#define F_up    "\031"
+#define F_down  "\032"
+#define F_il    "\013"
+#define F_dl    "\036"
+#define F_ic    "\034"
+#define F_dc    "\035"
+#define F_del   "\177"
+#define F_tab   "\011"
+#define F_btab  "\012"
+#define F_wtab  "\014\011"
+#define F_bwtab "\014\012"
+#define F_exit  "\033\033"
+#define F_rew   "\001"
+#define F_na    "\037"
+#define F_lnum  "\014\037"
+#define F_ret   "\014\015"
+#define F_cr    "\015"
+#define F_aex   "\004\004\004\004"
+#define F_inter "\003"
+#define F_fsd   "\025"
+#define F_find  "\021"
+#define F_savel "\005"
+#define F_incll "\007"
+#define F_wrtex "\014\005"
+#define F_rdtex "\014\007"
+#define F_clrtx "\026"
+#define F_end   "\014\030"
+#define F_beg   "\014\010"
+#define F_pgup  "\014\031"
+#define F_pgdown "\014\032"
+#define F_shell "\023"
+#define F_sins  "\014\034"
+#define F_sdel  "\014\035"
+#define F_tof   "\002"
+#define F_eof   "\006"
+#define F_cat   "\024"
+#define F_store "\014\033"
+#define F_rpt   "\014\014"
+
+#define F_mdef1 "\027\020"
+#define F_mdef2 "\027\022"
+#define F_mdef3 "\027\017"
+#define F_m1    "\020"
+#define F_m2    "\022"
+#define F_m3    "\017"
+#define FS_mdend "\027"
+#define Mname1   'p'
+#define Mname2   'r'
+#define Mname3   'o'
+
+#define S_right "\030"
+#define S_left  "\010"
+#define S_up    "\031"
+#define S_down  "\032"
+#define S_ic    "\034"
+#define S_dc    "\035"
+#define S_cr    "\012"
+#define S_home  "\014"
+#define S_il    "\013"
+#define S_dl    "\036"
+#define S_clrl  "\036\013"
+#define S_erase "\014\037"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

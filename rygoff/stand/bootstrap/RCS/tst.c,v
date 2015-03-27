@@ -1,0 +1,35 @@
+head     1.1;
+access   dvolodin rygoff;
+symbols  Архыз0:1.1.1;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.12.13.15.40.45;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Тест для boot+bootpar
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@int rootdev=1;
+int swapdev=2;
+int pipedev=3;
+long swplo = 8000l;
+int nswap = 872;
+main()
+{
+ exit(11);
+}
+@

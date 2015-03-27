@@ -1,0 +1,241 @@
+head     0.4;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.4
+date     86.09.29.18.26.47;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.51.20;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.39.26;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.17.10;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.4
+log
+@Версия, слитая из 2.9 и ДЕМОС без русских диагностик
+@
+text
+@#
+/*
+ * KIAE  shell
+ *
+ *
+ */
+
+#include        "defs.h"
+
+
+/* ========     error handling  ======== */
+
+exitset()
+{
+	assnum(&exitadr,exitval);
+}
+
+sigchk()
+{
+	/* Find out if it is time to go away.
+	 * `trapnote' is set to SIGSET when fault is seen and
+	 * no trap has been set.
+	 */
+	IF trapnote&SIGSET
+	THEN    exitsh(SIGFAIL);
+	FI
+}
+
+failed(s1,s2)
+	STRING  s1, s2;
+{
+	prp(); prs(s1);
+	IF s2
+	THEN    prs(colon); prs(s2);
+	FI
+	newline(); exitsh(ERROR);
+}
+
+error(s)
+	STRING  s;
+{
+	failed(s,NIL);
+}
+
+exitsh(xno)
+	INT     xno;
+{
+	/* Arrive here from `FATAL' errors
+	 *  a) exit command,
+	 *  b) default trap,
+	 *  c) fault with no trap set.
+	 *
+	 * Action is to return to command level or exit.
+	 */
+	exitval=xno;
+	IF (flags & (forked|errflg|ttyflg)) != ttyflg
+	THEN    done();
+	ELSE    clearup();
+		longjmp(errshell,1);
+	FI
+	done();
+}
+
+done()
+{
+	REG STRING      t;
+	IF t=trapcom[0]
+	THEN    trapcom[0]=0; /*should free but not long */
+		execexp(t,0);
+	FI
+	rmtemp(0);
+	exit(exitval);
+}
+rmtemp(base)
+	IOPTR           base;
+{
+	WHILE iotemp>base
+	DO  unlink(iotemp->ioname);
+	    iotemp=iotemp->iolst;
+	OD
+}
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d3 1
+a3 1
+ * МНОС РЛ 1.2 shell
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d3 1
+a3 1
+ * UNIX shell
+a4 2
+ * S. R. Bourne
+ * Bell Telephone Laboratories
+d8 1
+a8 1
+#include	"defs.h"
+d11 1
+a11 1
+/* ========	error handling	======== */
+d25 1
+a25 1
+	THEN	exitsh(SIGFAIL);
+d30 1
+a30 1
+	STRING	s1, s2;
+d32 1
+a32 1
+	prp(); prs(s1); 
+d34 1
+a34 1
+	THEN	prs(colon); prs(s2);
+d40 1
+a40 1
+	STRING	s;
+d46 1
+a46 1
+	INT	xno;
+d57 2
+a58 2
+	THEN	done();
+	ELSE	clearup();
+d61 1
+d66 1
+a66 1
+	REG STRING	t;
+d68 1
+a68 1
+	THEN	trapcom[0]=0; /*should free but not long */
+a73 1
+
+d75 1
+a75 1
+	IOPTR		base;
+d82 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 1
+ * KIAE  shell
+d5 2
+d10 1
+a10 1
+#include        "defs.h"
+d13 1
+a13 1
+/* ========     error handling  ======== */
+d27 1
+a27 1
+	THEN    exitsh(SIGFAIL);
+d32 1
+a32 1
+	STRING  s1, s2;
+d34 1
+a34 1
+	prp(); prs(s1);
+d36 1
+a36 1
+	THEN    prs(colon); prs(s2);
+d42 1
+a42 1
+	STRING  s;
+d48 1
+a48 1
+	INT     xno;
+d59 2
+a60 2
+	THEN    done();
+	ELSE    clearup();
+a62 1
+	done();
+d67 1
+a67 1
+	REG STRING      t;
+d69 1
+a69 1
+	THEN    trapcom[0]=0; /*should free but not long */
+d75 1
+d77 1
+a77 1
+	IOPTR           base;
+a83 1
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@

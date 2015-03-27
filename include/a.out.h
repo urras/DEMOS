@@ -17,29 +17,29 @@
 
 #ifndef KERNEL
 struct  exec {
-	short           a_magic;        /* magic number */
-	unsigned short  a_text;         /* size of text segment */
-	unsigned short  a_data;         /* size of initialized data */
-	unsigned short  a_bss;          /* size of uninitialized data */
-	unsigned short  a_syms;         /* size of symbol table */
-	unsigned short  a_entry;        /* entry point */
-	unsigned short  a_unused;       /* not used */
-	unsigned short  a_flag;         /* relocation info stripped */
+	int             a_magic;        /* magic number */
+	unsigned        a_text;         /* size of text segment */
+	unsigned        a_data;         /* size of initialized data */
+	unsigned        a_bss;          /* size of uninitialized data */
+	unsigned        a_syms;         /* size of symbol table */
+	unsigned        a_entry;        /* entry point */
+	unsigned        a_unused;       /* not used */
+	unsigned        a_flag;         /* relocation info stripped */
 };
 struct  ovlhdr {
-	short           max_ovl;        /* maximum ovl size */
-	unsigned short  ov_siz[NOVL];   /* size of i'th overlay */
+	int             max_ovl;        /* maximum ovl size */
+	unsigned        ov_siz[NOVL];   /* size of i'th overlay */
 };
 /* IPK_XOVL */
 struct  xovlhdr {
-	short           xmax_ovl;        /* maximum ovl size */
-	unsigned short  xov_siz[NXOVL];  /* size of i'th overlay */
+	int             xmax_ovl;        /* maximum ovl size */
+	unsigned        xov_siz[NXOVL];   /* size of i'th overlay */
 };
 
 struct  nlist {
 	char            n_name[8];      /* symbol name */
-	short           n_type;         /* type flag */
-	unsigned short  n_value;        /* value */
+	int             n_type;         /* type flag */
+	unsigned        n_value;        /* value */
 };
 
 /*

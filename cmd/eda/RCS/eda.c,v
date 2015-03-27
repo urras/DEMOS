@@ -1,0 +1,361 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.01.18.21.32.35;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.18;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Установлена ширина по умолчанию: 160 символов.
+(incatchable bug avoiding ...)
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: eda.c,v 1.1 86/11/11 17:51:18 avg Exp $";
+#endif
+
+/*
+ * $Log:        eda.c,v $
+ * Revision 1.1  86/11/11  17:51:18  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 14.10.1985
+ */
+
+#include <stdio.h>
+#if !defined(HPUX) && !defined(V2)
+# include <stat.h>
+# include <ediag.h>
+
+struct statb INO;
+
+#else
+# include <sys/types.h>
+# include <sys/stat.h>
+# ifndef V2
+#  define ediag( e, r ) (e)
+# else
+#  include <ediag.h>
+# endif V2
+
+struct stat INO;
+# define i_mode  st_mode
+# define i_nlink st_nlink
+# define i_uid   st_uid
+# define i_gid   st_gid
+# define IFMT    S_IFMT
+# define IREAD   0400
+# define IMODE   07777
+#endif
+
+
+char wname[30];
+char bname[30];
+char tname[30];
+char edname[]   = "/lib/eda/ed.\0xxxxxxxxxxxxxxxxxxxxxxx";
+char Dedname[]  = "ED.\0xxxxxxxxxxxxxxxxxxxxxxx";
+
+char  fmode[]   = "0000";
+char  width[]   = "160 ";
+int   tflg      = 0;
+int   wflg      = 0;
+int   hflg      = 0;
+int   Dflg      = 0;
+int   Ruid, Rgid;
+char  *rindex();
+char  *getenv();
+char  *sbrk();
+
+#if !defined(HPUX) && !defined(V2)
+# define M(x) (((int)(x))&0377)
+#else
+# define M(x) (x)
+#endif
+
+/*
+ * Стартовая процедура редактора eda.
+ */
+main(argc,argv)
+char **argv;
+{
+	char name[180],name1[180],*term,sym,*sfn,*q;
+	register int i;
+	int  j,pid,fmd,an;
+
+	if( argc<2 || argc>6 )
+		goto call;
+
+	Ruid = M(getuid());
+	Rgid = M(getgid());
+
+#ifndef HPUX
+	nice( -2 );
+#endif
+	setuid( Ruid );
+
+/* Обработать ключи */
+	sfn = *argv;
+	for( an = 1 ; an<argc ; an++ ) {
+		if( argv[an][0] == '-' ) {
+			switch( argv[an][1] ) {
+			case 'w' :
+				if( wflg++ )
+					goto twice;
+				if( argv[an][2] == 0 )
+					goto badarg;
+				i = 2;
+				while( (sym = argv[an][i]) ) {
+					if( sym<'0' || sym>'9' )
+						goto badarg;
+					i++;
+				}
+				if( i > 5 )
+					goto badarg;
+				width[0] = (i>4)? argv[an][2]   : '0';
+				width[1] = (i>3)? argv[an][i-2] : '0';
+				width[2] = (i>2)? argv[an][i-1] : '0';
+				if( width[0]=='0' && width[1]=='0' )
+					goto badarg;
+				break;
+			case 't' :
+				if( tflg++ )
+					goto twice;
+				break;
+			case 'h' :
+				if( hflg++ )
+					goto twice;
+				break;
+			case 'D' :
+				if( Dflg++ )
+					goto twice;
+				break;
+			default :
+				printf(ediag("Bad key '%s'.\n",
+				     "Неправильный ключ '%s'.\n"), argv[an]);
+				exit(1);
+			}
+		} else {
+			if( sfn != *argv )
+				goto call;
+			sfn = argv[an];
+		}
+	}
+	if( sfn == *argv )
+		goto call;
+	if( tflg )
+		width[3] = 't';
+
+/* Проверить возможность редактирования файла */
+	strcpy( name, sfn );
+	if( q = rindex( name, '/' ) )
+		*q = 0;
+	else
+		name[0] = '.', name[1] = 0;
+	if( stat( name, &INO ) == -1 ) {
+		printf( ediag("Directory %s not exist.\n",
+			      "Каталог %s не существует.\n"), name );
+		exit(1);
+	}
+	if(Ruid == 0 || M(INO.i_uid) == Ruid) {
+		if( (INO.i_mode & 0300) == 0300 )
+			goto DPERM;
+	} else if( M(INO.i_gid) == Rgid ) {
+		if( (INO.i_mode & 030)==030 )
+			goto DPERM;
+	} else if( (INO.i_mode & 03)==03 )
+		goto DPERM;
+	if( Ruid == 0 || M(INO.i_uid) == Ruid ) {
+		printf( ediag("Cannot create files in directory %s. Change modes ? ",
+		  "Каталог %s недоступен. Менять коды доступа ? "), name );
+		answer(0);
+		INO.i_mode |= IREAD;
+		if( chmod(name, INO.i_mode ) == -1 ) {
+			printf(ediag("You cannot change modes.\n",
+				     "Вы не можете изменить коды доступа.\n"));
+			exit(1);
+		}
+	} else {
+		printf( ediag( "Directory %s unwritable.\n",
+			       "Каталог %s недоступен.\n" ), name );
+		exit(1);
+	}
+DPERM:
+	if( stat( sfn, &INO ) == -1 ) {
+		printf(ediag("Create new file ? ",
+			     "Создать новый файл ? "));
+		answer(1);
+		fmd = 0644;          /* Мода для нового файла */
+	} else {
+		if( ( INO.i_mode & IFMT ) != S_IFREG ) {
+		     printf(ediag(
+			"Can edit only regular files.\n",
+			"Можно редактировать только дисковые файлы.\n"));
+		     exit(1);
+		}
+		fmd = INO.i_mode;
+		if( (Ruid == 0 || M(INO.i_uid) == Ruid) ) {
+			if( INO.i_mode & 0400 )
+				goto CANREAD;
+		} else if( M(INO.i_gid) == Rgid ) {
+			if( INO.i_mode & 040 )
+				goto CANREAD;
+		} else if( INO.i_mode & 04 )
+			goto CANREAD;
+		if( M(INO.i_uid) == Ruid || Ruid == 0 ) {
+			printf(ediag("Cannot read file. Change modes ? ",
+			      "Файл недоступен. Менять коды доступа ? "));
+			answer(0);
+			INO.i_mode |= IREAD;
+			if( chmod(sfn, INO.i_mode ) == -1 ) {
+				printf(ediag(
+				   "Cannot change modes.\n",
+				   "Вы не можете изменит коды доступа.\n"));
+				exit(1);
+			}
+			fmd |= IREAD;
+		} else {
+			printf(ediag("Permission denied.\n",
+				     "Файл недоступен.\n"));
+			exit(1);
+		}
+CANREAD:
+		if( INO.i_nlink != 1 ) {
+		 printf(ediag(
+		    "Not the only link. Continue ? ",
+		    "Есть несколько ссылок на файл. Редактировать ? "));
+		      answer(0);
+		}
+	}
+
+/* Сформировать строку-моду файла */
+	fmd &= IMODE;
+	fmode[3] += fmd % 8; fmd >>= 3;
+	fmode[2] += fmd % 8; fmd >>= 3;
+	fmode[1] += fmd % 8; fmd >>= 3;
+	fmode[0] += fmd;
+
+/* Сгенерировать имена выходного и back файлов */
+	j = -1;
+	for( i = 0 ; i<178 && (sym = sfn[i]) ; i++ ) {
+		name[i] = name1[i] = sym;
+		if( sym == '/' )
+			j = i;
+	}
+	if( (i-j) > 13 )
+		i = j+13;
+	name[i] = name1[i] = '.';
+	name[i+1]  = 'b';
+	name1[i+1] = '$';
+	name[i+2] = name1[i+2] = 0;
+
+/* Проверить, не редактирует кто-либо еще этот файл */
+	if( stat(name1, &INO) != -1 ) {
+		printf(ediag(
+			"File is being edited. Continue ? ",
+			"Этот файл уже редактируют. Редактировать ? "));
+		answer(0);
+	}
+
+/* Сгенерировать имена рабочих файлов */
+	pid = getpid();
+	sprintf( wname, "/tmp/_W%06o", pid );
+	sprintf( bname, "/tmp/_B%06o", pid );
+	sprintf( tname, "/tmp/_T%06o", pid );
+
+/* Определить тип терминала */
+	if( (term = getenv("TERM")) == NULL ) {
+		printf(ediag(
+			"Error : have no information about tty type.\n",
+			"Ошибка : тип терминала нельзя определить.\n"));
+		exit(1);
+	}
+
+/* Запустить редактор */
+	signal( 2, 1 );
+	signal( 3, 1 );
+	strcat( edname,  term );
+	strcat( Dedname, term );
+	i = hflg?5:0;
+	execl(Dflg?Dedname:edname,"EDA",sfn,name1,name,&wname[i],&bname[i],
+	      &tname[i],fmode,width,0);
+	printf(ediag( "eda cannot be used with this tty.\n",
+		      "Редактор не может работать с этим терминалом.\n"));
+	exit(1);
+twice:
+	printf(ediag( "Key '-%c' used twice.\n",
+		      "Дважды использован ключ '-%c'\n"), argv[an][1]);
+	exit(1);
+badarg:
+	printf(ediag( "Bad width.\n", "Плохой аргумент ключа '-w'\n"));
+	exit(1);
+call:
+	printf(ediag("Usage : %s [-wnnn] [-t] [-h] file\n",
+		     "Вызов : %s [-wnnn] [-t] [-h] файл\n"),*argv);
+	exit(1);
+}
+
+/*
+ * Прочитать ответ на вопрос, если это 'no' или 'нет', то выход
+ */
+answer(fl)
+{
+	int s,flag;
+
+	fflush( stdout );
+	do
+		read(0, &s, 1);
+	while( s == ' ' );
+	s &= 0377;
+	flag = 1;
+	if( (s=='\n'&& fl) || s=='y' || s=='Y'
+#ifndef HPUX
+	     || s==M('Д') || s==M('д')
+#endif
+		) flag = 0;
+	while( s != '\n' && read(0, &s, 1));
+	if( flag )
+		exit(0);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d52 1
+a52 1
+char  width[]   = "079 ";
+d85 1
+a85 1
+	nice( -10 );
+@

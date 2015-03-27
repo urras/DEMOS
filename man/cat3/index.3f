@@ -1,0 +1,66 @@
+
+INDEX(3F)     ДЕМОС. Руководство программиста      INDEX(3F)
+
+
+ИИММЯЯ
+       iinnddeexx, rriinnddeexx, llnnbbllnnkk, lleenn - работа со строками.
+
+ФФООРРММААТТ
+       (iinnttrriinnssiicc) ffuunnccttiioonn iinnddeexx (_s_t_r_i_n_g, _s_u_b_s_t_r)
+       cchhaarraacctteerr*(*) _s_t_r_i_n_g, _s_u_b_s_t_r
+
+       iinntteeggeerr ffuunnccttiioonn rriinnddeexx (_s_t_r_i_n_g, _s_u_b_s_t_r)
+       cchhaarraacctteerr*(*) _s_t_r_i_n_g, _s_u_b_s_t_r
+
+       ffuunnccttiioonn llnnbbllnnkk (_s_t_r_i_n_g)
+       cchhaarraacctteerr*(*) _s_t_r_i_n_g
+
+       (iinnttrriinnssiicc) ffuunnccttiioonn lleenn (_s_t_r_i_n_g)
+       cchhaarraacctteerr*(*) _s_t_r_i_n_g
+
+ООППИИССААННИИЕЕ
+       Функция  iinnddeexx  (rriinnddeexx)  возвращает  индекс  первого
+       (последнего) вхождения подстроки _s_u_b_s_t_r в _s_t_r_i_n_g, или
+       0, если его нет.  iinnddeexx является встроенной  функцией
+       Фортрана-77, rriinnddeexx - библиотечная функция.
+
+       Функция llnnbbllnnkk возвращает индекс  последнего  символа
+       (не пробела) в строке _s_t_r_i_n_g.  Поскольку все символь-
+       ные объекты Фортрана-77  имеют  фиксированную  длину,
+       производится  дополнение пробелами.  Встроенная функ-
+       ция lleenn возвращает размер символьной строки _s_t_r_i_n_g.
+
+ФФААЙЙЛЛЫЫ
+       /_u_s_r/_l_i_b/_l_i_b_F_7_7._a
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            -1-                     ДЕМОС/PV
+

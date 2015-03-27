@@ -1,0 +1,79 @@
+
+# line 2 "r.g"
+extern int transfer;
+extern	int	indent;
+# define IF 257
+# define ELSE 258
+# define FOR 259
+# define WHILE 260
+# define BREAK 261
+# define NEXT 262
+# define DIGITS 263
+# define DO 264
+# define GOK 265
+# define DEFINE 266
+# define INCLUDE 267
+# define REPEAT 268
+# define UNTIL 269
+# define RETURN 270
+# define SWITCH 271
+# define CASE 272
+# define DEFAULT 273
+#define yyclearin yychar = -1
+#define yyerrok yyerrflag = 0
+extern int yychar;
+extern short yyerrflag;
+#ifndef YYMAXDEPTH
+#define YYMAXDEPTH 150
+#endif
+#ifndef YYSTYPE
+#define YYSTYPE int
+#endif
+YYSTYPE yylval, yyval;
+# define YYERRCODE 256
+
+# line 66 "r.g"
+
+short yyexca[] ={
+-1, 1,
+	0, -1,
+	-2, 0,
+	};
+# define YYNPROD 36
+# define YYLAST 229
+short yyact[]={
+
+  14,  32,  45,  32,  47,  40,  41,  39,   1,  30,
+   2,  31,  44,  42,  26,  27,  14,  33,  34,  35,
+  29,  19,  36,  16,  37,  11,   8,  38,   7,   6,
+  28,   5,   4,   3,   0,   0,   0,   0,   0,  43,
+  46,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,  49,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,  15,   0,  48,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+  15,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   0,   0,   0,   0,   0,   0,   0,  17,  18,   0,
+  21,  20,   9,  10,  24,  23,  12,   0,   0,  22,
+   0,  13,  25,  17,  18,   0,  21,  20,   9,  10,
+  24,  23,  12,   0,   0,  22,   0,  13,  25 };
+short yypact[]={
+
+-1000, -43,-1000, -43, -43,-269, -43, -43, -43,-1000,
+-1000, -43,-1000,-1000,-1000,-1000, -43,-1000,-1000,-116,
+-1000,-1000,-1000,-1000,-1000,-1000,-253,-1000,-119,-271,
+-1000,-1000,-1000,-1000,-1000,-265,-1000, -59,-1000,-1000,
+-1000,-1000,-1000,-1000,-1000,-1000, -43,-1000,-1000, -43 };
+short yypgo[]={
+
+   0,   8,  10,  33,  32,  31,  30,  29,  28,  26,
+  25,  23,  21,  20,  13,   9,  12,  11 };

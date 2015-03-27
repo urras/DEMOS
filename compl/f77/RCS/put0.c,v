@@ -1,0 +1,134 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.29.44;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@#define D0P
+#include "defs"
+#define NCPS 200
+
+/* Вывод промежуточного кода нулевого прохода */
+
+/*
+ * Coded output: and printing  for debug
+ *   B: beginning of line; an operator
+ *   T: a number / type of node
+ *   N: a number
+ *   S: строка
+ *   K: строка длины "пред. N"
+ */
+int ddebug=0;
+outcode(s, a)
+char *s;
+{
+	register *ap;
+	register FILE *bufp;
+	int n;
+	register char *np;
+	int nmx;double *dp;
+	bufp = outfile;
+	ap = &a;
+#ifdef D0P
+	if(ddebug)
+	{ fprintf(stderr,"%6d : ",lineno); }
+#endif
+	for (;;) switch(*s++) {
+	case 'B':
+#ifdef D0P
+	if (ddebug) fprintf(stderr,"'%s' ",tabno[*ap]);
+#endif
+		putc(*ap++, bufp);
+		putc(0376, bufp);
+		continue;
+
+	case 'N':  nmx = *ap;
+#ifdef D0P
+	if (ddebug) fprintf(stderr,",%o  ",*ap);
+#endif
+	ptn:
+		if((*ap&0377)== *ap && *ap!=0377) putc(*ap++,bufp);
+		else {  putc(0377,bufp);
+		putc(*ap, bufp);
+		putc(*ap++>>8, bufp);
+		}
+		continue;
+/*      case 'T':
+	if (ddebug) prtype(*ap); goto ptn;
+	case 'F':
+		n = 1000;
+		np = *ap++;
+		goto str;
+  */
+	case 'D':
+		dp = np = ap; ap += (sizeof (double)) / (sizeof *ap);
+#ifdef D0P
+	if (ddebug) fprintf(stderr,",%e",*dp);
+#endif
+		for(n=0;n<(sizeof (double));n++){putc(*np++,bufp);}
+		continue;
+	case 'S':
+		n = NCPS;
+		np = *ap++;
+	str:
+#ifdef D0P
+	if (ddebug) fprintf(stderr,"\042");
+#endif
+		while (n-- && *np) {
+#ifdef D0P
+	if (ddebug) putc(*np,stderr);
+#endif
+			putc(*np++, bufp);
+		}
+		putc(0, bufp);
+#ifdef D0P
+	if (ddebug) fprintf(stderr,"\042 ");
+#endif
+		continue;
+	case 'K': n = nmx; np = *ap++;
+		 goto str;
+
+	case '\0':
+		if (ferror(bufp)) {
+			fatal("Write error on temp");
+			exit(1);
+		}
+#ifdef D0P
+		if (ddebug) putc(012,stderr);
+#endif
+		return;
+	default:
+		fatal("Botch in outcode");
+	}
+}
+/*
+static char *ttyp[]={
+"int", "char", "float", "double", "struct", "long", "unsign", "union"},
+	*atyp[]={"*", "()", "[]"};
+ prtype(typ)
+ { fprintf(stderr, "%s", ttyp[typ&07]);
+	typ >>= 3;
+	while(typ)
+	{ fprintf(stderr,"%s", atyp[(typ&03)-1]); typ >>= 2;
+	}
+ }
+*/
+@

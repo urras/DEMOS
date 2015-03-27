@@ -7,7 +7,6 @@
 struct  filsys
 {
 	u_short s_isize;                /* size in blocks of i-list */
-         /* НЕТ! Это размер нефайловой области i.e. i-list size + 2 */
 	daddr_t s_fsize;                /* size in blocks of entire volume */
 	short   s_nfree;                /* number of addresses in s_free */
 	daddr_t s_free[NICFREE];        /* free block list */

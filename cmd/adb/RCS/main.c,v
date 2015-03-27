@@ -1,0 +1,326 @@
+head     1.6;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.6
+date     88.09.16.14.51.22;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.09.15.22.56.32;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.09.15.20.18.20;  author ache;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.04.08.15.12.43;  author andrew;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.03.26.21.30.05;  author andrew;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.05.18.37.03;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adb
+@
+
+
+1.6
+log
+@Правлена работа с режимами терминала.
+@
+text
+@#
+/*
+ *
+ *	UNIX debugger
+ * $Log:	main.c,v $
+ * Revision 1.5  88/09/15  22:56:32  ache
+ * Переписан flushbuf().
+ * 
+ * Revision 1.4  88/09/15  20:18:20  ache
+ * Добавлено приглашение, если ввод/вывод с терминала.
+ * 
+ * Revision 1.3  88/04/08  15:12:43  andrew
+ * Русские буквы не выдаются по 'S', если терминал не умеет.
+ * 
+ * Revision 1.2  88/03/26  21:30:05  andrew
+ * +many args :r
+ * 
+ * Revision 1.1  88/01/05  18:37:03  andrew
+ * Initial revision
+ * 
+ */
+
+#include "defs.h"
+#ifndef lint
+static char RCSid[] = "$Header: main.c,v 1.5 88/09/15 22:56:32 ache Exp $";
+#endif
+
+MSG             NOEOR,R_NOEOR;
+
+INT		mkfault;
+INT		executing;
+INT		infile;
+INT             outfile;
+INT             inoutty;
+CHAR		*lp;
+INT		maxoff;
+INT		maxpos;
+INT		sigint;
+INT		sigqit;
+INT		wtflag;
+INT		kernel;
+L_INT		maxfile;
+L_INT		maxstor;
+L_INT		txtsiz;
+L_INT		datsiz;
+L_INT		datbas;
+L_INT		stksiz;
+L_INT		ovlsiz;
+int		overlay;
+STRING		errflg;
+INT		exitflg;
+INT		magic;
+L_INT		entrypt;
+
+CHAR		lastc;
+INT		eof;
+
+INT		lastcom;
+L_INT		var[36];
+STRING		symfil;
+STRING		corfil;
+CHAR		printbuf[];
+CHAR		*printptr;
+CHAR            *line;
+
+INT             eflag = 0;  /* Latin letters only */
+
+L_INT	round(a,b)
+L_INT		a, b;
+{
+	L_INT		w;
+	w = ((a+b-1)/b)*b;
+	return(w);
+}
+
+/* error handling */
+
+chkerr()
+{
+	IF errflg ORF mkfault
+	THEN	error(errflg);
+	FI
+}
+
+error(n)
+	STRING		n;
+{
+	errflg=n;
+	iclose(); oclose();
+	longjmp(erradb,1);
+}
+
+fault(a)
+{
+	signal(a,fault);
+	lseek(infile,0L,2);
+	mkfault++;
+}
+
+/* set up files and initial address mappings */
+INT argcount;
+
+main(argc, argv)
+REG STRING	*argv;
+REG INT		argc;
+{
+	CHAR _line[LINSIZ];     /* for SMALL data space */
+
+	line = _line;
+	maxfile=1L<<24; maxstor=1L<<16;
+
+	if (isatty(outfile)) {
+	    gtty(outfile,&adbtty);
+	    eflag = !(adbtty.sg_flags & CYRILL);
+	}
+	if (isatty(infile)) {
+	    gtty(infile,&adbtty);
+	    usrtty = adbtty;
+	}
+	inoutty=isatty(infile)&&isatty(outfile);
+	WHILE argc>1
+	DO	IF eqstr("-w",argv[1])
+		THEN	wtflag=2; argc--; argv++; continue;
+		ELIF eqstr("-k",argv[1])
+		THEN	kernel++; argc--; argv++; continue;
+		ELSE	break;
+		FI
+	OD
+
+	IF argc>1 THEN symfil = argv[1]; FI
+	IF argc>2 THEN corfil = argv[2]; FI
+	argcount=argc;
+	setsym(); setcor();
+	/* set up variables for user */
+	maxoff=MAXOFF; maxpos=MAXPOS;
+	var[VARB] = datbas;
+	var[VARD] = datsiz;
+	var[VARE] = entrypt;
+	var[VARM] = magic;
+	var[VARS] = stksiz;
+	var[VART] = txtsiz;
+	/* if text overlay, enter total overlay area size */
+	IF overlay
+	THEN	var[VARO] = ovlsiz;
+	FI
+
+	IF (sigint=signal(SIGINT,01))!=01
+	THEN	sigint=fault; signal(SIGINT,fault);
+	FI
+	sigqit=signal(SIGQUIT,1);
+	setjmp(erradb);
+	IF executing THEN delbp(); FI
+	executing=FALSE;
+
+	LOOP
+		IF errflg
+		THEN printf("%s\n",errflg);
+		     exitflg=errflg;
+		     errflg=0;
+		FI
+		IF mkfault
+		THEN    mkfault=0; if (inoutty) printc(EOR);
+		FI
+		if (inoutty) prints(DBNAME);
+		flushbuf();
+		lp=0; rdc(); lp--;
+		IF eof
+		THEN	IF infile
+			THEN	iclose(); eof=0; longjmp(erradb,1);
+			ELSE	done();
+			FI
+		ELSE	exitflg=0;
+		FI
+		command(0,lastcom);
+		IF lp ANDF lastc!=EOR THEN error(ediag(NOEOR,R_NOEOR)); FI
+	POOL
+}
+
+done()
+{
+	endpcs();
+	exit(exitflg);
+}
+
+@
+
+
+1.5
+log
+@Переписан flushbuf().
+@
+text
+@d6 3
+d25 1
+a25 1
+static char RCSid[] = "$Header: main.c,v 1.5 88/09/15 22:29:58 ache Exp $";
+d116 4
+a119 2
+	gtty(infile,&adbtty);
+	usrtty = adbtty;
+@
+
+
+1.4
+log
+@Добавлено приглашение, если ввод/вывод с терминала.
+@
+text
+@d6 3
+d22 1
+a22 1
+static char RCSid[] = "$Header: main.c,v 1.3 88/04/08 15:12:43 andrew Exp $";
+d150 1
+a150 1
+	LOOP	flushbuf();
+d159 2
+a160 2
+		if (inoutty)
+			prints(DBNAME);
+@
+
+
+1.3
+log
+@Русские буквы не выдаются по 'S', если терминал не умеет.
+@
+text
+@d6 3
+d19 1
+a19 1
+static char RCSid[] = "$Header: main.c,v 1.3 88/04/06 17:19:47 andrew Exp $";
+d27 2
+d106 2
+a107 2
+	if (isatty(1)) {
+	    gtty(1,&adbtty);
+d110 3
+a112 2
+	gtty(0,&adbtty);
+	gtty(0,&usrtty);
+d154 1
+a154 1
+		THEN	mkfault=0; printc(EOR); prints(DBNAME);
+d156 2
+@
+
+
+1.2
+log
+@+many args :r
+@
+text
+@d6 3
+d16 1
+a16 1
+static char RCSid[] = "$Header: main.c,v 1.1 88/01/05 18:37:03 andrew Exp $";
+d55 2
+d101 4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d13 1
+a13 1
+static char RCSid[] = "$Header$";
+d50 1
+a51 1
+
+d91 3
+@

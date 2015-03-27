@@ -1,0 +1,1401 @@
+head     4.2;
+access   ;
+symbols  RED_4:3.1.2 RED_3_9:3.12 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+4.2
+date     88.05.24.16.03.38;  author alex;  state Exp;
+branches ;
+next     4.1;
+
+4.1
+date     88.03.31.22.07.35;  author alex;  state Exp;
+branches ;
+next     3.12;
+
+3.12
+date     87.06.12.18.06.28;  author alex;  state Exp;
+branches ;
+next     3.11;
+
+3.11
+date     87.06.08.20.00.37;  author alex;  state Exp;
+branches ;
+next     3.10;
+
+3.10
+date     87.06.06.16.47.39;  author alex;  state Exp;
+branches ;
+next     3.9;
+
+3.9
+date     87.06.05.23.48.02;  author alex;  state Exp;
+branches ;
+next     3.8;
+
+3.8
+date     87.06.04.23.41.36;  author alex;  state Exp;
+branches ;
+next     3.7;
+
+3.7
+date     87.04.02.18.31.14;  author alex;  state Stab;
+branches ;
+next     3.6;
+
+3.6
+date     87.02.17.06.52.00;  author alex;  state Exp;
+branches ;
+next     3.5;
+
+3.5
+date     86.10.29.02.45.41;  author root;  state Exp;
+branches ;
+next     3.4;
+
+3.4
+date     86.09.19.20.01.20;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.55.51;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.08.52;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.04.20.23.41.41;  author alex;  state Exp;
+branches 3.1.2.1;
+next     ;
+
+3.1.2.1
+date     87.06.19.16.56.03;  author alex;  state Stab;
+branches ;
+next     3.1.2.2;
+
+3.1.2.2
+date     87.06.24.22.37.51;  author alex;  state Stab;
+branches ;
+next     3.1.2.3;
+
+3.1.2.3
+date     87.06.29.17.58.35;  author alex;  state Exp;
+branches ;
+next     3.1.2.4;
+
+3.1.2.4
+date     87.07.03.22.04.33;  author alex;  state Exp;
+branches ;
+next     3.1.2.5;
+
+3.1.2.5
+date     87.07.09.20.45.01;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+4.2
+log
+@Настройка на команды через файл (временный вариант).
+@
+text
+@/*
+ *      Редактор RED.
+ *      r.gettc.c - вытаскивание описания терминала из termcap
+ *               и работа с таблицей команд.
+ *      $Header: S.gettc.c,v 4.1 88/03/31 22:07:35 alex Exp $
+ *      $Log:	S.gettc.c,v $
+ * Revision 4.1  88/03/31  22:07:35  alex
+ * Версия 4.1 - обкатка на UTEC, СМ
+ * 
+ * Revision 3.1.2.5  87/07/09  20:45:01  alex
+ * REVISION
+ * 
+ * Revision 3.1.2.4  87/07/03  22:04:33  alex
+ * Graph_characters used in margin
+ * 
+ * Revision 3.1.2.3  87/06/29  17:58:35  alex
+ * Commans set to 0200-0277
+ * 
+ * Revision 3.1.2.2  87/06/24  22:37:51  alex
+ * New readch + gettc + tc table Tested
+ * 
+ * Revision 3.1.2.1  87/06/19  16:56:03  alex
+ * Start revision for red/4
+ * 
+ * Revision 3.12  87/06/12  18:06:28  alex
+ * Исправлены ошибки в режиме vilcase и мелочи для vt-200
+ * 
+ * Revision 3.11  87/06/09  19:45:10  alex
+ * Исправлена работа с tty ~ VT200 и 15-ИЭ-0013
+ * 
+ * Revision 3.10  87/06/06  16:47:39  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.9  87/06/05  23:48:02  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.8  87/06/04  23:41:36  alex
+ * Scroll on -cs- or -al/dl- added
+ * 
+ * Revision 3.7  87/04/02  18:31:14  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.6  87/04/01  19:14:49  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.5  86/10/29  02:45:41  root
+ * Выход 4 * ESC вместо 2 * ESC из за пропадающих символов.
+ * 
+ * Revision 3.4  86/09/19  20:01:20  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:55:51  alex
+ * Версия Демос/Мнос-2
+ * 
+ * Revision 3.2  86/07/24  19:08:52  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1  86/04/20  23:41:41  alex
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:41:41  alex
+ * *** empty log message ***
+ * 
+ * Revision 1.4  86/04/13  21:56:14  alex
+ */
+
+extern char *UP, *BC;
+char **toup= &UP;        /* Так сложно из-за совпадения имен */
+
+#include "r.defs.h"
+#define TELE_INIT
+#include "S.tele.h"
+
+# define INCTABSZ 100
+# define ZZ(a,b) ('a'&0377) << 8 | 'b'&0377
+
+/*
+ * Кодирование кодов в строке определений:
+ * ^C - Контрол-символ C&037
+ * =C - Символ С
+ * xx - функциональная возможность из termcap с кодом xx
+ * ?xx - то же, но если xx нет, то и не надо;
+ * :yyyyy:zzzzz:... - одна из строк yyyyy, zzzzzz
+ * (выбирается та, которая определена в termcap)
+ */
+
+/*
+ * Выходные коды
+ */
+char *cvtout[] = {
+/* COSTART: */ "cl?is?ti?ks?ho",          /* COUP:       */"up",
+/* CODN   : */ "do",              /* CORN:       */"\015",
+/* COHO   : */ "ho",              /* CORT:       */"nd",
+/* COLT   : */ "bc",              /* COCURS:     */"cu",
+/* COBELL : */ "\007",           /* COFIN:      */"?Ge?me?Ce?cl?fs?te?ke",
+/* COERASE: */ "cl"  ,           /* COOPEN: */    "?so",
+/* COCLOSE  */ "?se",
+/* COVIOPE  */ "vs",   /* COVICLO  */ "ve",
+/* COCYON   */ "Cs",   /* COCYOFF  */ "Ce",
+/* COILINE  */ "al",   /* CODELIN  */ "dl",
+/* COSRFWD  */ "sf",   /* COSRBAK  */ "sr",
+/* COCLLIN  */ "ce",   /* COCLSCR  */ "cd",
+/* COANORMAL  */ "?me?se",
+/* COAINFO    */ ":m1:so",
+/* COAERROR   */ ":m2:?mbso",
+/* COAMARG    */ ":m3:md:so",
+/* COAOUT     */ ":m4:mr:so",
+/* COGSTART   */ "gs",
+/* COGEND     */ "ge",
+   (char *)0
+};
+
+char *curspos;
+short slowsw=1;
+
+/*   Входные коды
+ *
+ */
+
+/*  Таблица кодов клавиш терминала и их комбинаций */
+/*  Сюда же записываются коды при переопределении  */
+/* Состоит из трех частей:
+ * 1. Движение курсора. Всегда можно ввести с клавиатуры.
+ * 2. Функциональная клавитура и ее замена;
+ * 3. Ввод через контрол-символы.
+ */
+char escch1 = '\012';
+struct ex_int inctab[INCTABSZ] = {
+/*
+ * Движение курсора. Кодируем так, чтобы было всегда
+ */
+CC+RN,    "^M",
+CC+LT,    ":kl:^L",
+CC+RT,    ":kr:^R",
+CC+UP,    ":ku:^U",
+CC+DN,    ":kd:^D",
+CC+HO,    ":kh:^H",
+CC+BT,    "^B",
+CC+TB,    "^I",
+/*
+ * Это нужно всегда
+ */
+ CCBACKSPACE    ,"^?",
+ CCCTRLQUOTE    ,"^A",
+ CCQUIT         ,"^J^?",
+ CCENTER        ,"^J= ",
+/*
+ * Ввод команд через цифровую клавиатуру
+ * а заодно и замена если ее нет
+ */
+CCCHPORT         ,":f0:^J=0",  CCDOCMD         ,":f2f0:^J^J=0",
+CCENTER          ,":f1:^J=1",  CCENTER         ,":f2f1:^J^J=1",
+CCPLSRCH         ,":f3:^J=3",  CCMISRCH        ,":f2f3:^J^J=3",
+CCGOTO           ,":f4:^J=4",  CCMAKEPORT      ,":f2f4:^J^J=4",
+CCINSMODE        ,":f5:^J=5",  CCTABS          ,":f2f5:^J^J=5",
+CCDELCH          ,":f6:^J=6",  CCDELCH         ,":f2f6:^J^J=6",
+CCPLPAGE         ,":f7:^J=7",  CCMIPAGE        ,":f2f7:^J^J=7",
+CCOPEN           ,":f8:^J=8",  CCCLOSE         ,":f2f8:^J^J=8",
+CCPICK           ,":f9:^J=9",  CCPUT           ,":f2f9:^J^J=9",
+CC+BT            ,":f.:^J=.",  CCCTRLQUOTE      ,":f2f.:^J^J=.",
+CCSETFILE        ,":f-:^J=-",  CCSAVEFILE      ,":f2f-:^J^J=-",
+CCLPORT          ,":f2kl:^Jkl",CCRPORT         ,":f2kr:^Jkr",
+/*
+ * Ввод отдельных команд через упр. клавиши
+ */
+CC+BT           ,":kB:.f.",
+CCPLPAGE        ,":kN:^Z",
+CCMIPAGE        ,":kP:^X",
+CCOPEN          ,":kA:k2",
+CCCLOSE         ,":kL:k3",
+CCENTER         ,":kE:k1",
+CCDELCH         ,":kD:k5",
+CCINSMODE       ,":kI:k4",
+CCPLLINE        ,":kF:k6",
+CCMILINE        ,":kR:k7",
+/*
+ * Ввод команд через  ^С:
+ */
+ CCPLLINE       ,"^T", /* Для совместимости */
+ CCMILINE       ,"^W", /* Для совместимости */
+ CCDELCH        ,"^U", /* Для совместимости */
+ CCSETFILE      ,"^D", /* Для совместимости */
+ CCPICK         ,"^F", /* Для совместимости */
+ CCPUT          ,"^G", /* Для совместимости */
+ CCDOCMD        ,"^P", /* Для совместимости */
+ CCRESCREEN     ,"^L",
+ CCPLSRCH     ,"^R",
+ CCMISRCH     ,"^E",
+ CCSAVEFILE   ,"^V",
+ CCBACKSPACE  ,"^H",
+ 0,0,   0,0,   0,0,   0,0,   0,0,
+ 0,0,   0,0,   0,0,   0,0,   0,0,
+ 0,0,   0,0,   0,0,   0,0,   0,0,
+ 0, 0 };
+
+mktab ()
+{
+	register char *p;
+	register f;
+	extern char *getenv (), *malloc ();
+	register struct ex_int *tabptr;
+	char buf [2048];
+	int len;
+
+	if (! (p = getenv ("REDKEYTAB"))) return;
+	if ((f = open (p, 0)) == -1) return;
+	if ((len = read (f, buf, 2048)) == -1) {
+		close (f);
+		return;
+	}
+	close (f);
+	if (len<2048) buf[len] = 0; else buf[2047] = 0;
+	p = buf;
+	tabptr = inctab;
+	for (;;) {
+		register char *s, *q;
+		register c;
+
+		if (tabptr >= &inctab[INCTABSZ]) {
+			tabptr--;
+			break;
+		}
+		for (; *p; p++)
+			if (*p!=' ' && *p!='\t' && *p!='\n') break;
+		if (! *p) break;
+		for (s=p; *s && *s!='"'; s++);
+		if (! *s) break;
+		s++;
+		for (q=s; *q && *q!='"'; q++);
+		if (! *q) break;
+		*q = 0;
+
+		c = (p[0] & 0377) << 8;
+		if (p[1] && p[1]!=' ' && p[1]!='\t' && p[1]!='"')
+			c |= p[1] & 0377;
+
+		if ((tabptr->incc = makecc (c)) != -1 &&
+			(tabptr->excc = malloc (strlen (s) + 1)))
+		{
+			strcpy (tabptr->excc, s);
+			tabptr++;
+		}
+		p = q+1;
+	}
+	tabptr->incc = 0;
+	tabptr->excc = 0;
+}
+
+makecc (c)
+register c;
+{
+	switch (c) {
+	case ZZ(g,+):   return (CCPLPAGE);
+	case ZZ(l,+):   return (CCPLLINE);
+	case ZZ(p,+):   return (CCRPORT);
+	case ZZ(s,+):   return (CCPLSRCH);
+	case ZZ(g,-):   return (CCMIPAGE);
+	case ZZ(l,-):   return (CCMILINE);
+	case ZZ(p,-):   return (CCLPORT);
+	case ZZ(s,-):   return (CCMISRCH);
+	case ZZ(C,b):   return (CC+BT);
+	case ZZ(C,d):   return (CC+DN);
+	case ZZ(C,h):   return (CC+HO);
+	case ZZ(C,l):   return (CC+LT);
+	case ZZ(C,n):   return (CC+RN);
+	case ZZ(C,r):   return (CC+RT);
+	case ZZ(C,t):   return (CC+TB);
+	case ZZ(C,u):   return (CC+UP);
+	case ZZ(b,s):   return (CCBACKSPACE);
+	case ZZ(c,l):   return (CCCLOSE);
+	case ZZ(c,p):   return (CCCHPORT);
+	case ZZ(c,q):   return (CCCTRLQUOTE);
+	case ZZ(d,c):   return (CCDELCH);
+	case ZZ(d,o):   return (CCDOCMD);
+	case ZZ(e,n):   return (CCENTER);
+	case ZZ(g,o):   return (CCGOTO);
+	case ZZ(i,m):   return (CCINSMODE);
+	case ZZ(m,p):   return (CCMAKEPORT);
+	case ZZ(o,p):   return (CCOPEN);
+	case ZZ(p,i):   return (CCPICK);
+	case ZZ(p,u):   return (CCPUT);
+	case ZZ(q,u):   return (CCQUIT);
+	case ZZ(r,s):   return (CCRESCREEN);
+	case ZZ(s,f):   return (CCSETFILE);
+	case ZZ(s,v):   return (CCSAVEFILE);
+	case ZZ(t,b):   return (CCTABS);
+	}
+	return (-1);
+}
+
+/* Декодирование termcap */
+int nfinc=8;
+char *tgetstr(), *tgoto();
+char *salloc();
+static char *stc;
+static int ltc;
+#define LTCM 400
+int tcread();
+int (*atcread)()= tcread;
+
+/*
+ * char *gettcs(tc) -
+ * дай описание возможности "tc"
+ * tc="XXYY..ZZ", (см. комментарий перед таблицей)
+ */
+char *gettcs(tc)
+char *tc;
+{
+	char buftc0[LTCM], *buftc=buftc0;
+	register char c1, *c;
+	int i,fcase, casec=0;
+	if ( (*tc&0340) == 0 || *tc==0177) return(tc);
+	c=tc;
+	while(*c)
+	{
+		if(*c=='?'){
+			fcase=1;
+			c++;
+		}
+		else fcase=0;
+		if( *c == '^') {
+			*buftc++ = (*++c=='?' ? 0177 : (*c & 037));
+			c++;
+			continue;
+			}
+		if( *c == '=') {
+			*buftc++ = *++c;
+			c++;
+			continue;
+			}
+		if( *c == ':' ) {
+			if(casec) break;
+			casec = 1;
+			c++;
+			}
+		c1=c[2];
+		c[2]=0;
+		i= (!tgetstr(c,&buftc));
+		c += 2;
+		*c=c1;
+		if(i){
+			if(fcase) continue;
+			if (!casec) return(0);
+			while (*c && *c != ':') if( *c++ == '=') c++;
+			if( *c != ':') return((char *)0);
+			c++; buftc = buftc0;
+			continue;
+		}
+		buftc--;
+	}
+	*buftc++=0;
+	if((i=buftc-buftc0)>ltc)
+	{
+		if (i>LTCM) return(0);
+		stc=salloc(LTCM);
+		ltc=LTCM;
+	}
+	c=buftc0;
+	buftc=stc;
+	do
+	    {
+		*stc++ = *c;
+		ltc--;
+	}
+	while (*c++);
+#ifdef TEST
+	 printf("%s=",tc); ptss(buftc);
+#endif
+	return(buftc);
+}
+
+/*
+ * tcread()
+ * Чтение описаний. Код ответа:
+ * 0 - term cap reading O'KEY
+ * 1 - no termcap
+ * 2 - not enoughf termcap
+ */
+tcread()
+{
+    char *fname;
+    register int i;
+    register struct ex_int *ir, *iw;
+#ifndef FROMTCAP
+    char buftcs[2048];
+    extern char *getenv();
+    if ( tgetent(buftcs,getenv("TERM"))!=1) return(1);
+#else
+    if ( !tgettc()) return(1);
+#endif
+    mktab();
+    LINEL=tgetnum("co");
+    NLINES=tgetnum("li");
+    for (i=0; i<COMCOD ; i++)
+    {
+        cvtout[i]=gettcs(cvtout[i]);
+    }
+    if (tgetflag("nb")) cvtout[COBELL]="\0";
+    if (tgetflag("bs")) cvtout[COLT]="\010";
+    if(curspos=gettcs("cm")) agoto= tgoto;
+    if ( !cvtout[COCURS] && cvtout[COOPEN] )
+	cvtout[COCURS] = append(cvtout[COOPEN], append("*", cvtout[COCLOSE]));
+    eolflag= !tgetflag("am") || tgetflag("xn");
+    if( !cvtout[COCURS]) cvtout[COCURS]="@@";
+    if (LINEL<=60 || NLINES<8) return(2);
+    if(LINEL>LINELM) LINEL=LINELM;
+    if(NLINES>NLINESM) NLINES=NLINESM;
+    if(!curspos) for(i=0;i<COERASE; i++) if(!cvtout[i]) return(2);
+#ifdef RED_CYRILL
+    /* Red can in/out cyryll without the system
+     * latf, but tty is cyrillic
+     */
+    if ( tgetflag("CY") && !cvtout[COCYON])
+		{cvtout[COCYON] = DFL_CYON; cvtout[COCYOFF] = DFL_CYOFF; }
+    if ( !lcasef && latf && cvtout[COCYON] && cvtout[COCYOFF] )
+		{Rcyflag = 1; latf=0; }
+    if ( (fname=gettcs(TABLENAME)) && (i=open(fname,0))) {
+	lseek(i,(long)(sizeof (struct exec)),0);
+	if(read(i, &tablecod, (sizeof tablecod)) != sizeof tablecod)Rcyflag=0;
+	close(i);
+	}
+#endif
+    if(!cvtout[COSRFWD] && !(cvtout[COSRFWD]=gettcs("nl")) )
+        cvtout[COSRFWD] = "\n";
+    ch_scroll = gettcs("cs");
+    if( ch_scroll && cvtout[COSRBAK]) can_scroll = ROLL_CS;
+    else if(cvtout[COILINE] && cvtout[CODELIN]) can_scroll = ROLL_IL;
+    else if(cvtout[COSRBAK] && cvtout[COCLLIN] && cvtout[COCLSCR])
+         can_scroll = ROLL_SF;
+/* If scroll - define default/+line for RETURN */
+    if(can_scroll) {
+	on_scroll = 1;
+	if(can_scroll != ROLL_SF) defreturn = PL1MOVEW;
+	}
+    if (fname=gettcs(HELP_NAME)) deffile = fname;
+/*
+ * Разбираемся с псевдо-графикой
+ */
+    g_table = gettcs("gt");
+    if ( g_table && cvtout[COGSTART] && cvtout[COGEND] )
+		{ register char *c;
+		  for(c=g_table; *c; c++);
+		  gchars = c - g_table;
+		  if ( gchars > (G_END-G_START+1)) gchars = G_END-G_START+1;
+		}
+    /*
+     input codes definition
+     */
+    ir=iw=inctab;
+    while(ir->excc)
+    {
+        if ((iw->excc=gettcs(ir->excc)))
+        {
+            iw->incc=ir->incc;
+            iw++;
+        }
+        else nfinc++;
+        ir++;
+    }
+    iw->excc=NULL; 
+    iw->incc = 0;
+    itsort(inctab,iw-1,0);
+    *toup=cvtout[UP]; 
+    BC=cvtout[LT];
+    return(0);
+}
+
+/*
+ * itsort(fb,fe,ns) -
+ * сортировка inctab  для работы
+ * функции findt
+ */
+itsort(fb,fe,ns)
+struct ex_int *fb,*fe; 
+int ns;
+{
+    register struct ex_int *fr, *fw;
+    char c; 
+    struct ex_int temp;
+    fw= fb-1;
+    while(fw != fe)
+    {
+        fr=fb= ++fw; 
+        c=fw->excc[ns];
+        while(fr++ != fe)
+        {
+            if(fr->excc[ns]==c)
+            {
+                if(fr!= ++fw){
+                    temp= *fr; 
+                    *fr= *fw; 
+                    *fw=temp;
+                }
+            }
+        }
+        if(c!=0 && ((fw-fb)>1)) itsort(fb,fw,ns+1);
+    }
+}
+
+#ifdef TEST
+#include "t.tc.c"
+#endif
+@
+
+
+4.1
+log
+@Версия 4.1 - обкатка на UTEC, СМ
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.1.2.5 87/07/09 20:45:01 alex Exp $
+d7 3
+d76 3
+d130 1
+a130 1
+struct ex_int inctab[] = {
+d198 95
+d393 1
+d446 1
+a446 1
+		  if ( gchars > (G_END-G_START)) gchars = G_END-G_START;
+@
+
+
+3.12
+log
+@Исправлены ошибки в режиме vilcase и мелочи для vt-200
+@
+text
+@d2 1
+a2 1
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.11 87/06/09 19:45:10 alex Exp $
+d7 18
+d37 1
+a37 1
+ * Scroll on -sr- or -al/dl- added
+d52 1
+a52 1
+ * Bepqh dk LMNQ/DELNQ 2
+d74 10
+d91 1
+a91 1
+/* COBELL : */ "\007",           /* COFIN:      */"cl?fs?te?ke",
+d99 8
+a106 1
+(char *)0
+d111 1
+a113 2
+ *   Таблица in0tab является временным явлением для
+ *   замены кодов 01 - 010.
+a115 3
+ char in0tab[BT] ={   /* meanings of the <ctrl>A - <ctrl>-H */
+ CCLPORT, BT, CCCHPORT, CCSETFILE, CCMISRCH, CCPICK,CCPUT , LT };
+
+d118 5
+d125 66
+a190 39
+ BT,    "\002",
+ BT,    "f.",
+ BT,    "kB",
+ LT,    "kl",
+ TB,    "\011",
+ HO,    "kh",
+ RN,    "\015",
+ UP,    "ku",
+ DN,    "kd",
+ RT,    "kr",
+ LT,    "kl",
+ CCPLLINE       ,"kN",   CCMILINE       ,"kP",
+ CCDELCH        ,"k5",   CCBACKSPACE    ,"\10",
+ CCCHPORT       ,"f2f0",
+ CCCLOSE        ,"k3"  , CCCLOSE        ,"f2f8",
+ CCCTRLQUOTE    ,"f0",
+ CCDELCH        ,"f6",
+ CCDOCMD        ,"f2f.",
+ CCENTER        ,"k1",   CCENTER        ,"f1",
+ CCGOTO         ,"f4",
+ CCINSMODE      ,"k4",  CCINSMODE      ,"f5",
+ CCLPORT        ,"f2kl",
+ CCMAKEPORT     ,"f2f4",
+ CCMILINE       ,"f2ku",
+ CCMIPAGE       ,"f2f7",
+ CCMISRCH       ,"f2f3",
+ CCOPEN         ,"k2",  CCOPEN           ,"f8",
+ CCPICK         ,"f9",
+ CCPLLINE       ,"f2kd",
+ CCPLPAGE       ,"f7",
+ CCPLSRCH       ,"f3",
+ CCPUT          ,"f2f9",
+ CCRPORT        ,"f2kr",
+ CCSAVEFILE     ,"f2f-",
+ CCSETFILE      ,"f-",
+ CCTABS         ,"f2f5",
+ CCQUIT         ,"\033\033\033\033",
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0 ,  };
+d198 1
+a198 1
+#define LTCM 256
+d205 1
+a205 2
+ * tc="XXYY..ZZ", знак вопроса перед кодом
+ * возможности означает - не обязательна
+d212 2
+a213 2
+	int i,fcase;
+	if (*tc<' ' && *tc>=0) return(tc);
+d215 1
+a215 1
+	while(*c !=0)
+d222 15
+d243 6
+a248 2
+			if(!fcase) return(0);
+			else *buftc++ =0;
+d336 10
+@
+
+
+3.11
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.10 87/06/06 16:47:39 alex Exp $
+d7 3
+d15 1
+a15 1
+ * Добавлен roll для тeрминалов с sr/sf и отображение
+d34 1
+a34 1
+ * Версия для ДЕМОС/МНОС 2
+a89 1
+ BT,    "BT",
+d91 1
+d100 1
+d109 1
+a109 1
+ CCINSMODE      ,"k4",   CCINSMODE      ,"f5",
+d236 1
+a236 1
+    if ( Rcyflag && (fname=gettcs(TABLENAME)) && (i=open(fname,0))) {
+@
+
+
+3.10
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.9 87/06/05 23:48:02 alex Exp $
+d7 1
+a7 1
+ * Revision 3.9  87/06/05  23:48:02  alex
+d11 4
+d31 1
+a31 1
+ * Bepqh dk LMNQ/DELNQ 2
+d87 1
+d105 1
+a105 1
+ CCINSMODE      ,"k4",  CCINSMODE      ,"f5",
+@
+
+
+3.9
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.8 87/06/04 23:41:36 alex Exp $
+d7 4
+d240 5
+a244 1
+    if(can_scroll) on_scroll = 1;
+@
+
+
+3.8
+log
+@Scroll on -sr- or -al/dl- added
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.7 87/04/02 18:31:14 alex Exp $
+d7 3
+d234 1
+a234 1
+    /* else if(cvtout[COSRBAK] && cvtout[COCLLIN] && cvtout[COCLSCR])
+a235 1
+    */
+@
+
+
+3.7
+log
+@Версия для Utec слита с версией с выделением прописных букв
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.6 87/04/01 19:14:49 alex Exp $
+d7 3
+d119 1
+a119 1
+#define LTCM 128
+d146 1
+a146 1
+		i= ( tgetstr(c,&buftc) == (char *)0);
+d189 1
+a189 1
+    char buftcs[1024]; 
+d226 9
+@
+
+
+3.6
+log
+@проведены правки для выделения заглавных букв по vs
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.5 86/10/29 02:45:41 root Exp $
+d7 3
+d35 1
+d47 9
+a55 3
+/* COERASE: */ "cl"  ,           /* COOPEN: */    "so",
+/* COCLOSE: */ "se" ,           /* COVIOP  */    "vs",
+/* COVICL    */ "ve" };
+d58 1
+a58 1
+int slowsw=1;
+d143 1
+a143 1
+		i=(tgetstr(c,&buftc)==0);
+d182 1
+d201 3
+a203 10
+    rawf=0;
+/*  latf= !tgetflag("CY");      */
+    eolflag=!tgetflag("am") || tgetflag("xn");
+    if( !cvtout[COCURS] && cvtout[COOPEN]) {
+	cvtout[COCURS] = append(cvtout[COOPEN],append("*",cvtout[COCLOSE]));
+    }
+/*  if( cvtout[COOPEN] && !cvtout[COVIOP] ) {
+	cvtout[COVIOP] = cvtout[COOPEN];
+	cvtout[COVICL] = cvtout[COCLOSE];
+    }  @@AR */
+d209 15
+a223 1
+
+@
+
+
+3.5
+log
+@Выход 4 * ESC вместо 2 * ESC из за пропадающих символов.
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.4 86/09/19 20:01:20 alex Exp $
+d7 3
+d43 3
+a45 2
+/* COERASE: */ "cl"  ,           /* COOPEN: */    "?so",
+/* COCLOSE  */ "?se"};
+d193 7
+d205 1
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.3 86/08/04 20:55:51 alex Exp $
+d7 3
+d92 1
+a92 1
+ CCQUIT         ,"\033\033",
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.2 86/07/24 19:08:52 alex Exp $
+d7 3
+d56 1
+a56 1
+ BT,    "k.",
+d65 24
+a88 24
+ CCDELCH        ,"DC",   CCBACKSPACE    ,"\10",
+ CCCHPORT       ,"k2k0",
+ CCCLOSE        ,"DL"  , CCCLOSE        ,"k2k8",
+ CCCTRLQUOTE    ,"k0",
+ CCDELCH        ,"k6",
+ CCDOCMD        ,"k2k.",
+ CCENTER        ,"ER",   CCENTER        ,"k1",
+ CCGOTO         ,"k4",
+ CCINSMODE      ,"IC",  CCINSMODE      ,"k5",
+ CCLPORT        ,"k2kl",
+ CCMAKEPORT     ,"k2k4",
+ CCMILINE       ,"k2ku",
+ CCMIPAGE       ,"k2k7",
+ CCMISRCH       ,"k2k3",
+ CCOPEN         ,"IL",  CCOPEN           ,"k8",
+ CCPICK         ,"k9",
+ CCPLLINE       ,"k2kd",
+ CCPLPAGE       ,"k7",
+ CCPLSRCH       ,"k3",
+ CCPUT          ,"k2k9",
+ CCRPORT        ,"k2kr",
+ CCSAVEFILE     ,"k2k-",
+ CCSETFILE      ,"k-",
+ CCTABS         ,"k2k5",
+d183 3
+a185 3
+    rawf=tgetflag("rw");
+    latf= !tgetflag("KI");
+    eolflag=!tgetflag("am");
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.1 86/04/20 23:41:41 alex Exp $
+d7 3
+d29 1
+a29 1
+/* COSTART: */ "cl?is?ti?ho",          /* COUP:       */"up",
+d33 3
+a35 2
+/* COBELL : */ "\007",           /* COFIN:      */"cl?fs?te",
+/* COERASE: */ "cl" };
+d187 1
+a187 1
+    if(!curspos) for(i=0;i<COMCOD; i++) if(!cvtout[i]) return(2);
+@
+
+
+3.1
+log
+@Базовая версия для ЕС.
+@
+text
+@d5 2
+a6 2
+ *      $Header: r.gettc.c,v 3.1 86/04/20 23:41:41 alex Exp $
+ *      $Log:	r.gettc.c,v $
+d8 3
+d20 1
+a20 1
+#include "r.tele.h"
+@
+
+
+3.1.2.1
+log
+@Start revision for red/4
+@
+text
+@d5 2
+a6 37
+ *      $Header: S.gettc.c,v 3.12 87/06/12 18:06:28 alex Exp $
+ *      $Log:	S.gettc.c,v $
+ * Revision 3.12  87/06/12  18:06:28  alex
+ * Исправлены ошибки в режиме vilcase и мелочи для vt-200
+ * 
+ * Revision 3.11  87/06/09  19:45:10  alex
+ * Исправлена работа с tty ~ VT200 и 15-ИЭ-0013
+ * 
+ * Revision 3.10  87/06/06  16:47:39  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.9  87/06/05  23:48:02  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.8  87/06/04  23:41:36  alex
+ * Scroll on -sr- or -al/dl- added
+ * 
+ * Revision 3.7  87/04/02  18:31:14  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.6  87/04/01  19:14:49  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.5  86/10/29  02:45:41  root
+ * Выход 4 * ESC вместо 2 * ESC из за пропадающих символов.
+ * 
+ * Revision 3.4  86/09/19  20:01:20  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:55:51  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  19:08:52  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+a7 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:41:41  alex
+d17 1
+a17 2
+#define TELE_INIT
+#include "S.tele.h"
+d23 1
+a23 1
+/* COSTART: */ "cl?is?ti?ks?ho",          /* COUP:       */"up",
+d27 2
+a28 10
+/* COBELL : */ "\007",           /* COFIN:      */"cl?fs?te?ke",
+/* COERASE: */ "cl"  ,           /* COOPEN: */    "?so",
+/* COCLOSE  */ "?se",
+/* COVIOPE  */ "vs",   /* COVICLO  */ "ve",
+/* COCYON   */ "Cs",   /* COCYOFF  */ "Ce",
+/* COILINE  */ "al",   /* CODELIN  */ "dl",
+/* COSRFWD  */ "sf",   /* COSRBAK  */ "sr",
+/* COCLLIN  */ "ce",   /* COCLSCR  */ "cd",
+(char *)0
+};
+d31 1
+a31 1
+short slowsw=1;
+d46 1
+a46 2
+ BT,    "f.",
+ BT,    "kB",
+d55 25
+a79 26
+ CCPLLINE       ,"kN",   CCMILINE       ,"kP",
+ CCDELCH        ,"k5",   CCBACKSPACE    ,"\10",
+ CCCHPORT       ,"f2f0",
+ CCCLOSE        ,"k3"  , CCCLOSE        ,"f2f8",
+ CCCTRLQUOTE    ,"f0",
+ CCDELCH        ,"f6",
+ CCDOCMD        ,"f2f.",
+ CCENTER        ,"k1",   CCENTER        ,"f1",
+ CCGOTO         ,"f4",
+ CCINSMODE      ,"k4",  CCINSMODE      ,"f5",
+ CCLPORT        ,"f2kl",
+ CCMAKEPORT     ,"f2f4",
+ CCMILINE       ,"f2ku",
+ CCMIPAGE       ,"f2f7",
+ CCMISRCH       ,"f2f3",
+ CCOPEN         ,"k2",  CCOPEN           ,"f8",
+ CCPICK         ,"f9",
+ CCPLLINE       ,"f2kd",
+ CCPLPAGE       ,"f7",
+ CCPLSRCH       ,"f3",
+ CCPUT          ,"f2f9",
+ CCRPORT        ,"f2kr",
+ CCSAVEFILE     ,"f2f-",
+ CCSETFILE      ,"f-",
+ CCTABS         ,"f2f5",
+ CCQUIT         ,"\033\033\033\033",
+d89 1
+a89 1
+#define LTCM 256
+d116 1
+a116 1
+		i= (!tgetstr(c,&buftc));
+a154 1
+    char *fname;
+d158 1
+a158 1
+    char buftcs[2048];
+d173 3
+a175 3
+    if ( !cvtout[COCURS] && cvtout[COOPEN] )
+	cvtout[COCURS] = append(cvtout[COOPEN], append("*", cvtout[COCLOSE]));
+    eolflag= !tgetflag("am") || tgetflag("xn");
+d180 1
+a180 28
+    if(!curspos) for(i=0;i<COERASE; i++) if(!cvtout[i]) return(2);
+#ifdef RED_CYRILL
+    /* Red can in/out cyryll without the system
+     * latf, but tty is cyrillic
+     */
+    if ( tgetflag("CY") && !cvtout[COCYON])
+		{cvtout[COCYON] = DFL_CYON; cvtout[COCYOFF] = DFL_CYOFF; }
+    if ( !lcasef && latf && cvtout[COCYON] && cvtout[COCYOFF] )
+		{Rcyflag = 1; latf=0; }
+    if ( (fname=gettcs(TABLENAME)) && (i=open(fname,0))) {
+	lseek(i,(long)(sizeof (struct exec)),0);
+	if(read(i, &tablecod, (sizeof tablecod)) != sizeof tablecod)Rcyflag=0;
+	close(i);
+	}
+#endif
+    if(!cvtout[COSRFWD] && !(cvtout[COSRFWD]=gettcs("nl")) )
+        cvtout[COSRFWD] = "\n";
+    ch_scroll = gettcs("cs");
+    if( ch_scroll && cvtout[COSRBAK]) can_scroll = ROLL_CS;
+    else if(cvtout[COILINE] && cvtout[CODELIN]) can_scroll = ROLL_IL;
+    else if(cvtout[COSRBAK] && cvtout[COCLLIN] && cvtout[COCLSCR])
+         can_scroll = ROLL_SF;
+/* If scroll - define default/+line for RETURN */
+    if(can_scroll) {
+	on_scroll = 1;
+	if(can_scroll != ROLL_SF) defreturn = PL1MOVEW;
+	}
+    if (fname=gettcs(HELP_NAME)) deffile = fname;
+@
+
+
+3.1.2.2
+log
+@New readch + gettc + tc table Tested
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.1.2.1 87/06/19 16:56:03 alex Exp $
+a6 3
+ * Revision 3.1.2.1  87/06/19  16:56:03  alex
+ * Start revision for red/4
+ * 
+d22 1
+a22 1
+ * Scroll on -cs- or -al/dl- added
+d37 1
+a37 1
+ * Версия Демос/Мнос-2
+a58 10
+ * Кодирование кодов в строке определений:
+ * ^C - Контрол-символ C&037
+ * =C - Символ С
+ * xx - функциональная возможность из termcap с кодом xx
+ * ?xx - то же, но если xx нет, то и не надо;
+ * :yyyyy:zzzzz:... - одна из строк yyyyy, zzzzzz
+ * (выбирается та, которая определена в termcap)
+ */
+
+/*
+d66 1
+a66 1
+/* COBELL : */ "\007",           /* COFIN:      */"?Ce?cl?fs?te?ke",
+a78 1
+
+d81 2
+d85 3
+a89 5
+/* Состоит из трех частей:
+ * 1. Движение курсора. Всегда можно ввести с клавиатуры.
+ * 2. Функциональная клавитура и ее замена;
+ * 3. Ввод через контрол-символы.
+ */
+d92 39
+a130 62
+/*
+ * Движение курсора. Кодируем так, чтобы было всегда
+ */
+ RN,    "^M",
+ LT,    ":kl:^L",
+ RT,    ":kr:^R",
+ UP,    ":ku:^U",
+ DN,    ":kd:^D",
+ HO,    ":kh:^H",
+ BT,    "^B",             BT,    "kB",
+ TB,    "^I",
+/*
+ * Это нужно всегда
+ */
+ CCBACKSPACE    ,"^?",
+ CCCTRLQUOTE    ,"^A",
+ CCQUIT         ,"^J^?",
+ CCENTER        ,"^J= ",
+/*
+ * Ввод команд через цифровую клавиатуру
+ * а заодно и замена если ее нет
+ */
+CCCHPORT         ,":f0:^J=0",  CCDOCMD         ,":f2f0:^J^J=0",
+CCENTER          ,":f1:^J=1",  CCENTER         ,":f2f1:^J^J=1",
+CCPLSRCH         ,":f3:^J=3",  CCMISRCH        ,":f2f3:^J^J=3",
+CCGOTO           ,":f4:^J=4",  CCMAKEPORT      ,":f2f4:^J^J=4",
+CCINSERT         ,":f5:^J=5",  CCTABS          ,":f2f5:^J^J=5",
+CCDELCH          ,":f6:^J=6",  CCDELCH         ,":f2f6:^J^J=6",
+CCPLPAGE         ,":f7:^J=7",  CCMIPAGE        ,":f2f7:^J^J=7",
+CCOPEN           ,":f8:^J=8",  CCCLOSE         ,":f2f8:^J^J=8",
+CCPICK           ,":f9:^J=9",  CCPUT           ,":f2f9:^J^J=9",
+CCCTRLQUOTE      ,":f.:^J=.",  CCENTER         ,":f2f.:^J^J=.",
+CCSETFILE        ,":f-:^J=-",  CCSAVEFILE      ,":f2f-:^J^J=-",
+/*
+ * Ввод отдельных команд через упр. клавиши
+ */
+CCPLPAGE        ,":kN:^Z",
+CCMIPAGE        ,":kP:^X",
+CCOPEN          ,":kA:k2",
+CCCLOSE         ,":kL:k3",
+CCENTER         ,":kE:k1",
+CCDELCH         ,":kD:k5",
+CCINSMODE       ,":kI:k4",
+CCPLLINE        ,":kF:k6",
+CCPLLINE        ,":kR:k7",
+/*
+ * Ввод команд через  ^С:
+ */
+ CCPLLINE       ,"^T", /* Для совместимости */
+ CCMILINE       ,"^W", /* Для совместимости */
+ CCDELCH        ,"^U", /* Для совместимости */
+ CCSETFILE      ,"^D", /* Для совместимости */
+ CCPICK         ,"^F", /* Для совместимости */
+ CCPUT          ,"^G", /* Для совместимости */
+ CCDOCMD        ,"^P", /* Для совместимости */
+ CCRESCREEN     ,"^L",
+ CCPLSRCH     ,"^R",
+ CCMISRCH     ,"^E",
+ 0,0,   0,0,   0,0,   0,0,   0,0,
+ 0,0,   0,0,   0,0,   0,0,   0,0,
+ 0,0,   0,0,   0,0,   0,0,   0,0,
+ 0, 0 };
+d145 2
+a146 1
+ * tc="XXYY..ZZ", (см. комментарий перед таблицей)
+d153 2
+a154 2
+	int i,fcase, casec=0;
+	if ( (*tc&0340) == 0 || *tc==0177) return(tc);
+d156 1
+a156 1
+	while(*c)
+a162 15
+		if( *c == '^') {
+			*buftc++ = (*++c=='?' ? 0177 : (*c & 037));
+			c++;
+			continue;
+			}
+		if( *c == '=') {
+			*buftc++ = *++c;
+			c++;
+			continue;
+			}
+		if( *c == ':' ) {
+			if(casec) break;
+			casec = 1;
+			c++;
+			}
+d169 2
+a170 6
+			if(fcase) continue;
+			if (!casec) return(0);
+			while (*c && *c != ':') if( *c++ == '=') c++;
+			if( *c != ':') return((char *)0);
+			c++; buftc = buftc0;
+			continue;
+@
+
+
+3.1.2.3
+log
+@Commans set to 0200-0277
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.1.2.2 87/06/24 22:37:51 alex Stab $
+a6 3
+ * Revision 3.1.2.2  87/06/24  22:37:51  alex
+ * New readch + gettc + tc table Tested
+ * 
+d109 8
+a116 8
+CC+RN,    "^M",
+CC+LT,    ":kl:^L",
+CC+RT,    ":kr:^R",
+CC+UP,    ":ku:^U",
+CC+DN,    ":kd:^D",
+CC+HO,    ":kh:^H",
+CC+BT,    "^B",             CC+BT,    "kB",
+CC+TB,    "^I",
+d132 1
+a132 1
+CCINSMODE        ,":f5:^J=5",  CCTABS          ,":f2f5:^J^J=5",
+a138 1
+CCLPORT          ,":f2kl:^Jkl",CCRPORT         ,":f2kr:^Jkr",
+@
+
+
+3.1.2.4
+log
+@Graph_characters used in margin
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.1.2.3 87/06/29 17:58:35 alex Exp $
+a6 3
+ * Revision 3.1.2.3  87/06/29  17:58:35  alex
+ * Commans set to 0200-0277
+ * 
+d82 1
+a82 1
+/* COBELL : */ "\007",           /* COFIN:      */"?Ge?me?Ce?cl?fs?te?ke",
+d90 1
+a90 8
+/* COANORMAL  */ "?me?se",
+/* COAINFO    */ ":mG?MV:so",
+/* COAERROR   */ ":mb?mR?MN:?mbso",
+/* COAMARG    */ ":mY?MN:mh:so",
+/* COAOUT     */ ":mR?MW:md:so",
+/* COGSTART   */ "gs",
+/* COGEND     */ "ge",
+   (char *)0
+d179 1
+a179 1
+#define LTCM 400
+a316 10
+/*
+ * Разбираемся с псевдо-графикой
+ */
+    g_table = gettcs("gt");
+    if ( g_table && cvtout[COGSTART] && cvtout[COGEND] )
+		{ register char *c;
+		  for(c=g_table; *c; c++);
+		  gchars = c - g_table;
+		  if ( gchars > (G_END-G_START)) gchars = G_END-G_START;
+		}
+@
+
+
+3.1.2.5
+log
+@REVISION
+@
+text
+@d5 1
+a5 1
+ *      $Header: S.gettc.c,v 3.1.2.4 87/07/03 22:04:33 alex Exp $
+a6 3
+ * Revision 3.1.2.4  87/07/03  22:04:33  alex
+ * Graph_characters used in margin
+ * 
+d94 4
+a97 4
+/* COAINFO    */ ":m1:so",
+/* COAERROR   */ ":m2:?mbso",
+/* COAMARG    */ ":m3:md:so",
+/* COAOUT     */ ":m4:mr:so",
+d128 1
+a128 1
+CC+BT,    "^B",
+a155 1
+CC+BT           ,":kB:.f.",
+d164 1
+a164 1
+CCMILINE        ,":kR:k7",
+a177 2
+ CCSAVEFILE   ,"^V",
+ CCBACKSPACE  ,"^H",
+@

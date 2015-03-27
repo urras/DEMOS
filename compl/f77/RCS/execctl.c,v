@@ -1,0 +1,69 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.25.07;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@#include "defs"
+
+
+pushctl(code)
+int code;
+{
+register int i;
+
+if(++ctlstack >= lastctl)
+	fatal("nesting too deep");
+ctlstack->ctltype = code;
+for(i = 0 ; i < 4 ; ++i)
+	ctlstack->ctlabels[i] = 0;
+++blklevel;
+}
+
+
+popctl()
+{
+if( ctlstack-- < ctls )
+	fatal("control stack empty");
+--blklevel;
+}
+
+
+
+poplab()
+{
+register struct labelblock  *lp;
+
+for(lp = labeltab ; lp < highlabtab ; ++lp)
+	if(lp->labdefined)
+		{
+		/* mark all labels in inner blocks unreachable */
+		if(lp->blklevel > blklevel)
+			lp->labinacc = YES;
+		}
+	else if(lp->blklevel > blklevel)
+		{
+		/* move all labels referred to in inner blocks out a level */
+		lp->blklevel = blklevel;
+		}
+}
+
+@

@@ -1,0 +1,14 @@
+#	@(#)Ovmakefile	4.1	12/25/82
+#
+CFLAGS=-O -V
+OBJS= pow.o gcd.o msqrt.o mdiv.o mout.o mult.o madd.o util.o
+
+libovmp.a: $(OBJS)
+	ar cr libovmp.a $(OBJS)
+
+cp:	libovmp.a
+	cp libovmp.a ${DESTDIR}/usr/lib/libovmp.a
+	ranlib ${DESTDIR}/usr/lib/libovmp.a
+
+clean:
+	rm -f *.o libovmp.a

@@ -1,0 +1,43 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.17.12.45.51;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** $Header$
+** $Log$
+**
+*/
+".c", SFXSRC, INCLUDE_C,        /* C */
+".e", SFXSRC, INCLUDE_FORTRAN,  /* Efl */
+".F", SFXSRC, INCLUDE_FORTRAN,  /* Fortran */
+".f", SFXSRC, INCLUDE_FORTRAN,  /* Fortran */
+".h", SFXHEAD, INCLUDE_NONE,    /* header */
+".i", SFXHEAD, INCLUDE_NONE,    /* Pascal include */
+".l", SFXSRC, INCLUDE_NONE,     /* Lex или Lisp */
+".o", SFXOBJ, INCLUDE_NONE,     /* oб'eкт */
+".p", SFXSRC, INCLUDE_PASCAL,   /* Pascal */
+".r", SFXSRC, INCLUDE_FORTRAN,  /* Ratfor */
+".s", SFXSRC, INCLUDE_NONE,     /* Assembler */
+".y", SFXSRC, INCLUDE_NONE,     /* Yacc */
+@

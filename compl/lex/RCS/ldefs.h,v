@@ -1,0 +1,517 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     88.10.26.15.45.58;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.10.21.19.32.22;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.12.30.16.55.48;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.28.20.28.47;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.28.19.18.41;  author avg;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.12.28.18.42.04;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Построитель лексических анализатров LEX.
+@
+
+
+1.5
+log
+@NOUTPUT уменьшен обратно, исправлен макрос U(x), т.к.
+у некоторых компиляторов char -> int -> unsigned, а не char -> unsigned.
+@
+text
+@/*
+ * $Log:	ldefs.h,v $
+ * Revision 1.4  88/10/21  19:32:22  abs
+ * вдвое увеличен NOUTPUT. Возможно что и зря.
+ * 
+ * Revision 1.3  86/12/30  16:55:48  avg
+ * Сделаны правки для работы в КОИ-8.
+ *
+ * Revision 1.2  86/12/28  20:28:47  avg
+ * Версия для ДЕМОС 2.0
+ *
+ */
+#define LDHDR "$Header: ldefs.h,v 1.4 88/10/21 19:32:22 abs Exp $"
+
+#include <stdio.h>
+#define PP 1
+
+#ifdef unix
+# define CWIDTH 8
+# define CMASK 0377
+# if !defined(KOI8) && !defined(Ucode)
+#  include <sys/code.h>
+# endif
+#endif
+
+#ifdef gcos
+# define CWIDTH 9
+# define CMASK 0777
+# define ASCII 1
+#endif
+
+#ifdef ibm
+# define CWIDTH 8
+# define CMASK 0377
+# define EBCDIC 1
+#endif
+
+#ifdef ASCII
+# define NCH 128
+#endif
+
+#if  defined(Ucode) || defined(KOI8)
+# define NCH 256
+#endif
+
+#ifdef EBCDIC
+# define NCH 256
+#endif
+
+#define C(x)            ((x)&CMASK)
+#define U(x)            ((unsigned)C(x))
+
+#define TOKENSIZE       1000
+#define DEFSIZE         40
+#define DEFCHAR         1000
+#define STARTCHAR       100
+#define STARTSIZE       256
+#define CCLSIZE         1000
+
+#ifdef SMALL
+# define TREESIZE       600
+# define NTRANS         1500
+# define NSTATES        300
+# define MAXPOS         1500
+# define NOUTPUT        1500
+#else
+# define TREESIZE       1000
+# define NTRANS         2000
+# define NSTATES        500
+# define MAXPOS         2500
+# define NOUTPUT        3000
+#endif
+
+#define NACTIONS        100
+#define ALITTLEEXTRA    30
+
+#define RCCL    NCH+ 90
+#define RNCCL   NCH+ 91
+#define RSTR    NCH+ 92
+#define RSCON   NCH+ 93
+#define RNEWE   NCH+ 94
+#define FINAL   NCH+ 95
+#define RNULLS  NCH+ 96
+#define RCAT    NCH+ 97
+#define STAR    NCH+ 98
+#define PLUS    NCH+ 99
+#define QUEST   NCH+100
+#define DIV     NCH+101
+#define BAR     NCH+102
+#define CARAT   NCH+103
+#define S1FINAL NCH+104
+#define S2FINAL NCH+105
+
+#define DEFSECTION      1
+#define RULESECTION     2
+#define ENDSECTION      5
+
+#define TRUE    1
+#define FALSE   0
+
+#define PC      1
+#define PS      1
+
+#ifdef DEBUG
+# define LINESIZE       110
+extern   int     yydebug;
+extern   int     debug;      /* 1 = on */
+extern   int     charc;
+#else
+# define freturn(s)     s
+#endif
+
+extern   int     sargc;
+extern   char  **sargv;
+extern   char    buf[520];
+extern   int     yyline;     /* line number of file */
+extern   int     sect;
+extern   int     eof;
+extern   int     lgatflg;
+extern   int     divflg;
+extern   int     funcflag;
+extern   int     pflag;
+extern   int     casecount;
+extern   int     chset;      /* 1 = char set modified */
+extern   FILE   *fin;
+extern   FILE   *fout;
+extern   FILE   *fother;
+extern   FILE   *errorf;
+extern   int     fptr;
+extern   char   *cname;
+extern   int     prev;       /* previous input character */
+extern   int     pres;       /* present input character */
+extern   int     peek;       /* next input character */
+extern   int    *name;
+extern   int    *left;
+extern   int    *right;
+extern   int    *parent;
+extern   char   *nullstr;
+extern   int     tptr;
+extern   char   *pushc;
+extern   char   *pushptr;
+extern   char    slist[STARTSIZE];
+extern   char   *slptr;
+extern   char  **def;
+extern   char  **subs;
+extern   char   *dchar;
+extern   char  **sname;
+extern   char   *schar;
+extern   char   *ccl;
+extern   char   *ccptr;
+extern   char   *dp;
+extern   char   *sp;
+extern   int     dptr;
+extern   int     sptr;
+extern   char   *bptr;       /* store input position */
+extern   char   *tmpstat;
+extern   int     count;
+extern   int   **foll;
+extern   int    *nxtpos;
+extern   int    *positions;
+extern   int    *gotof;
+extern   int    *nexts;
+extern   char   *nchar;
+extern   int   **state;
+extern   int    *sfall;      /* fallback state num */
+extern   char   *cpackflg;   /* true if state has been character packed */
+extern   int    *atable;
+extern   int     aptr;
+extern   int     nptr;
+extern   char    symbol[NCH];
+extern   char    cindex[NCH];
+extern   int     xstate;
+extern   int     stnum;
+extern   int     ctable[];
+extern   int     ZCH;
+extern   int     ccount;
+extern   char    match[NCH];
+extern   char    extra[NACTIONS];
+extern   char   *pcptr;
+extern   char   *pchar;
+extern   int     pchlen;
+extern   int     nstates;
+extern   int     maxpos;
+extern   int     yytop;
+extern   int     report;
+extern   int     ntrans;
+extern   int     treesize;
+extern   int     outsize;
+extern   long    rcount;
+extern   int     optim;
+extern   int    *verify;
+extern   int    *advance;
+extern   int    *stoff;
+extern   int     scon;
+extern   char   *psave;
+
+extern   char   *calloc();
+extern   char   *myalloc();
+extern   int     buserr();
+extern   int     segviol();
+@
+
+
+1.4
+log
+@вдвое увеличен NOUTPUT. Возможно что и зря.
+@
+text
+@d2 4
+a5 1
+ * $Log:        ldefs.h,v $
+d13 1
+a13 1
+#define LDHDR "$Header: ldefs.h,v 1.3 86/12/30 16:55:48 avg Exp $"
+a49 1
+#define U(x)            ((unsigned)(x))
+d51 1
+d65 1
+a65 1
+# define NOUTPUT        3000
+@
+
+
+1.3
+log
+@Сделаны правки для работы в КОИ-8.
+@
+text
+@d3 3
+d10 1
+a10 1
+#define LDHDR "$Header: ldefs.h,v 1.2 86/12/28 20:28:47 avg Exp $"
+d62 1
+a62 1
+# define NOUTPUT        1500
+@
+
+
+1.2
+log
+@Версия для ДЕМОС 2.0
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d7 1
+a7 1
+#define LDHDR "$Header$"
+d15 3
+a17 1
+#include <sys/code.h>
+@
+
+
+1.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d2 1
+a2 5
+ * МНОС РЛ 1.2
+ * lex - построитель лексических анализаторов
+ *	Версия для СМ-4 и т.п. - Антонов В.Г.
+ *				( ИПК Минавтопрома, ВМК МГУ )
+ * Последнее изменение: 03.09.85
+d4 1
+d9 1
+a9 1
+#ifdef МНОС
+d12 1
+a12 1
+# define Ucode 1
+a14 6
+#ifdef UNIX
+# define CWIDTH 7
+# define CMASK 0177
+# define ASCII 1
+#endif
+
+d31 1
+a31 1
+#ifdef Ucode
+@
+
+
+1.0
+log
+@Initial revision
+@
+text
+@d1 7
+a7 3
+# include <stdio.h>
+# define PP 1
+# ifdef unix
+d9 10
+d22 1
+a22 1
+# endif
+d24 1
+a24 1
+# ifdef gcos
+d28 1
+a28 1
+# endif
+d30 1
+a30 1
+# ifdef ibm
+d34 1
+a34 1
+# endif
+d36 1
+a36 1
+# ifdef ASCII
+d38 1
+a38 1
+# endif
+d40 1
+a40 1
+# ifdef EBCDIC
+d42 1
+a42 1
+# endif
+d44 3
+d48 2
+a49 13
+# define TOKENSIZE 1000
+# define DEFSIZE 40
+# define DEFCHAR 1000
+# define STARTCHAR 100
+# define STARTSIZE 256
+# define CCLSIZE 1000
+# ifdef SMALL		/* Sizes reduced SRS 11-16-81 */
+# define TREESIZE 600	/* from 600  */
+# define NTRANS 1500	/* from 1500 */
+# define NSTATES 300	/* from 300  */
+# define MAXPOS 1500	/* from 1500 */
+# define NOUTPUT 1500	/* from 1500 */
+# endif
+d51 6
+a56 9
+# ifndef SMALL
+# define TREESIZE 1000
+# define NSTATES 500
+# define MAXPOS 2500
+# define NTRANS 2000
+# define NOUTPUT 3000
+# endif
+# define NACTIONS 100
+# define ALITTLEEXTRA 30
+d58 13
+a70 16
+# define RCCL NCH+90
+# define RNCCL NCH+91
+# define RSTR NCH+92
+# define RSCON NCH+93
+# define RNEWE NCH+94
+# define FINAL NCH+95
+# define RNULLS NCH+96
+# define RCAT NCH+97
+# define STAR NCH+98
+# define PLUS NCH+99
+# define QUEST NCH+100
+# define DIV NCH+101
+# define BAR NCH+102
+# define CARAT NCH+103
+# define S1FINAL NCH+104
+# define S2FINAL NCH+105
+d72 2
+a73 5
+# define DEFSECTION 1
+# define RULESECTION 2
+# define ENDSECTION 5
+# define TRUE 1
+# define FALSE 0
+d75 16
+a90 2
+# define PC 1
+# define PS 1
+d92 3
+a94 6
+# ifdef DEBUG
+# define LINESIZE 110
+extern int yydebug;
+extern int debug;		/* 1 = on */
+extern int charc;
+# endif
+d96 2
+a97 3
+# ifndef DEBUG
+# define freturn(s) s
+# endif
+d99 100
+a198 71
+extern int sargc;
+extern char **sargv;
+extern char buf[520];
+extern int ratfor;		/* 1 = ratfor, 0 = C */
+extern int yyline;		/* line number of file */
+extern int sect;
+extern int eof;
+extern int lgatflg;
+extern int divflg;
+extern int funcflag;
+extern int pflag;
+extern int casecount;
+extern int chset;	/* 1 = char set modified */
+extern FILE *fin, *fout, *fother, *errorf;
+extern int fptr;
+extern char *ratname, *cname;
+extern int prev;	/* previous input character */
+extern int pres;	/* present input character */
+extern int peek;	/* next input character */
+extern int *name;
+extern int *left;
+extern int *right;
+extern int *parent;
+extern char *nullstr;
+extern int tptr;
+extern char pushc[TOKENSIZE];
+extern char *pushptr;
+extern char slist[STARTSIZE];
+extern char *slptr;
+extern char **def, **subs, *dchar;
+extern char **sname, *schar;
+extern char *ccl;
+extern char *ccptr;
+extern char *dp, *sp;
+extern int dptr, sptr;
+extern char *bptr;		/* store input position */
+extern char *tmpstat;
+extern int count;
+extern int **foll;
+extern int *nxtpos;
+extern int *positions;
+extern int *gotof;
+extern int *nexts;
+extern char *nchar;
+extern int **state;
+extern int *sfall;		/* fallback state num */
+extern char *cpackflg;		/* true if state has been character packed */
+extern int *atable, aptr;
+extern int nptr;
+extern char symbol[NCH];
+extern char cindex[NCH];
+extern int xstate;
+extern int stnum;
+extern int ctable[];
+extern int ZCH;
+extern int ccount;
+extern char match[NCH];
+extern char extra[NACTIONS];
+extern char *pcptr, *pchar;
+extern int pchlen;
+extern int nstates, maxpos;
+extern int yytop;
+extern int report;
+extern int ntrans, treesize, outsize;
+extern long rcount;
+extern int optim;
+extern int *verify, *advance, *stoff;
+extern int scon;
+extern char *psave;
+extern char *calloc(), *myalloc();
+extern int buserr(), segviol();
+@

@@ -1,0 +1,709 @@
+head     4.1;
+access   ;
+symbols  RED_4:3.1.2 RED_3_9:3.5 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+4.1
+date     88.03.31.22.02.42;  author alex;  state Exp;
+branches ;
+next     3.5;
+
+3.5
+date     87.06.05.23.50.24;  author alex;  state Exp;
+branches ;
+next     3.4;
+
+3.4
+date     86.09.19.19.52.46;  author alex;  state Stab;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.51.42;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.00.24.13;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.04.20.23.41.27;  author alex;  state Exp;
+branches 3.1.1.1 3.1.2.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.04.36;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.16.21.52.52;  author alex;  state Stab;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.16.22.17.57;  author alex;  state Stab;
+branches ;
+next     ;
+
+3.1.2.1
+date     87.06.19.17.00.09;  author alex;  state Exp;
+branches ;
+next     3.1.2.2;
+
+3.1.2.2
+date     87.06.23.18.51.04;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+4.1
+log
+@Версия 4.1 - обкатка на UTEC, СМ
+@
+text
+@/*
+ *      Редактор RED.
+ *
+ *      $Header: r.file.c,v 3.1.2.2 87/06/23 18:51:04 alex Exp $
+ *      $Log:	r.file.c,v $
+ * Revision 3.1.2.2  87/06/23  18:51:04  alex
+ * wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+ * 
+ * Revision 3.1.2.1  87/06/19  17:00:09  alex
+ * Start revision for red/4
+ * 
+ * Revision 3.5  87/06/05  23:50:24  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.4  86/09/19  19:52:46  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:51:42  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  00:24:13  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.3  86/06/16  22:17:57  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.1  86/06/05  00:04:36  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/04/20  23:41:27  alex
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:41:27  alex
+ * *** empty log message ***
+ * 
+ *
+ * r.file.c - Работа с файлами.
+ *
+ */
+
+#include "r.defs.h"
+#include <signal.h>
+
+/*
+ * savefile(file,n) -
+ * Запись файла из канала n в файл "file"
+ * Если file не задан, используется свое родное имя
+ * openfnames[n];
+ * если файл не записывается, предлагает записать его в "."
+ */
+savefile(file,n)
+char *file;
+int n;
+{
+    register char *f1;
+    char *f0, *f2;
+    register int i, j;
+    int lread1;
+    int newf,nowrbak=0;
+    /* дай справочник */
+    if (file) {
+        f0=file;
+    } 
+    else {
+        f0=openfnames[n]; 
+        nowrbak=1;
+    }
+    for (f1=f2=f0; *f1; f1++) if (*f1 == '/') f2 = f1;
+    if (f2 > f0)
+    {
+        *f2 = '\0';
+        i = open(f0,0);
+        *f2 = '/';
+    }
+    else i = open (".",0);
+    if (i < 0)
+    {
+        error (DIAG("Directory does not exist.","Справочник не существует."));
+        return(0);
+    }
+    j = checkpriv(i);
+    close (i);
+    if (j != 2)
+    {
+        if (file)
+        {
+            error (DIAG("Can't write in specified directory","Запись в справочник запрещена"));
+            return(0);
+        }
+        if (f2 > f0)
+        {
+            telluser(DIAG("Hit <save> to use '.'","Нажмите <save> чтобы использовать '.'"),0);
+            nowrbak=0;
+#ifdef DEMOSES
+	    editwind((struct viewport *)0,(int (*)())0,0);
+	    newedit = 1;
+#endif DEMOSES
+	    lread1=readch();
+            if (lread1 != CCSAVEFILE) return(-1);
+            if ((i = open(".",0)) < 0)
+            {
+                error (DIAG("Directory '.' does not exist!","Справочник '.' не существует!"));
+                return(0);
+            }
+            j = checkpriv(i);
+            close (i);
+            if (j != 2)
+            {
+                error (DIAG("Can't write in '.'","Запись в '.' невозможна"));
+                return(0);
+            }
+            f0 = f2 +1;/* points to file name */
+        }
+        else
+        {
+            error (DIAG("Can't write in '.'","Запись в '.' невозможна"));
+            return(0);
+        }
+    }
+    /* Готовимся к записи файла f0 */
+    f1 = append (f0,SUFFBAK);
+    if (nowrbak && !movebak[n]) {
+        nowrbak=0; 
+        movebak[n]=1;
+    }
+    if (!nowrbak)
+    {   
+        unlink(f1);
+        link (f0,f1);
+    }
+    unlink (f0);
+    if ((newf = creat(f0,getpriv(n))) < 0)
+    {
+        error (DIAG("Creat failed!","Ошибка создания!"));
+        return(0);
+    }
+    /*      chown(f0,userid);       */
+    /* Собственно запись. */
+    telluser(DIAG("save: ","зап: "),0);
+    telluser(f0,6);
+    dumpcbuf(1);
+    return (fsdwrite(openfsds[n],077777,newf) == -1 ? 0 : 1);
+}
+
+/*
+ * fsdwrite(f,nl,newf) -
+ * Запись по цепочке описателей f в файл "newf"
+ * Если nl # 0  - записывать только nl строк или
+ * -nl абзацев текста (nl используется в случае
+ * команды "exec".
+ * Ответ - число записанных строк, или -1, если ошибка.
+ */
+fsdwrite(ff,nl,newf)
+struct fsd *ff;
+int nl, newf;
+{
+    register struct fsd *f;
+    register char *c;
+    register int i;
+    int j,k,bflag,tlines;
+    if (lcline < LBUFFER) excline(LBUFFER);
+    f = ff;
+    bflag = 1;
+    tlines = 0;
+    while (f->fsdfile && nl)
+    {
+        if (f->fsdfile > 0)
+        {
+            i = 0;
+            c = &f->fsdbytes;
+            for (j=f->fsdnlines; j; j--)
+            {
+                if (nl < 0) {
+		    /* Проверяем счетчик пустых строк */
+                    if (bflag && *c != 1) bflag = 0;
+                    else if (bflag == 0 && *c == 1) {
+                        bflag = 1;
+                        if (++nl == 0) break;
+                    }
+                }
+                if (*c&0200) i += 128 * (*c++&0177);
+                i += *c++;
+                ++tlines;
+		/* Проверяем счетчик строк */
+                if (nl > 0 && --nl == 0) break;
+            }
+            seek(f->fsdfile,f->seekhigh,3);
+            seek(f->fsdfile,f->seeklow,1);
+            while (i)
+            {
+                j = i < LBUFFER ? i : LBUFFER;
+                read(f->fsdfile,cline,j);
+                if (write(newf,cline,j) < 0)
+                {
+#ifdef SIGNOSPC
+		    if ( werrflag )
+		    error(DIAG("WRITE ERROR-NO SPACE","Oшибкa зaпиcи:нeт мecтa"));
+		    else
+		    error(DIAG("DANGER -- WRITE ERROR","Bнимaниe:oшибка записи"));
+		    werrflag = 0;
+#else
+		    error(DIAG("DANGER -- WRITE ERROR","Bнимaниe:oшибка записи"));
+#endif
+                    close(newf);
+                    return(-1);
+                }
+                i -= j;
+            }
+        }
+        else
+        {
+            j = f->fsdnlines;
+            if (nl < 0) {
+                if (bflag == 0 && ++nl == 0) j = 0;
+                bflag = 1;
+            }
+            else {  
+                if (j > nl) j = nl;
+                nl -= j;
+            }
+            k = j;
+            while (k) cline[--k] = NEWLINE;
+            if (j && write(newf,cline,j) < 0)
+            {
+                error(DIAG("DANGER -- WRITE ERROR","Внимание: ошибка записи."));
+                close(newf);
+                return(-1);
+            }
+            tlines += j;
+        }
+        f = f->fwdptr;
+    }
+    close(newf);
+    return tlines;
+}
+
+/*
+ * editfile(file,line,col,mkflg,puflg) -
+ * Открыть файл file для редактирования, начиная со строки
+ * line и колонки col.
+ * Файл открывается в текущем окне.
+ * Если файла нет, а mkflg равен 1, то запрашивается
+ * разрешение создать файл.
+ * Код ответа -1, если файл не открыли и не создали.
+ * Если putflg равен 1, файл тут же выводится в окно.
+ */
+editfile(file,line,col,mkflg,puflg)
+char *file;
+int line, col, mkflg, puflg;
+{
+    int i,j;
+    register int fn;
+    register char *c,*d;
+    int lread1;
+    fn = -1;
+    for (i=0; i<MAXFILES;++i) if (openfnames[i] != 0)
+    {
+        c = file;
+        d = openfnames[i];
+        while (*(c++) == *d) if (*(d++) == 0)
+        {
+            fn = i;
+            break;
+        }
+    }
+    if (fn < 0)
+    {
+        fn = open(file,0);  /* Файл существует? */
+        if (fn >= 0)
+        {
+            if (fn >= MAXFILES)
+            {
+                error(DIAG("Too many files -- editor limit!","Слишком много файлов"));
+                close(fn);
+                return(0);
+            }
+            if ((j = checkpriv(fn)) == 0)
+            {
+                error(DIAG("File read protected.","Файл защищен по чтению."));
+                close(fn);
+                return(0);
+            }
+            openwrite[fn] = (j == 2 ? 1 : 0);
+            telluser(DIAG("Use: ","Ред: "),0);
+            telluser(file,5);
+        }
+        else if (mkflg)
+        {
+#ifndef DEMOSES
+	    telluser(DIAG("Create(y/n)?: ","Создать(y/n)?: "),0);
+	    telluser(file,DIAG(15,15));
+#else +DEMOSES
+	    telluser(DIAG("hit <use> (ctrl-d) to make: ","Нажмите <ред>, чтобы создать: "),0);
+	    telluser(file,DIAG(28,30));
+	    editwind((struct viewport *)0,(int (*)())0,0);
+	    newedit = 1;
+#endif +DEMOSES
+	    lread1=readch();
+            if (lread1 != CCSETFILE&&lread1 != 'Y' &&lread1 != 'y') return(-1);
+            /* Находим справочник */
+            for (c=d=file; *c; c++)  if (*c == '/') d = c;
+            if (d > file)
+            {
+                *d = '\0';
+                i = open(file,0);
+            }
+            else i = open(".",0);
+            if (i < 0)
+            {
+                error(DIAG("Specified directory does not exist.","Справочник не существует"));
+                return(0);
+            }
+            if (checkpriv(i) != 2)
+            {
+                error(DIAG("Can't write in:","Не могу записать в:"));
+                telluser (file,21);
+                return(0);
+            }
+            close(i);
+            if (d > file) *d = '/';
+            /* Создаем файл */
+            fn = creat(file,FILEMODE); 
+            close(fn);
+            if ((fn = open(file,0)) < 0)
+            {
+                error(DIAG("Create failed!","Ошибка создания файла."));
+                return(0);
+            }
+            if (fn >= MAXFILES)
+            {
+                close(fn);
+                error(DIAG("Too many files -- Editor limit!","Слишком много файлов."));
+                return(0);
+            }
+            openwrite[fn] = 1;
+	    chown(file,userid,groupid);
+        }
+        else return (-1);
+        paraml = 0;   /* so its kept around */
+        openfnames[fn] = file;
+    }
+    /* Выталкиваем буфер, так как здесь долгая операция */
+    dumpcbuf(1);
+    switchwksp();
+    if (openfsds[fn] == (struct fsd *)0)
+        openfsds[fn] = file2fsd(fn);
+    curwksp->curfsd = openfsds[fn];
+    curfile = curwksp->wfile = fn;
+    curwksp->curlno = curwksp->curflno = 0;
+    curwksp->ulhclno = line;
+    curwksp->ulhccno = col;
+    if (puflg)
+    {
+        putup(0,curport->btext);
+        poscursor(0,defplline);
+    }
+    return(1);
+}
+
+
+/*
+ * endit() -
+ * закончить работу и записать все
+ * ответ = 0, если при записи были ошибки
+ */
+endit()
+{
+    register int i, ko = 1;
+    for (i = 0; i < MAXFILES; i++)
+        if (openfsds[i] && openwrite[i] == EDITED)
+	    if (savefile(NULL,i) == 0) ko = 0;
+    return(ko);
+}
+@
+
+
+3.5
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d2 1
+a2 1
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+d4 1
+a4 1
+ *      $Header: r.file.c,v 3.4 86/09/19 19:52:46 alex Exp $
+d6 10
+d59 1
+a93 1
+            lread1 = -1; 
+d99 1
+a99 1
+            read1();
+d255 1
+a289 1
+            lread1 = -1;
+d291 2
+a292 2
+            telluser(DIAG("hit <use> (ctrl-d) to make: ","Создать(Y/N)?: "),0);
+            telluser(file,DIAG(28,27));
+d299 1
+a299 1
+            read1();
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.file.c,v 3.3 86/08/04 20:51:42 alex Exp $
+d6 3
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.file.c,v 3.2 86/07/24 00:24:13 alex Exp $
+d6 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.file.c,v 3.1.1.3 86/06/16 22:17:57 alex Exp $
+d6 3
+@
+
+
+3.1
+log
+@Базовая версия для ЕС.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.file.c,v 3.1 86/04/20 23:41:27 alex Exp $
+d6 6
+d13 3
+d24 1
+d76 4
+d123 1
+d177 9
+a185 1
+                    error(DIAG("DANGER -- WRITE ERROR","Внимание:ошибка записи"));
+d270 2
+d274 6
+a279 1
+            lread1 = -1;
+d325 1
+a325 1
+    dumpcbuf();
+@
+
+
+3.1.2.1
+log
+@Start revision for red/4
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.file.c,v 3.5 87/06/05 23:50:24 alex Exp $
+a5 19
+ * Revision 3.5  87/06/05  23:50:24  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.4  86/09/19  19:52:46  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:51:42  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  00:24:13  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.3  86/06/16  22:17:57  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.1  86/06/05  00:04:36  alex
+ * Отлажено_на_модели
+ * 
+a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:41:27  alex
+a14 1
+#include <signal.h>
+a65 4
+#ifdef DEMOSES
+	    editwind((struct viewport *)0,(int (*)())0,0);
+	    newedit = 1;
+#endif DEMOSES
+a108 1
+    dumpcbuf(1);
+d162 1
+a162 9
+#ifdef SIGNOSPC
+		    if ( werrflag )
+		    error(DIAG("WRITE ERROR-NO SPACE","Oшибкa зaпиcи:нeт мecтa"));
+		    else
+		    error(DIAG("DANGER -- WRITE ERROR","Bнимaниe:oшибка записи"));
+		    werrflag = 0;
+#else
+		    error(DIAG("DANGER -- WRITE ERROR","Bнимaниe:oшибка записи"));
+#endif
+a246 2
+            lread1 = -1;
+#ifndef DEMOSES
+d249 1
+a249 6
+#else +DEMOSES
+	    telluser(DIAG("hit <use> (ctrl-d) to make: ","Нажмите <ред>, чтобы создать: "),0);
+	    telluser(file,DIAG(28,30));
+	    editwind((struct viewport *)0,(int (*)())0,0);
+	    newedit = 1;
+#endif +DEMOSES
+d295 1
+a295 1
+    dumpcbuf(1);
+@
+
+
+3.1.2.2
+log
+@wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.file.c,v 3.1.2.1 87/06/19 17:00:09 alex Exp $
+a5 3
+ * Revision 3.1.2.1  87/06/19  17:00:09  alex
+ * Start revision for red/4
+ * 
+a52 1
+    int lread1;
+d87 1
+d93 1
+a93 1
+	    lread1=readch();
+a248 1
+    int lread1;
+d283 1
+d285 2
+a286 2
+	    telluser(DIAG("Create(y/n)?: ","Создать(y/n)?: "),0);
+	    telluser(file,DIAG(15,15));
+d293 1
+a293 1
+	    lread1=readch();
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:41:27  alex
+a65 1
+	    editwind((struct viewport *)0,(int (*)())0,0);
+a66 1
+	    newedit = 1;
+a108 1
+    dumpcbuf(1);
+d247 2
+a248 2
+	    telluser(DIAG("hit <use> (ctrl-d) to make: ","Нажмите <ред>, чтобы создать: "),0);
+	    telluser(file,DIAG(28,30));
+a249 1
+	    editwind((struct viewport *)0,(int (*)())0,0);
+a250 1
+	    newedit = 1;
+d295 1
+a295 1
+    dumpcbuf(1);
+@
+
+
+3.1.1.2
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.file.c,v 3.1.1.1 86/06/05 00:04:36 alex Exp $
+a5 3
+ * Revision 3.1.1.1  86/06/05  00:04:36  alex
+ * Отлажено_на_модели
+ * 
+a17 1
+#include <signal.h>
+d168 1
+a168 9
+#ifdef SIGNOSPC
+		    if ( werrflag )
+		    error(DIAG("WRITE ERROR-NO SPACE","Oшибкa зaпиcи:нeт мecтa"));
+		    else
+		    error(DIAG("DANGER -- WRITE ERROR","Bнимaниe:oшибка записи"));
+		    werrflag = 0;
+#else
+		    error(DIAG("DANGER -- WRITE ERROR","Bнимaниe:oшибка записи"));
+#endif
+@
+
+
+3.1.1.3
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@@

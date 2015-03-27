@@ -1,0 +1,275 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.3
+date     90.09.19.16.53.08;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.27.20.27.22;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.09.27.13.46.58;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Initial revision.
+@
+
+
+1.3
+log
+@???
+@
+text
+@OWNER=/usr/new/lib
+CC=cc
+LINTF = -p
+LINT = lint
+OPRL = oprl
+LFLAG1 = -i
+LFLAG2 = -n
+FFLAG = -f
+CFLAGS = -O -c -DCXREF
+CPASS1 =        cgram.c comm1.c optim.c pftn1.c pftn2.c scan.c trees.c \
+		xdefs.c xlocal.c lint.c
+OPASS1 =        cgram.o comm1.o optim.o pftn1.o pftn2.o scan.o trees.o \
+		xdefs.o xlocal.o lint.o
+
+COFLAGS =
+
+XPASS = cgram.y comm1.c common lint.c lmanifest macdefs manifest \
+	mfile1 optim.c pftn1.c pftn2.c scan.c trees.c xdefs.c xlocal.c
+
+all :   cxref xpass xcpp
+
+# CXREF
+
+cxref : cxr.c owner.h
+	$(CC) -s $(FFLAG) -O cxr.c -o cxref
+
+# XPASS
+
+xpass:  $(OPASS1) Prtdcon.o
+	$(CC) $(FFLAG) $(LFLAG2) -s \
+	-Q \
+	cgram.o comm1.o optim.o \
+	pftn1.o \
+	pftn2.o \
+	scan.o \
+	trees.o \
+	xdefs.o xlocal.o lint.o \
+	Prtdcon.o \
+	-o xpass
+
+$(OPASS1): manifest macdefs mfile1
+
+cgram.c: cgram.y
+	sed -e 's/\/\*CXREF\(.*\)\*\//\1/' cgram.y > gram.y
+	yacc gram.y
+	mv y.tab.c cgram.c
+	-rm -f gram.y
+
+cgram.o:        cgram.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) cgram.c
+
+comm1.o: common comm1.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) comm1.c
+
+lint.o: lmanifest lint.c
+	$(CC) $(FFLAG) $(CFLAGS) lint.c
+
+optim.o:        optim.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) optim.c
+
+pftn1.o:                pftn1.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) pftn1.c
+
+pftn2.o:                pftn2.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) pftn2.c
+
+scan.o: scan.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) scan.c
+
+trees.o:        trees.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) trees.c
+
+xdefs.o: xdefs.c
+	$(CC) -DBUG4 $(FFLAG) $(CFLAGS) xdefs.c
+
+xlocal.o:       xlocal.c lmanifest
+	$(CC) $(FFLAG) $(CFLAGS) xlocal.c
+
+# XCPP
+
+xcpp:   cpp.o cpy.o
+	$(CC) -s $(FFLAG) $(LFLAG2) -o xcpp cpp.o cpy.o -ly
+
+cpp.o:  cpp.c
+	$(CC) $(FFLAG) $(CFLAGS) -Dunix=1 cpp.c
+
+cpy.o:  cpy.c yylex.c
+	$(CC) $(FFLAG) $(CFLAGS) -Dunix=1 cpy.c
+
+cpy.c:  cpy.y
+	yacc cpy.y
+	mv y.tab.c cpy.c
+
+Prtdcon.o:  Prtdcon.c
+
+# UTILITIES
+
+install :       all
+	cp cxref /usr/new/bin
+	cp xpass $(OWNER)
+	cp xcpp $(OWNER)
+
+clean:
+	-rm -f *.o core
+
+clobber:        clean
+	-rm -f xpass cgram.c cxref xcpp cpy.c
+
+lint:
+	$(LINT) $(LINTF) cxr.c
+	$(LINT) $(LINTF) -DBUG4 $(CPASS1)
+	$(LINT) $(LINTF) -Dunix=1 -Dcpp.c cpy.c
+
+.DEFAULT:
+	co $(COFLAGS) $@@
+
+@
+
+
+1.2
+log
+@Компонента сдвинута в /usr/new.
+@
+text
+@d15 2
+d29 1
+a29 1
+xpass:  $(OPASS1) doprnt.o Prtdcon.o
+d31 1
+a31 1
+	-Z \
+a32 1
+	-Z \
+a33 1
+	-Z \
+a34 1
+	-Z \
+a35 1
+	-Z \
+d37 1
+a37 3
+	-Z \
+	doprnt.o xdefs.o xlocal.o lint.o \
+	-L \
+a40 3
+doprnt.o:       /lib/libovbasec.a
+	ar x /lib/libovbasec.a doprnt.o
+
+d52 1
+a52 1
+comm1.o: common
+d94 2
+d113 4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+OWNER=/usr/lib
+d10 1
+a10 1
+CPASS1 =	cgram.c comm1.c optim.c pftn1.c pftn2.c scan.c trees.c \
+d12 1
+a12 1
+OPASS1 =	cgram.o comm1.o optim.o pftn1.o pftn2.o scan.o trees.o \
+d15 1
+a15 1
+XPASS =	cgram.y comm1.c common lint.c lmanifest macdefs manifest \
+d18 1
+a18 1
+all :	cxref xpass xcpp
+d22 1
+a22 1
+cxref :	cxr.c owner.h
+d27 1
+a27 1
+xpass:	$(OPASS1) doprnt.o Prtdcon.o
+d45 2
+a46 2
+doprnt.o:	/usr/lib/libovc.a
+	ar x /usr/lib/libovc.a doprnt.o
+d56 1
+a56 1
+cgram.o:	cgram.c
+d62 1
+a62 1
+lint.o:	lmanifest lint.c
+d64 2
+a65 2
+	
+optim.o:	optim.c
+d67 2
+a68 2
+	
+pftn1.o:		pftn1.c
+d70 2
+a71 2
+	
+pftn2.o:		pftn2.c
+d73 2
+a74 2
+	
+scan.o: scan.c 
+d77 1
+a77 1
+trees.o:	trees.c
+d82 2
+a83 2
+	
+xlocal.o:	xlocal.c lmanifest
+d85 1
+a85 1
+	
+d88 2
+a89 2
+xcpp:	cpp.o cpy.o
+	$(CC) -s $(FFLAG) $(LFLAG2) -o xcpp cpp.o cpy.o
+d91 1
+a91 1
+cpp.o:	cpp.c
+d94 1
+a94 1
+cpy.o:	cpy.c yylex.c
+d97 1
+a97 1
+cpy.c:	cpy.y
+d103 2
+a104 2
+install :	all
+	cp cxref /usr/ucb
+a106 1
+	cp cxref.1 /usr/man/man1
+d111 1
+a111 1
+clobber:	clean
+@

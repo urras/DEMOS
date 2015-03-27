@@ -1,0 +1,214 @@
+head     3.3;
+access   ;
+symbols  RED_4:3.1.2 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    alex:3.1.1.1;
+comment  @# @;
+
+
+3.3
+date     86.08.04.20.54.48;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.12.31;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.06.16.21.59.48;  author alex;  state Stab;
+branches 3.1.1.1;
+next     ;
+
+3.1.1.1
+date     86.06.16.22.01.39;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@Таблицы кодировки для ЕС-7920.
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@/* With appropriate comments we can trick lint */
+/**/    char tubecc[] = "";
+/**/    char tubotab[] = "";
+/**/    char tubitab[] = "";
+/**/    char mrxotab[] = "";
+/*/
+
+/ table of 3270 control characters.
+/ the lower six bits are the same as the index
+/ into the table; the top 2 bits are chosen
+/ to give the character a graphic representation
+/ in ebcdic. the manual says to use these, though
+/ it appears not to be necessary.
+/ see ga27-2749-7 p. 2-11
+.data
+	entry	tubecc
+tubecc:
+	dc	x'40c1c2c3c4c5c6c7'
+	dc	x'c8c94a4b4c4d4e4f'
+	dc	x'50d1d2d3d4d5d6d7'
+	dc	x'd8d95a5b5c5d5e5f'
+	dc	x'6061e2e3e4e5e6e7'
+	dc	x'e8e96a6b6c6d6e6f'
+	dc	x'f0f1f2f3f4f5f6f7'
+	dc	x'f8f97a7b7c7d7e7f'
+/ ascii to 3270 translate table
+	entry	tubotab
+tubotab:
+	dc      x'00'
+	dc      31x'6a'
+	dc	x'405a7f7b5b6c507d'
+	dc	x'4d5d5c4e6b604b61'
+	dc	x'f0f1f2f3f4f5f6f7'
+	dc	x'f8f97a5e4c7e6e6f'
+	dc	x'7cc1c2c3c4c5c6c7'
+	dc	x'c8c9d1d2d3d4d5d6'
+	dc	x'd7d8d9e2e3e4e5e6'
+	dc	x'e7e8e9004a00006d'
+	dc      x'0081828384858687'
+	dc	x'8889919293949596'
+	dc	x'979899a2a3a4a5a6'
+	dc	x'a7a8a9004f005f00'
+	dc      128x'6a'
+
+
+/ 3270 to ascii translate table
+	entry	tubitab
+tubitab: dc	256x'00'
+. = tubitab+x'1c'
+	dc      x'5c'   / dup -> backslash
+. = tubitab+x'1e'
+	dc	x'09'	/ fm -> tab
+. = tubitab+x'40'
+	dc	x'20'	/ space
+. = tubitab+x'4a'
+	dc      x'5c'           / cent sign -> backslash (non-invertible)
+	dc	x'2e3c282b7c26' / . < ( + | &
+. = tubitab+x'5a'
+	dc	x'21242a293b'	/ ! $ * ) ;
+	dc      x'7e'           / not sign -> tilde (non-invertible)
+	dc      x'2d2f'         /     - /
+. = tubitab+x'6a'
+	dc      x'3f' / split bar (non-printable character) -> question mark (non-invertible)
+. = tubitab+x'6b'
+	dc	x'2c255f3e3f'	/ , % _ > ?
+. = tubitab+x'7a'
+	dc	x'3a2340273d22'	/ : # @@ ' = "
+. = tubitab+x'81'
+	dc	x'616263646566676869'	/ a - i
+. = tubitab+x'8a'
+	dc      x'ed'  / mu
+	dc      x'7b'  / left brace
+	dc      x'60'  / degree -> grave accent (non-invertible)
+	dc      x'7d'  / right brace
+	dc      x'f5'  / up arrow
+	dc      x'e4'  / down arrow
+. = tubitab+x'90'
+	dc      x'c9'  / infinity
+	dc	x'6a6b6c6d6e6f707172'	/ j - r
+	dc      x'f0'              / pi
+	dc      x'5b'              / left bracket
+	dc      x'5c'              / backslash
+	dc      x'5d'              / right bracket
+	dc      x'09'              / right arrow -> tab (non-invertible)
+	dc      x'08'              / left arrow -> backspace (non-invertible)
+. = tubitab+x'a0'
+	dc      x'bd'  / approximately equals
+	dc      x'd3'  / sigma
+	dc      x'737475767778797a' / s - z
+. = tubitab+x'aa'
+	dc      x'bc'  / less-than equals
+	dc      x'be'  / greater-than equals
+	dc      x'ab'  / Memorex plus
+	dc      x'ad'  / Memorex bar
+	dc      x'81'  / plus-minus
+. = tubitab+x'af'
+	dc      x'd8'  / big X
+. = tubitab+x'b0'
+	dc      x'b0b1b2b3b4b5b6b7b8b9'  / superscript 0 - 9
+. = tubitab+x'ba'
+	dc      x'd4'  / trade mark
+	dc      x'd2'  / registered
+	dc      x'c3'  / copyright
+	dc      x'82'  / bullet
+	dc      x'7e'  / tilde -> tilde
+	dc      x'5e'  / carot -> carot
+. = tubitab+x'c1'
+	dc	x'414243444546474849'	/ A - I
+. = tubitab+x'd1'
+	dc	x'4a4b4c4d4e4f505152'	/ J - R
+. = tubitab+x'e2'
+	dc	x'535455565758595a' / S - Z
+. = tubitab+x'f0'
+	dc	x'30313233343536373839'	/ 0 - 9
+. = tubitab+x'100'
+
+/ ascii to memorex 1377 translate table
+	entry   mrxotab
+mrxotab:
+	dc      x'006a6a6a6a6a6a6a'
+	dc      x'6a9e6a6a6a6a6a6a'
+	dc      16x'6a'
+	dc	x'405a7f7b5b6c507d'
+	dc	x'4d5d5c4e6b604b61'
+	dc	x'f0f1f2f3f4f5f6f7'
+	dc	x'f8f97a5e4c7e6e6f'
+	dc	x'7cc1c2c3c4c5c6c7'
+	dc	x'c8c9d1d2d3d4d5d6'
+	dc	x'd7d8d9e2e3e4e5e6'
+	dc      x'e7e8e99b9c9dbf6d'
+	dc      x'8c81828384858687' / grave accent = 8c
+	dc	x'8889919293949596'
+	dc	x'979899a2a3a4a5a6'
+	dc      x'a7a8a98b4f8dbe6a'
+/ The top bit of a character selects these translations
+/ (Also done in printer driver)
+	dc      x'6aaebd8c6a6a6a6a' / 200-207
+	dc      x'9f6a6a6a6a6a6a6a' / 210-217
+	dc      24x'6a'             / 220-247
+	dc      x'6a6a6aac6aad6a6a' / 250-257
+	dc      x'b0b1b2b3b4b5b6b7' / 260-267
+	dc      x'b8b96a6aaaa0ab6a' / 270-277
+	dc      x'6a6a6abc6a6a6a6a' / 300-307
+	dc      x'6a906a6a6a6a6a6a' / 310-317
+	dc      x'6a6abba1ba6a6a6a' / 320-327
+	dc      x'af6a6a6a4a6a6a6a' / 330-337
+	dc      x'6a6a6a6a8f6a6a6a' / 340-347
+	dc      x'6a6a6a6a6a8a6a6a' / 350-357
+	dc      x'9a6a9e6a6a8e6a6a' / 360-367
+	dc      x'6a6a6a6a6a6a5f6a' / 370-377
+/*/
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@@
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@@
+
+
+3.1.1.1
+log
+@Отлажена работа на ЕС без восстановления сеанса и макро.
+@
+text
+@@

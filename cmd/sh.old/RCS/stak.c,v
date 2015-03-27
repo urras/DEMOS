@@ -1,0 +1,159 @@
+head     0.4;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.4
+date     86.09.29.18.30.48;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.55.35;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.43.20;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.16.22;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.4
+log
+@Версия, слитая из 2.9 и ДЕМОС без русских диагностик
+@
+text
+@#
+/*
+ * KIAE  shell
+ *
+ *
+ */
+
+#include	"defs.h"
+
+STKPTR		stakbot=nullstr;
+
+
+
+/* ========	storage allocation	======== */
+
+STKPTR	getstak(asize)
+	INT		asize;
+{	/* allocate requested stack */
+	REG STKPTR	oldstak;
+	REG INT		size;
+
+	size=round(asize,BYTESPERWORD);
+	oldstak=stakbot;
+	staktop = stakbot += size;
+	return(oldstak);
+}
+
+STKPTR	locstak()
+{	/* set up stack for local use
+	 * should be followed by `endstak'
+	 */
+	IF brkend-stakbot<BRKINCR
+	THEN	setbrk(brkincr);
+		IF brkincr < BRKMAX
+		THEN	brkincr += 256;
+		FI
+	FI
+	return(stakbot);
+}
+
+STKPTR	savstak()
+{
+	assert(staktop==stakbot);
+	return(stakbot);
+}
+
+STKPTR	endstak(argp)
+	REG STRING	argp;
+{	/* tidy up after `locstak' */
+	REG STKPTR	oldstak;
+	*argp++=0;
+	oldstak=stakbot; stakbot=staktop=round(argp,BYTESPERWORD);
+	return(oldstak);
+}
+
+VOID	tdystak(x)
+	REG STKPTR 	x;
+{
+	/* try to bring stack back to x */
+	WHILE ADR(stakbsy)>ADR(x)
+	DO free(stakbsy);
+	   stakbsy = stakbsy->word;
+	OD
+	staktop=stakbot=max(ADR(x),ADR(stakbas));
+	rmtemp(x);
+}
+
+stakchk()
+{
+	IF (brkend-stakbas)>BRKINCR+BRKINCR
+	THEN	setbrk(-BRKINCR);
+	FI
+}
+
+STKPTR	cpystak(x)
+	STKPTR		x;
+{
+	return(endstak(movstr(x,locstak())));
+}
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d3 1
+a3 1
+ * МНОС РЛ 1.2 shell
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d3 1
+a3 1
+ * UNIX shell
+a4 2
+ * S. R. Bourne
+ * Bell Telephone Laboratories
+d80 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 1
+ * KIAE  shell
+d5 2
+a81 1
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@

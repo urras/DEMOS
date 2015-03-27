@@ -1,0 +1,238 @@
+	       Demos Commander Release Notes
+	       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			Version 3.2
+			  for the
+		   SCO Xenix/Unix 286/386
+
+
+1. Preface
+
+These Release Notes contain information
+for the Demos Commander Version 3.2.
+
+Copyright (c) 1989, 1990 by Demos/*, Coop, Moscow.
+
+2. Release Documentation
+
+The documentation accompanying this release of the Demos Commander
+includes:
+
+	*  These Release Notes
+
+	*  Demos Commander User's Guide
+
+	*  Demos Commander Online Manual Pages
+
+Release Notes and Online Manual are available on distribution media
+as /usr/lib/deco/NOTES and /usr/man/man.C/deco.1.
+
+3. System Configuration Requirements
+
+    Hardware Requirements
+
+	*  Process size of 300 kilobytes or be a virtual
+	   memory version of the Operating System.
+
+	*  200 kilobytes of disk space available for the
+	   installed version of Demos Commander
+
+	*  Terminal must have at least 80 columns and cursor
+	   addressing capability.
+
+    System Requirements
+
+	*  The system must be running UNIX System V, Release 3.0
+	   or compatible.
+
+	*  The system must have a termcap database file installed.
+
+3. Contents of the distribution media.
+
+This distribution contains the following files:
+
+	/usr/bin/deco		- Demos Commander
+	/usr/lib/deco/NOTES	- Release Notes
+	/usr/lib/deco/README	- readme file
+	/usr/lib/deco/termcap	- terminal description appendix
+	/usr/lib/deco/profile	- description of actions on extensions
+	/usr/lib/deco/menu	- default user menu
+	/usr/lib/deco/help/	- multilanguage help files
+
+4. Installing Demos Commander
+
+To install the Demos Commander Package, use the custom utility
+as described in the following procedure:
+
+	*  Log in to the system as root.
+
+	*  Change to the root directory:
+
+		cd /
+
+	*  Type 'custom' and press <Return>. The custom menu
+	   is displayed.
+
+	*  Choose a 'Add a Supported Product' selection
+	   by entering the number next to the menu item.
+	   You are prompted to insert a distribution volume 1.
+
+	*  Insert the Demos Commander volume 1 into drive 0 and
+	   press <Return>. The packages menu is displayed.
+
+	*  Choose the menu option 'Install one or more packages'.
+	   A list of available packages is displayed. Enter 'all'
+	   to install full Demos Commander Package.
+	   You are prompted to insert Demos Commander volume 1.
+	   Press <Return>. You see the message 'Extracting files...'.
+	   It takes several minutes for the files to be extracted from
+	   volume 1.
+
+	*  Enter 'q' to leave custom and return to the operating
+	   system prompt.
+
+Removing and reinstalling Demos Commander may be done in
+a similar way using the custom utility.
+
+Running Demos Commander on Xenix console you may use terminal
+types 'ansi' or 'xenix'. In fact, Terminal type 'ansi' is not
+true ansi description, but is adjusted to Xenix console.
+If you are running real ansi device, you must use TERM=trueansi.
+
+To setup terminal type, use:
+
+	$ TERM=termtype
+	$ export TERM
+
+in shell, or
+
+	% setenv TERM termtype
+
+in cshell.
+
+5. Adding a new terminal type.
+
+Demos Commander handles a terminal using a terminal capability
+database termcap. Commander has its own termcap appendix
+/usr/lib/deco/termcap, which is read before standard /etc/termcap.
+Indirections tc=name in deco's own termcap refer to the
+entry 'name' in the default terminal database. You can use 
+your own terminal database instead of the default /etc/termcap.
+To do this, set the global variable TERMCAP to the full
+name of your file (for example, TERMCAP=/usr/my/termcap).
+
+Demos Commander uses the following termcap entries.
+See termcap(M) for additional information.
+Base descriptors:
+
+	li#     - number of lines
+	co#     - number of columns
+	cl=     - clear screen
+	cm=     - cursor addressing
+	ms      - can move cursor while in reverse mode
+	ti=     - enable cursor addressing
+	te=     - disable cursor addressing
+	ks=     - enable keypad
+	ke=     - disabble keypad
+	is=     - initiate terminal
+	if=     - 'cat' this file to initiate terminal
+	fs=     - deinitiate terminal
+
+Scrooling:
+
+	al=     - insert line at current position
+	dl=     - delete line at current position
+	cs=     - set scrooling window (like cm)
+	sf=     - scrool forward
+	sr=     - scrool reverse
+
+Attributes:
+
+	vs=     - enable attribute switching
+	ve=     - disable attribute switching
+	so=     - turn reverse on
+	se=     - turn reverse off
+	md=     - set bold
+	mh=     - set dim
+	mr=     - set reverse (if not so)
+	me=     - turn all attributes off (set normal, reverse off)
+
+Color management:
+
+	Nf#   * - number of foreground colors
+	Nb#   * - number of background colors
+	Cf=   * - set foreground color (like cm)
+	Cb=   * - set background color (like cm)
+	Mf=   * - map foreground colors
+	Mb=   * - map background colors
+	C2    * - set back- and foreground simultaneosly (only Cf)
+
+Line drawing:
+
+	gs=   * - enable line drawing mode
+	ge=   * - disable line drawing mode
+	g1=   * - single line drawing characters
+	g2=   * - double line drawing characters
+
+Keys:
+
+	kl=     - cursor left
+	kr=     - cursor right
+	ku=     - cursor up
+	kd=     - cursor down
+	kh=     - cursor home
+	kN=   * - next page (Page Down)
+	kP=   * - previous page (Page Up)
+	kI=   * - Ins key (Insert)
+	kD=   * - Del key (Delete)
+	kH=   * - End key (additional home)
+	f1=   * - F1 key
+	f2=   * - F2 key
+	f3=   * - F3 key
+	f4=   * - F4 key
+	f5=   * - F5 key
+	f6=   * - F6 key
+	f7=   * - F7 key
+	f8=   * - F8 key
+	f9=   * - F9 key
+	f0=   * - F10 key
+	k1=   * - F1 key
+	k2=   * - F2 key
+	k3=   * - F3 key
+	k4=   * - F4 key
+	k5=   * - F5 key
+	k6=   * - F6 key
+	k7=   * - F7 key
+	k8=   * - F8 key
+	k9=   * - F9 key
+	k0=   * - F10 key
+
+Descriptors, not contained in standard Xenix termcap,
+are marked with '*'.
+
+Descriptors cm, cs, Cf, Cb are in tgoto format.
+See termcap(M) for details. Some terminals require
+more complex escapes. In this case, you can use tparm
+format (see terminfo(M) for more information).
+
+Line drawing descriptors g1 and g2 consist of 11 characters
+in the following order: horisontal line, vertical line,
+lower left corner, lower center, lower right corner,
+left center, center cross, right center,
+upper left corner, upper center, upper right corner.
+
+6. Known problems with this Release
+
+Cannot enter non-ascii character into command string. Use
+'run subshell' command to do this, then type 'exit' and
+return to deco.
+
+No color setup in this version.
+
+Cannot set file sorting criteria. File names are always sorted
+by extensions.
+
+Cannot set language from Options menu. Use MSG variable instead.
+
+Cannot set global variables from deco, because each command
+is executed in separate shell. Use 'Exec shell', set variable,
+then type 'exec deco'.

@@ -1,0 +1,98 @@
+#print
+Техническое сообщение должно иметь титульный лист. Титульный лист,
+отпечатанный на терминале выглядит не очень, и Вам следует знать
+как подготовить его к выводу на фотонаборное устройство. В основном
+делают два изменения для получения нормально сформатированного
+титульного листа. Первое: каждой команде .AU в качестве аргумента задают
+номер комнаты автора и его внутренний телефон. Например :
+  .AU "MH 2C-569" "6377"
+  M. E. Lesk
+показывает, что номер комнаты Леска-  MH 2C-569 и его телефон-  6377.
+Номер комнаты взят в кавычки, для того, чтобы показать, что он представляет
+собой одно целое, хотя и содержит внутри пробел. Кавычки вокруг номера
+телефона не помешают, хотя и необязательны. Так же необходимо добавить
+команду
+  .CS 1 2 3 4 5 6
+после строки с командой ".AE" . Эти шесть чисел (слева направо) означают
+число страниц с текстом, число страниц с прочим материалом,
+общее число страниц, число ссылок, число рисунков и число таблиц.
+Отредактируйте наш традиционный файл "decl", указав, что номер комнаты
+Джефферсона - MN 2A-111 и его внутренний телефон - 1776.
+Получите титульный лист с этими данными просто для того, чтобы
+узнать куда они попадут. После чего получите документ снова.
+#create Ref
+.TM 75-1776-1 12345 12345
+.TL
+Declaration of Independence
+.AU "MH 2A-111" 1776
+Thomas Jefferson
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.CS 1 2 3 4 5 6
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#once nroff -ms Ref >X1 &
+#create decl
+.TM 75-1776-1 12345 12345
+.TL
+Declaration of Independence
+.AU
+Thomas Jefferson
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#copyout
+#user
+#uncopyout
+tail -132 .ocopy >X2
+#cmp X1 X2
+#log
+#next
+13.1a 10

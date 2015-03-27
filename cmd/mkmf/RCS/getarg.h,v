@@ -1,0 +1,46 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.17.12.45.53;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** $Header$
+** $Log$
+**
+*/
+
+/*
+ * Get command line argument
+ */
+
+/*
+ * Argument syntax: `-xargument' or `-x argument'
+ */
+#define GETARG(p) ((p[1] != '\0') ? ++p : (--argc, *++argv))
+
+/*
+ * Argument syntax: `-xargument'
+ *
+ * #define GETARG(p) (++p)
+ */
+@

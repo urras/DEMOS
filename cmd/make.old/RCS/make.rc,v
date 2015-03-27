@@ -1,0 +1,119 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    dvolodin:1.1;
+comment  @# @;
+
+
+1.1
+date     87.04.14.13.02.28;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@# $Header$
+#
+# $Log$
+
+.SUFFIXES : .out .o .c .cm .f .e .r .y .yr .ye .l .s .cl .p
+YACC=yacc
+YACCR=yacc -r
+YACCE=yacc -e
+YFLAGS=
+LEX=lex
+LFLAGS=
+CC=cc
+# AS=as         # for VAXen make
+AS=as -
+PC=pc
+PFLAGS=
+CFLAGS=
+RC=f77
+RFLAGS=
+FC=f77
+EFLAGS=
+FFLAGS=
+LOADLIBES=
+
+.c.o .cm.o :
+	$(CC) $(CFLAGS) -c $<
+
+.p.o :
+	$(PC) $(PFLAGS) -c $<
+
+.cl.o :
+	class -c $<
+
+.e.o .r.o .f.o :
+	$(FC) $(RFLAGS) $(EFLAGS) $(FFLAGS) -c $<
+
+.s.o :
+	$(AS) -o $@@ $<
+
+.y.o :
+	$(YACC) $(YFLAGS) $<
+	$(CC) $(CFLAGS) -c y.tab.c
+	rm y.tab.c
+	mv y.tab.o $@@
+
+.yr.o:
+	$(YACCR) $(YFLAGS) $<
+	$(RC) $(RFLAGS) -c y.tab.r
+	rm y.tab.r
+	mv y.tab.o $@@
+
+.ye.o :
+	$(YACCE) $(YFLAGS) $<
+	$(EC) $(RFLAGS) -c y.tab.e
+	rm y.tab.e
+	mv y.tab.o $@@
+
+.l.o :
+	$(LEX) $(LFLAGS) $<
+	$(CC) $(CFLAGS) -c lex.yy.c
+	rm lex.yy.c
+	mv lex.yy.o $@@
+
+.y.c :
+	$(YACC) $(YFLAGS) $<
+	mv y.tab.c $@@
+
+.l.c :
+	$(LEX) $(LFLAGS) $<
+	mv lex.yy.c $@@
+
+.yr.r:
+	$(YACCR) $(YFLAGS) $<
+	mv y.tab.r $@@
+
+.ye.e :
+	$(YACCE) $(YFLAGS) $<
+	mv y.tab.e $@@
+
+.s.out .c.out .o.out .cm.out :
+	$(CC) $(CFLAGS) $< $(LOADLIBES) -o $@@
+
+.f.out .r.out .e.out :
+	$(FC) $(EFLAGS) $(RFLAGS) $(FFLAGS) $< $(LOADLIBES) -o $@@
+	-rm $*.o
+
+.y.out :
+	$(YACC) $(YFLAGS) $<
+	$(CC) $(CFLAGS) y.tab.c $(LOADLIBES) -ly -o $@@
+	rm y.tab.c
+
+.l.out :
+	$(LEX) $(LFLAGS) $<
+	$(CC) $(CFLAGS) lex.yy.c $(LOADLIBES) -ll -o $@@
+	rm lex.yy.c
+@

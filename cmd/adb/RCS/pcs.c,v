@@ -1,0 +1,162 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.01.05.18.38.00;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adb
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+/*
+ *
+ *	UNIX debugger
+ * $Log$
+ */
+
+#include "defs.h"
+
+
+MSG             NOBKPT,R_NOBKPT;
+MSG             SZBKPT,R_SZBKPT;
+MSG             EXBKPT,R_EXBKPT;
+MSG             NOPCS,R_NOPCS;
+MSG             BADMOD,R_BADMOD;
+
+/* breakpoints */
+BKPTR		bkpthead;
+
+CHAR		*lp;
+CHAR		lastc;
+POS		*endhdr;
+MAP		txtmap;
+
+INT		signo;
+L_INT		dot;
+INT		pid;
+L_INT		cntval;
+L_INT		loopcnt;
+int		overlay;
+
+OVTAG		curov, symov;
+
+
+/* sub process control */
+
+subpcs(modif)
+{
+	REG INT		check;
+	INT		execsig;
+	INT		runmode;
+	REG BKPTR	bkptr;
+	STRING		comptr;
+	execsig=0; loopcnt=cntval;
+
+	switch(modif) {
+
+	    /* delete breakpoint */
+	    case 'd': case 'D':
+		if (symov && symov!=curov)
+			setovmap(symov);
+		IF (bkptr=scanbkpt(shorten(dot)))
+		THEN bkptr->flag=0;
+		     if (pid) del1bp(bkptr);
+		     return;
+		ELSE error(ediag(NOBKPT,R_NOBKPT));
+		FI
+
+	    /* set breakpoint */
+	    case 'b': case 'B':
+		if (symov && symov!=curov)
+			setovmap(symov);
+		IF (bkptr=scanbkpt(shorten(dot)))
+		THEN bkptr->flag=0;
+		     if (pid) del1bp(bkptr);
+		FI
+		FOR bkptr=bkpthead; bkptr; bkptr=bkptr->nxtbkpt
+		DO IF bkptr->flag == 0
+		   THEN break;
+		   FI
+		OD
+		IF bkptr==0
+		THEN IF (bkptr=sbrk(sizeof *bkptr)) == -1
+		     THEN error(ediag(SZBKPT,R_SZBKPT));
+		     ELSE bkptr->nxtbkpt=bkpthead;
+			  bkpthead=bkptr;
+		     FI
+		FI
+		bkptr->loc = dot;
+		bkptr->initcnt = bkptr->count = cntval;
+		bkptr->flag = BKPTSET;
+		if (overlay && dot>txtmap.bo)
+			bkptr->ovly = symov ? symov : curov;
+		else bkptr->ovly = 0;		/* base seg */
+		check=MAXCOM-1; comptr=bkptr->comm; rdc(); lp--;
+		REP *comptr++ = readchar();
+		PER check-- ANDF lastc!=EOR DONE
+		*comptr=0; lp--;
+		IF check
+		THEN if (pid) set1bp(bkptr);
+		     return;
+		ELSE error(ediag(EXBKPT,R_EXBKPT));
+		FI
+
+	    /* exit */
+	    case 'k' :case 'K':
+		IF pid
+		THEN printf(ediag("%d: killed","%d: убит"), pid);
+		endpcs(); return;
+		FI
+		error(ediag(NOPCS,R_NOPCS));
+
+	    /* run program */
+	    case 'r': case 'R':
+		endpcs();
+		setup();
+		setbp();
+		runmode=CONTIN;
+		break;
+
+	    /* single step */
+	    case 's': case 'S':
+		runmode=SINGLE;
+		IF pid
+		THEN execsig=getsig(signo);
+		ELSE setup(); loopcnt--;
+		FI
+		break;
+
+	    /* continue with optional signal */
+	    case 'c': case 'C': case 0:
+		IF pid==0 THEN error(ediag(NOPCS,R_NOPCS)); FI
+		runmode=CONTIN;
+		execsig=getsig(signo);
+		break;
+
+	    default: error(ediag(BADMOD,R_BADMOD));
+	}
+
+	IF loopcnt>0 ANDF runpcs(runmode, execsig)
+	THEN printf(ediag("breakpoint%16t","точка останова%16t"));
+	ELSE printf(ediag("stopped at%16t","остановлен в%16t"));
+	FI
+	printpc();
+}
+
+@

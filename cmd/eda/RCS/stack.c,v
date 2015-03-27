@@ -1,0 +1,239 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.01.19.16.56.57;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.19.11.59.45;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.52.10;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.3
+log
+@Если при записи нет свободного места на дисках, редактор
+теперь останавливается и после перезапуска повторяет обмен.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: stack.c,v 1.2 88/01/19 11:59:45 avg Exp $";
+#endif
+
+/*
+ * $Log:        stack.c,v $
+ * Revision 1.2  88/01/19  11:59:45  avg
+ * Сделан BufSIZE.
+ *
+ * Revision 1.1  86/11/11  17:52:10  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 25.03.1985
+ */
+
+/*
+ *  --- СТЕКОВЫЕ ПРОЦЕДУРЫ ---
+ *
+ * struct stack {
+ *              int block,bpoint;
+ *              int file,rfile;
+ *              char buffer[BufSize];
+ *              int lines;
+ *      }
+ */
+
+#include NAME
+#include "io.h"
+#include "glob.h"
+
+#define CR 012
+
+/*
+ * Положить строку в стек
+ */
+putstring(s, st, leng)
+char *s;
+struct stack *st;
+{
+	register i,j;
+
+	if( leng > width1 ) leng = width1;
+	for(i = leng ; i >= 0 && s[i] == ' ' ; i--);
+	st->lines++;
+	put_in(st,CR);
+	for(j = 0 ; j <= i ; j++)
+		put_in(st,s[j]);
+}
+
+/*
+ * Запись символа в стек
+ */
+put_in(st,ch)
+struct stack *st;
+char ch;
+{
+	st->buffer[st->bpoint] = ch;
+	st->bpoint++;
+	if(st->bpoint == BufSIZE) {
+		st->bpoint = 0;
+	TryAgain:
+		lseek( st->file, (long)((unsigned)(st->block))*BufSIZE, 0 );
+		st->block++;
+		if( write(st->file,st->buffer,BufSIZE) != BufSIZE ) {
+			diskerror();
+			st->block--;
+			goto TryAgain;
+		}
+	}
+}
+
+/*
+ * Взять строку из стека
+ */
+getstring(s, st)
+char *s;
+struct stack *st;
+{
+	register int i,j;
+	int  leng;
+	char sym1,str1[NCOL];
+
+	i = -1;
+	do {
+		get_in(st,&sym1);
+		if(i<NCOL-1 && sym1 != CR) {
+			i++;
+			str1[i] = sym1;
+		}
+	} while( sym1 != CR && (st->block || st->bpoint) );
+
+	j = 0;
+	while( i >= 0 )
+		s[j++] = str1[i--];
+	leng = j;
+	while( j < width )
+		s[j++] = ' ';
+
+	st->lines--;
+	return(leng);
+}
+
+/*
+ * Читать один символ из стека
+ */
+get_in(st,ch)
+struct stack *st;
+char *ch;
+{
+	if(st->bpoint == 0) {
+		if(st->block == 0)
+			return;
+		st->block--;
+		st->bpoint = BufSIZE;
+		lseek( st->rfile, (long)((unsigned)(st->block))*BufSIZE, 0 );
+		if( read(st->rfile,st->buffer,BufSIZE) != BufSIZE )
+			diskerror();
+	}
+	st->bpoint--;
+	*ch = st->buffer[st->bpoint];
+}
+
+/*
+ * Инициализация стека -- файла с именем nm
+ */
+stinit(st,nm)
+struct stack *st;
+char *nm;
+{
+	st->file = creat(nm,0600);
+	st->rfile = open(nm,0);
+	if(st->file == -1 || st->rfile == -1)
+		return(1);
+	st->block = 0;
+	st->bpoint = 0;
+	st->lines = 0;
+	return(0);
+}
+
+/*
+ * Закрыть стек
+ */
+sclose(st,nm)
+struct stack *st;
+char *nm;
+{
+	close(st->file);
+	close(st->rfile);
+	unlink(nm);
+}
+@
+
+
+1.2
+log
+@Сделан BufSIZE.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: stack.c,v 1.1 86/11/11 17:52:10 avg Exp $";
+d7 3
+d66 1
+d69 1
+a69 1
+		if( write(st->file,st->buffer,BufSIZE) == -1 )
+d71 3
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d24 1
+a24 1
+ *              char buffer[512];
+d30 1
+d61 1
+a61 1
+	if(st->bpoint == 512) {
+d63 1
+a63 1
+		lseek( st->file, (long)((unsigned)(st->block))*512L, 0 );
+d65 1
+a65 1
+		if( write(st->file,st->buffer,512) == -1 )
+d112 3
+a114 3
+		st->bpoint = 512;
+		lseek( st->rfile, (long)((unsigned)(st->block))*512L, 0 );
+		if( read(st->rfile,st->buffer,512) != 512 )
+@

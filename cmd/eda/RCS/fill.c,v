@@ -1,0 +1,134 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.51.26;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 01.07.1985
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+#define CR      012
+#define TAB     011
+
+char pline[NCOL];       /* Буфер для одной строки из исходного файла  */
+char eof      = 0;      /* Флаг конца файла -- устанавливается, когда
+				считана последняя строка файла        */
+int  plinfo   = 0;      /* В pline содержится новая строка из файла
+			   значение plinfo - эффективная дл. строки   */
+
+/*
+ * Заполнить буфер строки из исходного файла
+ */
+fillline()
+{
+	register int i;
+	char s;
+	int  is;
+	extern char sfile;
+	extern FILE *sbuf;
+
+/* Очистить pline, проверить был ли найден конец файла */
+	plinfo = 0;
+	for( i = NCOL-1 ; i>=0 ; i-- )
+		pline[i] = ' ';
+	if( sfile || eof )
+		return;
+
+/* Считать строку из исх. файла, перекодировать табуляции */
+	i = 0;
+	while( (is = getc(sbuf)) != EOF ) {
+		s = is;
+		if( s == CR ) {
+			plinfo = i;
+			return;
+		}
+		if( s == TAB )
+			i = (i+8) & ~07;
+		else if(( s>=' ' || (s&0100) ) && s != 0177 && i < NCOL )
+			pline[i++] = s;
+	}
+	plinfo = i;
+	eof++;
+}
+
+/*
+ * Заполнить буффер экрана из входного файла
+ */
+fillscr()
+{
+	register int i;
+
+	for( i = 0 ; i<NLIN ; i++ )
+		getds(i);
+}
+
+/*
+ * Команда перерисовки экрана
+ */
+xrew()
+{
+	extern int XOUT;
+
+	XOUT = 0;
+	rew();
+}
+
+/*
+ * Перерисовка экрана
+ */
+rew()
+{
+	register int i;
+	extern   int     Fflag, XOUT;
+
+	if( XOUT )
+		return;
+	ccold = cc;
+	clold = cl;
+#ifdef SYMSTRT
+	printx(SYMSTRT);
+#endif SYMSTRT
+	printx(S_erase);
+	cl = 0;
+	cc = csh;
+	Fflag++;
+	for( i = 0 ; i<NLIN ; i++ ) {
+		if( lempty( i, csh, SWID ) )
+			typestr( i );
+	}
+	Fflag = 0;
+	qpos(clold, ccold);
+}
+@

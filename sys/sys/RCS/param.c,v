@@ -1,0 +1,298 @@
+head     1.6;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin abs;
+symbols  Архыз0:1.2.1;
+locks    ;
+comment  @ * @;
+
+
+1.6
+date     90.11.12.19.15.08;  author root;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.04.27.14.24.44;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.04.18.17.22.41;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.03.04.14.59.39;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.03.23.14.12.21;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.02.35;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Файл с глобальными параметрами системы.
+@
+
+
+1.6
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * System parameters.
+ *
+ * This file is copied into each directory where we compile
+ * the kernel; it should be modified there to suit local taste
+ * if necessary.
+ *
+ * $Log:	param.c,v $
+ * Revision 1.5  89/04/27  14:24:44  korotaev
+ * Изменения в связи с передвижением каталогов и файлов
+ * 
+ * Revision 1.4  89/04/18  17:22:41  korotaev
+ * Перед делением на space.h и param.c и перед перенесением 
+ * param.c в ../sys
+ * 
+ * Revision 1.3  89/03/04  14:59:39  abs
+ * *** empty log message ***
+ * 
+ * Revision 1.2  88/03/23  14:12:21  korotaev
+ * Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+ * 
+ * Revision 1.1  86/04/19  15:02:35  avg
+ * Initial revision
+ * 
+ */
+#include        <sys/param.h>
+#include        <sys/systm.h>
+#include        "../include/buf.h"
+#include        <sys/tty.h>
+#include        <sys/conf.h>
+#include        <sys/proc.h>
+#include        <sys/text.h>
+#include        <sys/dir.h>
+#include        <sys/user.h>
+#include        <sys/file.h>
+#include        <sys/inode.h>
+#include        <sys/filsys.h>
+#include        "../include/mount.h"
+#include        "../include/callout.h"
+#include        <sys/acct.h>
+#include        "../include/map.h"
+#include        <sys/seg.h>
+#include        "h/space.h"
+
+int	maxusers = MAXUSERS;
+int	hz	= HZ;
+int	timezone = TIMEZONE;
+bool_t	dstflag	= DSTFLAG;
+int	nmount	= NMOUNT;
+int	nfile	= NFILE;
+int	ninode	= NINODE;
+int	nproc	= NPROC;
+int	ntext	= NTEXT;
+int	nbuf	= NBUF;
+int	nclist	= NCLIST;
+int	ncallout = NCALL;
+int	ndisk	= NDISK;
+int	cmapsiz	= CMAPSIZ;
+int	smapsiz	= SMAPSIZ;
+int     nfslot  = NFLOCK;
+
+struct	mount	mount[NMOUNT];
+struct	inode	inode[NINODE];
+struct	buf	buf[NBUF];
+struct	callout	callout[NCALL + 1];	/* last one used as a delimiter */
+struct	buf	bfreelist;
+#ifndef	UCB_CLIST
+struct	cblock	cfree[NCLIST];
+#else
+unsigned clstdesc = ((((btoc(NCLIST*sizeof(struct cblock)))-1) << 8) | RW);
+#endif
+long	dk_time[1 << (NDISK)];
+long	dk_numb[NDISK];
+long	dk_wds[NDISK];
+
+struct mapent _coremap[CMAPSIZ];
+struct map coremap[1] = {
+	_coremap,
+	&_coremap[CMAPSIZ],
+	"coremap"
+};
+
+struct mapent _swapmap[SMAPSIZ];
+struct map swapmap[1] = {
+	_swapmap,
+	&_swapmap[SMAPSIZ],
+	"swapmap"
+};
+
+struct	mount	*mountNMOUNT	= &mount[NMOUNT];
+struct	file	*fileNFILE	= &file[NFILE];
+struct	inode	*inodeNINODE	= &inode[NINODE];
+struct	proc	*procNPROC	= &proc[NPROC];
+struct	text	*textNTEXT	= &text[NTEXT];
+/* callNCALL points to the last slot, which must be a terminator */
+struct	callout	*callNCALL	= &callout[NCALL];
+
+#ifdef	UCB_METER
+char	counted[NTEXT];
+#endif
+
+int	bsize	= BSIZE + BSLOP;	/* size of buffers */
+
+#ifdef ACCT
+struct	acct	acctbuf;
+struct	inode	*acctp;
+#endif
+
+char msgbuf[MSGBUFS]	= {"\0"};
+
+/*
+ *  Declarations of structures loaded last and allowed to
+ *  reside in the 0120000-140000 range (where buffers and clists are
+ *  mapped).  These structures must be extern everywhere else,
+ *  and the asm output of cc is edited to move these structures
+ *  from comm to bss (which is last) (see the script :comm-to-bss).
+ */
+int	remap_area;	/* start of possibly mapped area; must be first */
+struct	proc	proc[NPROC];
+struct	file	file[NFILE];
+struct	text	text[NTEXT];
+@
+
+
+1.5
+log
+@Изменения в связи с передвижением каталогов и файлов
+@
+text
+@d9 3
+d28 1
+a28 1
+#include        <sys/buf.h>
+d38 2
+a39 2
+#include        <sys/mount.h>
+#include        <sys/callout.h>
+d41 1
+a41 1
+#include        <sys/map.h>
+@
+
+
+1.4
+log
+@Перед делением на space.h и param.c и перед перенесением 
+param.c в ../sys
+@
+text
+@d9 4
+d40 1
+a40 43
+
+#include        "video.h"
+#if    NVI > 0
+#define HZ      64      /* У Электроники-85 такая частота */
+#else
+#define HZ      50                      /* Ticks/second of the clock */
+#endif NVI
+
+#define TIMEZONE (%TIMEZONE% * 60)      /* Minutes westward from Greenwich */
+#define DSTFLAG %DST%                   /* Daylight Saving Time applies here */
+
+#define NBUF    (14 + (MAXUSERS)*2)     /* size of buffer cache, must be <=256*/
+#define NMOUNT  8                       /* number of mountable file systems */
+
+#ifdef  UCB_CLIST
+#   ifdef UNIBUS_MAP
+#       define NCLIST   500             /* number of clists, must be <= 512 */
+#   else
+#       define NCLIST   200             /* number of clists */
+#   endif
+#else   UCB_CLIST
+#       define NCLIST   100             /* number of clists */
+#endif  UCB_CLIST
+
+#define NPROC   (15 + (6*(MAXUSERS)))           /* max number of processes */
+/* Если у вас включены семафоры и вы изменяете NPROC,
+ * то поправьте аналогичную константу в файле
+ * ../sys/sem.c
+ */
+#define NTEXT   (20 + ((3*(MAXUSERS))/2))       /* max number of pure texts */
+#define NINODE  (NPROC + 40 + (3*(MAXUSERS)))   /* number of in-core inodes */
+#define NFILE   ( NINODE+25 )           /* number of file structures */
+#define NCALL   (4 + MAXUSERS)          /* max simultaneous time callouts */
+#define NDISK   3                       /* number of disks to monitor */
+#define NFLOCK  (8192/sizeof(struct mflock)) /* Кол-во слотов таблицы flock */
+
+#ifndef	UNIBUS_MAP
+#   define CMAPSIZ (NPROC*2)              /* size of core allocation map */
+#   define SMAPSIZ (NPROC*2+(5*NTEXT/10)) /* size of swap allocation map */
+#else
+#   define CMAPSIZ (NPROC+(8*NTEXT/10)) /* size of core allocation map */
+#   define SMAPSIZ (NPROC+(8*NTEXT/10)) /* size of swap allocation map */
+#endif
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d9 3
+d19 1
+a19 1
+#include        "param.h"
+d70 1
+d95 1
+@
+
+
+1.2
+log
+@Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+@
+text
+@d9 3
+d58 4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d8 4
+a11 1
+ * $Log$
+d31 8
+a38 2
+#define HZ      60                      /* Ticks/second of the clock */
+#define TIMEZONE (%TIMEZONE% * 60)              /* Minutes westward from Greenwich */
+d41 2
+a42 2
+#define NBUF    (12 + (2 * MAXUSERS))   /* size of buffer cache, must be <=256*/
+#define NMOUNT  5                       /* number of mountable file systems */
+d54 4
+a57 4
+#define NPROC   (10 + (7 * MAXUSERS))           /* max number of processes */
+#define NTEXT   (20 + ((3*MAXUSERS) / 2))       /* max number of pure texts */
+#define NINODE  (NPROC + 20 + (2 * MAXUSERS))   /* number of in-core inodes */
+#define NFILE   ((8 * NINODE/10) + 5)           /* number of file structures */
+d62 2
+a63 2
+#   define CMAPSIZ NPROC		/* size of core allocation map */
+#   define SMAPSIZ (NPROC+(5*NTEXT/10))	/* size of swap allocation map */
+@

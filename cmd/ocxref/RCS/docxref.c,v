@@ -1,0 +1,192 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    andrew:1.2; strict;
+comment  @ * @;
+
+
+1.2
+date     87.09.15.21.30.04;  author andrew;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.09.14.18.34.11;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Введено распознавание дополнитетельных флагов, чтобы не выдавать
+ненужную информацию программе sort.
+@
+text
+@/*
+** docxref.c
+**
+** Driver for lex based scanner.  Arranges for stdin to be each named
+** file in turn, so that yylex() never has to know about files.
+** Some of this code is not pretty, but it's not too bad.
+**
+** Андрей Чернов, МГУ ВМК 5 курс (andrew)
+** Copyright (c) 1987 Андрей Чернов.
+** All rights reserved.
+** This program may not be sold, but may be distributed
+** provided this header is included.
+** $Header: docxref.c,v 1.1 87/09/14 18:34:11 andrew Exp $
+** $Log:	docxref.c,v $
+ * Revision 1.1  87/09/14  18:34:11  andrew
+ * Initial revision
+ * 
+*/
+
+#ifndef lint
+char rcsid[] = "$Header: docxref.c,v 1.1 87/09/14 18:34:11 andrew Exp $";
+#endif
+
+#include <stdio.h>
+#include <ediag.h>
+#include <ctype.h>
+
+#define TRUE	1
+#define FALSE	0
+
+extern char yytext[];
+extern int yyleng;
+
+int line_no = 1;	/* current line number */
+char *fname = NULL;	/* current file name */
+
+char *basename();	/* strips leading path of a file name */
+
+int cflag = FALSE;
+int iflag = FALSE;
+int sflag = FALSE;
+int fflag = FALSE;
+
+main(argc,argv)
+int argc;
+char **argv;
+{
+	FILE saved_in, *fp;
+	char *name, *s;
+	int more_input = FALSE;		/* more files to process */
+	int read_stdin = FALSE;
+
+	name = basename(argv[0]);	/* save command name */
+	fname = "stdin";		/* assume stdin */
+
+	if(argc < 2 || argv[1][0] != '+') usage();
+
+	for (s = &argv[1][1]; *s; s++)
+		switch (*s) {
+		case 'c': cflag = TRUE; break;
+		case 's': sflag = TRUE; break;
+		case 'i': iflag = TRUE; break;
+		case 'f': fflag = TRUE; break;
+		default: usage();
+		}
+
+	if(argc == 2)
+	{
+		yylex();
+		exit(0);
+	}
+
+	if(argv[2][0] == '-' && argv[2][1] != '\0')
+			usage(argv[0]);	/* will exit */
+
+	saved_in = *stdin;
+	/* save stdin in case "-" is found in middle of command line */
+
+	for(argc -= 2, argv += 2; argc > 0; --argc, argv++)
+	{
+		if(fileno(stdin) != fileno((&saved_in)) || read_stdin)
+			fclose(stdin);
+		/* free unix file descriptors */
+
+		if(strcmp(*argv, "-") == 0)
+		{
+			*stdin = saved_in;
+			fname = "stdin";
+			read_stdin = TRUE;
+			more_input = (argc - 1 > 0);
+		}
+		else if((fp = fopen(*argv,"r")) == NULL)
+		{
+			fprintf(stderr, ediag (
+"%s: can't open %s\n", "%s: не могу открыть %s\n"),name, *argv);
+			continue;
+		}
+		else
+		{
+			*stdin = *fp;
+			/* do it this way so that yylex() */
+			/* never knows about files etc. */
+			more_input = (argc - 1 > 0);
+			fname = *argv;
+		}
+
+		yylex();	/* do the work */
+
+		if(more_input)
+			line_no = 1;
+	}
+}
+
+outid()
+{
+	char *basename();
+
+	printf("%s\t%s\t%d\n", yytext, basename(fname), line_no);
+}
+
+static usage(name)
+char *name;
+{
+	fprintf(stderr, ediag (
+"usage: %s +[csif] [files]\n",
+"вызов: %s +[csif] [файлы]\n"), name);
+	exit(1);
+}
+
+#include "basename.c"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d13 5
+a17 2
+** $Header$
+** $Log$
+d21 1
+a21 1
+char rcsid[] = "$Header$";
+d39 5
+d49 1
+a49 1
+	char *name;
+d56 12
+a67 1
+	if(argc == 1)
+d73 1
+a73 1
+	if(argv[1][0] == '-' && argv[1][1] != '\0')
+d79 1
+a79 1
+	for(--argc, argv++; argc > 0; --argc, argv++)
+d125 2
+a126 2
+"usage: %s [files]\n",
+"вызов: %s [файлы]\n"), name);
+@

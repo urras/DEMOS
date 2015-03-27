@@ -1,0 +1,954 @@
+head     22.4;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin abs;
+symbols  Архыз0:1.5.1;
+locks    ;
+comment  @ * @;
+
+
+22.4
+date     90.11.12.19.20.18;  author root;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.06.19.21.26.34;  author abs;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.05.23.14.10.39;  author abs;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.38.26;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.30.16.44.12;  author korotaev;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.01.10.14.07.02;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.01.07.21.09.32;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.11.02.21.19.01;  author dvolodin;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.01.23.20.11.22;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.01.23.20.02.01;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.04.18.15.26.10;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.52.47;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы.  Машинно-независимая часть.
+@
+
+
+22.4
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	sys3.c,v $
+ * Revision 22.3  89/06/19  21:26:34  abs
+ * поле f_fpack в структуре filsys.
+ * используется ustat-ом.
+ * 
+ * Revision 22.2  89/05/23  14:10:39  abs
+ * новый сисвызов ustat
+ *
+ * Revision 22.1  89/04/12  15:38:26  korotaev
+ * "param.h" ==> <sys/param.h>
+ *
+ * Revision 22.0  89/03/30  16:44:12  korotaev
+ * Begining DEMOS 2.2.
+ *
+ * Revision 1.7  89/01/10  14:07:02  abs
+ * Стилистика.
+ *
+ * Revision 1.6  89/01/07  21:09:32  korotaev
+ * Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+ *
+ * (from VAX/UTS SV.2)
+ *
+ * Revision 1.5  88/11/02  21:19:01  dvolodin
+ * *** empty log message ***
+ *
+ * Revision 1.4  88/01/23  20:11:22  korotaev
+ * Слияние с весией AVG-Э-85.
+ *
+ * Revision 1.3  88/01/23  20:02:01  korotaev
+ * Состояние перед слиянием с AVG-Э-85.
+ *
+ * Revision 1.2  87/04/18  15:26:10  avg
+ * Изменения под EXMOUNT.
+ *
+ * Revision 1.1  86/04/19  15:52:47  avg
+ * Initial revision
+ *
+ */
+
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/ino.h>
+#include "../include/reg.h"
+#include "../include/buf.h"
+#include <sys/filsys.h>
+#include "../include/mount.h"
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/inode.h>
+#include <sys/file.h>
+#include <sys/conf.h>
+#include <sys/stat.h>
+#include "../include/inline.h"
+#include <sys/ustat.h>
+
+/*
+ * the fstat system call.
+ */
+fstat()
+{
+	register struct file *fp;
+	register struct a {
+		int     fdes;
+		struct stat *sb;
+	} *uap = (struct a *)u.u_ap;
+
+	fp = getf(uap->fdes);
+	if (fp == NULL)
+		return;
+#ifdef  UCB_NET
+	if (fp->f_flag & FSOCKET)
+		u.u_error = sostat(fp->f_socket, uap->sb);
+	else
+#endif
+		stat1(fp->f_inode, uap->sb);
+}
+
+/*
+ * the stat system call.
+ */
+stat()
+{
+	register struct inode *ip;
+	register struct a {
+		char    *fname;
+		struct stat *sb;
+	} *uap;
+
+	uap = (struct a *)u.u_ap;
+	ip = namei(uchar, LOOKUP, 1);
+	if (ip == NULL)
+		return;
+	stat1(ip, uap->sb);
+	iput(ip);
+}
+
+/*
+ * Lstat system call; like stat but doesn't follow links.
+ */
+lstat()
+{
+	register struct inode *ip;
+	register struct a {
+		char    *fname;
+		struct stat *sb;
+	} *uap;
+
+	uap = (struct a *)u.u_ap;
+	ip = namei(uchar, 0, 0);
+	if (ip == NULL)
+		return;
+	stat1(ip, uap->sb);
+	iput(ip);
+}
+
+/*
+ * The basic routine for fstat and stat:
+ * get the inode and pass appropriate parts back.
+ */
+stat1(ip, ub)
+register struct inode *ip;
+struct stat *ub;
+{
+	register struct dinode *dp;
+	register struct buf *bp;
+	struct stat ds;
+	dev_t   dev;
+
+#ifdef UCB_FSFIX
+	IUPDAT(ip, &time, &time, 0);
+#else
+	IUPDAT(ip, &time, &time);
+#endif
+	/*
+	 * first copy from inode table
+	 */
+	ds.st_dev = ip->i_dev;
+	ds.st_ino = ip->i_number;
+	ds.st_mode = ip->i_mode;
+	ds.st_nlink = ip->i_nlink;
+	ds.st_uid = ip->i_uid;
+	ds.st_gid = ip->i_gid;
+	ds.st_rdev = (major(ip->i_un.i_rdev)==255) ?
+	((minor(ip->i_un.i_rdev)==0) ? rootdev : swapdev) : ip->i_un.i_rdev;
+	ds.st_size = ip->i_size;
+	/*
+	 * next the dates in the disk
+	 */
+	bp = bread(ip->i_dev, itod(ip->i_number));
+	dp = (struct dinode *) mapin(bp);
+	dp += itoo(ip->i_number);
+	ds.st_atime = dp->di_atime;
+	ds.st_mtime = dp->di_mtime;
+	ds.st_ctime = dp->di_ctime;
+	mapout(bp);
+	brelse(bp);
+	if (copyout((caddr_t)&ds, (caddr_t)ub, sizeof(ds)) < 0)
+		u.u_error = EFAULT;
+}
+
+/*
+ * the dup system call.
+ */
+dup()
+{
+	register struct file *fp;
+	register struct a {
+		int     fdes;
+		int     fdes2;
+	} *uap = (struct a *)u.u_ap;
+	register i;
+
+	i = uap->fdes & ~077;
+	uap->fdes &= 077;
+	fp = getf(uap->fdes);
+	if (fp == NULL)
+		return;
+	if ((i&0100) == 0) {
+		if ((i = ufalloc(0)) < 0)
+			return;
+	} else {
+		i = uap->fdes2;
+		if (i<0 || i>=NOFILE) {
+			u.u_error = EBADF;
+			return;
+		}
+		u.u_r.r_val1 = i;
+	}
+	if (i!=uap->fdes) {
+		if (u.u_ofile[i]!=NULL)
+#ifndef UCB_NET
+			closef(u.u_ofile[i]);
+#else
+			closef(u.u_ofile[i],0);
+#endif
+		u.u_ofile[i] = fp;
+		fp->f_count++;
+	}
+}
+
+/*
+ * the mount system call.
+ */
+smount()
+{
+	dev_t dev;
+	char *cp;
+	register struct inode *ip;
+	register struct mount *mp;
+	struct mount *smp;
+	register struct filsys *fp;
+	struct buf *bp;
+#ifdef EXMOUNT
+	struct buf *bpf;
+#endif
+	struct a {
+		char    *fspec;
+		char    *freg;
+		int     ronly;
+	} *uap = (struct a *)u.u_ap;
+
+	dev = getmdev();
+	if (u.u_error || !suser())
+		return;
+	u.u_dirp = (caddr_t)uap->freg;
+	ip = namei(uchar, LOOKUP, 1);
+	if (ip == NULL)
+		return;
+	if( ip->i_count != 1 )
+		goto out;
+	if( (ip->i_mode & IFMT) != IFDIR ){
+		u.u_error = ENOTDIR;
+		goto out1;
+	}
+	smp = NULL;
+	for(mp = mount; mp < mountNMOUNT; mp++) {
+		if (mp->m_inodp != NULL) {
+			if (dev == mp->m_dev)
+				goto out;
+		} else
+			if (smp == NULL)
+				smp = mp;
+	}
+	mp = smp;
+	if (mp == NULL){
+		u.u_error = ENFILE;
+		goto out1;
+	}
+	(*bdevsw[major(dev)].d_open)(dev, !uap->ronly);
+	if (u.u_error)
+		goto out1;
+	bp = bread(dev, SUPERB);
+	if (u.u_error) {
+		brelse(bp);
+		goto out1;
+	}
+	mp->m_inodp = ip;
+	mp->m_dev = dev;
+#ifndef EXMOUNT
+	fp = &mp->m_filsys;
+	bcopy((caddr_t) mapin(bp), (caddr_t)fp, sizeof(struct filsys));
+	mapout(bp);
+#else
+	bpf = geteblk();
+	mp->m_filsys = bpf;
+	copybb( bp, bpf, 0, 0, sizeof(struct filsys)/sizeof(int) );
+	fp = (struct filsys *)mapin(bpf);
+#endif EXMOUNT
+	fp->s_ilock = 0;
+	fp->s_flock = 0;
+	fp->s_ronly = uap->ronly & 1;
+#ifdef  UCB_IHASH
+	fp->s_nbehind = 0;
+	fp->s_lasti = 1;
+#endif
+	u.u_dirp = uap->freg;
+	for (cp = fp->s_fsmnt; cp < &fp->s_fsmnt[sizeof(fp->s_fsmnt) - 1];)
+		if ((*cp++ = uchar()) == 0)
+			u.u_dirp--;             /* get 0 again */
+	*cp = 0;
+#ifdef EXMOUNT
+	mapout(bpf);
+#endif EXMOUNT
+	brelse(bp);
+	ip->i_flag |= IMOUNT;
+	prele(ip);
+	return;
+out:
+	u.u_error = EBUSY;
+out1:
+	iput(ip);
+}
+
+/*
+ * the umount system call.
+ */
+sumount()
+{
+	dev_t dev;
+	register struct inode *ip;
+	register struct mount *mp;
+	register struct buf *bp;
+	struct buf *dp;
+	extern short lbolt;
+	int busyf;
+
+	dev = getmdev();
+	if (u.u_error || !suser())
+		return;
+	xumount(dev);   /* remove unused sticky files from text table */
+	update();
+	for (mp = mount; mp < mountNMOUNT; mp++)
+		if (mp->m_inodp != NULL && dev == mp->m_dev) {
+			for(ip = inode; ip < inodeNINODE; ip++)
+				if (ip->i_number != 0 && dev == ip->i_dev){
+				       if(ip->i_count == 0 )
+						ip->i_number =0;
+					else {
+							u.u_error = EBUSY;
+							return;
+						}
+				       }
+			dp = bdevsw[major(dev)].d_tab;
+	WaitLoop:
+			busyf = 0;
+			for (bp = dp->b_forw; bp != dp; bp = bp->b_forw) {
+				(void) _spl6();
+				if (bp->b_dev == dev) {
+					if( bp->b_flags & B_BUSY )
+						busyf++;
+					else {
+#ifdef UCB_BHASH
+						bunhash(bp);
+#endif
+						bp->b_dev = NODEV;
+					}
+				}
+				(void) _spl0();
+			}
+			if( busyf ) {
+				sleep( &lbolt, PRIBIO );
+				goto WaitLoop;
+			}
+			(*bdevsw[major(dev)].d_close)(dev, 0);
+			ip = mp->m_inodp;
+			ip->i_flag &= ~IMOUNT;
+			plock(ip);
+			iput(ip);
+			mp->m_inodp = NULL;
+#ifdef EXMOUNT
+			brelse(mp->m_filsys);
+#endif
+			return;
+		}
+
+	u.u_error = EINVAL;
+}
+
+/*
+ * Common code for mount and umount.
+ * Check that the user's argument is a reasonable
+ * thing on which to mount, and return the device number if so.
+ */
+dev_t
+getmdev()
+{
+	register dev_t dev;
+	register struct inode *ip;
+
+	ip = namei(uchar, LOOKUP, 1);
+	if (ip == NULL)
+		return(NODEV);
+	if ((ip->i_mode&IFMT) != IFBLK)
+		u.u_error = ENOTBLK;
+	dev = ip->i_un.i_rdev;
+	if (major(dev) >= nblkdev)
+		u.u_error = ENXIO;
+	iput(ip);
+	return(dev);
+}
+
+/*
+ * Return target name of a symbolic link
+ * (In case of AVG_CALLS this may be a server pathname).
+ */
+readlink()
+{
+	register struct inode *ip;
+	register struct a {
+		char    *name;
+		char    *buf;
+		int     count;
+	} *uap = (struct a *)u.u_ap;
+
+	ip = namei(uchar, LOOKUP, 0);
+	if (ip == NULL)
+		return;
+	if ((ip->i_mode&IFMT) != IFLNK) {
+#ifdef AVG_CALLS
+	if ((ip->i_mode&IFMT) != IFLNK && (ip->i_mode&IFMT) != IFCALL) {
+#endif
+		u.u_error = ENXIO;
+		goto out;
+	}
+	u.u_offset = 0;
+	u.u_base = uap->buf;
+	u.u_count = uap->count;
+	u.u_segflg = 0;
+	readi(ip);
+out:
+	iput(ip);
+	u.u_r.r_val1 = uap->count - u.u_count;
+}
+
+/*
+ * symlink -- make a symbolic link
+ */
+symlink()
+{
+#ifdef AVG_CALLS
+	mkSymlink(IFLNK);
+}
+
+/*
+ * mkcall - make a call entry for server
+ */
+mkcall()
+{
+	mkSymlink(IFCALL);
+}
+
+/*
+ * Common code for symlink and mkcall
+ */
+mkSymlink(type)
+int type;
+{
+#endif AVG_CALLS
+	register struct a {
+		char    *target;
+		char    *linkname;
+	} *uap = (struct a *)u.u_ap;
+	register struct inode *ip;
+	register char *tp;
+	register c, nc;
+
+	tp = uap->target;
+	nc = 0;
+	while (c = fubyte(tp)) {
+		if (c < 0) {
+			u.u_error = EFAULT;
+			return;
+		}
+		tp++;
+		nc++;
+	}
+	u.u_dirp = uap->linkname;
+	ip = namei(uchar, CREATE, 0);
+	if (ip) {
+		iput(ip);
+		u.u_error = EEXIST;
+		return;
+	}
+	if (u.u_error)
+		return;
+#ifndef AVG_CALLS
+	ip = maknode(IFLNK | 0777);
+#else
+	ip = maknode(type | 0777);
+#endif AVG_CALLS
+	if (ip == NULL)
+		return;
+	u.u_base = uap->target;
+	u.u_count = nc;
+	u.u_offset = 0;
+	u.u_segflg = 0;
+	writei(ip);
+	iput(ip);
+}
+
+#define FsLTOP(dev, b) (b)
+/* логич. блоки - в однокилобайтные */
+
+/* выдача информации про свободное место в файловой системе */
+ustat(){
+	register struct a{
+		dev_t dev;
+		struct ustat *ubuf;
+	} *uap;
+	register struct mount *mp;
+	register struct filsys *fp;
+	struct ustat ust;
+#ifdef EXMOUNT
+	struct buf *bpf;
+#endif
+	uap = (struct a *) u.u_ap;
+	for( mp=mount; mp<mountNMOUNT; mp++ )
+		if( mp->m_inodp != NULL && uap->dev == mp->m_dev ){
+#ifndef EXMOUNT
+			fp = & mp->m_filsys;
+#else
+			bpf = mp->m_filsys;
+			fp = (struct filsys *) mapin(bpf);
+#endif
+			ust.f_tfree = FsLTOP(mp->m_dev, fp->s_tfree );
+			ust.f_tinode= fp->s_tinode;
+			bcopy((caddr_t)fp->s_fsmnt, (caddr_t)&ust.f_fname,
+				sizeof( ust.f_fname ));
+			bcopy((caddr_t)fp->s_fpack, (caddr_t)&ust.f_fpack,
+				sizeof( ust.f_fpack ));
+#ifdef EXMOUNT
+			mapout( bpf );
+#endif
+			if( copyout( (caddr_t) &ust , (caddr_t) uap->ubuf,
+			    sizeof(ust)))u.u_error = EFAULT;
+			return;
+		}
+	u.u_error = EINVAL;
+	return;
+}
+@
+
+
+22.3
+log
+@поле f_fpack в структуре filsys.
+используется ustat-ом.
+@
+text
+@d2 5
+a6 1
+ * $Log:        sys3.c,v $
+d44 2
+a45 2
+#include <sys/reg.h>
+#include <sys/buf.h>
+d47 1
+a47 1
+#include <sys/mount.h>
+d54 1
+a54 1
+#include <sys/inline.h>
+@
+
+
+22.2
+log
+@новый сисвызов ustat
+@
+text
+@d3 3
+d506 2
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d2 4
+a5 1
+ * $Log:	sys3.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d48 1
+a49 1
+
+d473 39
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@d3 3
+d31 1
+a31 1
+#include "param.h"
+@
+
+
+1.7
+log
+@Стилистика.
+@
+text
+@d2 4
+a5 1
+ * $Log:        sys3.c,v $
+@
+
+
+1.6
+log
+@Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+
+(from VAX/UTS SV.2)
+@
+text
+@d2 6
+a7 1
+ * $Log:	sys3.c,v $
+d10 1
+a10 1
+ * 
+d13 1
+a13 1
+ * 
+d16 1
+a16 1
+ * 
+d380 1
+a380 1
+	ip = namei(uchar, 0, 0);
+d443 1
+a443 1
+	ip = namei(uchar, 1, 0);
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d3 3
+d45 1
+a45 1
+	} *uap;
+a46 1
+	uap = (struct a *)u.u_ap;
+d55 1
+a55 1
+		stat1(fp->f_inode, uap->sb, fp->f_flag & FPIPE?  fp->f_un.f_offset: (off_t) 0);
+a69 3
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+a70 1
+#endif
+d73 1
+a73 1
+	stat1(ip, uap->sb, (off_t)0);
+a76 1
+#ifdef  UCB_SYMLINKS
+d92 1
+a92 1
+	stat1(ip, uap->sb, (off_t)0);
+a94 1
+#endif
+d100 1
+a100 1
+stat1(ip, ub, pipeadj)
+a102 1
+off_t pipeadj;
+d107 1
+d123 3
+a125 2
+	ds.st_rdev = ip->i_un.i_rdev;
+	ds.st_size = ip->i_size - pipeadj;
+d150 2
+a151 2
+	} *uap;
+	register i, m;
+d153 1
+a153 2
+	uap = (struct a *)u.u_ap;
+	m = uap->fdes & ~077;
+d158 2
+a159 2
+	if ((m&0100) == 0) {
+		if ((i = ufalloc()) < 0)
+d196 1
+a196 1
+	register struct a {
+d200 1
+a200 1
+	} *uap;
+a201 1
+	uap = (struct a *)u.u_ap;
+a205 3
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+a206 1
+#endif
+d209 1
+a209 1
+	if (ip->i_count != 1 || (ip->i_mode & (IFBLK & IFCHR)) != 0)
+d211 4
+d225 4
+a228 2
+	if (mp == NULL)
+		goto out;
+d231 1
+a231 1
+		goto out;
+a349 3
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+a350 1
+#endif
+a361 1
+#ifdef  UCB_SYMLINKS
+d373 1
+a373 1
+	} *uap;
+d378 1
+a378 1
+	if ((ip->i_mode&IFMT) != IFLNK
+d380 1
+a380 1
+	 && (ip->i_mode&IFMT) != IFCALL
+a381 1
+				      ) {
+a384 1
+	uap = (struct a *)u.u_ap;
+d422 1
+a422 1
+	} *uap;
+a426 1
+	uap = (struct a *)u.u_ap;
+a459 1
+#endif  UCB_SYMLINKS
+@
+
+
+1.4
+log
+@Слияние с весией AVG-Э-85.
+@
+text
+@d3 3
+d127 1
+a127 1
+	ds.st_rdev = (dev_t)ip->i_un.i_rdev;
+d362 1
+a362 1
+	dev = (dev_t)ip->i_un.i_rdev;
+@
+
+
+1.3
+log
+@Состояние перед слиянием с AVG-Э-85.
+@
+text
+@d2 4
+a5 1
+ * $Log:        sys3.c,v $
+d284 2
+a285 2
+	int     busyf;
+	extern  lbolt;
+d309 1
+a309 1
+					if(bp->b_flags & B_BUSY)
+d369 1
+d383 5
+a387 1
+	if ((ip->i_mode&IFMT) != IFLNK) {
+d407 19
+d454 1
+d456 3
+@
+
+
+1.2
+log
+@Изменения под EXMOUNT.
+@
+text
+@d3 3
+d281 2
+d296 4
+a299 5
+					u.u_error = EBUSY;
+					return;
+				}
+			 }
+			(*bdevsw[major(dev)].d_close)(dev, 0);
+d301 2
+d306 3
+d310 1
+a310 1
+					bunhash(bp);
+d312 2
+a313 1
+					bp->b_dev = NODEV;
+d317 5
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d31 1
+a31 1
+		int	fdes;
+d54 1
+a54 1
+		char	*fname;
+d59 1
+a59 1
+#ifndef	UCB_SYMLINKS
+d70 1
+a70 1
+#ifdef	UCB_SYMLINKS
+d78 1
+a78 1
+		char	*fname;
+d142 2
+a143 2
+		int	fdes;
+		int	fdes2;
+d188 3
+d192 3
+a194 3
+		char	*fspec;
+		char	*freg;
+		int	ronly;
+d202 1
+a202 1
+#ifndef	UCB_SYMLINKS
+d233 1
+d237 6
+d246 1
+a246 1
+#ifdef	UCB_IHASH
+d253 1
+a253 1
+			u.u_dirp--;		/* get 0 again */
+d255 3
+a261 1
+
+d282 1
+a282 1
+	xumount(dev);	/* remove unused sticky files from text table */
+d287 4
+a290 1
+				if (ip->i_number != 0 && dev == ip->i_dev) {
+d294 1
+d312 3
+d332 1
+a332 1
+#ifndef	UCB_SYMLINKS
+d348 1
+a348 1
+#ifdef	UCB_SYMLINKS
+d356 3
+a358 3
+		char	*name;
+		char	*buf;
+		int	count;
+d385 2
+a386 2
+		char	*target;
+		char	*linkname;
+d422 1
+a422 1
+#endif	UCB_SYMLINKS
+@

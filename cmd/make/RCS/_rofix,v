@@ -1,0 +1,31 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     89.04.27.13.51.31;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@:
+ed - $1 <<!
+g/^[    ]*\.data/s/data/text/
+w
+q
+!
+@

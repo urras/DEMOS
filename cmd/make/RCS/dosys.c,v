@@ -1,0 +1,257 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     89.04.12.23.29.19;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.31.20.13.58;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.2
+log
+@Проверка стека
+@
+text
+@/*
+ * $Header: dosys.c,v 1.1 89/03/31 20:13:58 ache Exp $
+ * $Log:	dosys.c,v $
+ * Revision 1.1  89/03/31  20:13:58  ache
+ * Initial revision
+ * 
+ */
+# include "defs"
+# include <sys/types.h>
+# include <sys/stat.h>
+# include <signal.h>
+# include <ctype.h>
+
+extern char Makecall;
+extern CHARSTAR Shell;
+
+dosys(comstring, nohalt)
+register CHARSTAR comstring;
+int nohalt;
+{
+	register CHARSTAR p;
+	register int i;
+	int status;
+
+	p = comstring;
+	while(	*p == BLANK ||
+		*p == TAB) p++;
+	if(!*p)
+		return(-1);
+
+	if(IS_ON(NOEX) && Makecall == NO)
+		return(0);
+
+	if(metas(comstring))
+		status = doshell(comstring,nohalt);
+	else
+		status = doexec(comstring);
+
+	return(status);
+}
+
+
+static
+metas(s)   /* Are there are any  Shell meta-characters? */
+register CHARSTAR s;
+{
+	while(*s)
+		if( funny[toascii(*s++)] & META)
+			return(YES);
+
+	return(NO);
+}
+
+static
+doshell(comstring,nohalt)
+register CHARSTAR comstring;
+register int nohalt;
+{
+	register CHARSTAR shell, shellstr;
+
+#ifdef  VFORK
+	if((waitpid = vfork ()) == 0)
+#else
+	if((waitpid = fork ()) == 0)
+#endif
+	{
+		enbint (SIG_DFL);
+		doclose ();
+		shell = varptr(Shell)->varval;
+		if(shell == NULL || shell[0] == CNULL)
+			shell = SHELLCOM;
+		if((shellstr = strrchr (shell, SLASH)) == NULL)
+			shellstr = shell;
+		else
+			shellstr++;
+		if(strcmp (shellstr, "csh") == 0)
+			execl(shell, shellstr, (nohalt ? "-cf" : "-cef"), comstring, 0);
+		else
+			execl(shell, shellstr, (nohalt ? "-c" : "-ce"), comstring, 0);
+		fprintf (stderr, ediag("Couldn't load Shell '%s'.\n",
+				       "Нельзя запустить Shell '%s'.\n"), shell);
+		_exit (1);
+	}
+
+	return( await() );
+}
+
+
+
+static
+await()
+{
+	int intrupt();
+	int status;
+	int pid;
+
+#if     defined(VFORK) && defined(EMSIGS)
+	enbint(intrupt);
+#endif
+	while ((pid = wait (&status)) != waitpid)
+		if (pid == -1)
+			fatal(ediag("bad wait code","неверный код ожидания"));
+	waitpid = 0;
+	return status;
+}
+
+
+
+static
+doclose()	/* Close open directory files before exec'ing */
+{
+	register OPENDIR od;
+
+	for (od = firstod; od != NULL; od = od->nextopendir)
+		if (od->dirfd != -1)
+			close (od->dirfd);
+}
+
+static
+doexec(str)
+register CHARSTAR str;
+{
+	register CHARSTAR t;
+	register CHARSTAR *p;
+	CHARSTAR argv[MAXARGS];
+	int status;
+
+	while( *str==BLANK || *str==TAB )
+		++str;
+	if( *str == CNULL )
+		return(-1);	/* no command */
+
+#ifdef  CHKSTK
+	checkstack ();
+#endif
+	p = argv;
+	for(t = str ; *t ; )
+	{
+		*p++ = t;
+		if(p-argv >= MAXARGS)
+			fatal(ediag("Too many arguments",
+				    "Слишком много аргументов"));
+		while(*t!=BLANK && *t!=TAB && *t!=CNULL)
+			++t;
+		if(*t)
+			for( *t++ = CNULL ; *t==BLANK || *t==TAB  ; ++t);
+	}
+
+	*p = NULL;
+
+#ifdef  VFORK
+	if((waitpid = vfork ()) == 0)
+#else
+	if((waitpid = fork ()) == 0)
+#endif
+	{
+		enbint (SIG_DFL);
+		doclose ();
+		execvp (str, argv);
+		fprintf (stderr, ediag("Cannot load %s.\n",
+				       "Нельзя запустить %s.\n"),str);
+		_exit (1);
+	}
+
+	return( await() );
+}
+
+touch(force, name)
+register int force;
+register char *name;
+{
+        struct stat stbuff;
+        char junk[1];
+        int fd;
+
+        if( stat(name,&stbuff) < 0)
+                if(force)
+                        goto create;
+                else
+                {
+			fflush (stdout);
+			fprintf(stderr,ediag(
+"touch: file %s does not exist.\n",
+"touch: файл %s не существует.\n"),
+name);
+                        return;
+                }
+        if(stbuff.st_size == 0)
+                goto create;
+        if( (fd = open(name, 2)) < 0)
+                goto bad;
+        if( read(fd, junk, 1) < 1)
+        {
+                close(fd);
+                goto bad;
+        }
+        lseek(fd, 0L, 0);
+        if( write(fd, junk, 1) < 1 )
+        {
+                close(fd);
+                goto bad;
+        }
+        close(fd);
+        return;
+bad:
+	fflush(stdout);
+	fprintf(stderr, ediag(
+"touch: %s: failure\n",
+"touch: %s: не удалось\n"),
+name);
+        return;
+create:
+        if( (fd = creat(name, 0666)) < 0)
+                goto bad;
+        close(fd);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 5
+a6 2
+ * $Header$
+ * $Log$
+d133 3
+@

@@ -1,0 +1,1505 @@
+head     1.7;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     90.10.21.16.36.43;  author root;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.08.03.18.21.47;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.07.22.21.43.49;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.07.22.13.56.50;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.20.22.40.40;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.19.02.52;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.21.45;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.18.34;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.43.01;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.12.02;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.36.39;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.7
+log
+@Исправлен include
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.init.c,v 1.6 88/08/03 18:21:47 abs Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:	sh.init.c,v $
+ * Revision 1.6  88/08/03  18:21:47  abs
+ * Добавлена встроенная функция help,
+ * выдающая список встроенных функций.
+ * 
+ * Revision 1.5  86/07/22  21:43:49  avg
+ * Укорочены русские диагностики.
+ *
+ * Revision 1.4  86/07/22  13:56:50  avg
+ * Не вставлялся include sys/code.h.
+ *
+ * Revision 1.3  86/07/20  22:40:40  avg
+ * Слита с версией alex-а из 4.2.
+ *
+ * Revision 1.2  86/06/02  19:02:52  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские буквы и диагностики.
+ *
+ * Revision 1.1  86/06/01  20:21:45  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.local.h"
+
+extern  int doalias();
+extern  int dobg();
+extern  int dobreak();
+extern  int dochngd();
+extern  int docontin();
+extern  int dodirs();
+extern  int doecho();
+extern  int doelse();
+extern  int doend();
+extern  int doendif();
+extern  int doendsw();
+extern  int doeval();
+extern  int doexit();
+extern  int dofg();
+extern  int doforeach();
+extern  int doglob();
+extern  int dogoto();
+extern  int dohash();
+extern  int dohist();
+extern  int doif();
+extern  int dojobs();
+extern  int dokill();
+extern  int dolet();
+#ifdef  U42
+extern  int dolimit();
+#endif
+extern  int dologin();
+extern  int dologout();
+#ifdef NEWGRP
+extern  int donewgrp();
+#endif
+extern  int donice();
+extern  int donotify();
+extern  int donohup();
+extern  int doonintr();
+extern  int dopopd();
+extern  int dopushd();
+extern  int dorepeat();
+extern  int doset();
+extern  int dosetenv();
+extern  int dosource();
+extern  int dostop();
+extern  int dosuspend();
+extern  int doswbrk();
+extern  int doswitch();
+extern  int dotime();
+#ifdef  U42
+extern  int dounlimit();
+#endif
+extern  int doumask();
+extern  int dowait();
+extern  int dowhile();
+extern  int dozip();
+extern  int execash();
+extern  int goodbye();
+#ifdef VFORK
+extern  int hashstat();
+#endif
+extern  int shift();
+extern  int showall();
+extern  int unalias();
+extern  int dounhash();
+extern  int unset();
+extern  int dounsetenv();
+
+#ifdef DOBUGS
+extern int dobugs();
+#endif
+
+#define INF     1000
+/* имена функций ОБЯЗАНЫ идти по алфавиту, иначе все ломается */
+struct  biltins {
+	char    *bname;
+	int     (*bfunct)();
+	short   minargs, maxargs;
+} bfunc[] = {
+	"@@",            dolet,          0,      INF,
+	"alias",        doalias,        0,      INF,
+#ifdef debug
+	"alloc",        showall,        0,      1,
+#endif
+	"bg",           dobg,           0,      INF,
+	"break",        dobreak,        0,      0,
+	"breaksw",      doswbrk,        0,      0,
+#ifdef IIASA
+	"bye",          goodbye,        0,      0,
+#endif
+	"case",         dozip,          0,      1,
+	"cd",           dochngd,        0,      1,
+	"chdir",        dochngd,        0,      1,
+	"continue",     docontin,       0,      0,
+	"default",      dozip,          0,      0,
+	"dirs",         dodirs,         0,      1,
+	"echo",         doecho,         0,      INF,
+	"else",         doelse,         0,      INF,
+	"end",          doend,          0,      0,
+	"endif",        dozip,          0,      0,
+	"endsw",        dozip,          0,      0,
+	"eval",         doeval,         0,      INF,
+	"exec",         execash,        1,      INF,
+	"exit",         doexit,         0,      INF,
+	"fg",           dofg,           0,      INF,
+	"foreach",      doforeach,      3,      INF,
+#ifdef IIASA
+	"gd",           dopushd,        0,      1,
+#endif
+	"glob",         doglob,         0,      INF,
+	"goto",         dogoto,         1,      1,
+#ifdef VFORK
+	"hashstat",     hashstat,       0,      0,
+#endif
+#ifdef DOBUGS
+	"help" ,        dobugs,         0,      0,
+#endif
+	"history",      dohist,         0,      2,
+	"if",           doif,           1,      INF,
+	"jobs",         dojobs,         0,      1,
+	"kill",         dokill,         1,      INF,
+#ifdef  U42
+	"limit",        dolimit,        0,      3,
+#endif
+	"login",        dologin,        0,      1,
+	"logout",       dologout,       0,      0,
+#ifdef NEWGRP
+	"newgrp",       donewgrp,       1,      1,
+#endif
+	"nice",         donice,         0,      INF,
+	"nohup",        donohup,        0,      INF,
+	"notify",       donotify,       0,      INF,
+	"onintr",       doonintr,       0,      2,
+	"popd",         dopopd,         0,      1,
+	"pushd",        dopushd,        0,      1,
+#ifdef IIASA
+	"rd",           dopopd,         0,      1,
+#endif
+	"rehash",       dohash,         0,      0,
+	"repeat",       dorepeat,       2,      INF,
+	"set",          doset,          0,      INF,
+	"setenv",       dosetenv,       0,      2,
+	"shift",        shift,          0,      1,
+	"source",       dosource,       1,      2,
+	"stop",         dostop,         1,      INF,
+	"suspend",      dosuspend,      0,      0,
+	"switch",       doswitch,       1,      INF,
+	"time",         dotime,         0,      INF,
+	"umask",        doumask,        0,      1,
+	"unalias",      unalias,        1,      INF,
+	"unhash",       dounhash,       0,      0,
+#ifdef  U42
+	"unlimit",      dounlimit,      0,      INF,
+#endif
+	"unset",        unset,          1,      INF,
+	"unsetenv",     dounsetenv,     1,      INF,
+	"wait",         dowait,         0,      1,
+	"while",        dowhile,        1,      INF,
+	0,              0,              0,      0,
+};
+
+#define ZBREAK          0
+#define ZBRKSW          1
+#define ZCASE           2
+#define ZDEFAULT        3
+#define ZELSE           4
+#define ZEND            5
+#define ZENDIF          6
+#define ZENDSW          7
+#define ZEXIT           8
+#define ZFOREACH        9
+#define ZGOTO           10
+#define ZIF             11
+#define ZLABEL          12
+#define ZLET            13
+#define ZSET            14
+#define ZSWITCH         15
+#define ZTEST           16
+#define ZTHEN           17
+#define ZWHILE          18
+
+struct srch {
+	char    *s_name;
+	short   s_value;
+} srchn[] = {
+	"@@",            ZLET,
+	"break",        ZBREAK,
+	"breaksw",      ZBRKSW,
+	"case",         ZCASE,
+	"default",      ZDEFAULT,
+	"else",         ZELSE,
+	"end",          ZEND,
+	"endif",        ZENDIF,
+	"endsw",        ZENDSW,
+	"exit",         ZEXIT,
+	"foreach",      ZFOREACH,
+	"goto",         ZGOTO,
+	"if",           ZIF,
+	"label",        ZLABEL,
+	"set",          ZSET,
+	"switch",       ZSWITCH,
+	"while",        ZWHILE,
+	0,              0,
+};
+
+struct  mesg {
+	char    *iname;
+	char    *pname;
+} mesg[] = {
+	0,      0,
+	"HUP",  "Hangup",
+	"INT",  "Interrupt",
+	"QUIT", "Quit",
+	"ILL",  "Illegal instruction",
+	"TRAP", "Trace/BPT trap",
+	"IOT",  "IOT trap",
+	"EMT",  "EMT trap",
+	"FPE",  "Floating exception",
+	"KILL", "Killed",
+	"BUS",  "Bus error",
+	"SEGV", "Segmentation fault",
+	"SYS",  "Bad system call",
+	"PIPE", "Broken pipe",
+	"ALRM", "Alarm clock",
+	"TERM", "Terminated",
+	0,      "Signal 16",
+	"STOP", "Stopped (signal)",
+	"TSTP", "Stopped",
+	"CONT", "Continued",
+	"CHLD", "Child exited",
+	"TTIN", "Stopped (tty input)",
+	"TTOU", "Stopped (tty output)",
+	"TINT", "Tty input interrupt",
+	"XCPU", "Cputime limit exceeded",
+	"XFSZ", "Filesize limit exceeded",
+	0,      "Signal 26",
+	0,      "Signal 27",
+	0,      "Signal 28",
+	0,      "Signal 29",
+	0,      "Signal 30",
+	0,      "Signal 31",
+	0,      "Signal 32"
+};
+
+struct mesg Rmesg[] = {
+	0,      0,
+	"HUP",  "Разрыв связи",
+	"INT",  "Прерывание",
+	"QUIT", "Сброс образа памяти",
+	"ILL",  "Недопустимая команда",
+	"TRAP", "Трассировка/BPT",
+	"IOT",  "Прерывание по IOT",
+	"EMT",  "Прерывание по EMT",
+	"FPE",  "Ошибка вещ. операции",
+	"KILL", "Убит",
+	"BUS",  "Ошибка шины",
+	"SEGV", "Наруш. защиты памяти",
+	"SYS",  "Плохой сист. вызов",
+	"PIPE", "Оборвалась труба",
+	"ALRM", "Будильник",
+	"TERM", "Прекращен",
+	0,      "Сигнал 16",
+	"STOP", "Остановлен (сигнал)",
+	"TSTP", "Остановлен",
+	"CONT", "Продолжен",
+	"CHLD", "Завершился потомок",
+	"TTIN", "Ждет ввода с терм.",
+	"TTOU", "Ждет (вывод на терм)",
+	"TINT", "Сигнал ввода с терм.",
+	"XCPU", "Лимит времени ЦП",
+	"XFSZ", "Размер файла",
+	0,      "Сигнал 26",
+	0,      "Сигнал 27",
+	0,      "Сигнал 28",
+	0,      "Сигнал 29",
+	0,      "Сигнал 30",
+	0,      "Сигнал 31",
+	0,      "Сигнал 32"
+};
+
+
+/*
+ * Массивы для закавычивания/раскавычивания символов
+ *
+ */
+
+char to8quot[256]= {
+/* 0   1   2    3    4    5    6    7  */
+ 0200,0201,0202,0203,0204,0205,0206,0207,
+/*  10   11   12   13   14   15   16   17 */
+  0210,0211,0212,0213,0214,0215,0216,0217,
+/*  20   21   22   23   24   25   26   27 */
+  0220,0221,0222,0223,0224,0225,0226,0227,
+/*  30   31   32   33   34   35   36   37 */
+  0230,0231,0232,0233,0234,0235,0236,0237,
+/*
+   :40 !:41 ":42 #:43 $:44 %:45 &:46 ':47 */
+  0240,0241,0242,0243,0244,0245,0246,0247,
+/*(:50 ):51 *:52 +:53 ,:54 -:55 .:56 /:57 */
+  0250,0251,0252,0253,0254,0255,0256,0257,
+/*0:60 1:61 2:62 3:63 4:64 5:65 6:66 7:67 - цифры не маскируем */
+  0060,0061,0062,0063,0064,0065,0066,0067,
+/*8:70 9:71 ::72 ;:73 <:74 =:75 >:76 ?:77 */
+  0070,0071,0272,0273,0274,0275,0276,0277,
+/*
+  @@100 A101 B102 C103 D104 E105 F106 G107 */
+  0260,0101,0102,0103,0104,0105,0106,0107,
+/*H110 I111 J112 K113 L114 M115 N116 O117 */
+  0110,0111,0112,0113,0114,0115,0116,0117,
+/*P120 Q121 R122 S123 T124 U125 V126 W127 */
+  0120,0121,0122,0123,0124,0125,0126,0127,
+/*X130 Y131 Z132 [133 \134 ]135 ^136 _137 */
+  0130,0131,0132,0261,0262,0263,0264,0137,
+/*
+  `140 a141 b142 c143 d144 e145 f146 g147 */
+  0265,0141,0142,0143,0144,0145,0146,0147,
+/*h150 i151 j152 k153 l154 m155 n156 o157 */
+  0150,0151,0152,0153,0154,0155,0156,0157,
+/*p160 q161 r162 s163 t164 u165 v166 w167 */
+  0160,0161,0162,0163,0164,0165,0166,0167,
+/*x170 y171 z172 {173 |174 }175 ~176  177 */
+#ifndef Ucode
+  0170,0171,0172,0266,0267,0270,0271,0377,
+#else
+  0170,0171,0172,0266,0267,0270,0271,0177,
+#endif  Ucode
+/* Повторное маскирование не изменяет кода */
+  0200,0201,0202,0203,0204,0205,0206,0207,
+  0210,0211,0212,0213,0214,0215,0216,0217,
+  0220,0221,0222,0223,0224,0225,0226,0227,
+  0230,0231,0232,0233,0234,0235,0236,0237,
+  0240,0241,0242,0243,0244,0245,0246,0247,
+  0250,0251,0252,0253,0254,0255,0256,0257,
+  0260,0261,0262,0263,0264,0265,0266,0267,
+  0270,0271,0272,0273,0274,0275,0276,0277,
+  0300,0301,0302,0303,0304,0305,0306,0307,
+  0310,0311,0312,0313,0314,0315,0316,0317,
+  0320,0321,0322,0323,0324,0325,0326,0327,
+  0330,0331,0332,0333,0334,0335,0336,0337,
+  0340,0341,0342,0343,0344,0345,0346,0347,
+  0350,0351,0352,0353,0354,0355,0356,0357,
+  0360,0361,0362,0363,0364,0365,0366,0367,
+  0370,0371,0372,0373,0374,0375,0376,0377 };
+
+char to8trim[256]= {
+/* Повторное размаскирование не изменяет кода */
+  0000,0001,0002,0003,0004,0005,0006,0007,
+  0010,0011,0012,0013,0014,0015,0016,0017,
+  0020,0021,0022,0023,0024,0025,0026,0027,
+  0030,0031,0032,0033,0034,0035,0036,0037,
+  0040,0041,0042,0043,0044,0045,0046,0047,
+  0050,0051,0052,0053,0054,0055,0056,0057,
+  0060,0061,0062,0063,0064,0065,0066,0067,
+  0070,0071,0072,0073,0074,0075,0076,0077,
+  0100,0101,0102,0103,0104,0105,0106,0107,
+  0110,0111,0112,0113,0114,0115,0116,0117,
+  0120,0121,0122,0123,0124,0125,0126,0127,
+  0130,0131,0132,0133,0134,0135,0136,0137,
+  0140,0141,0142,0143,0144,0145,0146,0147,
+  0150,0151,0152,0153,0154,0155,0156,0157,
+  0160,0161,0162,0163,0164,0165,0166,0167,
+  0170,0171,0172,0173,0174,0175,0176,0177,
+/* Управл. коды маскируются */
+  0000,0001,0002,0003,0004,0005,0006,0007,
+  0010,0011,0012,0013,0014,0015,0016,0017,
+  0020,0021,0022,0023,0024,0025,0026,0027,
+  0030,0031,0032,0033,0034,0035,0036,0037,
+/* Спец символы маскируются     */
+  0040,0041,0042,0043,0044,0045,0046,0047,
+  0050,0051,0052,0053,0054,0055,0056,0057,
+  0100,0133,0134,0135,0136,0140,0173,0174,  /* Вместо цифр - спец символы */
+  0175,0176,0072,0073,0074,0075,0076,0077,
+/* Русские буквы не маскируются */
+  0300,0301,0302,0303,0304,0305,0306,0307,
+  0310,0311,0312,0313,0314,0315,0316,0317,
+  0320,0321,0322,0323,0324,0325,0326,0327,
+  0330,0331,0332,0333,0334,0335,0336,0337,
+  0340,0341,0342,0343,0344,0345,0346,0347,
+/* Русские буквы не маскируются */
+  0350,0351,0352,0353,0354,0355,0356,0357,
+  0360,0361,0362,0363,0364,0365,0366,0367,
+#ifndef Ucode
+  0370,0371,0372,0373,0374,0375,0376,0177 };
+#else
+  0370,0371,0372,0373,0374,0375,0376,0377 };
+#endif  Ucode
+
+char *toquot = to8quot, *totrim = to8trim; /* Это пока нет 2-х режимов */
+@
+
+
+1.6
+log
+@Добавлена встроенная функция help,
+выдающая список встроенных функций.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.init.c,v 1.5 86/07/22 21:43:49 avg Exp $";
+d8 5
+a12 1
+ * $Log:        sh.init.c,v $
+a30 2
+#include <sys/code.h>
+
+@
+
+
+1.5
+log
+@Укорочены русские диагностики.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.init.c,v 1.4 86/07/22 13:56:50 avg Exp $";
+d9 3
+d29 1
+d95 4
+d100 1
+a100 1
+
+d141 3
+d183 1
+a183 1
+	"wait",         dowait,         0,      0,
+@
+
+
+1.4
+log
+@Не вставлялся include sys/code.h.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.init.c,v 1.3 86/07/20 22:40:40 avg Exp $";
+d9 3
+d266 1
+a266 1
+	"TRAP", "Прерывание по трассировке/BPT",
+d269 1
+a269 1
+	"FPE",  "Исключительная ситуация с плавающей точкой",
+d272 2
+a273 2
+	"SEGV", "Нарушение защиты памяти",
+	"SYS",  "Плохой системный вызов",
+d278 1
+a278 1
+	"STOP", "Остановлен (по сигналу)",
+d281 6
+a286 6
+	"CHLD", "Завершился порожденный процесс",
+	"TTIN", "Остановлен (ввод с терминала)",
+	"TTOU", "Остановлен (вывод на терминал)",
+	"TINT", "Прерывание по вводу с терминала",
+	"XCPU", "Превышен лимит времени ЦП",
+	"XFSZ", "Превышен размер файла",
+@
+
+
+1.3
+log
+@Слита с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.init.c,v 1.2 86/06/02 19:02:52 dmitry Exp $";
+d9 3
+d21 1
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские буквы и диагностики.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.init.c,v 1.1 86/06/01 20:21:45 dmitry Exp $";
+
+d9 3
+a18 4
+/*
+ * C shell
+ */
+
+d42 1
+a42 1
+#ifdef  LIMIT
+d47 1
+d49 1
+d65 1
+a65 1
+#ifdef  LIMIT
+d130 1
+a130 1
+#ifdef  LIMIT
+d135 1
+d137 1
+d152 1
+a152 1
+	"source",       dosource,       1,      1,
+d160 1
+a160 1
+#ifdef  LIMIT
+d292 1
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.init.c,v 0.0 86/04/20 21:24:38 root Exp $";
+d10 4
+a13 1
+ * $Log$
+d149 1
+a149 1
+	"setenv",       dosetenv,       2,      2,
+d251 144
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.init.c 4.1 10/9/80";
+d4 9
+d19 25
+a43 25
+extern	int doalias();
+extern	int dobg();
+extern	int dobreak();
+extern	int dochngd();
+extern	int docontin();
+extern	int dodirs();
+extern	int doecho();
+extern	int doelse();
+extern	int doend();
+extern	int doendif();
+extern	int doendsw();
+extern	int doeval();
+extern	int doexit();
+extern	int dofg();
+extern	int doforeach();
+extern	int doglob();
+extern	int dogoto();
+extern	int dohash();
+extern	int dohist();
+extern	int doif();
+extern	int dojobs();
+extern	int dokill();
+extern	int dolet();
+#ifdef	LIMIT
+extern	int dolimit();
+d45 20
+a64 20
+extern	int dologin();
+extern	int dologout();
+extern	int donewgrp();
+extern	int donice();
+extern	int donotify();
+extern	int donohup();
+extern	int doonintr();
+extern	int dopopd();
+extern	int dopushd();
+extern	int dorepeat();
+extern	int doset();
+extern	int dosetenv();
+extern	int dosource();
+extern	int dostop();
+extern	int dosuspend();
+extern	int doswbrk();
+extern	int doswitch();
+extern	int dotime();
+#ifdef	LIMIT
+extern	int dounlimit();
+d66 6
+a71 6
+extern	int doumask();
+extern	int dowait();
+extern	int dowhile();
+extern	int dozip();
+extern	int execash();
+extern	int goodbye();
+d73 1
+a73 1
+extern	int hashstat();
+d75 6
+a80 6
+extern	int shift();
+extern	int showall();
+extern	int unalias();
+extern	int dounhash();
+extern	int unset();
+extern	int dounsetenv();
+d82 1
+a82 1
+#define	INF	1000
+d84 4
+a87 4
+struct	biltins {
+	char	*bname;
+	int	(*bfunct)();
+	short	minargs, maxargs;
+d89 2
+a90 2
+	"@@",		dolet,		0,	INF,
+	"alias",	doalias,	0,	INF,
+d92 1
+a92 1
+	"alloc",	showall,	0,	1,
+d94 3
+a96 3
+	"bg",		dobg,		0,	INF,
+	"break",	dobreak,	0,	0,
+	"breaksw",	doswbrk,	0,	0,
+d98 1
+a98 1
+	"bye",		goodbye,	0,	0,
+d100 16
+a115 16
+	"case",		dozip,		0,	1,
+	"cd",		dochngd,	0,	1,
+	"chdir",	dochngd,	0,	1,
+	"continue",	docontin,	0,	0,
+	"default",	dozip,		0,	0,
+	"dirs",		dodirs,		0,	1,
+	"echo",		doecho,		0,	INF,
+	"else",		doelse,		0,	INF,
+	"end",		doend,		0,	0,
+	"endif",	dozip,		0,	0,
+	"endsw",	dozip,		0,	0,
+	"eval",		doeval,		0,	INF,
+	"exec",		execash,	1,	INF,
+	"exit",		doexit,		0,	INF,
+	"fg",		dofg,		0,	INF,
+	"foreach",	doforeach,	3,	INF,
+d117 1
+a117 1
+	"gd",		dopushd,	0,	1,
+d119 2
+a120 2
+	"glob",		doglob,		0,	INF,
+	"goto",		dogoto,		1,	1,
+d122 1
+a122 1
+	"hashstat",	hashstat,	0,	0,
+d124 6
+a129 6
+	"history",	dohist,		0,	2,
+	"if",		doif,		1,	INF,
+	"jobs",		dojobs,		0,	1,
+	"kill",		dokill,		1,	INF,
+#ifdef	LIMIT
+	"limit",	dolimit,	0,	3,
+d131 9
+a139 9
+	"login",	dologin,	0,	1,
+	"logout",	dologout,	0,	0,
+	"newgrp",	donewgrp,	1,	1,
+	"nice",		donice,		0,	INF,
+	"nohup",	donohup,	0,	INF,
+	"notify",	donotify,	0,	INF,
+	"onintr",	doonintr,	0,	2,
+	"popd",		dopopd,		0,	1,
+	"pushd",	dopushd,	0,	1,
+d141 1
+a141 1
+	"rd",		dopopd,		0,	1,
+d143 15
+a157 15
+	"rehash",	dohash,		0,	0,
+	"repeat",	dorepeat,	2,	INF,
+	"set",		doset,		0,	INF,
+	"setenv",	dosetenv,	2,	2,
+	"shift",	shift,		0,	1,
+	"source",	dosource,	1,	1,
+	"stop",		dostop,		1,	INF,
+	"suspend",	dosuspend,	0,	0,
+	"switch",	doswitch,	1,	INF,
+	"time",		dotime,		0,	INF,
+	"umask",	doumask,	0,	1,
+	"unalias",	unalias,	1,	INF,
+	"unhash",	dounhash,	0,	0,
+#ifdef	LIMIT
+	"unlimit",	dounlimit,	0,	INF,
+d159 5
+a163 5
+	"unset",	unset,		1,	INF,
+	"unsetenv",	dounsetenv,	1,	INF,
+	"wait",		dowait,		0,	0,
+	"while",	dowhile,	1,	INF,
+	0,		0,		0,	0,
+d166 19
+a184 19
+#define	ZBREAK		0
+#define	ZBRKSW		1
+#define	ZCASE		2
+#define	ZDEFAULT 	3
+#define	ZELSE		4
+#define	ZEND		5
+#define	ZENDIF		6
+#define	ZENDSW		7
+#define	ZEXIT		8
+#define	ZFOREACH	9
+#define	ZGOTO		10
+#define	ZIF		11
+#define	ZLABEL		12
+#define	ZLET		13
+#define	ZSET		14
+#define	ZSWITCH		15
+#define	ZTEST		16
+#define	ZTHEN		17
+#define	ZWHILE		18
+d187 2
+a188 2
+	char	*s_name;
+	short	s_value;
+d190 18
+a207 18
+	"@@",		ZLET,
+	"break",	ZBREAK,
+	"breaksw",	ZBRKSW,
+	"case",		ZCASE,
+	"default", 	ZDEFAULT,
+	"else",		ZELSE,
+	"end",		ZEND,
+	"endif",	ZENDIF,
+	"endsw",	ZENDSW,
+	"exit",		ZEXIT,
+	"foreach", 	ZFOREACH,
+	"goto",		ZGOTO,
+	"if",		ZIF,
+	"label",	ZLABEL,
+	"set",		ZSET,
+	"switch",	ZSWITCH,
+	"while",	ZWHILE,
+	0,		0,
+d210 3
+a212 3
+struct	mesg {
+	char	*iname;
+	char	*pname;
+d214 21
+a234 21
+	0,	0,
+	"HUP",	"Hangup",
+	"INT",	"Interrupt",	
+	"QUIT",	"Quit",
+	"ILL",	"Illegal instruction",
+	"TRAP",	"Trace/BPT trap",
+	"IOT",	"IOT trap",
+	"EMT",	"EMT trap",
+	"FPE",	"Floating exception",
+	"KILL",	"Killed",
+	"BUS",	"Bus error",
+	"SEGV",	"Segmentation fault",
+	"SYS",	"Bad system call",
+	"PIPE",	"Broken pipe",
+	"ALRM",	"Alarm clock",
+	"TERM",	"Terminated",
+	0,	"Signal 16",
+	"STOP",	"Stopped (signal)",
+	"TSTP",	"Stopped",
+	"CONT",	"Continued",
+	"CHLD",	"Child exited",
+d238 1
+a238 1
+	"XCPU",	"Cputime limit exceeded",
+d240 7
+a246 7
+	0,	"Signal 26",
+	0,	"Signal 27",
+	0,	"Signal 28",
+	0,	"Signal 29",
+	0,	"Signal 30",
+	0,	"Signal 31",
+	0,	"Signal 32"
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.init.c   2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+d14 1
+a18 2
+extern  int await();
+extern  int chngd();
+d20 1
+d22 1
+d24 1
+d30 1
+d32 1
+d39 2
+d42 3
+d49 1
+d52 2
+a55 1
+#ifndef V6
+a56 1
+#endif
+d58 2
+d63 3
+a65 1
+#ifndef V6
+d67 1
+a67 1
+#endif
+d71 1
+a74 1
+extern  int goodbye();
+d80 1
+d94 1
+d97 3
+d101 2
+a102 2
+	"cd",           chngd,          0,      1,
+	"chdir",        chngd,          0,      1,
+d105 1
+d111 1
+d114 1
+d116 3
+d124 1
+a124 1
+	"history",      dohist,         0,      0,
+d126 5
+d136 1
+d138 5
+a145 1
+#ifndef V6
+a146 1
+#endif
+d149 2
+a152 1
+#ifndef V6
+d154 4
+a158 2
+	"unalias",      unalias,        1,      INF,
+	"unhash",       dounhash,               0,      0,
+d160 2
+a161 1
+	"wait",         await,          0,      0,
+d210 37
+a246 17
+char    *mesg[] = {
+	0,
+	"Hangup",
+	0,
+	"Quit",
+	"Illegal instruction",
+	"Trace/BPT trap",
+	"IOT trap",
+	"EMT trap",
+	"Floating exception",
+	"Killed",
+	"Bus error",
+	"Segmentation violation",
+	"Bad system call",
+	0,
+	"Alarm clock",
+	"Terminated",
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* $Header: sh.init.c,v 2.1 86/03/12 23:47:40 alex Exp $ /Kiae */
+
+a3 1
+
+d8 28
+a35 28
+extern	int doalias();
+extern	int dobg();
+extern	int dobreak();
+extern	int dochngd();
+extern	int docontin();
+extern	int dodirs();
+extern	int doecho();
+extern	int doelse();
+extern	int doend();
+extern	int doendif();
+extern	int doendsw();
+extern	int doeval();
+extern	int doexit();
+extern	int dofg();
+extern	int doforeach();
+extern	int doglob();
+extern	int dogoto();
+extern	int dohash();
+extern	int dohist();
+extern	int doif();
+extern	int dojobs();
+extern	int dokill();
+extern	int dolet();
+extern	int dolimit();
+extern	int dologin();
+extern	int dologout();
+#ifdef NEWGRP
+extern	int donewgrp();
+d37 10
+a46 22
+extern	int donice();
+extern	int donotify();
+extern	int donohup();
+extern	int doonintr();
+extern	int dopopd();
+extern	int dopushd();
+extern	int dorepeat();
+extern	int doset();
+extern	int dosetenv();
+extern	int dosource();
+extern	int dostop();
+extern	int dosuspend();
+extern	int doswbrk();
+extern	int doswitch();
+extern	int dotime();
+extern	int dounlimit();
+extern	int doumask();
+extern	int dowait();
+extern	int dowhile();
+extern	int dozip();
+extern	int execash();
+extern	int goodbye();
+d48 1
+a48 1
+extern	int hashstat();
+d50 6
+a55 6
+extern	int shift();
+extern	int showall();
+extern	int unalias();
+extern	int dounhash();
+extern	int unset();
+extern	int dounsetenv();
+d57 1
+a57 1
+#define	INF	1000
+d59 4
+a62 4
+struct	biltins {
+	char	*bname;
+	int	(*bfunct)();
+	short	minargs, maxargs;
+d64 2
+a65 2
+	"@@",		dolet,		0,	INF,
+	"alias",	doalias,	0,	INF,
+d67 1
+a67 1
+	"alloc",	showall,	0,	1,
+d69 17
+a85 27
+	"bg",		dobg,		0,	INF,
+	"break",	dobreak,	0,	0,
+	"breaksw",	doswbrk,	0,	0,
+#ifdef IIASA
+	"bye",		goodbye,	0,	0,
+#endif
+	"case",		dozip,		0,	1,
+	"cd",		dochngd,	0,	1,
+	"chdir",	dochngd,	0,	1,
+	"continue",	docontin,	0,	0,
+	"default",	dozip,		0,	0,
+	"dirs",		dodirs,		0,	1,
+	"echo",		doecho,		0,	INF,
+	"else",		doelse,		0,	INF,
+	"end",		doend,		0,	0,
+	"endif",	dozip,		0,	0,
+	"endsw",	dozip,		0,	0,
+	"eval",		doeval,		0,	INF,
+	"exec",		execash,	1,	INF,
+	"exit",		doexit,		0,	INF,
+	"fg",		dofg,		0,	INF,
+	"foreach",	doforeach,	3,	INF,
+#ifdef IIASA
+	"gd",		dopushd,	0,	1,
+#endif
+	"glob",		doglob,		0,	INF,
+	"goto",		dogoto,		1,	1,
+d87 1
+a87 1
+	"hashstat",	hashstat,	0,	0,
+d89 13
+a101 9
+	"history",	dohist,		0,	2,
+	"if",		doif,		1,	INF,
+	"jobs",		dojobs,		0,	1,
+	"kill",		dokill,		1,	INF,
+	"limit",	dolimit,	0,	3,
+	"login",	dologin,	0,	1,
+	"logout",	dologout,	0,	0,
+#ifdef NEWGRP
+	"newgrp",	donewgrp,	1,	1,
+d103 6
+a108 8
+	"nice",		donice,		0,	INF,
+	"nohup",	donohup,	0,	INF,
+	"notify",	donotify,	0,	INF,
+	"onintr",	doonintr,	0,	2,
+	"popd",		dopopd,		0,	1,
+	"pushd",	dopushd,	0,	1,
+#ifdef IIASA
+	"rd",		dopopd,		0,	1,
+d110 6
+a115 19
+	"rehash",	dohash,		0,	0,
+	"repeat",	dorepeat,	2,	INF,
+	"set",		doset,		0,	INF,
+	"setenv",	dosetenv,	2,	2,
+	"shift",	shift,		0,	1,
+	"source",	dosource,	1,	2,
+	"stop",		dostop,		1,	INF,
+	"suspend",	dosuspend,	0,	0,
+	"switch",	doswitch,	1,	INF,
+	"time",		dotime,		0,	INF,
+	"umask",	doumask,	0,	1,
+	"unalias",	unalias,	1,	INF,
+	"unhash",	dounhash,	0,	0,
+	"unlimit",	dounlimit,	0,	INF,
+	"unset",	unset,		1,	INF,
+	"unsetenv",	dounsetenv,	1,	INF,
+	"wait",		dowait,		0,	0,
+	"while",	dowhile,	1,	INF,
+	0,		0,		0,	0,
+d118 19
+a136 19
+#define	ZBREAK		0
+#define	ZBRKSW		1
+#define	ZCASE		2
+#define	ZDEFAULT 	3
+#define	ZELSE		4
+#define	ZEND		5
+#define	ZENDIF		6
+#define	ZENDSW		7
+#define	ZEXIT		8
+#define	ZFOREACH	9
+#define	ZGOTO		10
+#define	ZIF		11
+#define	ZLABEL		12
+#define	ZLET		13
+#define	ZSET		14
+#define	ZSWITCH		15
+#define	ZTEST		16
+#define	ZTHEN		17
+#define	ZWHILE		18
+d139 2
+a140 2
+	char	*s_name;
+	short	s_value;
+d142 18
+a159 18
+	"@@",		ZLET,
+	"break",	ZBREAK,
+	"breaksw",	ZBRKSW,
+	"case",		ZCASE,
+	"default", 	ZDEFAULT,
+	"else",		ZELSE,
+	"end",		ZEND,
+	"endif",	ZENDIF,
+	"endsw",	ZENDSW,
+	"exit",		ZEXIT,
+	"foreach", 	ZFOREACH,
+	"goto",		ZGOTO,
+	"if",		ZIF,
+	"label",	ZLABEL,
+	"set",		ZSET,
+	"switch",	ZSWITCH,
+	"while",	ZWHILE,
+	0,		0,
+d162 17
+a178 37
+struct	mesg {
+	char	*iname;
+	char	*pname;
+} mesg[] = {
+	0,	0,
+	"HUP",	"Hangup",
+	"INT",	"Interrupt",	
+	"QUIT",	"Quit",
+	"ILL",	"Illegal instruction",
+	"TRAP",	"Trace/BPT trap",
+	"IOT",	"IOT trap",
+	"EMT",	"EMT trap",
+	"FPE",	"Floating exception",
+	"KILL",	"Killed",
+	"BUS",	"Bus error",
+	"SEGV",	"Segmentation fault",
+	"SYS",	"Bad system call",
+	"PIPE",	"Broken pipe",
+	"ALRM",	"Alarm clock",
+	"TERM",	"Terminated",
+	0,	"Signal 16",
+	"STOP",	"Stopped (signal)",
+	"TSTP",	"Stopped",
+	"CONT",	"Continued",
+	"CHLD",	"Child exited",
+	"TTIN", "Stopped (tty input)",
+	"TTOU", "Stopped (tty output)",
+	"TINT", "Tty input interrupt",
+	"XCPU",	"Cputime limit exceeded",
+	"XFSZ", "Filesize limit exceeded",
+	0,	"Signal 26",
+	0,	"Signal 27",
+	0,	"Signal 28",
+	0,	"Signal 29",
+	0,	"Signal 30",
+	0,	"Signal 31",
+	0,	"Signal 32"
+a179 100
+
+/*
+ * Массивы для закавычивания/раскавычивания символов
+ *
+ */
+char to8quot[256]= {
+/* 0   1   2    3    4    5    6    7  */
+ 0200,0201,0202,0203,0204,0205,0206,0207,
+/*  10   11   12   13   14   15   16   17 */
+  0210,0211,0212,0213,0214,0215,0216,0217,
+/*  20   21   22   23   24   25   26   27 */
+  0220,0221,0222,0223,0224,0225,0226,0227,
+/*  30   31   32   33   34   35   36   37 */
+  0230,0231,0232,0233,0234,0235,0236,0237,
+/*
+   :40 !:41 ":42 #:43 $:44 %:45 &:46 ':47 */
+  0240,0241,0242,0243,0244,0245,0246,0247,
+/*(:50 ):51 *:52 +:53 ,:54 -:55 .:56 /:57 */
+  0250,0251,0252,0253,0254,0255,0256,0257,
+/*0:60 1:61 2:62 3:63 4:64 5:65 6:66 7:67 - цифры не маскируем */
+  0060,0061,0062,0063,0064,0065,0066,0067,
+/*8:70 9:71 ::72 ;:73 <:74 =:75 >:76 ?:77 */
+  0070,0071,0272,0273,0274,0275,0276,0277,
+/*
+  @@100 A101 B102 C103 D104 E105 F106 G107 */
+  0260,0101,0102,0103,0104,0105,0106,0107,
+/*H110 I111 J112 K113 L114 M115 N116 O117 */
+  0110,0111,0112,0113,0114,0115,0116,0117,
+/*P120 Q121 R122 S123 T124 U125 V126 W127 */
+  0120,0121,0122,0123,0124,0125,0126,0127,
+/*X130 Y131 Z132 [133 \134 ]135 ^136 _137 */
+  0130,0131,0132,0261,0262,0263,0264,0137,
+/*
+  `140 a141 b142 c143 d144 e145 f146 g147 */
+  0265,0141,0142,0143,0144,0145,0146,0147,
+/*h150 i151 j152 k153 l154 m155 n156 o157 */
+  0150,0151,0152,0153,0154,0155,0156,0157,
+/*p160 q161 r162 s163 t164 u165 v166 w167 */
+  0160,0161,0162,0163,0164,0165,0166,0167,
+/*x170 y171 z172 {173 |174 }175 ~176  177 */
+  0170,0171,0172,0266,0267,0270,0271,0377,
+/* Повторное маскирование не изменяет кода */
+  0200,0201,0202,0203,0204,0205,0206,0207,
+  0210,0211,0212,0213,0214,0215,0216,0217,
+  0220,0221,0222,0223,0224,0225,0226,0227,
+  0230,0231,0232,0233,0234,0235,0236,0237,
+  0240,0241,0242,0243,0244,0245,0246,0247,
+  0250,0251,0252,0253,0254,0255,0256,0257,
+  0260,0261,0262,0263,0264,0265,0266,0267,
+  0270,0271,0272,0273,0274,0275,0276,0277,
+  0300,0301,0302,0303,0304,0305,0306,0307,
+  0310,0311,0312,0313,0314,0315,0316,0317,
+  0320,0321,0322,0323,0324,0325,0326,0327,
+  0330,0331,0332,0333,0334,0335,0336,0337,
+  0340,0341,0342,0343,0344,0345,0346,0347,
+  0350,0351,0352,0353,0354,0355,0356,0357,
+  0360,0361,0362,0363,0364,0365,0366,0367,
+  0370,0371,0372,0373,0374,0375,0376,0377 };
+
+char to8trim[256]= {
+/* Повторное размаскирование не изменяет кода */
+  0000,0001,0002,0003,0004,0005,0006,0007,
+  0010,0011,0012,0013,0014,0015,0016,0017,
+  0020,0021,0022,0023,0024,0025,0026,0027,
+  0030,0031,0032,0033,0034,0035,0036,0037,
+  0040,0041,0042,0043,0044,0045,0046,0047,
+  0050,0051,0052,0053,0054,0055,0056,0057,
+  0060,0061,0062,0063,0064,0065,0066,0067,
+  0070,0071,0072,0073,0074,0075,0076,0077,
+  0100,0101,0102,0103,0104,0105,0106,0107,
+  0110,0111,0112,0113,0114,0115,0116,0117,
+  0120,0121,0122,0123,0124,0125,0126,0127,
+  0130,0131,0132,0133,0134,0135,0136,0137,
+  0140,0141,0142,0143,0144,0145,0146,0147,
+  0150,0151,0152,0153,0154,0155,0156,0157,
+  0160,0161,0162,0163,0164,0165,0166,0167,
+  0170,0171,0172,0173,0174,0175,0176,0177,
+/* Управл. коды маскируются */
+  0000,0001,0002,0003,0004,0005,0006,0007,
+  0010,0011,0012,0013,0014,0015,0016,0017,
+  0020,0021,0022,0023,0024,0025,0026,0027,
+  0030,0031,0032,0033,0034,0035,0036,0037,
+/* Спец символы маскируются     */
+  0040,0041,0042,0043,0044,0045,0046,0047,
+  0050,0051,0052,0053,0054,0055,0056,0057,
+  0100,0133,0134,0135,0136,0140,0173,0174,  /* Вместо цифр - спец символы */
+  0175,0176,0072,0073,0074,0075,0076,0077,
+/* Русские буквы не маскируются */
+  0300,0301,0302,0303,0304,0305,0306,0307,
+  0310,0311,0312,0313,0314,0315,0316,0317,
+  0320,0321,0322,0323,0324,0325,0326,0327,
+  0330,0331,0332,0333,0334,0335,0336,0337,
+  0340,0341,0342,0343,0344,0345,0346,0347,
+/* Русские буквы не маскируются */
+  0350,0351,0352,0353,0354,0355,0356,0357,
+  0360,0361,0362,0363,0364,0365,0366,0367,
+  0370,0371,0372,0373,0374,0375,0376,0177 };
+
+char *toquot=to8quot, *totrim=to8trim; /* Это пока нет 2-х режимов */
+
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a3 1
+
+a5 5
+ *
+ * $Log:	sh.init.c,v $
+ * Revision 1.1  86/02/24  20:23:23  sys
+ * Initial revision
+ * 
+a20 3
+#ifdef  GOGO
+extern  int dogogo();
+#endif  GOGO
+d34 1
+d36 1
+a55 1
+extern  int doeval();
+a82 1
+	"eval",         doeval,         0,      INF,
+a84 3
+#ifdef  GOGO
+	"gogo",         dogogo,         1,      1,
+#endif  GOGO
+d101 1
+a101 1
+	"setenv",       dosetenv,       0,      2,
+d178 1
+a178 1
+	"Terminated"
+a179 130
+
+#ifdef EDIAG
+
+char    *Rmesg[] = {
+	0,
+	"Зависание",
+	0,
+	"Сброшен",
+	"Несуществующая команда",
+	"Прерывание по trace/BPT",
+	"Прерывание по IOT",
+	"Прерывание по EMT",
+	"Ошибка плав. арифметики",
+	"Убит",
+	"Ошибка шины",
+	"Нарушение защиты памяти",
+	"Плохой системный вызов",
+	0,
+	"Сигнал alarm",
+	"Прекращен"
+};
+
+#endif EDIAG
+
+/*
+ * Массивы для закавычивания/раскавычивания символов
+ */
+
+char to8quot[256]= {
+/* 0   1   2    3    4    5    6    7  */
+ 0200,0201,0202,0203,0204,0205,0206,0207,
+/*  10   11   12   13   14   15   16   17 */
+  0210,0211,0212,0213,0214,0215,0216,0217,
+/*  20   21   22   23   24   25   26   27 */
+  0220,0221,0222,0223,0224,0225,0226,0227,
+/*  30   31   32   33   34   35   36   37 */
+  0230,0231,0232,0233,0234,0235,0236,0237,
+/*
+   :40 !:41 ":42 #:43 $:44 %:45 &:46 ':47 */
+  0240,0241,0242,0243,0244,0245,0246,0247,
+/*(:50 ):51 *:52 +:53 ,:54 -:55 .:56 /:57 */
+  0250,0251,0252,0253,0254,0255,0256,0257,
+/*0:60 1:61 2:62 3:63 4:64 5:65 6:66 7:67 - цифры не маскируем */
+  0060,0061,0062,0063,0064,0065,0066,0067,
+/*8:70 9:71 ::72 ;:73 <:74 =:75 >:76 ?:77 */
+  0070,0071,0272,0273,0274,0275,0276,0277,
+/*
+  @@100 A101 B102 C103 D104 E105 F106 G107 */
+  0260,0101,0102,0103,0104,0105,0106,0107,
+/*H110 I111 J112 K113 L114 M115 N116 O117 */
+  0110,0111,0112,0113,0114,0115,0116,0117,
+/*P120 Q121 R122 S123 T124 U125 V126 W127 */
+  0120,0121,0122,0123,0124,0125,0126,0127,
+/*X130 Y131 Z132 [133 \134 ]135 ^136 _137 */
+  0130,0131,0132,0261,0262,0263,0264,0137,
+/*
+  `140 a141 b142 c143 d144 e145 f146 g147 */
+  0265,0141,0142,0143,0144,0145,0146,0147,
+/*h150 i151 j152 k153 l154 m155 n156 o157 */
+  0150,0151,0152,0153,0154,0155,0156,0157,
+/*p160 q161 r162 s163 t164 u165 v166 w167 */
+  0160,0161,0162,0163,0164,0165,0166,0167,
+/*x170 y171 z172 {173 |174 }175 ~176  177 */
+#ifndef МНОС
+  0170,0171,0172,0266,0267,0270,0271,0377,
+#else
+  0170,0171,0172,0266,0267,0270,0271,0177,
+#endif
+/* Повторное маскирование не изменяет кода */
+  0200,0201,0202,0203,0204,0205,0206,0207,
+  0210,0211,0212,0213,0214,0215,0216,0217,
+  0220,0221,0222,0223,0224,0225,0226,0227,
+  0230,0231,0232,0233,0234,0235,0236,0237,
+  0240,0241,0242,0243,0244,0245,0246,0247,
+  0250,0251,0252,0253,0254,0255,0256,0257,
+  0260,0261,0262,0263,0264,0265,0266,0267,
+  0270,0271,0272,0273,0274,0275,0276,0277,
+  0300,0301,0302,0303,0304,0305,0306,0307,
+  0310,0311,0312,0313,0314,0315,0316,0317,
+  0320,0321,0322,0323,0324,0325,0326,0327,
+  0330,0331,0332,0333,0334,0335,0336,0337,
+  0340,0341,0342,0343,0344,0345,0346,0347,
+  0350,0351,0352,0353,0354,0355,0356,0357,
+  0360,0361,0362,0363,0364,0365,0366,0367,
+  0370,0371,0372,0373,0374,0375,0376,0377 };
+
+char to8trim[256]= {
+/* Повторное размаскирование не изменяет кода */
+  0000,0001,0002,0003,0004,0005,0006,0007,
+  0010,0011,0012,0013,0014,0015,0016,0017,
+  0020,0021,0022,0023,0024,0025,0026,0027,
+  0030,0031,0032,0033,0034,0035,0036,0037,
+  0040,0041,0042,0043,0044,0045,0046,0047,
+  0050,0051,0052,0053,0054,0055,0056,0057,
+  0060,0061,0062,0063,0064,0065,0066,0067,
+  0070,0071,0072,0073,0074,0075,0076,0077,
+  0100,0101,0102,0103,0104,0105,0106,0107,
+  0110,0111,0112,0113,0114,0115,0116,0117,
+  0120,0121,0122,0123,0124,0125,0126,0127,
+  0130,0131,0132,0133,0134,0135,0136,0137,
+  0140,0141,0142,0143,0144,0145,0146,0147,
+  0150,0151,0152,0153,0154,0155,0156,0157,
+  0160,0161,0162,0163,0164,0165,0166,0167,
+  0170,0171,0172,0173,0174,0175,0176,0177,
+/* Управл. коды маскируются */
+  0000,0001,0002,0003,0004,0005,0006,0007,
+  0010,0011,0012,0013,0014,0015,0016,0017,
+  0020,0021,0022,0023,0024,0025,0026,0027,
+  0030,0031,0032,0033,0034,0035,0036,0037,
+/* Спец символы маскируются     */
+  0040,0041,0042,0043,0044,0045,0046,0047,
+  0050,0051,0052,0053,0054,0055,0056,0057,
+  0100,0133,0134,0135,0136,0140,0173,0174,  /* Вместо цифр - спец символы */
+  0175,0176,0072,0073,0074,0075,0076,0077,
+/* Русские буквы не маскируются */
+  0300,0301,0302,0303,0304,0305,0306,0307,
+  0310,0311,0312,0313,0314,0315,0316,0317,
+  0320,0321,0322,0323,0324,0325,0326,0327,
+  0330,0331,0332,0333,0334,0335,0336,0337,
+  0340,0341,0342,0343,0344,0345,0346,0347,
+/* Русские буквы не маскируются */
+  0350,0351,0352,0353,0354,0355,0356,0357,
+  0360,0361,0362,0363,0364,0365,0366,0367,
+#ifndef МНОС
+  0370,0371,0372,0373,0374,0375,0376,0177 };
+#else
+  0370,0371,0372,0373,0374,0375,0376,0377 };
+#endif
+
+char *toquot = to8quot, *totrim = to8trim; /* Это пока нет 2-х режимов */
+@

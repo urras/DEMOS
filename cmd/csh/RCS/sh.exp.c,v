@@ -1,0 +1,1557 @@
+head     1.7;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     89.12.01.15.27.49;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.11.23.16.03.08;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.11.22.14.40.29;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.11.22.14.00.56;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.20.21.39.02;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.17.39.24;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.19.36;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.17.20;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.39.56;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.09.08;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.34.18;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.7
+log
+@Добавил функции canon и echo
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.exp.c,v 1.6 89/11/23 16:03:08 abs Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.exp.c,v $
+ * Revision 1.6  89/11/23  16:03:08  abs
+ * флаг -DFUNC_ON для включения механизма функций в выражениях.
+ *
+ * Revision 1.5  89/11/22  14:40:29  abs
+ * strcmp --> strlcmp
+ *
+ * Revision 1.4  89/11/22  14:00:56  abs
+ * добавлен меьанизм функций в выражениях
+ *
+ * Revision 1.3  86/07/20  21:39:02  avg
+ * Версия, слитая с версией alex-а из 4.2.
+ *
+ * Revision 1.2  86/06/02  17:39:24  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+ *
+ * Revision 1.1  86/06/01  20:19:36  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+
+#define IGNORE  1       /* in ignore, it means to ignore value, just parse */
+#define NOGLOB  2       /* in ignore, it means not to globone */
+
+#define ADDOP   1
+#define MULOP   2
+#define EQOP    4
+#define RELOP   8
+#define RESTOP  16
+#define ANYOP   31
+
+#define EQEQ    1
+#define GTR     2
+#define LSS     4
+#define NOTEQ   6
+#define EQMATCH 7
+#define NOTEQMATCH 8
+
+#ifndef NULL
+# define NULL ((char *) 0)
+#endif
+
+/* ----------------------- INT VALUES --------------------- */
+int expint(vp)
+	register char ***vp;
+{
+
+	return ( exp0int(vp, 0));
+}
+
+int exp0int(vp, ignore )
+	bool ignore;
+	register char ***vp;
+{
+	char *s;
+	register i;
+
+	s = exp0(vp, ignore);
+	i = egetn( s );
+	xfree( s );
+	return i;
+}
+
+/* -------------------- CHAR *   VALUES ------------------ */
+
+char *exp(vp)
+	register char ***vp;
+{
+
+	return (exp0(vp, 0));
+}
+
+char *exp0(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1 = exp1(vp, ignore);
+	register char *p2;
+	register int i1;
+
+#ifdef EDEBUG
+	etracc("exp0 p1", p1, vp);
+#endif
+	if (**vp && eq(**vp, "||")) {
+
+		(*vp)++;
+		i1 = egetn( p1 );
+		p2 = exp0(vp, (ignore&IGNORE) || i1);
+#ifdef EDEBUG
+		etracc("exp0 p2", p2, vp);
+#endif
+		i1 = i1 || egetn( p2 );
+		xfree( p1 ); xfree( p2 );
+		return putn( i1 );
+	}
+/*
+	guarantee strsav-ing of result in the heap:
+	return onlyread(p1) ? savestr(p1) : p1 ;
+*/
+	return (p1);
+}
+
+char *exp1(vp, ignore)
+	register char ***vp;
+{
+	register char *p1 = exp2(vp, ignore);
+	register char *p2;
+	register int i1;
+
+#ifdef EDEBUG
+	etracc("exp1 p1", p1, vp);
+#endif
+	if (**vp && eq(**vp, "&&")) {
+		(*vp)++;
+		i1 = egetn( p1 );
+		p2 = exp1(vp, (ignore&IGNORE) || !i1);
+#ifdef EDEBUG
+		etracc("exp1 p2", p2, vp);
+#endif
+		i1 = i1 && egetn( p2 );
+		xfree( p1 ); xfree( p2 );
+		return putn( i1 );
+	}
+	return (p1);
+}
+
+char *exp2(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1 = exp2a(vp, ignore);
+	register char *p2;
+	register int i1;
+
+#ifdef EDEBUG
+	etracc("exp3 p1", p1, vp);
+#endif
+	if (**vp && eq(**vp, "|")) {
+		(*vp)++;
+		p2 = exp2(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp3 p2", p2, vp);
+#endif
+		i1 = egetn( p1 ) | egetn( p2 );
+		xfree( p1 ); xfree( p2 );
+		return putn( i1 );
+	}
+	return (p1);
+}
+
+char *exp2a(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1 = exp2b(vp, ignore);
+	register char *p2;
+	register int i1;
+
+#ifdef EDEBUG
+	etracc("exp2a p1", p1, vp);
+#endif
+	if (**vp && eq(**vp, "^")) {
+		(*vp)++;
+		p2 = exp2a(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp2a p2", p2, vp);
+#endif
+		i1 = egetn( p1 ) ^ egetn( p2 );
+		xfree( p1 ); xfree( p2 );
+		return putn( i1 );
+	}
+	return (p1);
+}
+
+char *exp2b(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1 = exp2c(vp, ignore);
+	register char *p2;
+	register i1;
+
+#ifdef EDEBUG
+	etracc("exp2b p1", p1, vp);
+#endif
+	if (**vp && eq(**vp, "&")) {
+
+		(*vp)++;
+		p2 = exp2b(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp2b p2", p2, vp);
+#endif
+		i1 = egetn( p1 ) & egetn( p2 );
+		xfree( p1 ); xfree( p2 );
+		return putn( i1 );
+	}
+	return (p1);
+}
+
+char *exp2c(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1 = exp3(vp, ignore);
+	register char *p2;
+	register int i;
+
+#ifdef EDEBUG
+	etracc("exp2c p1", p1, vp);
+#endif
+	if (i = isa(**vp, EQOP)) {
+		(*vp)++;
+		if (i == EQMATCH || i == NOTEQMATCH)
+			ignore |= NOGLOB;
+		p2 = exp3(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp2c p2", p2, vp);
+#endif
+		if (!(ignore&IGNORE)) switch (i) {
+
+		case EQEQ:
+			i = eq(p1, p2);
+			break;
+
+		case NOTEQ:
+			i = !eq(p1, p2);
+			break;
+
+		case EQMATCH:
+			i = Gmatch(p1, p2);
+			break;
+
+		case NOTEQMATCH:
+			i = !Gmatch(p1, p2);
+			break;
+		}
+		xfree(p1), xfree(p2);
+		return putn( i );
+
+	}
+	return p1;
+}
+
+char *
+exp3(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1, *p2;
+	register int i;
+
+	p1 = exp3a(vp, ignore);
+#ifdef EDEBUG
+	etracc("exp3 p1", p1, vp);
+#endif
+	if (i = isa(**vp, RELOP)) {
+		(*vp)++;
+		if (**vp && eq(**vp, "="))
+			i |= 1, (*vp)++;
+		p2 = exp3(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp3 p2", p2, vp);
+#endif
+		if (!(ignore&IGNORE)) switch (i) {
+
+		case GTR:
+			i = egetn(p1) > egetn(p2);
+			break;
+
+		case GTR|1:
+			i = egetn(p1) >= egetn(p2);
+			break;
+
+		case LSS:
+			i = egetn(p1) < egetn(p2);
+			break;
+
+		case LSS|1:
+			i = egetn(p1) <= egetn(p2);
+			break;
+		}
+		xfree(p1), xfree(p2);
+		return (putn(i));
+	}
+	return (p1);
+}
+
+char *
+exp3a(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1, *p2, *op;
+	register int i;
+
+	p1 = exp4(vp, ignore);
+#ifdef EDEBUG
+	etracc("exp3a p1", p1, vp);
+#endif
+	op = **vp;
+	if (op && any(op[0], "<>") && op[0] == op[1]) {
+		(*vp)++;
+		p2 = exp3a(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp3a p2", p2, vp);
+#endif
+		if (op[0] == '<')
+			i = egetn(p1) << egetn(p2);
+		else
+			i = egetn(p1) >> egetn(p2);
+		xfree(p1), xfree(p2);
+		return (putn(i));
+	}
+	return (p1);
+}
+
+char *
+exp4(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1, *p2;
+	register int i = 0;
+
+	p1 = exp5(vp, ignore);
+#ifdef EDEBUG
+	etracc("exp4 p1", p1, vp);
+#endif
+	if (isa(**vp, ADDOP)) {
+		register char *op = *(*vp)++;
+
+		p2 = exp4(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp4 p2", p2, vp);
+#endif
+		if (!(ignore&IGNORE)) switch (op[0]) {
+
+		case '+':
+			i = egetn(p1) + egetn(p2);
+			break;
+
+		case '-':
+			i = egetn(p1) - egetn(p2);
+			break;
+		}
+		xfree(p1), xfree(p2);
+		return (putn(i));
+	}
+	return (p1);
+}
+
+char *
+exp5(vp, ignore)
+	register char ***vp;
+	bool ignore;
+{
+	register char *p1, *p2;
+	register int i = 0;
+
+	p1 = exp6(vp, ignore);
+#ifdef EDEBUG
+	etracc("exp5 p1", p1, vp);
+#endif
+	if (isa(**vp, MULOP)) {
+		register char *op = *(*vp)++;
+
+		p2 = exp5(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp5 p2", p2, vp);
+#endif
+		if (!(ignore&IGNORE)) switch (op[0]) {
+
+		case '*':
+			i = egetn(p1) * egetn(p2);
+			break;
+
+		case '/':
+			i = egetn(p2);
+			if (i == 0)
+				error(ediag("Divide by 0",
+					    "Деление на 0"));
+			i = egetn(p1) / i;
+			break;
+
+		case '%':
+			i = egetn(p2);
+			if (i == 0)
+				error(ediag("Mod by 0",
+					    "Mod от 0"));
+			i = egetn(p1) % i;
+			break;
+		}
+		xfree(p1), xfree(p2);
+		return (putn(i));
+	}
+	return (p1);
+}
+
+#ifdef FUNC_ON
+/* -------- DIGITAL & STRING FUNCTIONS ---------- */
+
+char *fstrlen( s ) char *s;
+{
+	return putn( strlen(s));
+}
+
+char *frand(){
+	static bool randomized = 0;
+	if( !randomized ){
+		randomized ++;
+		srand( getpid());
+	}
+	return putn( rand());
+}
+
+char *fmax(s1, s2) char *s1, *s2;
+{
+	int i = egetn(s1);
+	int j = egetn(s2);
+
+	return putn( i < j ? j : i );
+}
+
+char *fmin(s1, s2) char *s1, *s2;
+{
+	int i = egetn(s1);
+	int j = egetn(s2);
+
+	return putn( i > j ? j : i );
+}
+
+char *fabs(s1) char *s1;
+{
+	int i = egetn(s1);
+
+	return putn( i < 0 ? -i : i );
+}
+
+char *fcond(cnd, s1, s2) char *cnd, *s1, *s2;
+{
+	return savestr( egetn(cnd) ? s1 : s2 );
+}
+
+char *fstrrpt( s, n )
+	char *s, *n;
+{
+	int i = egetn( n );
+	int j;
+	char *sum;
+	char *new;
+
+	chkpositive( i );
+
+	sum = "";
+	for( j=0; j<i; j++ ){
+		new = strspl( sum, s );
+		xfree( sum );
+		sum = new;
+	}
+	return sum;
+}
+
+char *fstrcat( s1, s2 ) char *s1, *s2;
+{
+	return strspl( s1, s2 );
+}
+
+char *fstrhead( s, n ) char *s, *n;
+{
+	int i = egetn( n );
+	int len = strlen( s );
+	char *new;
+
+	chkpositive( i );
+	if( i < len ){
+		char c;
+		c = s[i]; s[i] = '\0';
+		new = savestr( s );
+		s[i] = c;
+	}else   new = savestr( s );
+	return new;
+}
+
+char *fstrtail( s, n ) char *s, *n;
+{
+	int i = egetn( n );
+	int len = strlen( s );
+
+	chkpositive( i );
+	if( i < len )
+		return savestr( s+i );
+	else    return "";
+}
+
+char *fsubstr( s, from, howlong ) char *s, *from, *howlong;
+{
+	int i = egetn( from );
+	int j = egetn( howlong );
+	int len = strlen( s );
+	char *new;
+
+	chkpositive( i );
+	chkpositive( j );
+
+	if( i >= len )
+		return "";
+
+	s += i; len -= i;
+	if( j < len ){
+		char c;
+		c = s[j]; s[j] = '\0';
+		new = savestr(s);
+		s[j] = c;
+	}else   new = savestr(s);
+	return  new;
+}
+
+char *fstrindex( s, p ) char *s, *p;
+{
+	int ls = strlen(s);
+	int lp = strlen(p);
+	int i;
+
+	for( i = 0; i <= ls - lp; i++ )
+		if ( strncmp(p, s+i, lp) == 0 )
+			return putn(i);
+	return "-1";
+}
+
+char *fstrrindex( s, p ) char *s, *p;
+{
+	int ls = strlen(s);
+	int lp = strlen(p);
+	int i;
+
+	for( i = ls-lp; i >= 0; i-- )
+		if ( strncmp(p, s+i, lp) == 0 )
+			return putn(i);
+	return "-1";
+}
+
+char *fstrcmp(s1, s2) char *s1, *s2;
+{
+	return putn( strlcmp(s1, s2));
+}
+
+char *fstrncmp(s1, s2, n ) char *s1, *s2, *n;
+{
+	int i = egetn(n);
+	chkpositive(i);
+	return putn( strnlcmp(s1, s2, i));
+}
+
+char *fsizkb( name ) char *name;
+{
+	struct stat st;
+	long s;
+#define KB 1024L
+
+	if( stat( name, &st ) < 0 ) return "0";
+	s = ((st.st_size % KB ) ? 1L : 0L) + (st.st_size / KB );
+	return putn( (int)s );
+}
+
+char *fcanon( s ) char *s;
+{
+	char *p;
+
+	if( *s != '/' ){
+		bferr( ediag( "No / at teh beginning of path",
+			      "Нет / в начале пути"));
+		return "";
+	}
+	p = savestr( s );
+	dcanon( p );
+	return p;
+}
+
+char *fecho( s ) char *s;
+{
+	printf( "%s\n", s );
+	return savestr( s );
+}
+
+struct builtins {
+	char *f_name;
+	char * (*f_f)();
+	char f_narg;            /* <= NAR-1 */
+	char f_type;
+} BF [] = {
+	{ "abs",    fabs,     1, 'd' },
+	{ "canon",  fcanon,   1, 's' },
+	{ "cond",   fcond,    3, 's' },
+	{ "echo",   fecho,    1, 's' },
+	{ "head",   fstrhead, 2, 's' },
+	{ "index",  fstrindex,2, 'd' },
+	{ "max",    fmax,     2, 'd' },
+	{ "min",    fmin,     2, 'd' },
+	{ "rand"  , frand,    0, 'd' },
+	{ "rindex", fstrrindex, 2,'d'},
+	{ "sizekb", fsizkb,   1, 'd' },
+	{ "strcat", fstrcat,  2, 's' },
+	{ "strcmp", fstrcmp,  2, 'd' },
+	{ "strlen", fstrlen,  1, 'd' },
+	{ "strncmp",fstrncmp, 3, 'd' },
+	{ "strrpt", fstrrpt,  2, 's' },
+	{ "substr", fsubstr,  3, 's' },
+	{ "tail",   fstrtail, 2, 's' },
+	{ NULL,     NULL,     0,  0  }
+};
+
+isafunc( s ) char *s;
+{
+	int i = strlen( s );
+	return ( i > 1  &&  s[i-1] == '{' );
+}
+/* ---------------------------------------------- */
+#endif FUNC_ON
+
+char *
+exp6(vp, ignore)
+	register char ***vp;
+{
+	int i, j;
+	char *ccode;
+	register char *cp, *dp, *ep;
+	char *s, c;
+	struct builtins *b;
+#define NAR 5
+	char *args[NAR];
+
+	if (eq(**vp, "!")) {
+		(*vp)++;
+		cp = exp6(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp6 ! cp", cp, vp);
+#endif
+		i = egetn(cp);
+		xfree(cp);
+		return (putn(!i));
+	}
+	if (eq(**vp, "~")) {
+		(*vp)++;
+		cp = exp6(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp6 ~ cp", cp, vp);
+#endif
+		i = egetn(cp);
+		xfree(cp);
+		return (putn(~i));
+	}
+	if (eq(**vp, "(")) {
+		(*vp)++;
+		ccode = exp0(vp, ignore);
+#ifdef EDEBUG
+		etracc("exp6 () ccode", ccode, vp);
+#endif
+		if (*vp == NULL || **vp == NULL || ***vp != ')')
+			bferr(ediag("Expression syntax",
+				    "Синтаксическая ошибка в выражении"));
+		(*vp)++;
+		return ccode;
+	}
+#ifdef FUNC_ON
+	if (isafunc(**vp)){
+		/* Call of the builtin function */
+		s = **vp; i = strlen( s );
+
+		s[ i-1 ] = '\0';
+
+		for( b=BF ; b->f_name; b++ )
+			if( eq( s, b->f_name )) break;
+		s[ i-1 ] = '{';
+
+		if( b->f_name == NULL ){
+			bferr( ediag( "Unknown function",
+				      "Неизвестная функция" ));
+			b = NULL;
+		}
+
+		(*vp)++;
+
+		/* Collect arguments */
+		for( i=0; i < NAR; i++ )
+			args[ i ] = NULL;
+
+		i = 0;
+		j = b->f_narg;
+		while( i < j ){
+#ifdef EDEBUG
+			printf( "collect arg %d for %s\n", i, b->f_name );
+#endif
+			args[i++] = exp0( vp, ignore );
+#ifdef EDEBUG
+			printf( "arg[%d]=%s for %s\n", i, args[i], b->f_name);
+#endif
+
+			if( *vp == NULL || **vp == NULL || ((c= ***vp ) != ',' && c != '}' )){
+				afree( args );
+				if( i < j )
+					bferr( ediag( "Func call: missing ','",
+						      "Вызов функции: требуется запятая"));
+					else bferr( ediag( "Func call: syntax error",
+						      "Вызов функции: синт. ошибка"));
+			}
+			if( *** vp == '}' ) goto ok;
+			(*vp)++;
+		}
+		if(i) (*vp)--;
+ok:
+		args[i] = NULL;
+		if( *vp == NULL || **vp == NULL || ***vp != '}'  || i != b->f_narg )
+		{
+			afree( args );
+			bferr( ediag( "Expr syntax: func arg count",
+				      "Неверное число аргументов функции" ));
+		}
+		(*vp)++;
+
+		if( b == NULL ){
+			s = "";
+			goto out;
+		}
+		if( ignore & IGNORE ){
+			s = (b->f_type == 'd') ? "0" : "" ;
+			goto out;
+		}
+
+		/* All args of call are (char *) */
+		s = (*(b->f_f)) (args[0], args[1], args[2], args[3] );
+out:
+		afree( args );
+		return s;
+	}
+#endif FUNC_ON
+	if (eq(**vp, "{")) {
+		register char **v;
+		struct command faket;
+		char *fakecom[2];
+
+		faket.t_dtyp = TCOM;
+		faket.t_dflg = 0;
+		faket.t_dcar = faket.t_dcdr = faket.t_dspr = (struct command *)0;
+		faket.t_dcom = fakecom;
+		fakecom[0] = "{ ... }";
+		fakecom[1] = NOSTR;
+		(*vp)++;
+		v = *vp;
+		for (;;) {
+			if (!**vp)
+				bferr(ediag("Missing }",
+					    "Отсутствует }"));
+			if (eq(*(*vp)++, "}"))
+				break;
+		}
+		if (ignore&IGNORE)
+			return ("");
+		psavejob();
+		if (pfork(&faket, -1) == 0) {
+			*--(*vp) = 0;
+			evalav(v);
+			exitstat();
+		}
+		pwait();
+		prestjob();
+#ifdef EDEBUG
+		etraci("exp6 {} status", egetn(value("status")), vp);
+#endif
+		return (putn(egetn(value("status")) == 0));
+	}
+	if (isa(**vp, ANYOP))
+		return ("");
+	cp = *(*vp)++;
+	if (*cp == '-' && any(cp[1], "erwxfdzop")) {
+		struct stat stb;
+
+		if (isa(**vp, ANYOP))
+			bferr(ediag("Missing file name",
+				    "Нет имени файла"));
+		dp = *(*vp)++;
+		if (ignore&IGNORE)
+			return ("");
+		ep = globone(dp);
+		switch (cp[1]) {
+
+		case 'r':
+			i = !access(ep, 4);
+			break;
+
+		case 'w':
+			i = !access(ep, 2);
+			break;
+
+		case 'x':
+			i = !access(ep, 1);
+			break;
+
+		default:
+			if (stat(ep, &stb)) {
+				xfree(ep);
+				return ("0");
+			}
+			switch (cp[1]) {
+
+			case 'f':
+				i = (stb.st_mode & S_IFMT) == S_IFREG;
+				break;
+
+			case 'd':
+				i = (stb.st_mode & S_IFMT) == S_IFDIR;
+				break;
+
+#ifdef S_IFIFO
+			case 'p':
+				i = (stb.st_mode & S_IFMT) == S_IFIFO;
+#else
+				i = 0;
+#endif
+				break;
+
+			case 'z':
+				i = (stb.st_size == 0L);
+				break;
+
+			case 'e':
+				i = 1;
+				break;
+
+			case 'o':
+				i = stb.st_uid == uid;
+				break;
+			}
+		}
+#ifdef EDEBUG
+		etraci("exp6 -? i", i, vp);
+#endif
+		xfree(ep);
+		return (putn(i));
+	}
+#ifdef EDEBUG
+	etracc("exp6 default", cp, vp);
+#endif
+	return (ignore&NOGLOB ? cp : globone(cp));
+}
+
+evalav(v)
+	register char **v;
+{
+	struct wordent paraml;
+	register struct wordent *hp = &paraml;
+	struct command *t;
+	register struct wordent *wdp = hp;
+
+	set("status", "0");
+	hp->prev = hp->next = hp;
+	hp->word = "";
+	while (*v) {
+		register struct wordent *new = (struct wordent *) calloc(1, sizeof *wdp);
+
+		new->prev = wdp;
+		new->next = hp;
+		wdp->next = new;
+		wdp = new;
+		wdp->word = savestr(*v++);
+	}
+	hp->prev = wdp;
+	alias(&paraml);
+	t = syntax(paraml.next, &paraml, 0);
+	if (err)
+		error(err);
+	execute(t, -1);
+	freelex(&paraml), freesyn(t);
+}
+
+isa(cp, what)
+	register char *cp;
+	register int what;
+{
+
+	if (cp == 0)
+		return ((what & RESTOP) != 0);
+	if (cp[1] == 0) {
+		if ((what & ADDOP) && any(cp[0], "+-"))
+			return (1);
+		if ((what & MULOP) && any(cp[0], "*/%"))
+			return (1);
+		if ((what & RESTOP) && any(cp[0], "()!~^"))
+			return (1);
+	}
+	if ((what & RESTOP) && (any(cp[0], "|&") || eq(cp, "<<") || eq(cp, ">>")))
+		return (1);
+	if (what & EQOP) {
+		if (eq(cp, "=="))
+			return (EQEQ);
+		if (eq(cp, "!="))
+			return (NOTEQ);
+		if (eq(cp, "=~"))
+			return (EQMATCH);
+		if (eq(cp, "!~"))
+			return (NOTEQMATCH);
+	}
+	if (!(what & RELOP))
+		return (0);
+	if (*cp == '<')
+		return (LSS);
+	if (*cp == '>')
+		return (GTR);
+	return (0);
+}
+
+/* Следует иметь в виду, что сейчас egetn( "" ) = 0 */
+egetn(cp)
+	register char *cp;
+{
+
+	if (*cp && *cp != '-' && !digit(*cp))
+		bferr(ediag("Expression syntax: not a number",
+			    "Синтаксическая ошибка в выражении: не число"));
+	return (getn(cp));
+}
+
+chkpositive( i ){
+	if( i < 0 )
+		bferr( ediag("Expression fault: negative number",
+			     "Ошибка в выражении: отрицательное число"));
+}
+
+afree( av ) char **av;
+/* like the blkfree */
+{
+	while( *av ){
+		xfree( *av );
+		*av++ = NULL;
+	}
+}
+
+/* Phew! */
+
+#ifdef EDEBUG
+etraci(str, i, vp)
+	char *str;
+	int i;
+	char ***vp;
+{
+
+	printf("%s=%d\t", str, i);
+	blkpr(*vp);
+	printf("\n");
+}
+
+etracc(str, cp, vp)
+	char *str, *cp;
+	char ***vp;
+{
+
+	printf("%s=%s\t", str, cp);
+	blkpr(*vp);
+	printf("\n");
+}
+#endif
+@
+
+
+1.6
+log
+@флаг -DFUNC_ON для включения механизма функций в выражениях.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exp.c,v 1.5 89/11/22 14:40:29 abs Exp $";
+d9 3
+d574 20
+d601 1
+d603 1
+@
+
+
+1.5
+log
+@strcmp --> strlcmp
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exp.c,v 1.4 89/11/22 14:00:56 abs Exp $";
+d9 3
+d405 1
+a600 1
+
+d602 1
+d648 1
+d687 2
+a688 2
+					else bferr( ediag( "Func call: missing '}'",
+						      "Вызов функции: требуется }"));
+d719 1
+d895 1
+@
+
+
+1.4
+log
+@добавлен меьанизм функций в выражениях
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exp.c,v 1.3 86/07/20 21:39:02 avg Exp $";
+d9 3
+d546 1
+a546 1
+	return putn( strcmp(s1, s2));
+d553 1
+a553 1
+	return putn( strncmp(s1, s2, i));
+@
+
+
+1.3
+log
+@Версия, слитая с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.exp.c,v 1.2 86/06/02 17:39:24 dmitry Exp $";
+d9 3
+d39 6
+a44 1
+exp(vp)
+d48 22
+d73 1
+a73 1
+exp0(vp, ignore)
+d77 3
+a79 1
+	register int p1 = exp1(vp, ignore);
+d82 1
+a82 1
+	etraci("exp0 p1", p1, vp);
+a84 1
+		register int p2;
+d87 2
+a88 1
+		p2 = exp0(vp, (ignore&IGNORE) || p1);
+d90 1
+a90 1
+		etraci("exp0 p2", p2, vp);
+d92 3
+a94 1
+		return (p1 || p2);
+d96 4
+d103 1
+a103 1
+exp1(vp, ignore)
+d106 3
+a108 1
+	register int p1 = exp2(vp, ignore);
+d111 1
+a111 1
+	etraci("exp1 p1", p1, vp);
+a113 2
+		register int p2;
+
+d115 2
+a116 1
+		p2 = exp1(vp, (ignore&IGNORE) || !p1);
+d118 1
+a118 1
+		etraci("exp1 p2", p2, vp);
+d120 3
+a122 1
+		return (p1 && p2);
+d127 1
+a127 1
+exp2(vp, ignore)
+d131 3
+a133 1
+	register int p1 = exp2a(vp, ignore);
+d136 1
+a136 1
+	etraci("exp3 p1", p1, vp);
+a138 2
+		register int p2;
+
+d142 1
+a142 1
+		etraci("exp3 p2", p2, vp);
+d144 3
+a146 1
+		return (p1 | p2);
+d151 1
+a151 1
+exp2a(vp, ignore)
+d155 3
+a157 1
+	register int p1 = exp2b(vp, ignore);
+d160 1
+a160 1
+	etraci("exp2a p1", p1, vp);
+a162 2
+		register int p2;
+
+d166 1
+a166 1
+		etraci("exp2a p2", p2, vp);
+d168 3
+a170 1
+		return (p1 ^ p2);
+d175 1
+a175 1
+exp2b(vp, ignore)
+d179 3
+a181 1
+	register int p1 = exp2c(vp, ignore);
+d184 1
+a184 1
+	etraci("exp2b p1", p1, vp);
+a186 1
+		register int p2;
+d191 1
+a191 1
+		etraci("exp2b p2", p2, vp);
+d193 3
+a195 1
+		return (p1 & p2);
+d200 1
+a200 1
+exp2c(vp, ignore)
+d238 2
+a239 1
+		return (i);
+d241 1
+a241 3
+	i = egetn(p1);
+	xfree(p1);
+	return (i);
+d399 198
+d601 2
+a602 1
+	int ccode, i;
+d604 4
+d633 1
+a633 1
+		etraci("exp6 () ccode", ccode, vp);
+d635 1
+a635 1
+		if (*vp == 0 || **vp == 0 || ***vp != ')')
+d639 1
+a639 1
+		return (putn(ccode));
+d641 70
+d749 1
+a749 1
+	if (*cp == '-' && any(cp[1], "erwxfdzo")) {
+d788 8
+d797 1
+a797 1
+				i = stb.st_size == 0;
+d891 2
+a892 2
+		bferr(ediag("Expression syntax",
+			    "Синтаксическая ошибка в выражении"));
+d894 15
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.exp.c,v 1.1 86/06/01 20:19:36 dmitry Exp $";
+
+d9 3
+a18 4
+/*
+ * C shell
+ */
+
+d515 1
+a515 1
+	t = syntax(paraml.next, &paraml);
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.exp.c,v 0.0 86/04/20 21:24:14 root Exp $";
+d10 4
+a13 1
+ * $Log$
+d336 2
+a337 1
+				error("Divide by 0");
+d344 2
+a345 1
+				error("Mod by 0");
+d389 2
+a390 1
+			bferr("Expression syntax");
+d409 2
+a410 1
+				bferr("Missing }");
+d436 2
+a437 1
+			bferr("Missing file name");
+d518 1
+a518 1
+	t = syntax(paraml.next, &paraml, 0);
+d566 2
+a567 1
+		bferr("Expression syntax");
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.exp.c 4.1 10/9/80";
+d4 9
+d19 2
+a20 2
+#define IGNORE	1	/* in ignore, it means to ignore value, just parse */
+#define NOGLOB	2	/* in ignore, it means not to globone */
+d22 6
+a27 6
+#define	ADDOP	1
+#define	MULOP	2
+#define	EQOP	4
+#define	RELOP	8
+#define	RESTOP	16
+#define	ANYOP	31
+d29 4
+a32 4
+#define	EQEQ	1
+#define	GTR	2
+#define	LSS	4
+#define	NOTEQ	6
+d48 1
+a48 1
+	
+d495 1
+a495 1
+	
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.exp.c    2.1     SCCS id keyword */
+/* Copyright (c) 1979 Regents of the University of California */
+d19 3
+d33 2
+d48 1
+a48 1
+	
+d56 1
+a56 1
+		p2 = exp0(vp, ignore || p1);
+d77 1
+a77 1
+		p2 = exp1(vp, ignore || !p1);
+d165 2
+d171 1
+a171 1
+		if (!ignore) switch (i) {
+d180 8
+d217 1
+a217 1
+		if (!ignore) switch (i) {
+d289 1
+a289 1
+		if (!ignore) switch (op[0]) {
+d324 1
+a324 1
+		if (!ignore) switch (op[0]) {
+a388 1
+		int pid;
+d390 2
+d393 6
+d407 1
+a407 1
+		if (ignore)
+d409 2
+a410 6
+		pid = fork();
+		if (pid < 0)
+			Perror("fork");
+		if (pid == 0) {
+			if (setintr)
+				signal(SIGINT, SIG_DFL);
+d415 2
+a416 2
+		cadd(pid, "{}");
+		pwait(pid);
+d431 1
+a431 1
+		if (ignore)
+d485 1
+a485 1
+	return (globone(cp));
+d495 1
+a495 2
+	
+	child++;
+d513 1
+a513 1
+	execute(t);
+d539 4
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* static  char *sccsid = "$Header: sh.exp.c,v 2.1 86/03/12 23:47:31 alex Exp $/Kiae"; */
+
+d9 6
+a14 2
+#define IGNORE	1	/* in ignore, it means to ignore value, just parse */
+#define NOGLOB	2	/* in ignore, it means not to globone */
+d16 4
+a19 6
+#define	ADDOP	1
+#define	MULOP	2
+#define	EQOP	4
+#define	RELOP	8
+#define	RESTOP	16
+#define	ANYOP	31
+a20 7
+#define	EQEQ	1
+#define	GTR	2
+#define	LSS	4
+#define	NOTEQ	6
+#define EQMATCH 7
+#define NOTEQMATCH 8
+
+d41 1
+a41 1
+		p2 = exp0(vp, (ignore&IGNORE) || p1);
+d62 1
+a62 1
+		p2 = exp1(vp, (ignore&IGNORE) || !p1);
+a149 2
+		if (i == EQMATCH || i == NOTEQMATCH)
+			ignore |= NOGLOB;
+d154 1
+a154 1
+		if (!(ignore&IGNORE)) switch (i) {
+a162 8
+
+		case EQMATCH:
+			i = Gmatch(p1, p2);
+			break;
+
+		case NOTEQMATCH:
+			i = !Gmatch(p1, p2);
+			break;
+d192 1
+a192 1
+		if (!(ignore&IGNORE)) switch (i) {
+d264 1
+a264 1
+		if (!(ignore&IGNORE)) switch (op[0]) {
+d299 1
+a299 1
+		if (!(ignore&IGNORE)) switch (op[0]) {
+d364 1
+a365 2
+		struct command faket;
+		char *fakecom[2];
+a366 6
+		faket.t_dtyp = TCOM;
+		faket.t_dflg = 0;
+		faket.t_dcar = faket.t_dcdr = faket.t_dspr = (struct command *)0;
+		faket.t_dcom = fakecom;
+		fakecom[0] = "{ ... }";
+		fakecom[1] = NOSTR;
+d375 1
+a375 1
+		if (ignore&IGNORE)
+d377 6
+a382 2
+		psavejob();
+		if (pfork(&faket, -1) == 0) {
+d387 2
+a388 2
+		pwait();
+		prestjob();
+d403 1
+a403 1
+		if (ignore&IGNORE)
+d457 1
+a457 1
+	return (ignore&NOGLOB ? cp : globone(cp));
+d468 1
+d486 1
+a486 1
+	execute(t, -1);
+a511 4
+		if (eq(cp, "=~"))
+			return (EQMATCH);
+		if (eq(cp, "!~"))
+			return (NOTEQMATCH);
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.exp.c,v $
+ * Revision 1.1  86/02/24  20:23:01  sys
+ * Initial revision
+ * 
+d33 1
+a33 1
+
+d308 1
+a308 2
+				error(ediag("Divide by 0",
+					    "Деление на 0"));
+d315 1
+a315 2
+				error(ediag("Mod by 0",
+					    "Mod от 0"));
+d359 1
+a359 2
+			bferr(ediag("Expression syntax",
+				    "Синтаксическая ошибка в выражении"));
+d371 1
+a371 2
+				bferr(ediag("Missing }",
+					    "Отсутствует }"));
+d401 1
+a401 2
+			bferr(ediag("Missing file name",
+				    "Нет имени файла"));
+d467 1
+a467 1
+
+d483 1
+a483 1
+	t = syntax(paraml.next, &paraml);
+d527 1
+a527 2
+		bferr(ediag("Expression syntax",
+			    "Синтаксическая ошибка в выражении"));
+@

@@ -1,0 +1,36 @@
+#print
+Напишите программу, которая печатает число английских
+гласных букв в словах, поступивших ей на вход.
+А гласными в английском языке являются -
+'a', 'e', 'i', 'o', и 'u'.
+#once #create Ref
+hoboken harrison newark roseville avenue grove street
+east orange brick church orange highland avenue
+mountain station south orange maplewood millburn short hills
+summit chatham madison convent station morristown
+new providence murray hill berkeley heights
+gillette stirling millington lyons basking ridge
+bernardsville far hills peapack gladstone
+#user
+a.out <Ref >xxx
+grep 109 xxx >/dev/null
+#succeed
+/*  ВОЗМОЖНЫЙ ВАРИАНТ */
+ #include <stdio.h>
+
+main()
+{
+	int k, c;
+
+	k = 0;
+	while ((c = getchar()) != EOF)
+		switch (c) {
+		case 'a': case 'e':case 'i': case 'o': case 'u':
+			k++;
+			break;
+		}
+	printf("%d\n", k);
+}
+#log
+#next
+37.1a 10

@@ -1,0 +1,91 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     89.08.01.14.58.15;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.05.06.17.46.50;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Убран лишний include
+@
+text
+@#
+# $Header: Makefile,v 1.1 89/05/06 17:46:50 ache Exp $
+#
+GET=co
+GFLAGS=-q
+CFLAGS=-O -DCM_N -DCM_GT -DCM_B -DCM_D -Dvoid=short
+SRCS = termcap.c tgoto.c tputs.c tparm.c
+OBJS = termcap.o tgoto.o tputs.o tparm.o
+
+.c.o :
+	cc ${CFLAGS} -c $*.c
+	ld -r -x $*.o -o a.out.lib
+	mv a.out.lib $*.o
+
+all: termcap.a
+
+src: $(SRCS)
+
+install cp: termcap.a
+	cp termcap.a ${DESTDIR}/usr/lib/libtermcap.a
+	-rm -f ${DESTDIR}/usr/lib/libtermlib.a
+	ranlib ${DESTDIR}/usr/lib/libtermcap.a
+	ln ${DESTDIR}/usr/lib/libtermcap.a ${DESTDIR}/usr/lib/libtermlib.a
+
+termcap.a: $(OBJS)
+	-rm -f termcap.a
+	ar rcv termcap.a `lorder ${OBJS} | tsort`
+	ranlib termcap.a
+
+termcap.o: /usr/include/ediag.h termcap.c
+tputs.o: tputs.c
+tparm.o: tparm.c
+tgoto.o: tgoto.c
+
+.DEFAULT:
+	$(GET) $(GFLAGS) $@@
+
+clean:
+	-rm -f $(OBJS) *.b
+
+CLRSRC: clean
+	-rm -f termcap.a Makefile $(SRCS)
+
+VGRIND= csh /usr/local/bin/vgrind
+vgrind:
+	cp /dev/null index
+	${VGRIND} -h "Termcap library" termcap.c tputs.c tgoto.c tparm.c
+	${VGRIND} -h "Termcap library" -x index
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+# $Header: Makefile,v 1.1 89/05/06 17:43:38 ache Exp $
+d31 1
+a31 1
+tputs.o: /usr/include/sgtty.h tputs.c
+@

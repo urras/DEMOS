@@ -1,0 +1,79 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.05.21.17.17.26;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.02.16.04.36;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.2
+log
+@ВСТАвИЛ ЗАЛИВКУ
+@
+text
+@/* $Header: box.c,v 1.1 88/02/02 16:04:36 dvolodin Exp $
+ * $Log:        box.c,v $
+ * Revision 1.1  88/02/02  16:04:36  dvolodin
+ * Initial revision
+ *
+ */
+
+#include <stdio.h>
+
+box(x0, y0, x1, y1)
+short x0, y0, x1, y1 ;
+{
+    move( x0, y0 );
+    printf( "FH" );
+    cont( x1, y1 );
+    printf( "FG" );
+}
+
+/* solid box */
+rfill(x0, y0, x1, y1)
+short x0, y0, x1, y1 ;
+{
+    move( x0, y0 );
+    printf( "FHBG" );
+    cont( x1, y1 );
+    printf( "FG" );
+}
+
+/* заливка области */
+sfill( x,y, newcolor, boundcolor )
+{
+	move( x,y);
+	printf( "HI%XJK%X", newcolor, boundcolor );
+}
+/* ограничение :
+   граница области ДОЛЖНА БЫТЬ ЗАМКНУТА И быть именно указанного цвета
+   белый - 15 */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header$
+ * $Log$
+d18 20
+@

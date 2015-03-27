@@ -1,0 +1,178 @@
+head     0.5;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.5
+date     88.09.20.17.49.36;  author avg;  state Exp;
+branches ;
+next     0.4;
+
+0.4
+date     86.09.29.18.31.13;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.56.13;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.43.46;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.16.53;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.5
+log
+@Сделано лексикографическое сравнение русских строк.
+@
+text
+@#
+/*
+ * KIAE  shell
+ *
+ *
+ */
+
+#include        "defs.h"
+
+
+/* ========     general purpose string handling ======== */
+
+
+STRING  movstr(a,b)
+	REG STRING      a, b;
+{
+	WHILE *b++ = *a++ DONE
+	return(--b);
+}
+
+INT     any(c,s)
+	REG CHAR        c;
+	STRING          s;
+{
+	REG CHAR d;
+
+	WHILE d = *s++
+	DO      IF d==c
+		THEN    return(TRUE);
+		FI
+	OD
+	return(FALSE);
+}
+
+INT     cf(s1, s2)
+	REG STRING s1, s2;
+{
+	WHILE *s1++ == *s2
+	DO      IF *s2++==0
+		THEN    return(0);
+		FI
+	OD
+	return(Ctou(*--s1) - Ctou(*s2));
+}
+
+INT     length(as)
+	STRING as;
+{
+	REG STRING s;
+
+	IF s=as THEN WHILE *s++ DONE FI
+	return(s-as);
+}
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@
+
+
+0.4
+log
+@Версия, слитая из 2.9 и ДЕМОС без русских диагностик
+@
+text
+@d8 1
+a8 1
+#include	"defs.h"
+d11 1
+a11 1
+/* ========	general purpose string handling ======== */
+d14 2
+a15 2
+STRING	movstr(a,b)
+	REG STRING	a, b;
+d21 3
+a23 3
+INT	any(c,s)
+	REG CHAR	c;
+	STRING		s;
+d28 2
+a29 2
+	DO	IF d==c
+		THEN	return(TRUE);
+d35 1
+a35 1
+INT	cf(s1, s2)
+d39 2
+a40 2
+	DO	IF *s2++==0
+		THEN	return(0);
+d43 1
+a43 1
+	return(*--s1 - *s2);
+d46 1
+a46 1
+INT	length(as)
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d3 1
+a3 1
+ * МНОС РЛ 1.2 shell
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d3 1
+a3 1
+ * UNIX shell
+a4 2
+ * S. R. Bourne
+ * Bell Telephone Laboratories
+d54 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 1
+ * KIAE  shell
+d5 2
+a55 1
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@

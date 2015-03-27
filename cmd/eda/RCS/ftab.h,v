@@ -1,0 +1,455 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.09.20.16.37.21;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.11.20.46.19;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.37;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.3
+log
+@Добавлен второй шаблон поиска.
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: ftab.h,v 1.2 86/11/11 20:46:19 avg Exp $";*/
+#endif
+
+/*
+ * $Log:        ftab.h,v $
+ * Revision 1.2  86/11/11  20:46:19  avg
+ * Убран rcsid
+ *
+ * Revision 1.1  86/11/11  17:51:37  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 09.07.1986
+ */
+
+extern  rightleft(), up(), down(), tab(), nonspace(), ret(), crlf(),
+	del(), il(), dl(), icdc(), page(), idsw(), rexit(), mdefine(),
+	mexec(), fsd(), find(), Unix(), savel(), incll(), clrtxt(),
+	text(), xrew(), na(), lnum(), tofeof(), cat(), copy(), repeat(),
+	wtab(), parud();
+#ifdef F_format
+extern  format();
+#endif
+
+struct FTAB {
+	char *symbol;
+#ifdef HPUX
+# undef int
+#endif
+	int (*func)();
+#ifdef HPUX
+# define int short
+#endif
+	int arg;
+} ftab[] = {
+#ifdef  F_right
+	F_right ,rightleft,PLUS,
+#endif  F_right
+#ifdef  Q_right
+	Q_right ,rightleft,PLUS,
+#endif  Q_right
+#ifdef  F_left
+	F_left  ,rightleft,MINUS,
+#endif  F_left
+#ifdef  Q_left
+	Q_left  ,rightleft,MINUS,
+#endif  Q_left
+#ifdef  F_up
+	F_up    ,up       ,NULL,
+#endif  F_up
+#ifdef  Q_up
+	Q_up    ,up       ,NULL,
+#endif  Q_up
+#ifdef  F_down
+	F_down  ,down     ,NULL,
+#endif  F_down
+#ifdef  Q_down
+	Q_down  ,down     ,NULL,
+#endif  Q_down
+#ifdef  F_tab
+	F_tab   ,tab      ,PLUS,
+#endif  F_tab
+#ifdef  Q_tab
+	Q_tab   ,tab      ,PLUS,
+#endif  Q_tab
+#ifdef  F_btab
+	F_btab  ,tab      ,MINUS,
+#endif  F_btab
+#ifdef  Q_btab
+	Q_btab  ,tab      ,MINUS,
+#endif  Q_btab
+#ifdef  F_beg
+	F_beg   ,nonspace ,MINUS,
+#endif  F_beg
+#ifdef  Q_beg
+	Q_beg   ,nonspace ,MINUS,
+#endif  Q_beg
+#ifdef  F_end
+	F_end   ,nonspace ,PLUS,
+#endif  F_end
+#ifdef  Q_end
+	Q_end   ,nonspace ,PLUS,
+#endif  Q_end
+#ifdef  F_ret
+	F_ret   ,ret      ,NULL,
+#endif  F_ret
+#ifdef  Q_ret
+	Q_ret   ,ret      ,NULL,
+#endif  Q_ret
+#ifdef  F_cr
+	F_cr    ,crlf     ,NULL,
+#endif  F_cr
+#ifdef  Q_cr
+	Q_cr    ,crlf     ,NULL,
+#endif  Q_cr
+#ifdef  F_del
+	F_del   ,del      ,NULL,
+#endif  F_del
+#ifdef  Q_del
+	Q_del   ,del      ,NULL,
+#endif  Q_del
+#ifdef  F_ic
+	F_ic    ,icdc     ,PLUS,
+#endif  F_ic
+#ifdef  Q_ic
+	Q_ic    ,icdc     ,PLUS,
+#endif  Q_ic
+#ifdef  F_dc
+	F_dc    ,icdc     ,MINUS,
+#endif  F_dc
+#ifdef  Q_dc
+	Q_dc    ,icdc     ,MINUS,
+#endif  Q_dc
+#ifdef  F_il
+	F_il    ,il       ,NULL,
+#endif  F_il
+#ifdef  Q_il
+	Q_il    ,il       ,NULL,
+#endif  Q_il
+#ifdef  F_dl
+	F_dl    ,dl       ,NULL,
+#endif  F_dl
+#ifdef  Q_dl
+	Q_dl    ,dl       ,NULL,
+#endif  Q_dl
+#ifdef  F_pgup
+	F_pgup  ,page     ,MINUS,
+#endif  F_pgup
+#ifdef  Q_pgup
+	Q_pgup  ,page     ,MINUS,
+#endif  Q_pgup
+#ifdef  F_pgdown
+	F_pgdown,page     ,PLUS,
+#endif  F_pgdown
+#ifdef  Q_pgdown
+	Q_pgdown,page     ,PLUS,
+#endif  Q_pgdown
+#ifdef  F_sins
+	F_sins  ,idsw     ,PLUS,
+#endif  F_sins
+#ifdef  Q_sins
+	Q_sins  ,idsw     ,PLUS,
+#endif  Q_sins
+#ifdef  F_sdel
+	F_sdel  ,idsw     ,MINUS,
+#endif  F_sdel
+#ifdef  Q_sdel
+	Q_sdel  ,idsw     ,MINUS,
+#endif  Q_sdel
+#ifdef  F_tmode
+	F_tmode ,idsw     ,PLUS |010,
+#endif  F_tmode
+#ifdef  Q_tmode
+	Q_tmode ,idsw     ,PLUS |010,
+#endif  Q_tmode
+#ifdef  F_pmode
+	F_pmode ,idsw     ,MINUS|010,
+#endif  F_pmode
+#ifdef  Q_pmode
+	Q_pmode ,idsw     ,MINUS|010,
+#endif  Q_pmode
+#ifdef  F_lf
+	F_lf    ,crlf     ,NULL,
+#endif  F_lf
+#ifdef  Q_lf
+	Q_lf    ,crlf     ,NULL,
+#endif  Q_lf
+#ifdef  F_exit
+	F_exit  ,rexit    ,PLUS,
+#endif  F_exit
+#ifdef  Q_exit
+	Q_exit  ,rexit    ,PLUS,
+#endif  Q_exit
+#ifdef  F_aex
+	F_aex   ,rexit    ,MINUS,
+#endif  F_aex
+#ifdef  Q_aex
+	Q_aex   ,rexit    ,MINUS,
+#endif  Q_aex
+#ifdef  F_mdef1
+	F_mdef1 ,mdefine  ,1,
+#endif  F_mdef1
+#ifdef  Q_mdef1
+	Q_mdef1 ,mdefine  ,1,
+#endif  Q_mdef1
+#ifdef  F_mdef2
+	F_mdef2 ,mdefine  ,2,
+#endif  F_mdef2
+#ifdef  Q_mdef2
+	Q_mdef2 ,mdefine  ,2,
+#endif  Q_mdef2
+#ifdef  F_mdef3
+	F_mdef3 ,mdefine  ,3,
+#endif  F_mdef3
+#ifdef  Q_mdef3
+	Q_mdef3 ,mdefine  ,3,
+#endif  Q_mdef3
+#ifdef  F_mdef4
+	F_mdef4 ,mdefine  ,4,
+#endif  F_mdef4
+#ifdef  Q_mdef4
+	Q_mdef4 ,mdefine  ,4,
+#endif  Q_mdef4
+#ifdef  F_m1
+	F_m1    ,mexec    ,1,
+#endif  F_m1
+#ifdef  Q_m1
+	Q_m1    ,mexec    ,1,
+#endif  Q_m1
+#ifdef  F_m2
+	F_m2    ,mexec    ,2,
+#endif  F_m2
+#ifdef  Q_m2
+	Q_m2    ,mexec    ,2,
+#endif  Q_m2
+#ifdef  F_m3
+	F_m3    ,mexec    ,3,
+#endif  F_m3
+#ifdef  Q_m3
+	Q_m3    ,mexec    ,3,
+#endif  Q_m3
+#ifdef  F_m4
+	F_m4    ,mexec    ,4,
+#endif  F_m4
+#ifdef  Q_m4
+	Q_m4    ,mexec    ,4,
+#endif  Q_m4
+#ifdef  F_fsd
+	F_fsd   ,fsd      ,PLUS,
+#endif  F_fsd
+#ifdef  Q_fsd
+	Q_fsd   ,fsd      ,PLUS,
+#endif  Q_fsd
+#ifdef  F_find
+	F_find  ,find     ,PLUS,
+#endif  F_find
+#ifdef  Q_find
+	Q_find  ,find     ,PLUS,
+#endif  Q_find
+#ifdef  F_fsd2
+	F_fsd2   ,fsd      ,MINUS,
+#endif  F_fsd2
+#ifdef  Q_fsd2
+	Q_fsd2   ,fsd      ,MINUS,
+#endif  Q_fsd2
+#ifdef  F_find2
+	F_find2  ,find     ,MINUS,
+#endif  F_find2
+#ifdef  Q_find2
+	Q_find2  ,find     ,MINUS,
+#endif  Q_find2
+#ifdef  F_shell
+	F_shell ,Unix     ,NULL,
+#endif  F_shell
+#ifdef  Q_shell
+	Q_shell ,Unix     ,NULL,
+#endif  Q_shell
+#ifdef  F_savel
+	F_savel ,savel    ,NULL,
+#endif  F_savel
+#ifdef  Q_savel
+	Q_savel ,savel    ,NULL,
+#endif  Q_savel
+#ifdef  F_incll
+	F_incll ,incll    ,NULL,
+#endif  F_incll
+#ifdef  Q_incll
+	Q_incll ,incll    ,NULL,
+#endif  Q_incll
+#ifdef  F_clrtx
+	F_clrtx ,clrtxt   ,NULL,
+#endif  F_clrtx
+#ifdef  Q_clrtx
+	Q_clrtx ,clrtxt   ,NULL,
+#endif  Q_clrtx
+#ifdef  F_wrtex
+	F_wrtex ,text     ,PLUS,
+#endif  F_wrtex
+#ifdef  Q_wrtex
+	Q_wrtex ,text     ,PLUS,
+#endif  Q_wrtex
+#ifdef  F_rdtex
+	F_rdtex ,text     ,MINUS,
+#endif  F_rdtex
+#ifdef  Q_rdtex
+	Q_rdtex ,text     ,MINUS,
+#endif  Q_rdtex
+#ifdef  F_rew
+	F_rew   ,xrew     ,NULL,
+#endif  F_rew
+#ifdef  Q_rew
+	Q_rew   ,xrew     ,NULL,
+#endif  Q_rew
+#ifdef  F_na
+	F_na    ,na       ,NULL,
+#endif  F_na
+#ifdef  Q_na
+	Q_na    ,na       ,NULL,
+#endif  Q_na
+#ifdef  F_lnum
+	F_lnum  ,lnum     ,PLUS,
+#endif  F_lnum
+#ifdef  Q_lnum
+	Q_lnum  ,lnum     ,PLUS,
+#endif  Q_lnum
+#ifdef  F_cnum
+	F_cnum  ,lnum     ,MINUS,
+#endif  F_cnum
+#ifdef  Q_cnum
+	Q_cnum  ,lnum     ,MINUS,
+#endif  Q_cnum
+#ifdef  F_tof
+	F_tof   ,tofeof   ,MINUS,
+#endif  F_tof
+#ifdef  Q_tof
+	Q_tof   ,tofeof   ,MINUS,
+#endif  Q_tof
+#ifdef  F_eof
+	F_eof   ,tofeof   ,PLUS,
+#endif  F_eof
+#ifdef  Q_eof
+	Q_eof   ,tofeof   ,PLUS,
+#endif  Q_eof
+#ifdef  F_cat
+	F_cat   ,cat      ,NULL,
+#endif  F_cat
+#ifdef  Q_cat
+	Q_cat   ,cat      ,NULL,
+#endif  Q_cat
+#ifdef  F_store
+	F_store ,copy     ,NULL,
+#endif  F_store
+#ifdef  Q_store
+	Q_store ,copy     ,NULL,
+#endif  Q_store
+#ifdef  F_rpt
+	F_rpt   ,repeat   ,NULL,
+#endif  F_rpt
+#ifdef  Q_rpt
+	Q_rpt   ,repeat   ,NULL,
+#endif  Q_rpt
+#ifdef  F_wtab
+	F_wtab  ,wtab     ,PLUS,
+#endif  F_wtab
+#ifdef  Q_wtab
+	Q_wtab  ,wtab     ,PLUS,
+#endif  Q_wtab
+#ifdef  F_bwtab
+	F_bwtab ,wtab     ,MINUS,
+#endif  F_bwtab
+#ifdef  Q_bwtab
+	Q_bwtab ,wtab     ,MINUS,
+#endif  Q_bwtab
+#ifdef  F_format
+	F_format  ,format ,NULL,
+#endif  F_format
+#ifdef  Q_format
+	Q_format  ,format ,NULL,
+#endif  Q_format
+#ifdef  F_pardown
+	F_pardown ,parud  ,MINUS,
+#endif  F_pardown
+#ifdef  Q_pardown
+	Q_pardown ,parud  ,MINUS,
+#endif  Q_pardown
+#ifdef  F_parup
+	F_parup   ,parud  ,PLUS,
+#endif  F_parup
+#ifdef  Q_parup
+	Q_parup   ,parud  ,PLUS,
+#endif  Q_parup
+};
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@d2 1
+a2 1
+/*static char rcsid[] = "$Header: ftab.h,v 1.1 86/11/11 17:51:37 avg Exp $";*/
+d6 4
+a9 1
+ * $Log:	ftab.h,v $
+d12 1
+a12 1
+ * 
+d234 1
+a234 1
+	F_fsd   ,fsd      ,NULL,
+d237 1
+a237 1
+	Q_fsd   ,fsd      ,NULL,
+d240 1
+a240 1
+	F_find  ,find     ,NULL,
+d243 1
+a243 1
+	Q_find  ,find     ,NULL,
+d245 12
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

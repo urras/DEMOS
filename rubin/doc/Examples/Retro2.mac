@@ -1,0 +1,2 @@
+range of r is работник
+retrieve (r.all) where (count(r.номер by r.имя)>1)

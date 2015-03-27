@@ -1,0 +1,310 @@
+'       # begin a display
+.de DS
+.sp
+.nf
+.RS
+..
+'       # end a display
+.de DE
+.fi
+.sp
+.RE
+..
+.TH APE 3X
+.UC
+.SH NAME
+ape \- arbitrary precision integer arithmetic routines
+.SH SYNOPSIS
+.nf
+.B #include <ape.h>
+.sp
+.B cc ... \-lape
+.br
+.B f77 ... \-lape
+.SH DESCRIPTION
+.PP
+The
+.I ape
+library is a set of routines for arbitrary precision
+integral arithmetic which may be called by either C or
+F77 programs.
+.PP
+The routines work on the structure
+.B MINT
+(``multiprecision integer'')
+defined by
+.DS
+\fBtypedef struct\fR mint {
+        \fBint\fR len;
+        \fBshort\fR *val;
+}  \fBMINT\fR, *\fBPMINT\fR;
+.DE
+The member
+.I len
+is an integer whose sign is the sign of
+the number represented, and whose magnitude is the number
+of words (short integers) needed to store it.
+The (absolute value of) the number itself is stored base
+.if n 2^15
+.if t 2\u\s715\s0\d
+as an array of
+.BR "short int" s
+pointed to by
+.I val.
+Space for this array is managed
+by calls to
+.IR malloc "(3) and " free .
+The size of the numbers representable is limited only by the
+amount of core available;
+on a PDP-11/45, numbers of 40,000 digits have been
+successfully dealt with.
+.PP
+The routines themselves may be grouped into four categories:
+.SH "INITIALIZATION AND REMOVAL"
+.PP
+.BR MINT " pointers (" PMINT "s)"
+must be initialized before they can be used by the other routines.
+Methods for doing this include:
+.nf
+.ta .5i +\w'\fBPMINT\fR shtom(sn)    'u
+
+	new(pa)	\fBPMINT\fR *pa;
+
+	\fBPMINT\fR shtom(sn)	\fBshort\fR sn;
+	\fBPMINT\fR itom(n)	\fBint\fR n;
+	\fBPMINT\fR ltom(ln)	\fBlong\fR ln;
+	\fBPMINT\fR stom(s)	\fBchar\fR *s;
+
+.fi
+.DT
+.I New(&a)
+creates a zero
+.B MINT
+which
+.I a
+points to.
+The other functions return pointers to
+.BR MINT s
+with values equal to their arguments
+(or to the numeric equivalent of its argument for
+.IR stom ).
+.I Stom
+follows the usual C conventions for determining the input base.
+.PP
+For freeing storage, two routines are provided:
+.DS
+xfree(a)
+afree(a)        \fBPMINT\fR a;
+.DE
+.IR Xfree(a) " frees what " a->val
+points to, zeroing
+.IR a ;
+.I afree(a)
+also frees what
+.I a
+points to.
+.SH ARITHMETIC
+.PP
+For the following conceptual descriptions, assume these
+type declarations:
+.DS
+\fBPMINT\fR a,b,c,d,q,r;
+\fBint\fR m,n;
+\fBlong\fR ln;
+\fBshort\fR *R;
+.DE
+.nf
+.ta .5i +\w'reciprocal(a,n,b)    'u +.5i
+	\fIRoutine	Result\fP
+	madd(a,b,c)	c \(eq a + b
+	msub(a,b,c)	c \(eq a - b
+	mult(a,b,c)	c \(eq a * b
+	sdiv(a,m,q,R)	q \(eq a / m;  R \(eq a mod m
+	mdiv(a,b,q,r)	q \(eq a / b;  r \(eq a mod b
+	gcd(a,b,c)	c \(eq gcd(a,b)
+.if n .ds z "10^n / a
+.if t .ds z "10\u\s7n\s0\d / a
+	reciprocal(a,n,b)	b \(eq \*z
+.if n .ds z "sqrt(a); 
+.if t .ds z "\(sr\o'n\(rn'
+	msqrt(a,b,r)	b \(eq \*z r \(eq a - b*b
+		[r's length is returned]
+.if n .ds z "a^b mod c
+.if t .ds z "a\u\s7b\s0\d mod c
+	pow(a,b,c,d)	d \(eq \*z
+.if n .ds z "a^n
+.if t .ds z "a\u\s7n\s0\d
+	rpow(a,n,b)	b \(eq \*z
+.if n .ds z "n^ln
+.if t .ds z "n\u\s7ln\s0\d
+	lpow(n,ln,b)	b \(eq \*z
+.fi
+.DT
+.PP
+.PP
+In all cases, calls like
+.I madd(a,b,a)
+are allowed and give the expected results.
+The routines dealing with
+.BR int s
+will all work properly no matter what the relationship between
+.B short
+and
+.B int
+except
+.I sdiv
+which needs the
+.B int
+.I m
+to be no larger than the largest
+.BR short .
+.I Reciprocal
+is the closest thing provided to decimal fractions.
+.PP
+Comparisons may be done with the function
+.IR mcmp .
+.I Mcmp(a,b)
+returns something positive if
+.IR a > b ,
+negative if
+.IR a < b ,
+and zero if
+.IR a \(eq b .
+.SH "INPUT AND OUTPUT"
+.PP
+The following routines do input and
+output:
+.DS
+\fBPMINT\fR a;
+\fBint\fR n;  /* must have \fIn\fR > 1 */
+\fBFILE\fR *f;
+\fBchar\fR *s;
+
+m_in(a,n,f)
+        input a number base \fIn\fR from file \fIf\fR into \fIa\fR
+sm_in(a,n,s)
+        input a number base \fIn\fR from string \fIs\fR into \fIa\fR
+m_out(a,n,f)
+        output \fIa\fR base \fIn\fR onto file \fIf\fR
+sm_out(a,n,s)
+        output \fIa\fR base \fIn\fR onto string \fIs\fR
+.DE
+.I M_in
+returns 0 on normal termination,
+and EOF when the end of the input file is reached.
+.PP
+Special versions of these routines are provided for bases 8 and 10.
+They are:
+.DS
+\fBPMINT\fR a;
+\fBFILE\fR *f;
+.DE
+.nf
+.ta .5i +\w'om_out(a,f)    'u +.5i
+
+	Base 8
+
+	om_in(a,f)
+	omin(a)	[f=stdin]
+	om_out(a,f)
+	omout(a)	[f=stdout]
+.fi
+.DT
+
+
+.nf
+.ta .5i +\w'om_out(a,f)    'u +.5i
+
+	Base 10
+
+	fmin(a,f)
+	minput(a)	[f=stdin]
+	fmout(a,f)
+	mout(a)	[f=stdout]
+.fi
+.DT
+.SH "F77 USAGE"
+.PP
+``Frontend'' subroutines are provided to allow F77
+programs to use the
+.I ape
+routines.
+The calling program's
+.BR integer s
+are cast into
+.BR PMINT s
+by these subroutines and then passed to the appropriate
+.I ape
+routine.
+.PP
+The names and syntax of these subroutines are generally the
+same as their C counterparts.
+Exceptions are:
+.nf
+.ta .5i +\w'call minput(a,n)      'u +.5i
+
+	\fIf77 version	C version\fP
+
+	\fBinteger\fR n,a	\fBint\fR n;  \fBPMINT\fR a;
+	\fBcharacter\fR*M s	\fBchar\fR s[M];
+
+	call new(a)	new(&a);
+	call itom(n,a)	a = itom(n);
+	call stom(s,a)	a = stom(s);
+
+	call minput(a,n)	n = minput(a);
+	call omin(a,n)	n = omin(a);
+	call mout(a)	mout(a);
+	call omout(a)	mout(a);
+	(no other I/O routines are provided)
+
+.fi
+.DT
+Subroutines are also provided for conversions
+between the
+.B MINT
+structure and the Fortran-manipulable version
+of an
+.B integer
+and an array of
+.BR integer*2 's:
+.DS
+integer a, length       [\fIa\fP represents a PMINT]
+integer*2 vector(N)     [must have abs(length) .le. N]
+
+call mtovec(a,length,vector)
+    results in:
+        length = a->len
+        for i = 1 to abs(length)
+            vector(i) = a->val[i-1]
+
+call vectom(length,vector,a)
+    results in:
+        a->len = length
+        for i = 1 to abs(length)
+            a->val[i-1] = vector(i)
+.DE
+The latter is actually a method of initialization.
+.SH FILES
+.PP
+.ta 2i
+/usr/include/ape.h      include file
+.br
+/usr/lib/libape.a       object code library
+.SH "SEE ALSO"
+bc(1), dc(1), malloc(3), mp(3X)
+.SH DIAGNOSTICS
+Improper operations and running out of memory
+produce self-explanatory messages and gratuitous
+core dumps.
+.SH BUGS
+Input bases should be
+.if n <=
+.if t \(<=
+35.
+.br
+Octal input is slower than it need be.
+.br
+Syntax is odd and storage management is a pain.
+.SH AUTHOR
+Mark Carson

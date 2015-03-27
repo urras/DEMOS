@@ -1,0 +1,177 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.01.19.13.04.47;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.01.19.11.50.37;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.11.20.46.34;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.40;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.4
+log
+@Теперь NULL не переопределяется.
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: glob.h,v 1.3 88/01/19 11:50:37 avg Exp $";*/
+#endif
+
+/*
+ * $Log:        glob.h,v $
+ * Revision 1.3  88/01/19  11:50:37  avg
+ * Теперь размер блока в define BufSIZE.
+ *
+ * Revision 1.2  86/11/11  20:46:34  avg
+ * Убран rcsid
+ *
+ * Revision 1.1  86/11/11  17:51:40  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 26.03.1985
+ */
+
+#if defined(HPUX) && !defined(V2)
+# define int    short
+# define ediag(e,r)  (e)
+#define empty(x) (1)
+#else
+# include <ediag.h>
+#endif
+
+#ifndef BufSIZE
+#include "io.h"
+#endif
+
+struct stack {                  /* Имитация стека на файлах */
+	int     block;                  /* Номер блока        !  Указатель */
+	int     bpoint;                 /* Указатель в блоке  !      стека */
+	int     file;                   /* Деск. файла для записи */
+	int     rfile;                  /* Деск. файла для чтения */
+	char    buffer[BufSIZE];        /* Буфер */
+	int     lines;                  /* Число строк в стеке */
+} wstack,bstack;
+
+struct screen {                 /* Копия экрана */
+	int     roll;                   /* Сдвиг при скроллировании */
+	char    *s;                     /* Поле */
+	int     slen[NLIN];             /* Эффективные длины строк */
+} scr;
+#define line(x) (scr.s+width*(((x)+scr.roll) % NLIN))
+#define llen(x) scr.slen[((x)+scr.roll) % NLIN]
+
+#define PLUS    1       /* Направления вниз,вправо */
+#define MINUS   0       /*   -- -- --  вверх,влево */
+#ifndef NULL
+# define NULL    0
+#endif
+
+#define NCOL    512     /* Макс. длина строки */
+
+int cl,cc,clold,ccold;  /* Текущие и старые координаты курсора */
+int csh;                /* Сдвиг экрана по горизонтали */
+int width;              /* Ширина экрана         */
+int width1;             /*  --- --- ---  минус 1 */
+
+#define SHELL   "/bin/csh"
+
+#ifndef V2
+/*
+ * Флаги драйвера терминала
+ *  Зависят от конкретной системы
+ */
+# define RAWI   040
+# define ECHO   010
+# define CRMOD  020
+#ifndef HPUX
+# define RAWO   02000
+# define LCASE  04
+#else
+# define RAWO   0
+# define LCASE  0
+#endif
+
+#else
+
+#include <sys/localopts.h>
+#include <sgtty.h>
+#include <signal.h>
+
+#define RAWI RAW
+#define RAWO  0
+
+#endif
+@
+
+
+1.3
+log
+@Теперь размер блока в define BufSIZE.
+@
+text
+@d2 1
+a2 1
+/*static char rcsid[] = "$Header: glob.h,v 1.2 86/11/11 20:46:34 avg Exp $";*/
+d7 3
+d55 3
+a57 1
+#define NULL    0
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@d2 1
+a2 1
+/*static char rcsid[] = "$Header: glob.h,v 1.1 86/11/11 17:51:40 avg Exp $";*/
+d7 3
+d29 4
+d38 1
+a38 1
+	char    buffer[512];            /* Буфер */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

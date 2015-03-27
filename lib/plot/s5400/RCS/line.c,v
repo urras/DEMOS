@@ -1,0 +1,36 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.02.02.16.06.31;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+
+# include <stdio.h>
+
+line( x0, y0, x1, y1 )
+short x0, y0, x1, y1 ;
+{
+    move( x0, y0 );
+    cont( x1, y1 );
+}
+@

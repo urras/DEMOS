@@ -1,0 +1,161 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.4
+date     88.11.10.16.03.31;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.09.02.16.12.38;  author mike;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.09.02.15.11.09;  author mike;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.09.01.15.02.49;  author mike;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Initial revision
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@#
+# Выдать список элементов каталога - ls
+#
+# $Log: Makefile,v $
+# Revision 1.3  86/09/02  16:12:38  mike
+# Вставлена обработка XSTR'ом.
+#
+# Revision 1.2  86/09/02  15:11:09  mike
+# Выкинут include-файл <varargs.h> чистка программы => чистка
+# Makefil'а.
+#
+# Revision 1.1  86/09/01  15:02:49  mike
+# Initial revision
+#
+#
+
+# Для версии исх. текстов без архивов RCS установите R=X
+R=
+
+RCS=RCS
+CO=co
+COFLAGS=
+
+I=/usr/include
+IS=/usr/include/sys
+
+G=      32      # max. number of gids recognized (must not be a multiple of 5)
+U=      256     # max. number of uids recognized (must not be a multiple of 5)
+F=      4076    # max. number of files recognized
+CFLAGS= -O
+LDFLAGS= -n -s
+DEFS=   -DNGID=$G -DNUID=$U -DNFILES=$F
+DESTDIR=/bin
+
+all:    ls
+
+install:   all
+	-chmod u-t ${DESTDIR}/ls
+	-ls AAA > /dev/null 2> /dev/null
+	-rm -f ${DESTDIR}/ls ${DESTDIR}/ll ${DESTDIR}/l ${DESTDIR}/lx \
+	       ${DESTDIR}/lf ${DESTDIR}/lr
+	cp ls ${DESTDIR}/ls
+	chmod u+t ${DESTDIR}/ls
+	ln ${DESTDIR}/ls ${DESTDIR}/ll
+	ln ${DESTDIR}/ls ${DESTDIR}/l
+	ln ${DESTDIR}/ls ${DESTDIR}/lx
+	ln ${DESTDIR}/ls ${DESTDIR}/lf
+	ln ${DESTDIR}/ls ${DESTDIR}/lr
+
+ls:     ls.c
+	xstr ls.c
+	$(CC) -c $(CFLAGS) $(DEFS) x.c
+	-rm -f x.c
+	$(CC) -S $(CFLAGS) xs.c
+	-rm -f xs.c
+	sed "s/^\.data/.text/" xs.s > xy.s
+	-rm -f xs.s
+	cc $(LDFLAGS) xy.s x.o -o ls
+	-rm -f x.o xy.s xy.o
+
+ls:     $(I)/stdio.h $(I)/ctype.h $(I)/pwd.h $(I)/grp.h $(I)/utmp.h
+ls:     $(I)/sgtty.h $(I)/ediag.h $(IS)/param.h $(IS)/stat.h
+ls:     $(I)/dir.h  $(IS)/inode.h $(IS)/qstat.h
+
+clear clean:
+	rm -f *.[ob] ls
+
+CLRSRC: clear
+	rm -f ls.c
+
+$(R)ls.c:     $(RCS)/ls.c,v   ; $(CO) $(COFLAGS) ls.c
+$(R)Makefile: $(RCS)/Makefile ; $(CO) $(COFLAGS) Makefile
+
+source: ls.c Makefile
+@
+
+
+1.3
+log
+@Вставлена обработка XSTR'ом.
+@
+text
+@d5 3
+d29 1
+a29 1
+F=      1024    # max. number of files recognized
+d63 1
+a63 1
+ls:     $(IS)/dir.h $(IS)/inode.h $(IS)/qstat.h
+@
+
+
+1.2
+log
+@Выкинут include-файл <varargs.h> чистка программы => чистка
+Makefil'а.
+@
+text
+@d5 4
+d27 2
+a28 1
+CFLAGS= -O -n -s
+d48 9
+a56 1
+	cc ${CFLAGS} $(DEFS) ls.c -o ls
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 3
+a6 1
+# $Log$
+d8 1
+d24 1
+a24 2
+DEFS=   -DNGID=$G -DNUID=$U -DNFILES=$F -DUCB                 # no password hashing
+#DEFS=  -DNGID=$G -DNUID=$U -DNFILES=$F -DUCB -DUCB_PWHASH    # password hashing
+@

@@ -1,0 +1,282 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.5
+date     88.06.14.13.49.15;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.05.30.10.23.43;  author mike;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.05.23.14.37.19;  author mike;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.05.23.12.47.28;  author mike;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.05.23.12.43.04;  author mike;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.5
+log
+@Добавлена кодировка altpc
+@
+text
+@#
+#      ПРОГРАММА ПЕРЕКОДИРОВКИ.
+#
+# Таблицы перекодировок находятся в файлах:
+#      /lib/codes/...
+# Каждый файл содержит две таблицы:
+#      сначала таблица "to"
+#      затем таблица "from".
+# В каждой таблице должны быть описаны все 256 символов.
+#
+# Программа не зависит от внутренней кодировки системы.
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#      Коротаев М.В. (ИПК Минавтопрома)
+#
+#      $Log:    Makefile,v $
+# Revision 1.4  86/05/30  10:23:43  mike
+# Во входе Revision убрано двойное разблокирование RCS'ых файлов.
+#
+# Revision 1.3  86/05/23  14:37:19  mike
+# Вход CLRSRC : добавлено стирание загрузочного файла dd.
+#
+# Revision 1.2  86/05/23  12:47:28  mike
+# Вставлен еще один include-файл в dd.c (a.out.h),
+# поэтому менялся Makefile.
+#
+# Revision 1.1  86/05/23  12:43:04  mike
+# Initial revision
+#
+# Revision 1.1  86/05/23  12:29:27  mike
+# Initial revision
+#
+#          CODE = 8 - КОИ-8, u - Ucode
+
+CODE    = 8
+R       =
+COFLAGS =
+CIFLAGS = -q -u
+RCS     = RCS
+I       = /usr/include
+SRC     = dd.c
+CODES   = dkoi.$(CODE).c ibm.$(CODE).c inmos.$(CODE).c koi7.$(CODE).c \
+	  ucode.8.c altpc.$(CODE).c
+# koi8.u.c
+OBJS    = dkoi.$(CODE).o ibm.$(CODE).o inmos.$(CODE).o koi7.$(CODE).o \
+	  ucode.8.o altpc.$(CODE).o
+# koi8.u.o
+MAKEFILE= Makefile
+DESTDIR = /bin
+LIB     = /lib/codes
+LDFLAGS = -s -n
+CFLAGS  = -O -c
+
+all:    dd codes
+
+install: i_dd i_codes
+
+i_dd:   dd
+		-rm -f $(DESTDIR)/dd
+		cp dd $(DESTDIR)/dd
+		chmod 755 $(DESTDIR)/dd
+
+dd:     $(I)/stdio.h $(I)/signal.h $(I)/ctype.h $(I)/errno.h \
+	$(I)/ediag.h  $(I)/a.out.h $(SRC)
+		xstr $(SRC)
+		$(CC) $(CFLAGS) x.c xs.c
+		$(CC) $(LDFLAGS) x.o xs.o -o $@@
+		-rm -f x.c x.o xs.c xs.o
+
+i_codes: codes
+		-mkdir $(LIB)
+		-rm -f $(LIB)/dkoi
+		cp dkoi.$(CODE).o $(LIB)/dkoi
+		chmod 444 $(LIB)/dkoi
+		-rm -f $(LIB)/ibm
+		cp ibm.$(CODE).o $(LIB)/ibm
+		chmod 444 $(LIB)/ibm
+		-rm -f $(LIB)/inmos
+		cp inmos.$(CODE).o $(LIB)/inmos
+		chmod 444 $(LIB)/inmos
+		-rm -f $(LIB)/koi7
+		cp koi7.$(CODE).o $(LIB)/koi7
+		chmod 444 $(LIB)/koi7
+#                 -rm -f $(LIB)/koi8
+#                 cp koi8.u.o $(LIB)/koi8
+#                 chmod 444 $(LIB)/koi8
+		cp ucode.8.o $(LIB)/ucode
+		chmod 444 $(LIB)/ucode
+		cp altpc.$(CODE).o $(LIB)/altpc
+		chmod 444 $(LIB)/altpc
+
+codes   :       $(OBJS)
+
+
+dkoi.$(CODE).o   :  dkoi.$(CODE).c
+		$(CC) $(CFLAGS) dkoi.$(CODE).c
+		strip $@@
+ibm.$(CODE).o    :  ibm.$(CODE).c
+		$(CC) $(CFLAGS) ibm.$(CODE).c
+		strip $@@
+inmos.$(CODE).o  :  inmos.$(CODE).c
+		$(CC) $(CFLAGS) inmos.$(CODE).c
+		strip $@@
+koi7.$(CODE).o   :  koi7.$(CODE).c
+		$(CC) $(CFLAGS) koi7.$(CODE).c
+		strip $@@
+ucode.8.o   :  ucode.8.c
+		$(CC) $(CFLAGS) ucode.8.c
+		strip $@@
+koi8.u.o   :  koi8.u.c
+	       $(CC) $(CFLAGS) koi8.u.c
+	       strip $@@
+altpc.$(CODE).o  :  altpc.$(CODE).c
+		$(CC) $(CFLAGS) altpc.$(CODE).c
+		strip $@@
+
+
+source: $(SRC) $(MAKEFILE) $(CODES)
+
+$(R)$(MAKEFILE):   $(RCS)/$(MAKEFILE),v ;  co $(COFLAGS) $(MAKEFILE)
+$(R)dd.c:          $(RCS)/dd.c,v        ;  co $(COFLAGS) dd.c
+$(R)dkoi.$(CODE).c:      $(RCS)/dkoi.$(CODE).c,v    ;  co $(COFLAGS) dkoi.$(CODE).c
+$(R)ibm.$(CODE).c:       $(RCS)/ibm.$(CODE).c,v     ;  co $(COFLAGS) ibm.$(CODE).c
+$(R)inmos.$(CODE).c:     $(RCS)/inmos.$(CODE).c,v   ;  co $(COFLAGS) inmos.$(CODE).c
+$(R)koi7.$(CODE).c:      $(RCS)/koi7.$(CODE).c,v    ;  co $(COFLAGS) koi7.$(CODE).c
+$(R)koi8.u.c:            $(RCS)/koi8.u.c,v          ;  co $(COFLAGS) koi8.u.c
+$(R)ucode.8.c:           $(RCS)/ucode.8.c,v         ;  co $(COFLAGS) ucode.8.c
+$(R)altpc.$(CODE).c:     $(RCS)/altpc.$(CODE).c,v   ;  co $(COFLAGS) altpc.$(CODE).c
+
+Revision:       .revision
+
+.revision:      $(SRC) $(MAKEFILE) $(CODES)
+			rcs -l $?
+			ci $(CIFLAGS) $?
+			date > .revision
+
+clear clean:
+		-rm -f *.[ob] x.c xs.c
+
+CLRSRC: clean
+		-rm -f $(SRC) $(CODES) .revision dd
+@
+
+
+1.4
+log
+@Во входе Revision убрано двойное разблокирование RCS'ых файлов.
+@
+text
+@d16 3
+d32 1
+a32 1
+#
+d34 1
+d41 6
+a46 2
+CODES   = dkoi.u.c ibm.u.c inmos.u.c koi7.u.c koi8.u.c
+OBJS    = dkoi.u.o ibm.u.o inmos.u.o koi7.u.o koi8.u.o
+d72 1
+a72 1
+		cp dkoi.u.o $(LIB)/dkoi
+d75 1
+a75 1
+		cp ibm.u.o $(LIB)/ibm
+d78 1
+a78 1
+		cp inmos.u.o $(LIB)/inmos
+d81 1
+a81 1
+		cp koi7.u.o $(LIB)/koi7
+d83 7
+a89 3
+		-rm -f $(LIB)/koi8
+		cp koi8.u.o $(LIB)/koi8
+		chmod 444 $(LIB)/koi8
+d94 2
+a95 2
+dkoi.u.o   :  dkoi.u.c
+		$(CC) $(CFLAGS) dkoi.u.c
+d97 2
+a98 2
+ibm.u.o    :  ibm.u.c
+		$(CC) $(CFLAGS) ibm.u.c
+d100 2
+a101 2
+inmos.u.o  :  inmos.u.c
+		$(CC) $(CFLAGS) inmos.u.c
+d103 2
+a104 2
+koi7.u.o   :  koi7.u.c
+		$(CC) $(CFLAGS) koi7.u.c
+d106 3
+d110 4
+a113 1
+		$(CC) $(CFLAGS) koi8.u.c
+d116 1
+d121 7
+a127 5
+$(R)dkoi.u.c:      $(RCS)/dkoi.u.c,v    ;  co $(COFLAGS) dkoi.u.c
+$(R)ibm.u.c:       $(RCS)/ibm.u.c,v     ;  co $(COFLAGS) ibm.u.c
+$(R)inmos.u.c:     $(RCS)/inmos.u.c,v   ;  co $(COFLAGS) inmos.u.c
+$(R)koi7.u.c:      $(RCS)/koi7.u.c,v    ;  co $(COFLAGS) koi7.u.c
+$(R)koi8.u.c:      $(RCS)/koi8.u.c,v    ;  co $(COFLAGS) koi8.u.c
+@
+
+
+1.3
+log
+@Вход CLRSRC : добавлено стирание загрузочного файла dd.
+@
+text
+@d16 3
+a112 1
+			rcs -u $?
+@
+
+
+1.2
+log
+@Вставлен еще один include-файл в dd.c (a.out.h),
+поэтому менялся Makefile.
+@
+text
+@d16 4
+d117 1
+a117 1
+		-rm -f $(SRC) $(CODES) .revision
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d16 3
+d48 1
+a48 1
+	$(I)/ediag.h  $(SRC)
+@

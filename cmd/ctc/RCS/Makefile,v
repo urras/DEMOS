@@ -1,0 +1,47 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     89.01.25.19.33.29;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+# $Header: Makefile,v 1.1 89/01/25 19:27:32 ache Exp $
+# $Log:	Makefile,v $
+LDFLAGS = -n
+LIBS = -ltermcap
+OBJS = ctc.o termcap.o data.o
+DESTDIR = /usr/new
+
+all:    ctc
+
+install: ctc
+	cp ctc $(DESTDIR)/bin
+	strip $(DESTDIR)/bin/ctc
+	chmod 0775 $(DESTDIR)/bin/ctc
+
+ctc:    $(OBJS)
+	${CC} ${LDFLAGS} ${OBJS} -o ctc ${LIBS}
+
+data.o: data.c
+	$(CC) -c data.c
+
+clean:
+	-rm -f *.[ob]
+@

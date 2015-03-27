@@ -1,0 +1,103 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     88.01.10.17.10.55;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.09.15.56.54;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Система рассылки почты проектам.
+@
+
+
+1.2
+log
+@Правлена ошибка в i_pmcs
+@
+text
+@#
+# Система рассылки почты проектам
+#
+# $Log: Makefile,v $
+# Revision 1.1  88/01/09  15:56:54  avg
+# Initial revision
+#
+#
+
+# Для версии исх. текстов без архивов RCS установите R=X
+R=
+
+RCS=RCS
+COFLAGS=
+
+CFLAGS=
+DSTDIR=/usr/ucb
+ETC=/etc
+CFLAGS=-O
+
+all: pmcs projmail
+
+install::
+	@@echo YOU MUST BE A SUPERUSER TO PERFORM IT!
+
+install:: i_pmcs i_projmail
+
+i_pmcs: pmcs
+	cp pmcs ${DSTDIR}/pmcs
+	strip ${DSTDIR}/pmcs
+	chmod 4555 ${DSTDIR}/pmcs
+
+i_projmail: projmail
+	cp projmail ${ETC}/projmail
+	strip ${ETC}/projmail
+	chmod 4555 ${ETC}/projmail
+
+pmcs: getpd.o pmcs.o
+	cc -o pmcs getpd.o pmcs.o
+
+projmail: projmail.o getpd.o
+	cc -o projmail getpd.o projmail.o
+
+projmail.o getpd.o pmcs.o: projdesc.h
+
+source: projmail.c getpd.c pmcs.c projdesc.h Makefile
+
+CLRSRC: clean
+	rm -f projmail.c getpd.c pmcs.c projdesc.h
+
+clean clear:
+	rm -f *.[ob] pmcs projmail
+
+${R}projmail.c: ${RCS}/projmail.c,v ;   co ${COFLAGS} projmail.c
+${R}getpd.c:    ${RCS}/getpd.c,v ;      co ${COFLAGS} getpd.c
+${R}pmcs.c:     ${RCS}/pmcs.c,v ;       co ${COFLAGS} pmcs.c
+${R}projdesc.h: ${RCS}/projdesc.h,v ;   co ${COFLAGS} projdesc.h
+${R}Makefile:   ${RCS}/Makefile,v ;     co ${COFLAGS} Makefile
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 3
+a6 1
+# $Log$
+d8 1
+d30 1
+a30 1
+	strip ${ETC}/pmcs
+@

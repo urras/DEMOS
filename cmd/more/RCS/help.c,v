@@ -1,0 +1,211 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.04.10.19.11.53;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.13.16.40.44;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Сделан ediag + исправлены некоторые ошибки
+@
+text
+@#include  "less.h"
+
+/*
+ * Display some help.
+ * Help is in two pages.
+ */
+	static void
+rhelp0()
+{
+	puts("f, пробел      Один экран вперед.\n");
+	puts("b              Один экран назад.\n");
+	puts("e, j, <вк>  *  Вперед на N строк, по умолчанию n=1.\n");
+	puts("y, k        *  Назад на N строк, по умолчанию n=1.\n");
+	puts("d           *  Вперед на N строк, по умолчанию 10 или\n");
+	puts("               на число, заданное последней команде d или u.\n");
+	puts("u           *  Аналогично d, но назад.\n");
+	puts("r              Перерисовать экран.\n");
+	puts("g           *  Перейти к строке N, по умолчанию 1.\n");
+	puts("G           *  Подобна g, но по умолчанию к последней строке файла.\n");
+	puts("=              Печать текущего имени файла\n");
+	puts("/шаблон     *  Поиск вперед до N-того вхождения шаблона.\n");
+	puts("?шаблон     *  Поиск назад до N-того вхождения шаблона\n");
+	puts("n           *  Повторить предыдущий поиск (до N-того вхождения).\n");
+	puts("q              Выход.\n");
+	error("Еще  help...");
+}
+
+	static void
+rhelp1()
+{
+	char message[100];
+	extern char all_options[];
+
+	puts("R              Перерисовать экран, сбросив буфер ввода.\n");
+	puts("p, %        *  Позиционирование на N-тую (в %) часть файла.\n");
+	puts("m<буква>       Пометка текущей строки <буквой>.\n");
+	puts("'<буква>       Возврат к позиции, помеченной <буквой>.\n");
+	sprintf(message,
+	     "-X             Переустановка ключа X (X - буква из \"%s\").\n", all_options);
+	puts(message);
+	puts("E [файл]       Просмотр нового файла.\n");
+	puts("N              Просмотр следующего (в командной строке) файла.\n");
+	puts("P              Просмотр предыдущего (в командной строке) файла.\n");
+	puts("V              Вывод номера версии.\n");
+#if SHELL_ESCAPE
+	puts("!команда       Выполнить команду sh.\n");
+#endif
+#if EDITOR
+	sprintf(message,
+	     "v              Редактировать текущий файл (редактором %s).\n", EDIT_PGM);
+	puts(message);
+#endif
+	error("");
+}
+
+	static void
+help0()
+{
+	puts("f, SPACE       Forward one screen.\n");
+	puts("b              Backward one screen.\n");
+	puts("e, j, CR    *  Forward N lines, default 1.\n");
+	puts("y, k        *  Backward N lines, default 1.\n");
+	puts("d           *  Forward N lines, default 10 or last N to d or u command.\n");
+	puts("u           *  Backward N lines, default 10 or last N to d or u command.\n");
+	puts("r              Repaint screen.\n");
+	puts("g           *  Go to line N, default 1.\n");
+	puts("G           *  Like g, but default is last line in file.\n");
+	puts("=              Print current file name.\n");
+	puts("/pattern    *  Search forward for N-th occurence of pattern.\n");
+	puts("?pattern    *  Search backward for N-th occurence of pattern.\n");
+	puts("n           *  Repeat previous search (for N-th occurence).\n");
+	puts("q              Exit.\n");
+	error("More help...");
+}
+
+	static void
+help1()
+{
+	char message[100];
+	extern char all_options[];
+
+	puts("R              Repaint screen, discarding buffered input.\n");
+	puts("p, %        *  Position to N percent into the file.\n");
+	puts("m<letter>      Mark the current position with <letter>.\n");
+	puts("'<letter>      Return to a previously marked position.\n");
+	sprintf(message,
+	     "-X             Toggle a flag (X may be one of \"%s\").\n", all_options);
+	puts(message);
+	puts("E [file]       Examine new file.\n");
+	puts("N              Examine the next file (from the command line).\n");
+	puts("P              Examine the previous file (from the command line).\n");
+	puts("V              Print version number.\n");
+#if SHELL_ESCAPE
+	puts("!command       Passes command to a shell to be executed.\n");
+#endif
+#if EDITOR
+	sprintf(message,
+	     "v              Edit the current file with %s.\n", EDIT_PGM);
+	puts(message);
+#endif
+	error("");
+}
+
+	public void
+help()
+{
+	register int i;
+
+	if( _ediag == EDIAG_E ) {
+		for (i = 0;  i < 2;  i++) {
+			clear();
+			puts("Commands marked with * may be preceeded by a number, N.\n\n");
+			switch (i) {
+			case 0:         help0();        break;
+			case 1:         help1();        break;
+			}
+		}
+	} else {
+		for (i = 0;  i < 2;  i++) {
+			clear();
+			puts("Командам, помеченным *, может предшествовать число N.\n\n");
+			switch (i) {
+			case 0:         rhelp0();        break;
+			case 1:         rhelp1();        break;
+			}
+		}
+	}
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d8 1
+a8 1
+help0()
+d15 2
+a16 3
+	puts("                   заданное последней командой d или u.\n");
+	puts("u           *  Назад на N строк, по умолчанию 10 или\n");
+	puts("                  заданное последней командой d или u.\n");
+d21 3
+a23 3
+	puts("/шаблон     *  Поиск вперед для N-го вхождения шаблона.\n");
+	puts("?шаблон     *  Поиск назад для N-го вхождения шаблона\n");
+	puts("n           *  Повторить предыдущий поиск (для N-го вхождения).\n");
+d29 48
+d82 6
+a87 7
+	puts("R              Перевыдать экран, сбросив буфер ввода.\n");
+	puts("p, %        *  Позиционирование на N-ую (%) часть файла.\n");
+	puts("m<символ>      Маркировка текущей строки <символом>.\n");
+	puts("'<символ>      Возврат к позиции, маркированной <символом>.\n");
+	sprintf(message, 
+       "-X             Переустановка ключа команды less\n (X может быть любым из \"%s\").\n",
+				all_options);
+d89 4
+a92 4
+	puts("E [файл]       Анализ нового файла.\n");
+	puts("N              Анализ следующего файла (из строки команд).\n");
+	puts("P              Анализ предыдущего файла (из строки команд).\n");
+	puts("V              Печать номера версии.\n");
+d94 1
+a94 1
+	puts("!команда       Выполнить команду системы.\n");
+d98 1
+a98 2
+	     "v              Редактировать файл (редактором $EDITOR, обычно %s).\n",
+				EDIT_PGM);
+d109 17
+a125 8
+	for (i = 0;  i < 2;  i++)
+	{
+		clear();
+		puts("Командам,маркированным *, может предшествовать число N.\n\n");
+		switch (i)
+		{
+		case 0:		help0();	break;
+		case 1:		help1();	break;
+@

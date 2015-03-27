@@ -1,0 +1,35 @@
+# Demos Commander termcap appendix.
+# Descriptor tc= refer to default termcap.
+# Use TERM=xenix for standard xenix console.
+# Terminal type ansi is hacked to be Xenix console.
+# Use trueansi for real ansi devices.
+
+# True ansi terminal.
+trueansi:kI=\E[L:kH=\E[F:kN=\E[G:kh=\E[H:kP=\E[I:kD=\177:\
+	:f1=\E[M:f2=\E[N:f3=\E[O:f4=\E[P:f5=\E[Q:\
+	:f6=\E[R:f7=\E[S:f8=\E[T:f9=\E[U:f0=\E[V:tc=ansi
+
+# Standard Xenix console.
+# It is not true ansi, but has been hacked for dumb users.
+ansi|xenix:gs=:ge=:g2=\315\272\310\312\274\314\316\271\311\313\273:\
+	:C2:Nf#16:Nb#8:Mf=042615378CAE9DBF:Mb=04261537:\
+	:Cf=\E[%p1%{8}%/%d;3%p1%{8}%m%d;4%p2%dm:fs=\E[m:\
+	:kI=\E[L:kH=\E[F:kd=\E[B:kN=\E[G:kl=\E[D:\
+	:kr=\E[C:kh=\E[H:ku=\E[A:kP=\E[I:kD=\177:\
+	:f1=\E[M:f2=\E[N:f3=\E[O:f4=\E[P:f5=\E[Q:\
+	:f6=\E[R:f7=\E[S:f8=\E[T:f9=\E[U:f0=\E[V:tc=ansi
+
+# Xenix console with Demos/* Russification Kit.
+xenix8:C2:Nf#16:Nb#8:Mf=042615378CAE9DBF:Mb=04261537:\
+	:gs=:ge=:g2=\215\272\210\212\274\214\216\271\211\213\273:\
+	:Cf=\E[%p1%{8}%/%d;3%p1%{8}%m%d;4%p2%dm:fs=\E[m:tc=xenix8
+
+# Interactive Unix 386 console
+AT386|at386:gs=:ge=:g2=\315\272\310\312\274\314\316\271\311\313\273:\
+	:C2:Nf#16:Nb#8:Mf=042615378CAE9DBF:Mb=04261537:\
+	:Cf=\E[%p1%{8}%/%d;3%p1%{8}%m%d;4%p2%dm:fs=\E[m:\
+	:k0=\EOY:kI=\E[@:kH=\E[Y:kN=\E[U:kP=\E[V:kD=\177:tc=AT386
+
+# Interactive Unix 386 console with koi8 cyrillic font
+AT386c|at386c:C2:Nf#16:Nb#8:Mf=042615378CAE9DBF:Mb=04261537:\
+	:Cf=\E[%p1%{8}%/%d;3%p1%{8}%m%d;4%p2%dm:fs=\E[m:tc=AT386c

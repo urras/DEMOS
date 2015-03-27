@@ -1,0 +1,353 @@
+head     1.5;
+access   ;
+symbols  SM4:1.1;
+locks    dvolodin:1.5;
+comment  @ * @;
+
+
+1.5
+date     88.10.14.21.54.34;  author dvolodin;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     87.04.14.13.00.56;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.01.24.18.41.51;  author alex;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.01.10.15.23.43;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.01.10.09.27.21;  author fox;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.5
+log
+@Для порождаемых процессов теперь жестко ставится nice 22 (НЕ ВЕРИТЬ. dvolodin).
+@
+text
+@/* $Header: dosys.c,v 1.4 87/04/14 13:00:56 dmitry Exp $ */
+/* $Log:	dosys.c,v $
+ * Revision 1.4  87/04/14  13:00:56  dmitry
+ * Правлены плюхи по vforkу им. А.П.Руднева.
+ * 
+ * Revision 1.3  87/01/24  18:41:51  alex
+ * nice не ставится, если запускаем make
+ * 
+ * Revision 1.2  87/01/10  15:23:43  root
+ * Добавили nice и vfork.
+ * 
+ * Revision 1.1  86/01/10  09:27:21  fox
+ * Initial revision
+ * 
+*/
+
+#include "defs.h"
+#include <signal.h>
+
+dosys(comstring,nohalt)
+register char *comstring;
+int nohalt;
+{
+register int status;
+
+if(metas(comstring))
+	status = doshell(comstring,nohalt);
+else	status = doexec(comstring);
+
+return(status);
+}
+
+
+
+metas(s)   /* Are there are any  Shell meta-characters? */
+register char *s;
+{
+register char c;
+
+while( (funny[((int)(c = *s++))&0377] & META) == 0 )
+	;
+return( c );
+}
+
+doshell(comstring,nohalt)
+char *comstring;
+int nohalt;
+{
+#ifdef SHELLENV
+char *getenv(), *rindex();
+char *shellcom = getenv("SHELL");
+char *shellstr;
+#endif
+#ifdef VFORK
+if((waitpid = vfork()) == 0)
+#else
+if((waitpid = fork()) == 0)
+#endif
+	{
+	enbint(SIG_DFL);
+	doclose();
+/*	renice(getpid(),22);*/
+#ifdef SHELLENV
+	if (shellcom == 0) shellcom = SHELLCOM;
+	shellstr = rindex(shellcom, '/') + 1;
+	if(strcmp(shellcom,"/bin/csh")== 0 )
+		execl(shellcom, shellstr, (nohalt ? "-cf" : "-cef"), comstring, 0);
+		else
+		execl(shellcom, shellstr, (nohalt ? "-c" : "-ce"), comstring, 0);
+	fprintf(stderr, "%s: Cannot load Shell\n", shellcom);
+	_exit(1);
+#else
+	execl(SHELLCOM, "sh", (nohalt ? "-c" : "-ce"), comstring, 0);
+	fprintf(stderr, "Cannot load Shell\n");
+	_exit(1);
+#endif
+	}
+
+return( await() );
+}
+
+
+
+
+int intrupt();
+
+await()
+{
+int status;
+register int pid;
+
+enbint(SIG_IGN);
+while( (pid = wait(&status)) != waitpid)
+	if(pid == -1)
+		fatal("bad wait code");
+waitpid = 0;
+enbint(intrupt);
+return(status);
+}
+
+
+
+
+
+
+doclose()	/* Close open directory files before exec'ing */
+{
+register struct opendir *od;
+
+for (od = firstod; od; od = od->nxtopendir)
+	if (od->dirfc != NULL)
+		/* fclose(od->dirfc); */
+		close(od->dirfc->_file);
+}
+
+
+
+
+
+doexec(str)
+register char *str;
+{
+register char *t;
+char *argv[MAXARGS];
+register char **p;
+
+while( *str==' ' || *str=='\t' )
+	++str;
+if( *str == '\0' )
+	return(-1);	/* no command */
+
+p = argv;
+for(t = str ; *t ; )
+	{
+	*p++ = t;
+	if( (p-argv) >= MAXARGS ) fatal("Command line too long");
+	while(*t!=' ' && *t!='\t' && *t!='\0')
+		++t;
+	if(*t)
+		for( *t++ = '\0' ; *t==' ' || *t=='\t'  ; ++t)
+			;
+	}
+
+*p = NULL;
+
+#ifdef VFORK
+if((waitpid = vfork()) == 0)
+#else
+if((waitpid = fork()) == 0)
+#endif
+	{
+	enbint(SIG_DFL);
+	doclose();
+	enbint(intrupt);
+/*	renice(getpid(),22);*/
+	execvp(str, argv);
+	fprintf(stderr,"Cannot load %s\n",str);
+	fflush(stderr);
+	_exit(1);
+	}
+
+return( await() );
+}
+
+#include <errno.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+
+
+
+
+touch(force, name)
+int force;
+char *name;
+{
+struct stat stbuff;
+char junk[1];
+int fd;
+
+if( stat(name,&stbuff) < 0)
+	if(force)
+		goto create;
+	else
+		{
+		fprintf(stderr, "touch: file %s does not exist.\n", name);
+		return;
+		}
+
+if(stbuff.st_size == 0)
+	goto create;
+
+if( (fd = open(name, 2)) < 0)
+	goto bad;
+
+if( read(fd, junk, 1) < 1)
+	{
+	close(fd);
+	goto bad;
+	}
+lseek(fd, 0L, 0);
+if( write(fd, junk, 1) < 1 )
+	{
+	close(fd);
+	goto bad;
+	}
+close(fd);
+return;
+
+bad:
+	fprintf(stderr, "Cannot touch %s\n", name);
+	return;
+
+create:
+	if( (fd = creat(name, 0666)) < 0)
+		goto bad;
+	close(fd);
+}
+@
+
+
+1.4
+log
+@Правлены плюхи по vforkу им. А.П.Руднева.
+@
+text
+@d1 1
+a1 1
+/* $Header: dosys.c,v 1.3 87/01/24 18:41:51 alex Exp $ */
+d3 3
+d62 1
+a62 1
+	if(strncmp("make",comstring,4) ) nice(2);
+d155 1
+a155 1
+	if(strncmp("make",str,4) ) nice(2);
+@
+
+
+1.3
+log
+@nice не ставится, если запускаем make
+@
+text
+@d1 1
+a1 1
+/* $Header: dosys.c,v 1.2 87/01/10 15:23:43 root Exp $ */
+d3 3
+d67 2
+a68 2
+	fprintf(stderr, "%s: ", shellcom);
+	fatal("Couldn't load Shell: %s");
+d71 2
+a72 1
+	fatal("Couldn't load Shell");
+d121 1
+a121 1
+char *argv[200];
+d133 1
+d154 3
+a156 1
+	fatal1("Cannot load %s",str);
+@
+
+
+1.2
+log
+@Добавили nice и vfork.
+@
+text
+@d1 1
+a1 1
+/* $Header: dosys.c,v 1.1 86/01/10 09:27:21 fox Exp $ */
+d3 3
+d56 1
+a56 1
+	nice(2);
+d60 6
+a65 1
+	execl(shellcom, shellstr, (nohalt ? "-c" : "-ce"), comstring, 0);
+d68 1
+a69 1
+	fatal("Couldn't load Shell");
+d147 1
+a147 1
+	nice(2);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+/* $Header: dosys.c,v 1.1 86/01/06 03:39:59 fox Exp $ */
+d3 3
+d45 3
+a47 1
+/*   if((waitpid = vfork()) == 0)   */
+d49 1
+d53 1
+a53 1
+
+d130 3
+a132 1
+/*   if((waitpid = vfork()) == 0) */
+d134 1
+d139 1
+@

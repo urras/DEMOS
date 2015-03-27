@@ -1,0 +1,31 @@
+#print
+Напишите подпрограмму, которая считает сколько раз
+ее вызывали и при каждом вызове печатающую количество
+вызовов. Назовите ее  "count()".
+Поместите ее в файл "count.c".
+Скомпилируйте и прогоните ее и только после этого
+ответьте "готов".
+#once #create Ref
+23080
+#once #create tzaqc.c
+main() {
+	int i;
+	for (i = 0; i < 23079; i++)
+		count();
+	printf("%d\n", count());
+}
+#user
+cc tzaqc.c count.o
+a.out  >value
+#cmp value Ref
+#succeed
+/*  Наш способ, а не Ваш.  */
+count()
+{
+	static int n = 0;
+	return(++n);
+}
+#log
+#next
+30.1a 10
+20.1a 5

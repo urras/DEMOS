@@ -1,0 +1,18 @@
+#print
+(Раздел 1.1)
+Программа в ref.c содержит ошибку; найдите ее и исправьте.
+Прогоните программу и наберите "готов".
+#once #create ref.c
+main()
+{
+	printf("привет\");
+}
+
+#once #create ref
+привет
+#user
+a.out >x
+#cmp x ref
+#log
+#next
+1.1d 10

@@ -1,0 +1,68 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.07.23.20.29.07;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.12.25.16.00.37;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.2
+log
+@Русские диагностики
+@
+text
+@#
+
+/*
+ * Mail -- a mail program
+ *
+ * This file is included by normal files which want both
+ * globals and declarations.
+ *
+ * $Log:	rcv.h,v $
+ * Revision 1.1  87/12/25  16:00:37  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * $Header: rcv.h,v 1.1 87/12/25 16:00:37 avg Exp $
+ */
+
+#ifdef  pdp11
+#include <whoami.h>
+#endif
+#include <ediag.h>
+#include "def.h"
+#include "glob.h"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d9 4
+a12 1
+ * $Log$
+d16 1
+a16 1
+ * $Header$
+d22 1
+@

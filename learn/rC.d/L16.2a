@@ -1,0 +1,57 @@
+#print
+Напишите программу, которая считывает файл, состоящий
+из строк до двухсот символов длинной, и укорачивает
+их до шестидесяти символов в строке, просто отбрасывая
+последующие символы.
+Скомпилируйте программу и прогоните ее,
+после чего наберите "готов".
+#once #create Ref
+hoboken harrison newark roseville avenue grove street
+east orange brick church orange highland avenue east orange 
+mountain station south orange maplewood millburn short hills
+summit chatham madison convent station morristown summit cha
+new providence murray hill berkeley heights
+
+gillette stirling millingon lyons basking ridgexxxxxxxxxxxxx
+bernardsville far hills peapack gladstone
+#once #create badin
+hoboken harrison newark roseville avenue grove street
+east orange brick church orange highland avenue east orange brick church orange highland avenue east orange brick church orange highland avenue
+mountain station south orange maplewood millburn short hills
+summit chatham madison convent station morristown summit chatham madison convent station morristown summit chatham madison convent station morristown
+new providence murray hill berkeley heights
+
+gillette stirling millingon lyons basking ridgexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+bernardsville far hills peapack gladstone
+#user
+a.out <badin >xxx
+#cmp Ref xxx
+#succeed
+/*   Один из возможных вариантов:  */
+
+ #include <stdio.h>
+
+main()
+{
+	char line[61];
+	int c, k;
+
+	k = 0;
+	while ((c = getchar()) != EOF) {
+		if (c == '\n') {
+			line[k] = 0;
+			printf("%s\n", line);
+			k = 0;
+		}
+		else if (k < 60)
+			line[k++] = c;
+	}
+}
+
+Отметим, что эта версия программы обрабатывает
+строки произвольной длины.
+А если Вы воспользуетесь функцией getline,
+то останится ли все по-прежнему?
+#log
+#next
+16.2b 10

@@ -1,0 +1,24 @@
+#
+# Systems description file.
+#
+%e avg@avg386
+%p siouxsie
+
+# MACHINE/ROUTE #           METRIC      PATH            PASSWORD
+#
+aaa.bbb                     1           *
+zaba.USSR.GOV               0           @
+1                           100         demos!          hidoje
+ulu.home.demos.USSR.COM     10          uubor!
+2                           10          jvdrd!          zuhhbbn
+3                           20          fox!            doiw-sdjj
+4                           10          abra            sdkldk8jsJ
+5                           1           @def.ghi.xyz    sdk92hdb
+6                           6           @abc.zzz
+*.somewhere                 1           @uuzzulu
+*.horror                    2           harv!sss!
+*.hoho                      102         repka!
+$UULIST.uucp                1000        abc!route$!
+7                           2           durkk!%hixyz
+abc.uucp                    3           azzu!urru!
+xyz.uucp                    4           @eugene

@@ -1,0 +1,237 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.06.10.11.05.49;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * C Shell
+ *
+ * "внутренний" вариант perror, использует printf вместо write(2...
+ *
+ * $Log:	perror.c,v $
+ * Revision 1.1  89/05/06  14:26:03  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * Print the error indicated
+ * in the cerror cell.
+ */
+
+#include <ediag.h>
+
+int     errno;
+
+/*
+ * Revision 1.4  86/09/19  12:10:18
+ */
+static char *sys_errlist[] = {
+	"Error 0",
+	"Not owner",                            /*  1 - EPERM */
+	"No such file or directory",            /*  2 - ENOENT */
+	"No such process",                      /*  3 - ESRCH */
+	"Interrupted system call",              /*  4 - EINTR */
+	"I/O error",                            /*  5 - EIO */
+	"No such device or address",            /*  6 - ENXIO */
+	"Arg list too long",                    /*  7 - E2BIG */
+	"Exec format error",                    /*  8 - ENOEXEC */
+	"Bad file number",                      /*  9 - EBADF */
+	"No children",                          /* 10 - ECHILD */
+	"No more processes",                    /* 11 - EAGAIN */
+	"Not enough core",                      /* 12 - ENOMEM */
+	"Permission denied",                    /* 13 - EACCES */
+	"Bad address",                          /* 14 - EFAULT */
+	"Block device required",                /* 15 - ENOTBLK */
+	"Exclusive use facility busy",          /* 16 - EBUSY */
+	"File exists",                          /* 17 - EEXIST */
+	"Cross-device link",                    /* 18 - EXDEV */
+	"No such device",                       /* 19 - ENODEV */
+	"Not a directory",                      /* 20 - ENOTDIR */
+	"Is a directory",                       /* 21 - EISDIR */
+	"Invalid argument",                     /* 22 - EINVAL */
+	"File table overflow",                  /* 23 - ENFILE */
+	"Too many open files",                  /* 24 - EMFILE */
+	"Inappropriate ioctl for device",       /* 25 - ENOTTY */
+	"Text file busy",                       /* 26 - ETXTBSY */
+	"File too large",                       /* 27 - EFBIG */
+	"No space left on device",              /* 28 - ENOSPC */
+	"Illegal seek",                         /* 29 - ESPIPE */
+	"Read-only file system",                /* 30 - EROFS */
+	"Too many links",                       /* 31 - EMLINK */
+	"Broken pipe",                          /* 32 - EPIPE */
+
+/* math software */
+	"Argument too large",                   /* 33 - EDOM */
+	"Result too large",                     /* 34 - ERANGE */
+
+/* quotas */
+	"Disk quota exceeded",                  /* 35 - EQUOT */
+
+/* symbolic links */
+	"Too many levels of symbolic links",    /* 36 - ELOOP */
+
+/* non-blocking and interrupt i/o */
+	"Operation would block",                /* 37 - EWOULDBLOCK */
+
+	"Operation now in progress",            /* 38 - EINPROGRESS */
+	"Operation already in progress",        /* 39 - EALREADY */
+
+/* ipc/network software */
+
+	/* argument errors */
+	"Socket operation on non-socket",       /* 40 - ENOTSOCK */
+	"Destination address required",         /* 41 - EDESTADDRREQ */
+	"Message too long",                     /* 42 - EMSGSIZE */
+	"Protocol wrong type for socket",       /* 43 - EPROTOTYPE */
+	"Protocol not available",               /* 44 - ENOPROTOOPT */
+	"Protocol not supported",               /* 45 - EPROTONOSUPPORT */
+	"Socket type not supported",            /* 46 - ESOCKTNOSUPPORT */
+	"Operation not supported on socket",    /* 47 - EOPNOTSUPP */
+	"Protocol family not supported",        /* 48 - EPFNOSUPPORT */
+	"Address family not supported by protocol family",
+						/* 49 - EAFNOSUPPORT */
+	"Address already in use",               /* 50 - EADDRINUSE */
+	"Can't assign requested address",       /* 51 - EADDRNOTAVAIL */
+
+	/* operational errors */
+	"Network is down",                      /* 52 - ENETDOWN */
+	"Network is unreachable",               /* 53 - ENETUNREACH */
+	"Network dropped connection on reset",  /* 54 - ENETRESET */
+	"Software caused connection abort",     /* 55 - ECONNABORTED */
+	"Connection reset by peer",             /* 56 - ECONNRESET */
+	"No buffer space available",            /* 57 - ENOBUFS */
+	"Socket is already connected",          /* 58 - EISCONN */
+	"Socket is not connected",              /* 59 - ENOTCONN */
+	"Can't send after socket shutdown",     /* 60 - ESHUTDOWN */
+	"Too many references: can't splice",    /* 61 - ETOOMANYREFS */
+	"Connection timed out",                 /* 62 - ETIMEDOUT */
+	"Connection refused",                   /* 63 - ECONNREFUSED */
+	"File name too long",                   /* 64 - ENAMETOOLONG */
+	"Host is down",                         /* 65 - EHOSTDOWN */
+	"Host is unreachable",                  /* 66 - EHOSTUNREACH */
+};
+
+static char *sys_rerrlist[] = {
+	"ошибка 0",
+	"Вы не владелец",                       /*  1 - EPERM */
+	"нет такого файла или каталога",        /*  2 - ENOENT */
+	"нет такого процесса",                  /*  3 - ESRCH */
+	"прерванный системный вызов",           /*  4 - EINTR */
+	"ошибка ввода/вывода",                  /*  5 - EIO */
+	"нет такого устройства или адреса",     /*  6 - ENXIO */
+	"слишком длинный список аргументов",    /*  7 - E2BIG */
+	"ошибка формата вызова exec",           /*  8 - ENOEXEC */
+	"плохой номер файла",                   /*  9 - EBADF */
+	"нет порожденных процессов",            /* 10 - ECHILD */
+	"слишком много процессов",              /* 11 - EAGAIN */
+	"слишком мало памяти",                  /* 12 - ENOMEM */
+	"не имеете права",                      /* 13 - EACCES */
+	"плохой адрес",                         /* 14 - EFAULT */
+	"требуется блочное устройство",         /* 15 - ENOTBLK */
+	"занят",                                /* 16 - EBUSY */
+	"файл существует",                      /* 17 - EEXIST */
+	"связь на другую файловую систему",     /* 18 - EXDEV */
+	"нет такого устройства",                /* 19 - ENODEV */
+	"не каталог",                           /* 20 - ENOTDIR */
+	"каталог",                              /* 21 - EISDIR */
+	"недопустимый аргумент",                /* 22 - EINVAL */
+	"переполнение таблицы файлов",          /* 23 - ENFILE */
+	"слишком много открытых файлов",        /* 24 - EMFILE */
+	"недопустимый ioctl для устройства",    /* 25 - ENOTTY */
+	"выполняемый файл занят",               /* 26 - ETXTBSY */
+	"слишком большой файл",                 /* 27 - EFBIG */
+	"нет места на устройстве",              /* 28 - ENOSPC */
+	"недопустимый seek",                    /* 29 - ESPIPE */
+	"файловая система закрыта на запись",   /* 30 - EROFS */
+	"слишком много связей",                 /* 31 - EMLINK */
+	"нет приемника на выходе трубы",        /* 32 - EPIPE */
+
+/* math software */
+	"слишком большой аргумент",             /* 33 - EDOM */
+	"слишком большой результат",            /* 34 - ERANGE */
+
+/* quotas */
+	"исчерпан бюджет блоков на диске",      /* 35 - EQUOT */
+
+/* symbolic links */
+	"слишком длинная цепочка симв. связей", /* 36 - ELOOP */
+
+/* non-blocking and interrupt i/o */
+	"операция заблокирует процесс",         /* 37 - EWOULDBLOCK */
+
+	"операция сейчас выполняется",          /* 38 - EINPROGRESS */
+	"операция уже выполняется",             /* 39 - EALREADY */
+
+/* ipc/network software */
+
+	/* argument errors */
+	"гнездовая операция не над гнездом",    /* 40 - ENOTSOCK */
+	"требуется адрес приемника",            /* 41 - EDESTADDRREQ */
+	"слишком длинное сообщение",            /* 42 - EMSGSIZE */
+	"неверный тип протокола для гнезда",    /* 43 - EPROTOTYPE */
+	"протокол не доступен",                 /* 44 - ENOPROTOOPT */
+	"протокол не поддерживается",           /* 45 - EPROTONOSUPPORT */
+	"тип гнезда не поддерживается",         /* 46 - ESOCKTNOSUPPORT */
+	"операция недопустима для гнезда",      /* 47 - EOPNOTSUPP */
+	"семейситво протоколов не поддерживается",/*48- EPFNOSUPPORT */
+	"семейство адресов не поддерживается семейством протоколов",
+						/* 49 - EAFNOSUPPORT */
+	"адрес уже используется",               /* 50 - EADDRINUSE */
+	"не могу приписать затребованный адрес",/* 51 - EADDRNOTAVAIL */
+
+	/* operational errors */
+	"сеть выключена",                       /* 52 - ENETDOWN */
+	"сеть недоступна",                      /* 53 - ENETUNREACH */
+	"сеть оборвала соединение по сбросу",   /* 54 - ENETRESET */
+	"программа аварийно оборвала соединение",/*55 - ECONNABORTED */
+	"соединение сброшено абонентом",        /* 56 - ECONNRESET */
+	"нет места для буферов",                /* 57 - ENOBUFS */
+	"гнездо уже соединено",                 /* 58 - EISCONN */
+	"гнездо не соединено",                  /* 59 - ENOTCONN */
+	"не могу посылать сообщения после закрытия гнезда",
+						/* 60 - ESHUTDOWN */
+	"слишком много ссылок: не могу расщепить",
+						/* 61 - ETOOMANYREFS */
+	"тайм-аут соединения",                  /* 62 - ETIMEDOUT */
+	"в соединении отказано",                /* 63 - ECONNREFUSED */
+	"слишком длинное имя файла",            /* 64 - ENAMETOOLONG */
+	"главная ЭВМ выключена",                /* 65 - EHOSTDOWN */
+	"главная ЭВМ недоступна",               /* 66 - EHOSTUNREACH */
+};
+
+perror(s)
+char *s;
+{
+	register char *c, *q;
+	char buf[60], fmt[8];
+
+	c = ediag("Unknown error","неизвестная ошибка");
+	if(errno < (sizeof sys_errlist/sizeof sys_errlist[0]))
+		c = ediag(sys_errlist[errno],sys_rerrlist[errno]);
+	q = buf;
+	while( *q++ = *c++ );
+	q = fmt;
+	c = "%s: %s\n";
+	while( *q++ = *c++ );
+	printf(fmt, s, buf);
+}
+@

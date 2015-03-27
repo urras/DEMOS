@@ -1,0 +1,3299 @@
+head     1.18;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.18
+date     89.06.30.16.44.51;  author abs;  state Exp;
+branches ;
+next     1.17;
+
+1.17
+date     89.06.29.16.16.20;  author avg;  state Exp;
+branches ;
+next     1.16;
+
+1.16
+date     89.01.14.19.37.51;  author abs;  state Exp;
+branches ;
+next     1.15;
+
+1.15
+date     89.01.06.20.15.59;  author korotaev;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     88.12.24.15.36.38;  author avg;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     88.12.23.22.41.26;  author korotaev;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.11.28.19.30.00;  author abs;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.11.18.17.30.29;  author abs;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.11.18.13.31.45;  author abs;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.11.10.15.46.52;  author abs;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.09.17.19.36.35;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.01.29.15.49.47;  author korotaev;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.09.30.12.01.47;  author mike;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.09.25.16.44.40;  author mike;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.12.20.22.33.49;  author fox;  state Rel;
+branches ;
+next     1.3;
+
+1.3
+date     86.09.02.16.10.54;  author mike;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.09.02.15.02.50;  author mike;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.09.01.14.59.09;  author mike;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.09.01.13.46.54;  author mike;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.08.30.14.38.04;  author avg;  state Exp;
+branches ;
+next     0.0;
+
+0.0
+date     86.08.29.15.28.28;  author mike;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Версия программы ls из BSD2.9 с символическими ссылками.
+@
+
+
+1.18
+log
+@setuid + ~exec = 'S'
+@
+text
+@/*
+ * ls - list file or directory
+ *
+ * this version of ls is designed for graphic terminals and to
+ * list directories with lots of files in them compactly.
+ * It supports three variants for listings:
+ *
+ *      1) Columnar output.
+ *      2) Stream output.
+ *      3) Old one per line format.
+ *
+ * Columnar output is the default.
+ * If, however, the standard output is not a teletype, the default
+ * is one-per-line.
+ *
+ * With columnar output, the items are sorted down the columns.
+ * We use columns only for a directory we are interpreting.
+ * Thus, in particular, we do not use columns for
+ *
+ *      ls /usr/bin/p*
+ *
+ * This version of ls also prints non-printing characters as '?' if
+ * the standard output is a teletype.
+ *
+ * Flags relating to these and other new features are:
+ *
+ *      -m      force stream output.
+ *
+ *      -1      force one entry per line, e.g. to a teletype
+ *
+ *      -q      force non-printings to be '?'s, e.g. to a file
+ *
+ *      -C      force columnar output, e.g. into a file
+ *
+ *      -n      like -l, but user/group id's in decimal rather than
+ *              looking in /etc/passwd to save time
+ *
+ *      -F      turns on the "flagging" of executables and directories
+ *
+ *      -L      don't read symbolic links
+ *
+ *      -R      causes ls to recurse through the branches of the subtree
+ *              ala find
+ *
+ *      -o      не печатать файлы с суффиксами '.o' '.b' '.$.
+ *
+ * $Log:        ls.c,v $
+ * Revision 1.17  89/06/29  16:16:20  avg
+ * Исправлена выдача -s для устройств.
+ *
+ * Revision 1.16  89/01/14  19:37:51  abs
+ *
+ *
+ * Revision 1.15  89/01/06  20:15:59  korotaev
+ * FIFO -> 'f'       -F -> '|'
+ *
+ * Revision 1.14  88/12/24  15:36:38  avg
+ * Убрана плюха от abs. (еще с версии 1.10!!!).
+ *
+ * Revision 1.13  88/12/23  22:41:26  korotaev
+ * Теперь выдает FIFO-файлы как 'p'.
+ *
+ * Revision 1.12  88/11/28  19:30:00  abs
+ * Указание свыше - считать девайсы и пр. DIR_IFREG файлами.
+ *
+ * Revision 1.11  88/11/18  17:30:29  abs
+ * правлены мелкие неточности.
+ *
+ * Revision 1.10  88/11/18  13:31:45  abs
+ * К флагу -c добавлен statreq++ , что позволяет использовать его БЕЗ -t.
+ * Добавлен механизм IPK_DIRECTORY.
+ *
+ * Revision 1.9  88/11/10  15:46:52  abs
+ * *** empty log message ***
+ *
+ * Revision 1.8  88/09/17  19:36:35  avg
+ * Вставил обратно quot-ы и заменил strcmp на strlcmp.
+ *
+ * Revision 1.7  88/01/29  15:49:47  korotaev
+ * Исправлена ошибка освобождения памяти в gstat().
+ * Проявлялась она в том, что при указании несущуствующих имен файлов
+ * ls говорила "нет памяти" (при указании за несуществующим файлом какого-
+ * либо еще имени).
+ *
+ * Revision 1.6  87/09/30  12:01:47  mike
+ * Исправлена ошибка. При выдаче каталога с именами файлов == DIRSIZ - выдавалось
+ * в одну колонку. Ошибка из-за использования strlen(). Описана навая функция
+ * strlen(*str,maxlen).
+ *
+ * Revision 1.5  87/09/25  16:44:40  mike
+ * Исправлена ошибка работы с ключом -R (сваливалось core).
+ * Немного подправлен под lint.
+ * Вставлены #ifdef UCB_QUOTA .... - для ученьшения размера программы.
+ * Выкинуты мультиплексные файлы.
+ *
+ * Revision 1.4  86/12/20  22:33:49  fox
+ * Убран '\n' в сообщении 'total' - результат:
+ * прекратилась путаница строк при ls -s.
+ *
+ * Revision 1.3  86/09/02  16:10:54  mike
+ * Вставлена обработка XSTR'ом.
+ *
+ * Revision 1.2  86/09/02  15:02:50  mike
+ * - Отлажен ключ '-R' , который с ключом '-l' выдавал абракадабру.
+ * - Вставлен ключ '-o' (не выдавать файлы '*.b' , '*.o' , '*.$').
+ * - Уменьшен размер программы за счет использования стандартной
+ *   программы sprintf вместо описываемой своей printf.
+ *
+ * Revision 1.1  86/09/01  14:59:09  mike
+ * Теперь использутся стандартный sprintf вместо своего printf'а.
+ * Ключ '-R' работает неверно !!!
+ *
+ * Revision 1.0  86/09/01  13:46:54  mike
+ * Новая версия программы ls.
+ * Вставлен ключ -o.
+ *
+ * Revision 0.1  86/08/30  14:38:04  avg
+ * Русские диагностики by mike и мелкие правки by @@VG.
+ *
+ */
+
+/*NOXSTR*/
+
+#ifndef lint
+static char rcsid[] = "$Header: ls.c,v 1.17 89/06/29 16:16:20 avg Exp $";
+#endif
+
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <dir.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <pwd.h>
+#include <grp.h>
+#include <utmp.h>
+#include <sgtty.h>
+#include <ediag.h>
+#include <sys/inode.h>
+#include <sys/qstat.h>
+
+#ifndef NFILES
+#define NFILES  1024
+#endif
+#ifndef NUID
+#define NUID    512     /* must not be a multiple of 5 */
+#endif
+#ifndef NGID
+#define NGID    32      /* must not be a multiple of 5 */
+#endif
+
+#define COLS 80
+
+struct  utmp    utmp;
+#define NMAX    (sizeof (utmp.ut_name))
+
+#define nblock(c)       ((c+1023)>>10)
+
+#define MAXFILEWIDTH 14
+FILE    *pwdf;
+
+struct lbuf {
+	union {
+		char    lname[DIRSIZ + 1];
+		char    *namep;
+	}
+	ln;
+	char    ltype;
+	char    *llinkto;
+	ino_t   lnum;
+	short   lflags;
+	short   lnl;
+	short   luid;
+	short   lgid;
+	long    lsize;
+	long    lmtime;
+	long    lqused;
+	long    lqmax;
+};
+
+struct dchain {
+	char *dc_name;          /* the path name */
+	struct dchain *dc_next; /* the next directory on the chain */
+};
+
+struct dchain *dfirst;          /* the start of the directory chain */
+struct dchain *cdfirst;         /* the start of the current directory chain */
+
+int     aflg, bflg, dflg, lflg, sflg, tflg, uflg, iflg, fflg, gflg, cflg;
+int     Aflg, nflg, qflg, Fflg, Lflg, Rflg, across, Cflg, oflg;
+int     nopad, flags, tabflg, rflg = 1, statreq;
+long    year, tblocks;
+int     xtraent;                /* for those switches which print out a total */
+
+struct lbuf  *flist[NFILES], **lastp = flist, **firstp = flist;
+
+char   *dotp   = ".";
+
+char   *makename(), *malloc(), *ctime(), *getname(), *getgroup(), *savestr();
+int     stat(), lstat(), compar();
+
+struct  group   *getgrent(), *getgrgid();
+struct  passwd  *getpwent(), *getpwuid();
+struct  lbuf    *gstat();
+
+#define ISARG   0100000
+int     colwidth, filewidth, fixedwidth, outcol;
+
+char    *ncom;
+
+/*YESXSTR*/
+
+main(argc, argv)
+int argc;
+char *argv[];
+{
+		 int           i, width;
+		 struct lbuf **epp, lb;
+		 char         *t, *cp;
+		 struct sgttyb sgbuf;
+	register struct lbuf  *ep;
+	register struct lbuf **slastp;
+
+	Fflg = 0;
+	tabflg = 0;
+	Aflg = getuid() == 0;
+	time (&lb.lmtime);
+	year = lb.lmtime - 6L*30L*24L*60L*60L; /* 6 months ago */
+	qflg = gtty(1, &sgbuf) == 0;
+	ncom = argv[0];
+
+	/* guarantee at least on column width */
+	fixedwidth = 2;
+
+	/*
+	 * If the standard output is not a teletype,
+	 * then we default to one-per-line format
+	 * otherwise decide between stream and
+	 * columnar based on our name.
+	 */
+	if (qflg) {
+		Cflg = 1;
+		if ((sgbuf.sg_flags & XTABS) == 0)
+			tabflg++;
+		for (cp = argv[0]; cp[0] && cp[1]; cp++)
+			continue;
+		/*
+		 * Certain kinds of links (l, ll, lr, lf, lx) cause some
+		 * various options to be turned on.
+		 */
+		switch (cp[0]) {
+		case 'l':
+			if (cp[-1] == 'l') {    /* ll => -l */
+				lflg = 1;
+				statreq++;
+				xtraent++;
+			}
+			else {                  /* l => -m */
+				nopad = 1;
+				Cflg = 0;
+			}
+			break;
+		case 'x':                       /* lx => -x */
+			across = 1;
+			break;
+		case 'f':                       /* lf => -F */
+			Fflg = 1;
+			statreq++;
+			break;
+		case 'r':                       /* lr => -R */
+			Rflg = 1;
+			break;
+		}
+	}
+	else
+		tabflg++;
+
+	while (--argc > 0 && *argv[1] == '-') {
+		argv++;
+		while (*++*argv) switch (**argv) {
+
+		case 'C': /* C - force columnar output */
+			Cflg = 1;
+			nopad = 0;
+			continue;
+
+		case 'm': /* m - force stream output */
+			Cflg = 0;
+			nopad = 1;
+			continue;
+
+		case 'x': /* x - force sort across */
+			across = 1;
+			nopad = 0;
+			Cflg = 1;
+			continue;
+
+		case 'q': /* q - force ?'s in output */
+			qflg = 1;
+			bflg = 0;
+			continue;
+
+		case 'b': /* b - force octal value in output */
+			bflg = 1;
+			qflg = 0;
+			continue;
+
+		case '1': /* 1 - force 1/line in output */
+			Cflg = 0;
+			nopad = 0;
+			continue;
+
+		case 'o': /* o - игнорировать файлы с именами *.[bo$] */
+			oflg = 1;
+			continue;
+
+		/* STANDARD FLAGS */
+
+		case 'a': /* выдавать все имена */
+			aflg++;
+			continue;
+
+		case 'A': /* выдавать все имена кроме "." и ".." */
+			Aflg = !Aflg;
+			continue;
+
+		case 's': /* выдать размер в блоках */
+			fixedwidth += 5;
+			sflg++;
+			statreq++;
+			xtraent++;
+			continue;
+
+		case 'd': /* выдать только имя каталога */
+			dflg++;
+			continue;
+
+		case 'n': /* n - don't look in password file */
+			nflg++;
+
+		case 'l': /* long format */
+			lflg++;
+			statreq++;
+			xtraent++;
+			continue;
+
+		case 'r': /* противоположный порядок сортировки */
+			rflg = -1;
+			continue;
+
+		case 't': /* сортировка по времени модификации */
+			tflg++;
+			statreq++;
+			continue;
+
+		case 'c': /* сортировка по времени создания */
+			cflg++;
+			tflg++;
+			statreq++;
+			continue;
+
+		case 'u': /* исп-ие времени доступа вместо модификации */
+			uflg++;
+			tflg++;
+			statreq++;
+			continue;
+
+		case 'i': /* выдать номер i-узла */
+			fixedwidth += 6;
+			iflg++;
+			continue;
+
+		case 'f': /* интерпретировать имена файлов как
+			     справочники + печать без сортировки */
+			fflg++;
+			continue;
+
+		case 'g': /* идентификатор группы вместо владельца */
+			gflg++;
+			continue;
+
+		case 'F': /* добавлять символы определения (без -l) */
+			Fflg++;
+			statreq++;
+			continue;
+
+		case 'L': /* не выдавать symlink */
+			Lflg++;
+			continue;
+
+		case 'R': /* рекурсивный просмотр */
+			Rflg++;
+			continue;
+
+		case 'N':
+			statreq++;
+			break;
+
+		default:
+			fprintf (stderr, ediag(
+			"Usage: %s [-1ACFLRNabcdfgilmnqrstuxo] [files]\n",
+			"Вызов: %s [-1ACFLRNabcdfgilmnqrstuxo] [файлы]\n")
+			    ,ncom);
+			exit(1);
+		}
+	}
+	if (Fflg)
+		fixedwidth++;
+	if (fflg) {
+		aflg++;
+		lflg = 0;
+		sflg = 0;
+		tflg = 0;
+		statreq = 0;
+		xtraent = 0;
+	}
+	if(lflg) {
+		Cflg = 0;
+		t = "/etc/passwd";
+		if (gflg)
+			t = "/etc/group";
+		nopad = 0;
+		fixedwidth = 70;
+		pwdf = fopen(t, "r");
+	}
+	if (argc==0) {
+		argc++;
+		argv = &dotp - 1;
+	}
+	for (i=0; i < argc; i++) {
+		argv++;
+		if (Cflg) {
+			width = strlen (*argv,-1);
+			if (width > filewidth)
+				filewidth = width;
+		}
+#ifndef IPK_DIRECTORY
+		if ((ep = gstat(*argv, 1))==NULL)
+#else
+# ifndef DIR_ETC
+# define DIR_ETC DIR_OLD
+# endif DIR_ETC
+		if ((ep = gstat(*argv, 1, DIR_ETC ))==NULL)
+#endif
+			continue;
+		ep->ln.namep = *argv;
+		ep->lflags |= ISARG;
+	}
+	if (!Cflg)
+		filewidth = MAXFILEWIDTH;
+	else
+		colwidth = fixedwidth + filewidth;
+	qsort(firstp, lastp - firstp, sizeof *lastp, compar);
+	slastp = lastp;
+	/* For each argument user typed */
+	for (epp=firstp; epp<slastp; epp++) {
+		ep = *epp;
+		if (ep->ltype=='d' && dflg==0 || fflg)
+			pdirectory(ep->ln.namep, (argc>1), slastp);
+		else
+			pentry(ep);
+
+		/* -R: print subdirectories found */
+		while (dfirst || cdfirst) {
+			register struct dchain *dtemp;
+
+			/* Place direct subdirs on front in right order */
+			while (cdfirst) {
+				/* reverse cdfirst onto front of dfirst */
+				dtemp = cdfirst;
+				cdfirst = cdfirst -> dc_next;
+				dtemp -> dc_next = dfirst;
+				dfirst = dtemp;
+			}
+			/* take off first dir on dfirst & print it */
+			dtemp = dfirst;
+			dfirst = dfirst->dc_next;
+			pdirectory (dtemp->dc_name, 1, lastp);
+			free ((char *)dtemp->dc_name);
+			free ((char *)dtemp);
+		}
+	}
+	if (outcol)
+		putc('\n', stdout);
+	fflush(stdout);
+}
+
+/*
+ * pdirectory: print the directory name, labelling it if title is
+ * nonzero, using lp as the place to start reading in the dir.
+ */
+pdirectory (name, title, lp)
+char         *name;
+int           title;
+struct lbuf **lp;
+{
+	register struct dchain *dp;
+	register struct lbuf   *ap;
+	register struct lbuf  **app;
+
+	filewidth = 0;
+	if (title)
+		lsprintf("\n%s:\n", name);
+	lastp = lp;
+	readdir(name);
+	if (!Cflg)
+		filewidth = MAXFILEWIDTH;
+	colwidth = fixedwidth + filewidth;
+	if (fflg==0)
+		qsort(lp,lastp - lp,sizeof *lastp,compar);
+	if (Rflg) for (app=lastp-1; app>=lp; app--) {
+		ap = *app;
+		if (ap->ltype == 'd' && strcmp(ap->ln.lname, ".") &&
+		    strcmp(ap->ln.lname, "..")) {
+			if( (dp = (struct dchain *) malloc(sizeof(struct dchain))) == (struct dchain *)NULL ){
+				fprintf(stderr,ediag("%s: out of memory\n","%s: нет памяти\n"),ncom);
+				exit(1);
+			}
+			dp->dc_name = savestr(makename (name, ap->ln.lname));
+			dp -> dc_next = dfirst;
+			dfirst = dp;
+		}
+	}
+	if (lflg || sflg)
+	    lsprintf(ediag("total %D","всего %D"), tblocks);
+	pem(lp, lastp);
+	newline();
+}
+
+/*
+ * pem: print 'em.  Print a list of files (e.g. a directory) bounded
+ * by slp and lp.
+ */
+pem(slp, lp)
+register struct lbuf **slp, **lp;
+{
+		 int           ncols, nrows, row, col;
+	register struct lbuf **ep;
+
+	if (tabflg) {
+		if (colwidth <= 9)
+			colwidth = 8;
+		else if (colwidth <= 17)
+			colwidth = 16;
+	}
+	ncols = COLS / colwidth;
+	if (ncols == 1 || Cflg == 0) {
+		for (ep = slp; ep < lp; ep++)
+			pentry(*ep);
+		return;
+	}
+	if (across) {
+		for (ep = slp; ep < lp; ep++)
+			pentry(*ep);
+		return;
+	}
+	if (xtraent)
+	    slp--;
+	nrows = (lp - slp - 1) / ncols + 1;
+	for (row = 0; row < nrows; row++) {
+		col = row == 0 && xtraent;
+		for (; col < ncols; col++) {
+			ep = slp + (nrows * col) + row;
+			if (ep < lp)
+			    pentry(*ep);
+		}
+		if (outcol)
+		    lsprintf("\n");
+	}
+}
+
+/*
+ * pputchar: like putchar but knows how to handle control chars.
+ * CAUTION: if you make ctrl chars print in ^x notation, or any
+ * other notation which is wider than one character, the column
+ * nature of things (such as files with 14 letter names) will be
+ * messed up.  Weigh this carefully!
+ */
+pputchar(c)
+register char c;
+{
+	register char cc;
+
+	switch (c) {
+	case '\t':
+		outcol = (outcol + 8) &~ 7;
+		break;
+	case '\n':
+		outcol = 0;
+		break;
+	default:
+		if ( !isprint(c) ) {
+			if (qflg)
+			    c = '?';
+			else if (bflg) {
+				outcol += 3;
+				putc ('\\', stdout);
+				cc = '0' + (c>>6 & 07);
+				putc (cc, stdout);
+				cc = '0' + (c>>3 & 07);
+				putc (cc, stdout);
+				c = '0' + (c & 07);
+			}
+		}
+		outcol++;
+		break;
+	}
+	putc(c, stdout);
+}
+
+newline()
+{
+	if (outcol)
+	    putc('\n', stdout);
+	outcol = 0;
+}
+
+/*
+ * column: get to the beginning of the next column.
+ */
+column()
+{
+	if (outcol == 0)
+	    return;
+	if (nopad) {
+		putc(',', stdout);
+		outcol++;
+		if (outcol + colwidth + 2 > COLS) {
+			putc('\n', stdout);
+			outcol = 0;
+			return;
+		}
+		putc(' ', stdout);
+		outcol++;
+		return;
+	}
+	if (Cflg == 0) {
+		putc('\n', stdout);
+		return;
+	}
+	if ((outcol / colwidth + 2) * colwidth > COLS) {
+		putc('\n', stdout);
+		outcol = 0;
+		return;
+	}
+	if (tabflg && (colwidth <= 16)) {
+		if (colwidth > 8)
+		    if ((outcol % 16) < 8) {
+			outcol += 8 - (outcol % 8);
+			putc ('\t', stdout);
+		}
+		outcol += 8 - (outcol % 8);
+		putc ('\t', stdout);
+		return;
+	}
+	do {
+		outcol++;
+		putc(' ', stdout);
+	}
+	while (outcol % colwidth);
+}
+
+/*
+ * This code handles the rwx- business.
+ * You figure it out.
+ */
+int     m1[] = { 1, S_IREAD>>0,      'r', '-' };
+int     m2[] = { 1, S_IWRITE>>0,     'w', '-' };
+int     m3[] = { 3, S_ISUID|S_IEXEC, 's', S_ISUID, 'S', S_IEXEC>>0, 'x', '-' };
+int     m4[] = { 1, S_IREAD>>3,      'r', '-' };
+int     m5[] = { 1, S_IWRITE>>3,     'w', '-' };
+int     m6[] = { 2, S_ISGID,         's', S_IEXEC>>3, 'x', '-' };
+int     m7[] = { 1, S_IREAD>>6,      'r', '-' };
+int     m8[] = { 1, S_IWRITE>>6,     'w', '-' };
+int     m9[] = { 2, S_ISVTX,         't', S_IEXEC>>6, 'x', '-' };
+
+int     *m[] = { m1, m2, m3, m4, m5, m6, m7, m8, m9};
+
+pmode(aflag)
+{
+	register int **mp;
+
+	flags = aflag;
+	for (mp = &m[0]; mp < &m[sizeof(m)/sizeof(m[0])];)
+		select(*mp++);
+}
+
+select(pairp)
+register int *pairp;
+{
+	register int n;
+	unsigned modes;
+
+	n = *pairp++;
+	while (--n>=0   &&   (flags & (modes = *pairp++)) != modes)
+	    pairp++;
+	pputchar(*pairp);
+}
+
+/*
+ * returns cat(dir, "/", file), unless dir ends in /, when it doesn't //
+ */
+char * makename(dir, file)
+char *dir, *file;
+{
+	static   char  dfile[256];
+	register char *dp, *fp;
+	register int   i;
+
+	dp = dfile;
+	fp = dir;
+	while (*fp)
+	    *dp++ = *fp++;
+	if (*(dp-1) != '/')
+	    *dp++ = '/';
+	fp = file;
+	for (i=0; i<DIRSIZ; i++)
+		*dp++ = *fp++;
+	*dp = 0;
+	return(dfile);
+}
+
+/*
+ * readdir: read in the directory whose name is dir,
+ * starting at lastp.
+ */
+readdir(dir)
+char *dir;
+{
+		 struct direct dentry;
+		 FILE         *dirf;
+	register struct lbuf  *ep;
+	register int           width;
+
+	if ((dirf = fopen(dir, "r")) == NULL) {
+		lsprintf(ediag("%s unreadable\n","%s нельзя прочитать\n"),dir);
+		return;
+	}
+	tblocks = 0;
+	for(;;) {
+		if (fread(&dentry, sizeof(dentry), 1, dirf) != 1)
+		    break;
+		if (dentry.d_ino==0 || aflg==0 &&
+		    dentry.d_name[0]=='.' && (
+		    !Aflg || dentry.d_name[1]=='\0' ||
+		    dentry.d_name[1]=='.' && dentry.d_name[2]=='\0'))
+			continue;
+		if ( oflg ) {
+			width = strlen (dentry.d_name,DIRSIZ);
+			if( width>2 && dentry.d_name[width-2]=='.' && (
+			    dentry.d_name[width-1]=='b' ||
+			    dentry.d_name[width-1]=='o' ||
+			    dentry.d_name[width-1]=='$' ))
+				continue;
+		}
+		if ( Cflg ) {
+			if( !oflg )
+			    width = strlen (dentry.d_name,DIRSIZ);
+			if ( width > filewidth )
+			    filewidth = width;
+		}
+#ifndef IPK_DIRECTORY
+		ep = gstat(makename(dir, dentry.d_name), Fflg || Rflg);
+#else
+		ep = gstat(makename(dir, dentry.d_name),
+			    Fflg || Rflg, dentry.d_class );
+#endif
+		if (ep==NULL)
+		    continue;
+		if (ep->lnum != (unsigned)-1)
+			ep->lnum = dentry.d_ino;
+		strncpy(ep->ln.lname,dentry.d_name, DIRSIZ);
+	}
+	fclose(dirf);
+}
+
+/*
+ * stat the given file and return an lbuf containing it.
+ * argfl is nonzero if a stat is required because the file is
+ * an argument, rather than having been found in a directory.
+ */
+#ifndef IPK_DIRECTORY
+struct lbuf * gstat(file, argfl)
+#else
+struct lbuf * gstat(file, argfl, class)
+#endif
+char *file;
+{
+		 struct stat  statb;
+		 int        (*statf)() = Lflg ?  stat : lstat;
+		 char         buf[BUFSIZ];
+		 int          cc;
+	register struct lbuf *rep;
+		 static int   nomocore;
+		 struct qstat qstatb;
+
+	if (nomocore)
+	    return(NULL);
+	rep = (struct lbuf *)malloc(sizeof(struct lbuf));
+	if (rep==(struct lbuf *)NULL) {
+		fprintf(stderr,ediag("%s: out of memory\n","%s: нет памяти\n"),ncom);
+		nomocore = 1;
+		return((struct lbuf *)NULL);
+	}
+	if (lastp >= &flist[NFILES]) {
+		static short msg;
+
+		lastp--;
+		if (msg==0) {
+			fprintf(stderr,ediag("%s: too many files\n","%s: слишком много файлов\n"),ncom);
+			msg++;
+		}
+	}
+	*lastp++ = rep;
+	rep->lflags = 0;
+	rep->lnum = 0;
+	rep->ltype = '-';
+#ifdef IPK_DIRECTORY
+	if (argfl && !statreq) {
+		rep -> lsize = 0l;
+		switch( class ){
+		case DIR_IFREG:  break;
+		case DIR_IFDIR:  rep->ltype = 'd'; break;
+		case DIR_IFLNK:  goto Links;
+		default:         goto Stats;
+		}
+	}else
+	if (argfl ||  statreq) {
+Stats:
+		if ((*statf)(file, &statb)<0) {
+			lsprintf(ediag("%s not found\n","%s не найден\n"),file);
+			statb.st_ino = 0;
+			statb.st_size = 0;
+			statb.st_mode = 0;
+			if (argfl) {
+				lastp--;
+				free(rep);
+				return((struct lbuf *)NULL);
+			}
+		}
+		rep->lnum = statb.st_ino;
+		rep->lsize = statb.st_size;
+		switch(statb.st_mode&S_IFMT) {
+
+		case S_IFDIR:
+			rep->ltype = 'd';
+			break;
+
+		case S_IFBLK:
+			rep->ltype = 'b';
+			rep->lsize = statb.st_rdev;
+			break;
+
+		case S_IFCHR:
+			rep->ltype = 'c';
+			rep->lsize = statb.st_rdev;
+			break;
+
+		case S_IFQUOT:
+			qstat(file, &qstatb);
+			rep->ltype = 'q';
+			rep->lqused = qstatb.qs_un.qs_qused;
+			rep->lqmax = qstatb.qs_un.qs_qmax;
+			break;
+
+		case S_IFLNK:
+Links:
+			rep->ltype = 'l';
+			if (lflg) {
+				cc = readlink(file, buf, BUFSIZ);
+				if (cc >= 0) {
+					buf[cc] = '\0';
+					rep->llinkto = savestr(buf);
+				}
+			}
+			break;
+		case S_IFIFO:
+			rep->ltype = 'f';
+			break;
+		}
+		rep->lflags = statb.st_mode & ~S_IFMT;
+		rep->luid = statb.st_uid;
+		rep->lgid = statb.st_gid;
+		rep->lnl = statb.st_nlink;
+		if(uflg)
+		    rep->lmtime = statb.st_atime;
+		else if (cflg)
+		    rep->lmtime = statb.st_ctime;
+		else
+			rep->lmtime = statb.st_mtime;
+		tblocks += nblock(statb.st_size);
+	}
+	return(rep);
+}
+
+/*
+ * decide whether to print pp1 before or after pp2, based on their
+ * names, various times, and the r flag.
+ */
+compar(pp1, pp2)
+struct lbuf **pp1, **pp2;
+{
+	register struct lbuf *p1, *p2;
+
+	p1 = *pp1;
+	p2 = *pp2;
+	if (dflg==0) {
+		if (p1->lflags&ISARG && p1->ltype=='d') {
+			if (!(p2->lflags&ISARG && p2->ltype=='d'))
+			    return(1);
+		}
+		else {
+			if (p2->lflags&ISARG && p2->ltype=='d')
+			    return(-1);
+		}
+	}
+	if (tflg) {
+		if(p2->lmtime == p1->lmtime)
+		    return(0);
+		if(p2->lmtime > p1->lmtime)
+		    return(rflg);
+		return(-rflg);
+	}
+	return(rflg * strlcmp(p1->lflags&ISARG? p1->ln.namep: p1->ln.lname,
+	p2->lflags&ISARG? p2->ln.namep: p2->ln.lname));
+}
+
+/*
+ * print the entry pointed at by ap
+ */
+pentry(ap)
+struct lbuf *ap;
+{
+		 char         fname[100], *name;
+	register struct lbuf *p;
+	register char        *cp;
+
+	fname[0] = '\0';
+	p = ap;
+	if (p->lnum == (unsigned)-1)
+	    return;
+	column();
+	if (iflg)
+	    if (nopad && !lflg)
+	    lsprintf("%d ", p->lnum);
+	else
+		lsprintf("%5d ", p->lnum);
+	if (sflg)
+	    switch (p->ltype) {
+
+	    case 'b':
+	    case 'c':
+		lsprintf("     0 ");
+		break;
+
+	    default:
+		if (nopad && !lflg)
+			lsprintf("%D ", nblock(p->lsize));
+		else
+			lsprintf("%4D ", nblock(p->lsize));
+		break;
+	    }
+	if (lflg) {
+		pputchar(p->ltype);
+		pmode(p->lflags);
+		lsprintf("%2d ", p->lnl);
+		if(gflg) {
+			name = getgroup((unsigned short)p->lgid);
+			if (nflg == 0 && name != 0)
+			    lsprintf("%-9.9s", name);
+			else
+				lsprintf("%-9d", p->lgid);
+		}
+		else {
+			if (nflg == 0 && (name = getname((unsigned short)p->luid))) {
+				lsprintf("%-9.9s", name);
+			}
+			else
+				lsprintf("%-9d", p->luid);
+			name = getgroup((unsigned short)p->lgid);
+			if (nflg == 0 && name != 0)
+			    lsprintf("%-9.9s", name);
+			else
+				lsprintf("%-9d", p->lgid);
+		}
+		switch (p->ltype) {
+
+		case 'b':
+		case 'c':
+			lsprintf("%3d,%3d",
+			major((int)p->lsize), minor((int)p->lsize));
+			break;
+
+		case 'q':
+			lsprintf("%4D/%4D", p->lqused, p->lqmax);
+			break;
+
+		default:
+			lsprintf("%7D", p->lsize);
+		}
+		cp = ctime(&p->lmtime);
+		if(p->lmtime < year)
+		    lsprintf(" %-7.7s %-4.4s ", cp+4, cp+20);
+		else
+			lsprintf(" %-12.12s ", cp+4);
+	}
+	if (p->lflags & ISARG)
+	    strncat (fname, p->ln.namep, 98);
+	else
+		strncat (fname, p->ln.lname, DIRSIZ);
+	if (Fflg) {
+		if (p->ltype == 'd')
+		    strcat (fname, "/");
+		else if (p->ltype == 'l')
+		    strcat (fname, "@@");
+		else if (p->ltype == 'c')
+		    strcat (fname, "(");
+		else if (p->ltype == 'b')
+		    strcat (fname, "[");
+		else if (p->ltype == 'f')
+		    strcat (fname, "|");
+		else if (p->lflags & 0111)
+		    strcat (fname, "*");
+		else if (!nopad)
+		    strcat (fname, " ");
+	}
+	if (lflg && (p->ltype == 'l') && (p->llinkto != (char *) NULL)) {
+		strcat (fname, " -> ");
+		strcat(fname, p->llinkto);
+		free((char *)p->llinkto);
+	}
+	lsprintf ("%s", fname);
+	free((char *)ap);
+}
+
+struct nametable {
+	char    nt_name[NMAX+1];
+	unsigned short  nt_id;
+};
+struct nametable        unames[NUID];
+struct nametable        gnames[NGID];
+
+
+struct nametable * findslot (id, tbl, len)
+unsigned short    id;
+struct nametable *tbl;
+int               len;
+{
+	register struct nametable *nt, *nt_start;
+
+	/*
+	 * find the id or an empty slot.
+	 * return NULL if neither found.
+	 */
+
+	nt = nt_start = tbl + (id % (len - 20));
+	while (nt->nt_name[0] && nt->nt_id != id) {
+		if ((nt += 5) >= &tbl[len])
+		    nt -= len;
+		if (nt == nt_start)
+		    return((struct nametable *)NULL);
+	}
+	return(nt);
+}
+
+char * getname (uid)
+register unsigned short  uid;
+{
+	static   int               init = 0;
+	register struct passwd    *pw;
+	register struct nametable *n;
+
+	/*
+	 * find uid in hashed table; add it if not found.
+	 * return pointer to name.
+	 */
+
+	if ((n = findslot(uid, unames, NUID)) == NULL)
+	    return((char *)NULL);
+
+	if (n->nt_name[0])      /* occupied? */
+	    return(n->nt_name);
+
+	switch (init) {
+	case 0:
+		setpwent();
+		init = 1;
+		/* intentional fall-thru */
+	case 1:
+		while (pw = getpwent()) {
+			if (pw->pw_uid < 0)
+			    continue;
+			n = findslot((short unsigned)pw->pw_uid, unames, NUID);
+			if (n == NULL) {
+				endpwent();
+				init = 2;
+				return((char *)NULL);
+			}
+			if (n->nt_name[0])
+			    continue;       /* duplicate, not uid */
+			strncpy(n->nt_name, pw->pw_name, NMAX);
+			n->nt_id = pw->pw_uid;
+			if (pw->pw_uid == uid)
+			    return (n->nt_name);
+		}
+		endpwent();
+		init = 2;
+		/* intentional fall-thru */
+	case 2:
+		break;
+	}
+	return ((char *)NULL);
+}
+
+char * getgroup (gid)
+register unsigned short  gid;
+{
+	static   int               init = 0;
+	register struct group     *gr;
+	register struct nametable *n;
+
+	/*
+	 * find gid in hashed table; add it if not found.
+	 * return pointer to name.
+	 */
+
+	if ((n = findslot(gid, gnames, NGID)) == NULL)
+	    return((char *)NULL);
+
+	if (n->nt_name[0])      /* occupied? */
+	    return(n->nt_name);
+
+	switch (init) {
+	case 0:
+		setgrent();
+		init = 1;
+		/* intentional fall-thru */
+	case 1:
+		while (gr = getgrent()) {
+			if (gr->gr_gid < 0)
+			    continue;
+			n = findslot((short unsigned)gr->gr_gid, gnames, NGID);
+			if (n == NULL) {
+				endgrent();
+				init = 2;
+				return((char *)NULL);
+			}
+			if (n->nt_name[0])
+			    continue;       /* duplicate, not gid */
+			strncpy(n->nt_name, gr->gr_name, NMAX);
+			n->nt_id = gr->gr_gid;
+			if (gr->gr_gid == gid)
+			    return (n->nt_name);
+		}
+		endgrent();
+		init = 2;
+		/* intentional fall-thru */
+	case 2:
+		break;
+	}
+	return ((char *)NULL);
+}
+
+char * savestr(str)
+register char *str;
+{
+	register char *cp;
+	register int   i;
+
+	i = strlen(str,-1) + 1;
+	if ( (cp = malloc(i)) == NULL) {
+		fprintf(stderr,ediag("%s: out of memory\n","%s: нет памяти\n"),ncom);
+		exit(1);
+	}
+	strncpy(cp, str, i);
+	return( cp );
+}
+
+/*VARARGS1*/
+lsprintf(s,a1,a2)
+register char *s;
+{
+		 char  buf[512];
+	register char *r;
+
+	sprintf(buf,s,a1,a2);
+	for( r = buf ; *r && r < &buf[256] ; r++ )
+		pputchar(*r);
+}
+
+strlen(s,maxlen)
+register char *s;
+register int maxlen;
+{
+	register n;
+
+	if(maxlen < 0)
+		maxlen = BUFSIZ;
+	n = 0;
+	while (*s++ && n<maxlen)
+		n++;
+	return(n);
+}
+@
+
+
+1.17
+log
+@Исправлена выдача -s для устройств.
+@
+text
+@d48 3
+d125 1
+a125 1
+static char rcsid[] = "$Header: ls.c,v 1.16 89/01/14 19:37:51 abs Exp $";
+d666 9
+a674 9
+int     m1[] = { 1, S_IREAD>>0, 'r', '-' };
+int     m2[] = { 1, S_IWRITE>>0, 'w', '-' };
+int     m3[] = { 2, S_ISUID, 's', S_IEXEC>>0, 'x', '-' };
+int     m4[] = { 1, S_IREAD>>3, 'r', '-' };
+int     m5[] = { 1, S_IWRITE>>3, 'w', '-' };
+int     m6[] = { 2, S_ISGID, 's', S_IEXEC>>3, 'x', '-' };
+int     m7[] = { 1, S_IREAD>>6, 'r', '-' };
+int     m8[] = { 1, S_IWRITE>>6, 'w', '-' };
+int     m9[] = { 2, S_ISVTX, 't', S_IEXEC>>6, 'x', '-' };
+d691 1
+d694 1
+a694 1
+	while (--n>=0 && (flags&*pairp++)==0)
+@
+
+
+1.16
+log
+@
+@
+text
+@d48 3
+d122 1
+a122 1
+static char rcsid[] = "$Header: ls.c,v 1.15 89/01/06 20:15:59 korotaev Exp $";
+d948 1
+a948 2
+		lsprintf("%3d,%3d",
+		major((int)p->lsize),minor((int)p->lsize));
+d953 1
+a953 1
+		    lsprintf("%D ", nblock(p->lsize));
+@
+
+
+1.15
+log
+@FIFO -> 'f'       -F -> '|'
+@
+text
+@d47 4
+a50 1
+ * $Log:	ls.c,v $
+d53 1
+a53 1
+ * 
+d119 1
+a119 1
+static char rcsid[] = "$Header: ls.c,v 1.14 88/12/24 15:36:38 avg Exp $";
+d145 2
+d539 1
+a539 1
+	ncols = 80 / colwidth;
+d621 1
+a621 1
+		if (outcol + colwidth + 2 > 80) {
+d634 1
+a634 1
+	if ((outcol / colwidth + 2) * colwidth > 80) {
+@
+
+
+1.14
+log
+@Убрана плюха от abs. (еще с версии 1.10!!!).
+@
+text
+@d47 4
+a50 1
+ * $Log:        ls.c,v $
+d116 1
+a116 1
+static char rcsid[] = "$Header: ls.c,v 1.13 88/12/23 22:41:26 korotaev Exp $";
+d865 1
+a865 1
+			rep->ltype = 'p';
+d1008 2
+@
+
+
+1.13
+log
+@Теперь выдает FIFO-файлы как 'p'.
+@
+text
+@d47 4
+a50 1
+ * $Log:	ls.c,v $
+d53 1
+a53 1
+ * 
+d113 1
+a113 1
+static char rcsid[] = "$Header: ls.c,v 1.12 88/11/28 19:30:00 abs Exp $";
+d754 3
+a756 12
+		if (ep->lnum != (unsigned)-1){
+		    if( ep-> lnum ){
+			if( ep -> lnum != dentry.d_ino )
+				fprintf( stderr,
+		  "\nНесоответствие %s : i-узел %u, в каталоге %u\n",
+				   dentry.d_name,
+				   ep-> lnum,
+				   dentry.d_ino
+				);
+		    }else ep->lnum = dentry.d_ino;
+		}
+		strncpy(ep->ln.lname,dentry.d_name,DIRSIZ);
+d803 10
+a812 10
+        if (argfl && !statreq) {
+                rep -> lsize = 0l;
+                switch( class ){
+                case DIR_IFREG:  break;
+                case DIR_IFDIR:  rep-> ltype = 'd'; break;
+                case DIR_IFLNK: goto Links;
+                default:         goto Stats;
+                }
+        }else
+        if (argfl ||  statreq) {
+d814 1
+a814 1
+                if ((*statf)(file, &statb)<0) {
+@
+
+
+1.12
+log
+@Указание свыше - считать девайсы и пр. DIR_IFREG файлами.
+@
+text
+@d47 4
+a50 1
+ * $Log:        ls.c,v $
+d110 1
+a110 1
+static char rcsid[] = "$Header: ls.c,v 1.11 88/11/18 17:30:29 abs Exp $";
+d866 3
+@
+
+
+1.11
+log
+@правлены мелкие неточности.
+@
+text
+@d48 3
+d107 1
+a107 1
+static char rcsid[] = "$Header: ls.c,v 1.10 88/11/18 13:31:45 abs Exp $";
+d419 3
+@
+
+
+1.10
+log
+@К флагу -c добавлен statreq++ , что позволяет использовать его БЕЗ -t.
+Добавлен механизм IPK_DIRECTORY.
+@
+text
+@d48 4
+d104 1
+a104 1
+static char rcsid[] = "$Header: ls.c,v 1.9 88/11/10 15:46:52 abs Exp $";
+d334 1
+d340 1
+@
+
+
+1.9
+log
+@*** empty log message ***
+@
+text
+@d48 3
+d100 1
+a100 1
+static char rcsid[] = "$Header: ls.c,v 1.8 88/09/17 19:36:35 avg Exp $";
+d240 1
+a298 4
+		case 'c': /* сортировка по времени создания */
+			cflg++;
+			continue;
+
+d328 5
+d335 1
+d354 1
+d365 4
+d371 2
+a372 2
+			"Usage: %s [-1ACFLRabcdfgilmnqrstuxo] [files]\n",
+			"Вызов: %s [-1ACFLRabcdfgilmnqrstuxo] [файлы]\n")
+d407 1
+d409 3
+d728 1
+d730 4
+d736 11
+a746 2
+		if (ep->lnum != (unsigned)-1)
+		    ep->lnum = dentry.d_ino;
+d757 1
+d759 3
+d793 13
+a805 2
+	if (argfl || statreq) {
+		if ((*statf)(file, &statb)<0) {
+d842 1
+d989 4
+@
+
+
+1.8
+log
+@Вставил обратно quot-ы и заменил strcmp на strlcmp.
+@
+text
+@d48 3
+d97 1
+a97 1
+static char rcsid[] = "$Header: ls.c,v 1.7 88/01/29 15:49:47 korotaev Exp $";
+d102 1
+a102 1
+#include <sys/dir.h>
+@
+
+
+1.7
+log
+@Исправлена ошибка освобождения памяти в gstat().
+Проявлялась она в том, что при указании несущуствующих имен файлов
+ls говорила "нет памяти" (при указании за несуществующим файлом какого-
+либо еще имени).
+@
+text
+@d47 7
+a53 1
+ * $Log:	ls.c,v $
+d58 1
+a58 1
+ * 
+d94 1
+a94 1
+static char rcsid[] = "$Header: ls.c,v 1.6 87/09/30 12:01:47 mike Exp $";
+a107 1
+#ifdef UCB_QUOTAS
+a108 1
+#endif UCB_QUOTAS
+a733 1
+#ifdef UCB_QUOTAS
+a734 1
+#endif UCB_QUOTAS
+d786 1
+a786 1
+#ifdef UCB_QUOTAS
+d793 1
+a793 1
+#endif UCB_QUOTAS
+d848 1
+a848 1
+	return(rflg * strcmp(p1->lflags&ISARG? p1->ln.namep: p1->ln.lname,
+d918 1
+a918 1
+#ifdef UCB_QUOTAS
+d922 1
+a922 1
+#endif UCB_QUOTAS
+@
+
+
+1.6
+log
+@Исправлена ошибка. При выдаче каталога с именами файлов == DIRSIZ - выдавалось
+в одну колонку. Ошибка из-за использования strlen(). Описана навая функция
+strlen(*str,maxlen).
+@
+text
+@d47 6
+a52 1
+ * $Log:        ls.c,v $
+d88 1
+a88 1
+static char rcsid[] = "$Header: ls.c,v 1.5 87/09/25 16:44:40 mike Exp $";
+d762 2
+a763 1
+				free(lastp--);
+@
+
+
+1.5
+log
+@Исправлена ошибка работы с ключом -R (сваливалось core).
+Немного подправлен под lint.
+Вставлены #ifdef UCB_QUOTA .... - для ученьшения размера программы.
+Выкинуты мультиплексные файлы.
+@
+text
+@d48 6
+d83 1
+a83 1
+static char rcsid[] = "$Header: ls.c,v 1.4 86/12/20 22:33:49 fox Rel $";
+d380 1
+a380 1
+			width = strlen (*argv);
+d645 1
+a645 1
+	static   char  dfile[100];
+d672 1
+d687 3
+a689 6
+		if (Cflg || oflg) {
+			register int width;
+
+			width = strlen (dentry.d_name);
+			if( oflg && width>2 &&
+			    dentry.d_name[width-2]=='.' && (
+d694 5
+a698 1
+			if (Cflg && width > filewidth)
+d1081 1
+a1081 1
+	i = strlen(str) + 1;
+d1100 14
+@
+
+
+1.4
+log
+@Убран '\n' в сообщении 'total' - результат:
+прекратилась путаница строк при ls -s.
+@
+text
+@d47 5
+a51 1
+ * $Log:	ls.c,v $
+d54 1
+a54 1
+ * 
+d77 1
+a77 1
+static char rcsid[] = "$Header: ls.c,v 1.3 86/09/02 16:10:54 mike Exp $";
+d91 1
+d93 1
+d108 2
+d111 1
+a111 1
+FILE    *pwdf, *dirf;
+a138 2
+struct dchain *dtemp;           /* temporary used when linking */
+char *curdir;                   /* the current directory */
+a144 2
+struct  lbuf    *flist[NFILES], **lastp = flist,  **firstp = flist;
+char    *dotp   = ".";
+d146 7
+a152 1
+char    *makename(), *malloc(), *calloc(), *ctime(), *getname(), *getgroup();
+d155 1
+a155 3
+struct  lbuf *gstat();
+long    nblock();
+int     stat(), lstat(), compar();
+d168 5
+a172 2
+	int i, width;
+	register struct lbuf *ep;
+a173 3
+	struct lbuf **epp, lb;
+	char *t, *cp;
+	struct sgttyb sgbuf;
+d231 2
+a232 4
+		/*
+		 * C - force columnar output
+		 */
+		case 'C':
+d236 2
+a237 4
+		/*
+		 * m - force stream output
+		 */
+		case 'm':
+d241 2
+a242 4
+		/*
+		 * x - force sort across
+		 */
+		case 'x':
+d247 2
+a248 4
+		/*
+		 * q - force ?'s in output
+		 */
+		case 'q':
+d252 2
+a253 4
+		/*
+		 * b - force octal value in output
+		 */
+		case 'b':
+d257 2
+a258 4
+		/*
+		 * 1 - force 1/line in output
+		 */
+		case '1':
+d262 2
+a263 4
+		/*
+		 * o - игнорировать файлы с именами *.[bo$]
+		 */
+		case 'o':
+d266 1
+d268 2
+a269 1
+		case 'a':
+d273 1
+a273 1
+		case 'A':
+d277 1
+a277 1
+		case 'c':
+d281 1
+a281 1
+		case 's':
+d288 1
+a288 1
+		case 'd':
+d292 1
+a292 4
+		/*
+		 * n - don't look in password file
+		 */
+		case 'n':
+d294 2
+a295 1
+		case 'l':
+d301 1
+a301 1
+		case 'r':
+d305 1
+a305 1
+		case 't':
+d310 1
+a310 1
+		case 'u':
+d314 1
+a314 1
+		case 'i':
+d319 2
+a320 1
+		case 'f':
+d324 1
+a324 1
+		case 'g':
+d328 1
+a328 1
+		case 'F':
+d332 1
+a332 1
+		case 'L':
+d336 1
+a336 1
+		case 'R':
+d399 2
+d412 3
+a414 3
+			pdirectory (dtemp->dc_name, 1, firstp);
+			cfree (dtemp->dc_name);
+			cfree (dtemp);
+d427 2
+a428 2
+char *name;
+int title;
+d432 2
+a433 3
+	register struct lbuf *ap;
+	register char *pname;
+	struct lbuf **app;
+a435 1
+	curdir = name;
+d449 1
+a449 1
+			if( (dp = (struct dchain *) calloc(1, sizeof(struct dchain))) == NULL ){
+d453 1
+a453 6
+			pname = makename (curdir, ap->ln.lname);
+			if( (dp->dc_name = (char *) calloc(1, strlen(pname)+1)) == NULL ){
+				fprintf(stderr,ediag("%s: out of memory\n","%s: нет памяти\n"),ncom);
+				exit(1);
+			}
+			strcpy(dp->dc_name, pname);
+d471 1
+a471 1
+	int ncols, nrows, row, col;
+a556 1
+
+a596 1
+
+a597 10
+ * nblock: the number of 1024 byte blocks a size byte file takes up.
+ */
+long
+nblock(size)
+long size;
+{
+	return((size+1023)>>10);
+}
+
+/*
+d636 1
+a636 2
+char *
+makename(dir, file)
+d639 1
+a639 1
+	static char dfile[100];
+d641 1
+a641 1
+	register int i;
+d663 3
+a665 3
+	static struct direct dentry;
+	register int j, width;
+	register struct lbuf *ep;
+d681 2
+d696 1
+a696 1
+		if (ep->lnum != -1)
+d698 1
+a698 2
+		for (j=0; j<DIRSIZ; j++)
+			ep->ln.lname[j] = dentry.d_name[j];
+d708 1
+a708 2
+struct lbuf *
+gstat(file, argfl)
+d711 4
+a714 4
+	struct stat statb;
+	int (*statf)() = Lflg ?  stat : lstat;
+	char buf[BUFSIZ];
+	int cc;
+d716 4
+a719 2
+	static int nomocore;
+	struct qstat qstatb;
+d724 1
+a724 1
+	if (rep==NULL) {
+d727 1
+a727 1
+		return(NULL);
+d730 1
+a730 1
+		static int msg;
+d745 1
+a745 1
+			statb.st_ino = -1;
+d749 2
+a750 2
+				lastp--;
+				return(0);
+d770 1
+a770 1
+
+d777 1
+a777 1
+
+a787 10
+
+		case S_IFMPB:
+			rep->ltype = 'M';
+			rep->lsize = statb.st_rdev;
+			break;
+
+		case S_IFMPC:
+			rep->ltype = 'm';
+			rep->lsize = statb.st_rdev;
+			break;
+d842 1
+d844 1
+a844 2
+	register char *cp;
+	char fname[100], *name;
+d846 1
+a846 1
+	fname[0] = 0;
+d848 1
+a848 1
+	if (p->lnum == -1)
+d861 2
+a862 6
+	    case 'm':
+	    case 'M':
+		if (nopad && !lflg)
+		    lsprintf("%D ", 0);
+		else
+			lsprintf("%4D ", 0);
+d877 1
+a877 1
+			name = getgroup(p->lgid);
+d884 1
+a884 1
+			if (nflg == 0 && (name = getname(p->luid))) {
+d889 1
+a889 1
+			name = getgroup(p->lgid);
+a898 2
+		case 'm':
+		case 'M':
+d902 1
+d906 1
+d933 1
+d936 1
+a936 1
+	free(ap);
+d947 4
+a950 5
+struct nametable *
+findslot (id, tbl, len)
+unsigned short  id;
+struct nametable        *tbl;
+int             len;
+d952 1
+a952 1
+	register struct nametable       *nt, *nt_start;
+d969 2
+a970 3
+char *
+getname (uid)
+unsigned short  uid;
+d972 3
+a974 3
+	register struct passwd          *pw;
+	static int                      init = 0;
+	register struct nametable       *n;
+d996 1
+a996 1
+			n = findslot(pw->pw_uid, unames, NUID);
+d1013 1
+a1013 1
+		return ((char *)NULL);
+d1015 1
+d1018 2
+a1019 3
+char *
+getgroup (gid)
+unsigned short  gid;
+d1021 3
+a1023 3
+	register struct group   *gr;
+	static int      init = 0;
+	register struct nametable       *n;
+d1045 1
+a1045 1
+			n = findslot(gr->gr_gid, gnames, NGID);
+d1062 1
+a1062 1
+		return ((char *)NULL);
+d1064 1
+d1067 2
+a1068 3
+char *
+savestr(str)
+char *str;
+d1070 2
+a1071 1
+	char *cp = malloc(strlen(str) + 1);
+d1073 2
+a1074 1
+	if (cp == NULL) {
+d1078 2
+a1079 2
+	strcpy(cp, str);
+	return(cp);
+d1084 1
+a1084 1
+char    *s;
+d1086 1
+a1087 1
+	char    buf[256];
+@
+
+
+1.3
+log
+@Вставлена обработка XSTR'ом.
+@
+text
+@d47 4
+a50 1
+ * $Log:        ls.c,v $
+d73 1
+a73 1
+static char rcsid[] = "$Header: ls.c,v 1.2 86/09/02 15:02:50 mike Exp $";
+d469 1
+a469 1
+	    lsprintf(ediag("total %D\n","всего %D\n"), tblocks);
+@
+
+
+1.2
+log
+@- Отлажен ключ '-R' , который с ключом '-l' выдавал абракадабру.
+- Вставлен ключ '-o' (не выдавать файлы '*.b' , '*.o' , '*.$').
+- Уменьшен размер программы за счет использования стандартной
+  программы sprintf вместо описываемой своей printf.
+@
+text
+@d48 6
+d67 2
+d70 1
+a70 1
+static char rcsid[] = "$Header: ls.c,v 1.1 86/09/01 14:59:09 mike Exp $";
+d151 1
+@
+
+
+1.1
+log
+@Теперь использутся стандартный sprintf вместо своего printf'а.
+Ключ '-R' работает неверно !!!
+@
+text
+@d48 4
+d62 1
+a62 1
+static char rcsid[] = "$Header: ls.c,v 1.0 86/09/01 13:46:54 mike Exp $";
+a74 1
+#ifdef  UCB_QUOTAS
+a76 1
+#endif
+d98 2
+a99 1
+	} ln;
+a100 1
+#ifdef  UCB_SYMLINKS
+a101 1
+#endif
+a108 1
+#ifdef  UCB_QUOTAS
+a110 1
+#endif
+d125 2
+a126 7
+int     nopad;
+int     tabflg;
+int     rflg    = 1;
+long    year;
+int     flags;
+long    tblocks;
+int     statreq;
+d128 1
+a128 3
+struct  lbuf    *flist[NFILES];
+struct  lbuf    **lastp = flist;
+struct  lbuf    **firstp = flist;
+d131 3
+a133 1
+char    *makename();
+a134 1
+char    *ctime();
+d136 1
+a136 2
+char    *getname();
+char    *getgroup();
+d139 1
+a139 4
+int     colwidth;
+int     filewidth;
+int     fixedwidth;
+int     outcol;
+a142 1
+extern  char _sobuf[];
+d151 2
+a152 5
+	struct lbuf **epp;
+	struct lbuf lb;
+	char *t;
+	char *cp;
+	int compar();
+a157 1
+	setbuf(stdout, _sobuf);
+d184 1
+a184 2
+			if (cp[-1] == 'l') {
+				/* ll => -l */
+d188 2
+a189 2
+			} else {
+				/* l => -m */
+d194 1
+a194 1
+		case 'x':       /* lx => -x */
+d197 1
+a197 1
+		case 'f':       /* lf => -F */
+d200 1
+a200 1
+		case 'r':       /* lr => -R */
+d204 2
+a205 1
+	} else {
+a206 1
+	}
+d335 3
+a337 3
+			  "Usage: %s [-1ACFLRabcdfgilmnqrstux] [files]\n",
+			  "Вызов: %s [-1ACFLRabcdfgilmnqrstux] [файлы]\n")
+			  ,ncom);
+a341 1
+#ifdef UCB
+a342 3
+#else
+		fixedwidth += 2;
+#endif
+d379 1
+a379 1
+	colwidth = fixedwidth + filewidth;
+a435 10
+#ifdef notdef
+	/* Taken out because it appears this is done below in pem. */
+	if (tabflg) {
+		if (colwidth <= 8)
+			colwidth = 8;
+		else
+			if (colwidth <= 16)
+				colwidth = 16;
+	}
+#endif
+d441 5
+a445 2
+				strcmp(ap->ln.lname, "..")) {
+			dp = (struct dchain *) calloc(1, sizeof(struct dchain));
+d447 4
+a450 1
+			dp->dc_name = (char *) calloc(1, strlen(pname)+1);
+d457 1
+a457 1
+		lsprintf(ediag("total %D\n","всего %D\n"), tblocks);
+d467 1
+a467 1
+	register struct lbuf **slp, **lp;
+d475 2
+a476 3
+		else
+			if (colwidth <= 17)
+				colwidth = 16;
+d490 1
+a490 1
+		slp--;
+d497 1
+a497 1
+				pentry(*ep);
+d500 1
+a500 1
+			lsprintf("\n");
+d512 1
+a512 1
+	char c;
+d514 1
+a514 1
+	char cc;
+d517 18
+a534 19
+		case '\t':
+			outcol = (outcol + 8) &~ 7;
+			break;
+		case '\n':
+			outcol = 0;
+			break;
+		default:
+			if ( !isprint(c) ) {
+				if (qflg)
+					c = '?';
+				else if (bflg) {
+					outcol += 3;
+					putc ('\\', stdout);
+					cc = '0' + (c>>6 & 07);
+					putc (cc, stdout);
+					cc = '0' + (c>>3 & 07);
+					putc (cc, stdout);
+					c = '0' + (c & 07);
+				}
+d536 3
+a538 2
+			outcol++;
+			break;
+d546 1
+a546 1
+		putc('\n', stdout);
+d557 1
+a557 1
+		return;
+d581 4
+a584 4
+			if ((outcol % 16) < 8) {
+				outcol += 8 - (outcol % 8);
+				putc ('\t', stdout);
+			}
+d592 2
+a593 1
+	} while (outcol % colwidth);
+d639 1
+a639 1
+		pairp++;
+d657 1
+a657 1
+		*dp++ = *fp++;
+d659 1
+a659 1
+	*dp++ = '/';
+d685 5
+a689 6
+			break;
+		if (dentry.d_ino==0 ||
+		    aflg==0 && dentry.d_name[0]=='.' && (
+		    !Aflg ||
+		    dentry.d_name[1]=='\0'
+		    || dentry.d_name[1]=='.' && dentry.d_name[2]=='\0'))
+d700 1
+a700 1
+				filewidth = width;
+d704 1
+a704 1
+			continue;
+d706 1
+a706 1
+			ep->lnum = dentry.d_ino;
+a717 2
+int stat(), lstat();
+
+a722 1
+#ifdef  UCB_SYMLINKS
+a725 3
+#else
+	int (*statf)() = stat;
+#endif
+a727 1
+#ifdef  UCB_QUOTAS
+a728 1
+#endif
+d731 1
+a731 1
+		return(NULL);
+d740 1
+a779 1
+#ifdef  UCB_QUOTAS
+a785 1
+#endif
+a786 1
+#ifdef  UCB_SYMLINKS
+a796 1
+#endif
+d813 1
+a813 1
+			rep->lmtime = statb.st_atime;
+d815 1
+a815 1
+			rep->lmtime = statb.st_ctime;
+d837 3
+a839 2
+				return(1);
+		} else {
+d841 1
+a841 1
+				return(-1);
+d846 1
+a846 1
+			return(0);
+d848 1
+a848 1
+			return(rflg);
+d852 1
+a852 1
+				p2->lflags&ISARG? p2->ln.namep: p2->ln.lname));
+a860 1
+	struct { char dminor, dmajor;};
+d863 1
+a863 5
+	char fname[100];
+	char *pname, *name;
+	struct passwd *getpwuid();
+	struct passwd *pwptr;
+	struct group *getgrgid();
+d868 1
+a868 1
+		return;
+d871 11
+d883 1
+a883 1
+			lsprintf("%d ", p->lnum);
+d885 2
+a886 3
+			lsprintf("%5d ", p->lnum);
+	if (sflg)
+		switch (p->ltype) {
+d888 7
+a894 17
+		case 'b':
+		case 'c':
+		case 'm':
+		case 'M':
+			if (nopad && !lflg)
+				lsprintf("%D ", 0);
+			else
+				lsprintf("%4D ", 0);
+			break;
+
+		default:
+			if (nopad && !lflg)
+				lsprintf("%D ", nblock(p->lsize));
+			else
+				lsprintf("%4D ", nblock(p->lsize));
+			break;
+		}
+d902 1
+a902 1
+				lsprintf("%-9.9s", name);
+d905 2
+a906 2
+		} else {
+#ifndef UCB_PWHASH
+a909 5
+#else
+			pwptr = getpwuid(p->luid);
+			if (nflg == 0 && pwptr != 0)
+				lsprintf("%-9.9s", pwptr->pw_name);
+#endif
+d914 1
+a914 1
+				lsprintf("%-9.9s", name);
+d925 1
+a925 1
+			    major((int)p->lsize), minor((int)p->lsize));
+a926 1
+#ifdef  UCB_QUOTAS
+a929 1
+#endif
+d935 2
+a936 1
+			lsprintf(" %-7.7s %-4.4s ", cp+4, cp+20); else
+d940 2
+a941 2
+		strncat (fname, p->ln.namep, 98);
+	else {
+a942 2
+	}
+#ifndef UCB
+d944 8
+a951 4
+	    if (p->ltype == 'd')
+		strcat (fname, "]");
+	    else if (!nopad)
+		strcat (fname, " ");
+d953 3
+a955 10
+#else
+	if (Fflg) {
+	    if (p->ltype == 'd')
+		strcat (fname, "/");
+	    else if (p->ltype == 'l')
+		strcat (fname, "@@");
+	    else if (p->lflags & 0111)
+		strcat (fname, "*");
+	    else if (!nopad)
+		strcat (fname, " ");
+a956 8
+#endif
+
+#ifdef  UCB_SYMLINKS
+		if (lflg && (p->ln.llinkto != (char *) NULL)) {
+			strcat (fname, " -> ");
+			strcat(fname, p->ln.llinkto);
+		}
+#endif
+a960 2
+#ifndef UCB_PWHASH
+
+d983 1
+a983 2
+	while (nt->nt_name[0] && nt->nt_id != id)
+	{
+d985 1
+a985 1
+			nt -= len;
+d987 1
+a987 1
+			return((struct nametable *)NULL);
+a997 1
+	struct passwd                   *getpwent();
+d1006 1
+a1006 1
+		return((char *)NULL);
+d1009 1
+a1009 1
+		return(n->nt_name);
+d1012 13
+a1024 20
+		case 0:
+			setpwent();
+			init = 1;
+			/* intentional fall-thru */
+		case 1:
+			while (pw = getpwent()) {
+				if (pw->pw_uid < 0)
+					continue;
+				n = findslot(pw->pw_uid, unames, NUID);
+				if (n == NULL) {
+					endpwent();
+					init = 2;
+					return((char *)NULL);
+				}
+				if (n->nt_name[0])
+					continue;       /* duplicate, not uid */
+				strncpy(n->nt_name, pw->pw_name, NMAX);
+				n->nt_id = pw->pw_uid;
+				if (pw->pw_uid == uid)
+					return (n->nt_name);
+d1026 12
+a1037 5
+			endpwent();
+			init = 2;
+			/* intentional fall-thru */
+		case 2:
+			return ((char *)NULL);
+a1046 1
+	struct group    *getgrent();
+d1055 1
+a1055 1
+		return((char *)NULL);
+d1058 1
+a1058 1
+		return(n->nt_name);
+d1061 13
+a1073 20
+		case 0:
+			setgrent();
+			init = 1;
+			/* intentional fall-thru */
+		case 1:
+			while (gr = getgrent()) {
+				if (gr->gr_gid < 0)
+					continue;
+				n = findslot(gr->gr_gid, gnames, NGID);
+				if (n == NULL) {
+					endgrent();
+					init = 2;
+					return((char *)NULL);
+				}
+				if (n->nt_name[0])
+					continue;       /* duplicate, not gid */
+				strncpy(n->nt_name, gr->gr_name, NMAX);
+				n->nt_id = gr->gr_gid;
+				if (gr->gr_gid == gid)
+					return (n->nt_name);
+d1075 12
+a1086 5
+			endgrent();
+			init = 2;
+			/* intentional fall-thru */
+		case 2:
+			return ((char *)NULL);
+a1088 1
+#endif
+a1089 1
+#ifdef  UCB_SYMLINKS
+d1092 1
+a1092 1
+	char *str;
+d1100 1
+a1100 1
+	(void) strcpy(cp, str);
+a1102 1
+#endif
+@
+
+
+1.0
+log
+@Новая версия программы ls.
+Вставлен ключ -o.
+@
+text
+@d48 4
+d58 1
+a58 1
+static char rcsid[] = "$Header: ls.c,v 0.1 86/08/30 14:38:04 avg Exp $";
+a69 1
+#include <varargs.h>
+d451 1
+a451 1
+		printf("\n%s:\n", name);
+d482 1
+a482 1
+		printf(ediag("total %D\n","всего %D\n"), tblocks);
+d526 1
+a526 1
+			printf("\n");
+d704 1
+a704 1
+		printf(ediag("%s unreadable\n","%s нельзя прочитать\n"),dir);
+d786 1
+a786 1
+			printf(ediag("%s not found\n","%s не найден\n"),file);
+d913 1
+a913 1
+			printf("%d ", p->lnum);
+d915 1
+a915 1
+			printf("%5d ", p->lnum);
+d924 1
+a924 1
+				printf("%D ", 0);
+d926 1
+a926 1
+				printf("%4D ", 0);
+d931 1
+a931 1
+				printf("%D ", nblock(p->lsize));
+d933 1
+a933 1
+				printf("%4D ", nblock(p->lsize));
+d939 1
+a939 1
+		printf("%2d ", p->lnl);
+d943 1
+a943 1
+				printf("%-9.9s", name);
+d945 1
+a945 1
+				printf("%-9d", p->lgid);
+d949 1
+a949 1
+				printf("%-9.9s", name);
+d954 1
+a954 1
+				printf("%-9.9s", pwptr->pw_name);
+d957 1
+a957 1
+				printf("%-9d", p->luid);
+d960 1
+a960 1
+				printf("%-9.9s", name);
+d962 1
+a962 1
+				printf("%-9d", p->lgid);
+d970 1
+a970 1
+			printf("%3d,%3d",
+d975 1
+a975 1
+			printf("%4ld/%4ld", p->lqused, p->lqmax);
+d979 1
+a979 1
+			printf("%7ld", p->lsize);
+d983 2
+a984 2
+			printf(" %-7.7s %-4.4s ", cp+4, cp+20); else
+			printf(" %-12.12s ", cp+4);
+d1017 1
+a1017 1
+	printf ("%s", fname);
+a1020 339
+/*
+ * This version of printf is compatible with the Version 7 C
+ * printf. The differences are only minor except that this
+ * printf assumes it is to print through pputchar. Version 7
+ * printf is more general (and is much larger) and includes
+ * provisions for floating point.
+ */
+
+#define MAXOCT  11          /* Maximum octal digits in a long */
+#define MAXINT  32767       /* largest normal length positive integer */
+#define BIG     1000000000  /* largest power of 10 less than an unsigned long */
+#define MAXDIGS 10          /* number of digits in BIG */
+
+static int width, sign, fill;
+
+char *b_dconv();
+
+printf(va_alist)
+	va_dcl
+{
+	va_list ap;
+	register char *fmt;
+	char fcode;
+	int prec;
+	int length,mask1,nbits,n;
+	long int mask2, num;
+	register char *bptr;
+	char *ptr;
+	char buf[134];
+
+	va_start(ap);
+	fmt = va_arg(ap,char *);
+	for (;;) {
+		/* process format string first */
+		while ((fcode = *fmt++)!='%') {
+			/* ordinary (non-%) character */
+			if (fcode=='\0')
+				return;
+			pputchar(fcode);
+		}
+		/* length modifier: -1 for h, 1 for l, 0 for none */
+		length = 0;
+		/* check for a leading - sign */
+		sign = 0;
+		if (*fmt == '-') {
+			sign++;
+			fmt++;
+		}
+		/* a '0' may follow the - sign */
+		/* this is the requested fill character */
+		fill = 1;
+		if (*fmt == '0') {
+			fill--;
+			fmt++;
+		}
+
+		/* Now comes a digit string which may be a '*' */
+		if (*fmt == '*') {
+			width = va_arg(ap, int);
+			if (width < 0) {
+				width = -width;
+				sign = !sign;
+			}
+			fmt++;
+		}
+		else {
+			width = 0;
+			while (*fmt>='0' && *fmt<='9')
+				width = width * 10 + (*fmt++ - '0');
+		}
+
+		/* maybe a decimal point followed by more digits (or '*') */
+		if (*fmt=='.') {
+			if (*++fmt == '*') {
+				prec = va_arg(ap, int);
+				fmt++;
+			}
+			else {
+				prec = 0;
+				while (*fmt>='0' && *fmt<='9')
+					prec = prec * 10 + (*fmt++ - '0');
+			}
+		}
+		else
+			prec = -1;
+
+		/*
+		 * At this point, "sign" is nonzero if there was
+		 * a sign, "fill" is 0 if there was a leading
+		 * zero and 1 otherwise, "width" and "prec"
+		 * contain numbers corresponding to the digit
+		 * strings before and after the decimal point,
+		 * respectively, and "fmt" addresses the next
+		 * character after the whole mess. If there was
+		 * no decimal point, "prec" will be -1.
+		 */
+		switch (*fmt) {
+			case 'L':
+			case 'l':
+				length = 2;
+				/* no break!! */
+			case 'h':
+			case 'H':
+				length--;
+				fmt++;
+				break;
+		}
+
+		/*
+		 * At exit from the following switch, we will
+		 * emit the characters starting at "bptr" and
+		 * ending at "ptr"-1, unless fcode is '\0'.
+		 */
+		switch (fcode = *fmt++) {
+			/* process characters and strings first */
+			case 'c':
+				buf[0] = va_arg(ap, int);
+				ptr = bptr = &buf[0];
+				if (buf[0] != '\0')
+					ptr++;
+				break;
+			case 's':
+				bptr = va_arg(ap,char *);
+				if (bptr==0)
+					bptr = "(null pointer)";
+				if (prec < 0)
+					prec = MAXINT;
+				for (n=0; *bptr++ && n < prec; n++) ;
+				ptr = --bptr;
+				bptr -= n;
+				break;
+			case 'O':
+				length = 1;
+				fcode = 'o';
+				/* no break */
+			case 'o':
+			case 'X':
+			case 'x':
+				if (length > 0)
+					num = va_arg(ap,long);
+				else
+					num = (unsigned)va_arg(ap,int);
+				if (fcode=='o') {
+					mask1 = 0x7;
+					mask2 = 0x1fffffffL;
+					nbits = 3;
+				}
+				else {
+					mask1 = 0xf;
+					mask2 = 0x0fffffffL;
+					nbits = 4;
+				}
+				n = (num!=0);
+				bptr = buf + MAXOCT + 3;
+				/* shift and mask for speed */
+				do
+				    if (((int) num & mask1) < 10)
+					*--bptr = ((int) num & mask1) + 060;
+				    else
+					*--bptr = ((int) num & mask1) + 0127;
+				while (num = (num >> nbits) & mask2);
+
+				if (fcode=='o') {
+					if (n)
+						*--bptr = '0';
+				}
+				else
+					if (!sign && fill <= 0) {
+						pputchar('0');
+						pputchar(fcode);
+						width -= 2;
+					}
+					else {
+						*--bptr = fcode;
+						*--bptr = '0';
+					}
+				ptr = buf + MAXOCT + 3;
+				break;
+			case 'D':
+			case 'U':
+			case 'I':
+				length = 1;
+
+		      fcode = fcode + 'a' - 'A';
+				/* no break */
+			case 'd':
+			case 'i':
+			case 'u':
+				if (length > 0)
+					num = va_arg(ap,long);
+				else {
+					n = va_arg(ap,int);
+					if (fcode=='u')
+						num = (unsigned) n;
+					else
+						num = (long) n;
+				}
+				if (n = (fcode != 'u' && num < 0))
+					num = -num;
+				/* now convert to digits */
+				bptr = b_dconv(num, buf);
+				if (n)
+					*--bptr = '-';
+				if (fill == 0)
+					fill = -1;
+				ptr = buf + MAXDIGS + 1;
+				break;
+			default:
+				/* not a control character,
+				 * print it.
+				 */
+				ptr = bptr = &fcode;
+				ptr++;
+				break;
+			}
+			if (fcode != '\0')
+				b_emit(bptr,ptr);
+	}
+	va_end(ap);
+}
+
+/* b_dconv converts the unsigned long integer "value" to
+ * printable decimal and places it in "buffer", right-justified.
+ * The value returned is the address of the first non-zero character,
+ * or the address of the last character if all are zero.
+ * The result is NOT null terminated, and is MAXDIGS characters long,
+ * starting at buffer[1] (to allow for insertion of a sign).
+ *
+ * This program assumes it is running on 2's complement machine
+ * with reasonable overflow treatment.
+ */
+char *
+b_dconv(value, buffer)
+	long value;
+	char *buffer;
+{
+	register char *bp;
+	register int svalue;
+	int n;
+	long lval;
+
+	bp = buffer;
+
+	/* zero is a special case */
+	if (value == 0) {
+		bp += MAXDIGS;
+		*bp = '0';
+		return(bp);
+	}
+
+	/* develop the leading digit of the value in "n" */
+	n = 0;
+	while (value < 0) {
+		value -= BIG;   /* will eventually underflow */
+		n++;
+	}
+	while ((lval = value - BIG) >= 0) {
+		value = lval;
+		n++;
+	}
+
+	/* stash it in buffer[1] to allow for a sign */
+	bp[1] = n + '0';
+	/*
+	 * Now develop the rest of the digits. Since speed counts here,
+	 * we do it in two loops. The first gets "value" down until it
+	 * is no larger than MAXINT. The second one uses integer divides
+	 * rather than long divides to speed it up.
+	 */
+	bp += MAXDIGS + 1;
+	while (value > MAXINT) {
+		*--bp = (int)(value % 10) + '0';
+		value /= 10;
+	}
+
+	/* cannot lose precision */
+	svalue = value;
+	while (svalue > 0) {
+		*--bp = (svalue % 10) + '0';
+		svalue /= 10;
+	}
+
+	/* fill in intermediate zeroes if needed */
+	if (buffer[1] != '0') {
+		while (bp > buffer + 2)
+			*--bp = '0';
+		--bp;
+	}
+	return(bp);
+}
+
+/*
+ * This program sends string "s" to pputchar. The character after
+ * the end of "s" is given by "send". This allows the size of the
+ * field to be computed; it is stored in "alen". "width" contains the
+ * user specified length. If width<alen, the width will be taken to
+ * be alen. "sign" is zero if the string is to be right-justified
+ * in the field, nonzero if it is to be left-justified. "fill" is
+ * 0 if the string is to be padded with '0', positive if it is to be
+ * padded with ' ', and negative if an initial '-' should appear before
+ * any padding in right-justification (to avoid printing "-3" as
+ * "000-3" where "-0003" was intended).
+ */
+b_emit(s, send)
+	register char *s;
+	char *send;
+{
+	char cfill;
+	register int alen;
+	int npad;
+
+	alen = send - s;
+	if (alen > width)
+		width = alen;
+	cfill = fill>0? ' ': '0';
+
+	/* we may want to print a leading '-' before anything */
+	if (*s == '-' && fill < 0) {
+		pputchar(*s++);
+		alen--;
+		width--;
+	}
+	npad = width - alen;
+
+	/* emit any leading pad characters */
+	if (!sign)
+		while (--npad >= 0)
+			pputchar(cfill);
+
+	/* emit the string itself */
+	while (--alen >= 0)
+		pputchar(*s++);
+
+	/* emit trailing pad characters */
+	if (sign)
+		while (--npad >= 0)
+			pputchar(cfill);
+}
+
+d1171 12
+@
+
+
+0.1
+log
+@Русские диагностики by mike и мелкие правки by @@VG.
+@
+text
+@d45 6
+a50 1
+ * $Log$
+d54 1
+a54 1
+static char rcsid[] = "$Header$";
+d122 1
+a122 1
+int     Aflg, nflg, qflg, Fflg, Lflg, Rflg, across, Cflg;
+d268 6
+d479 1
+a479 1
+		printf(ediag("total %D","всего %D"), tblocks);
+d709 4
+a712 4
+			aflg==0 && dentry.d_name[0]=='.' && (
+			!Aflg ||
+			dentry.d_name[1]=='\0'
+			|| dentry.d_name[1]=='.' && dentry.d_name[2]=='\0'))
+d714 1
+a714 1
+		if (Cflg) {
+d716 7
+a722 1
+			if (width > filewidth)
+@
+
+
+0.0
+log
+@Русские буквы считает непечатными символами (графическими),
+поэтому выводит их символами '?'.
+@
+text
+@a0 2
+#define UCB			/* Controls output format for -F */
+
+d8 3
+a10 3
+ *	1) Columnar output.
+ *	2) Stream output.
+ *	3) Old one per line format.
+d20 1
+a20 1
+ *	ls /usr/bin/p*
+d27 1
+a27 1
+ *	-m	force stream output.
+d29 1
+a29 1
+ *	-1	force one entry per line, e.g. to a teletype
+d31 1
+a31 1
+ *	-q	force non-printings to be '?'s, e.g. to a file
+d33 1
+a33 1
+ *	-C	force columnar output, e.g. into a file
+d35 2
+a36 2
+ *	-n	like -l, but user/group id's in decimal rather than
+ *		looking in /etc/passwd to save time
+d38 1
+a38 1
+ *	-F	turns on the "flagging" of executables and directories
+d40 1
+a40 1
+ *	-L	don't read symbolic links
+d42 4
+a45 2
+ *	-R	causes ls to recurse through the branches of the subtree
+ *		ala find
+d48 4
+d62 2
+a63 1
+#ifdef	UCB_QUOTAS
+d68 2
+a69 2
+#ifndef	NFILES
+#define	NFILES	1024
+d71 2
+a72 2
+#ifndef	NUID
+#define	NUID	512	/* must not be a multiple of 5 */
+d74 2
+a75 2
+#ifndef	NGID
+#define	NGID	32	/* must not be a multiple of 5 */
+d78 2
+a79 2
+struct	utmp	utmp;
+#define NMAX	(sizeof (utmp.ut_name))
+d82 1
+a82 1
+FILE	*pwdf, *dirf;
+d86 2
+a87 2
+		char	lname[DIRSIZ + 1];
+		char	*namep;
+d89 3
+a91 3
+	char	ltype;
+#ifdef	UCB_SYMLINKS
+	char	*llinkto;
+d93 10
+a102 10
+	ino_t	lnum;
+	short	lflags;
+	short	lnl;
+	short	luid;
+	short	lgid;
+	long	lsize;
+	long	lmtime;
+#ifdef	UCB_QUOTAS
+	long	lqused;
+	long	lqmax;
+d107 1
+a107 1
+	char *dc_name;		/* the path name */
+d111 4
+a114 4
+struct dchain *dfirst;		/* the start of the directory chain */
+struct dchain *cdfirst;		/* the start of the current directory chain */
+struct dchain *dtemp;		/* temporary used when linking */
+char *curdir;			/* the current directory */
+d116 14
+a129 14
+int	aflg, bflg, dflg, lflg, sflg, tflg, uflg, iflg, fflg, gflg, cflg;
+int	Aflg, nflg, qflg, Fflg, Lflg, Rflg, across, Cflg;
+int	nopad;
+int	tabflg;
+int	rflg	= 1;
+long	year;
+int	flags;
+long	tblocks;
+int	statreq;
+int	xtraent;		/* for those switches which print out a total */
+struct	lbuf	*flist[NFILES];
+struct	lbuf	**lastp = flist;
+struct	lbuf	**firstp = flist;
+char	*dotp	= ".";
+d131 6
+a136 6
+char	*makename();
+struct	lbuf *gstat();
+char	*ctime();
+long	nblock();
+char	*getname();
+char	*getgroup();
+d138 5
+a142 5
+#define ISARG	0100000
+int	colwidth;
+int	filewidth;
+int	fixedwidth;
+int	outcol;
+d144 1
+a144 1
+extern	char _sobuf[];
+d146 2
+d169 1
+d203 1
+a203 1
+		case 'x':	/* lx => -x */
+d206 1
+a206 1
+		case 'f':	/* lf => -F */
+d209 1
+a209 1
+		case 'r':	/* lr => -R */
+d337 4
+a340 1
+			fprintf (stderr, "usage: ls [-1ACFLRabcdfgilmnqrstux] [files]\n");
+d394 1
+a394 1
+		else 
+d468 1
+a468 1
+		printf("total %D", tblocks);
+d536 1
+a536 1
+			if (c < ' ' || c >= 0177) {
+d622 9
+a630 9
+int	m1[] = { 1, S_IREAD>>0, 'r', '-' };
+int	m2[] = { 1, S_IWRITE>>0, 'w', '-' };
+int	m3[] = { 2, S_ISUID, 's', S_IEXEC>>0, 'x', '-' };
+int	m4[] = { 1, S_IREAD>>3, 'r', '-' };
+int	m5[] = { 1, S_IWRITE>>3, 'w', '-' };
+int	m6[] = { 2, S_ISGID, 's', S_IEXEC>>3, 'x', '-' };
+int	m7[] = { 1, S_IREAD>>6, 'r', '-' };
+int	m8[] = { 1, S_IWRITE>>6, 'w', '-' };
+int	m9[] = { 2, S_ISVTX, 't', S_IEXEC>>6, 'x', '-' };
+d632 1
+a632 1
+int	*m[] = { m1, m2, m3, m4, m5, m6, m7, m8, m9};
+d690 1
+a690 1
+		printf("%s unreadable\n", dir);
+d731 1
+a731 1
+#ifdef	UCB_SYMLINKS
+d740 1
+a740 1
+#ifdef	UCB_QUOTAS
+d748 1
+a748 1
+		fprintf(stderr, "ls: out of memory\n");
+d756 1
+a756 1
+			fprintf(stderr, "ls: too many files\n");
+d766 1
+a766 1
+			printf("%s not found\n", file);
+d793 1
+a793 1
+#ifdef	UCB_QUOTAS
+d801 2
+a802 2
+		
+#ifdef	UCB_SYMLINKS
+d898 1
+a898 1
+		
+d953 1
+a953 1
+#ifdef	UCB_QUOTAS
+d991 1
+a991 1
+#ifdef	UCB_SYMLINKS
+a1000 2
+/* char printf_id[] = "@@(#) printf.c:2.2 6/5/79";*/
+
+d1009 4
+a1012 4
+#define MAXOCT	11	    /* Maximum octal digits in a long */
+#define MAXINT	32767	    /* largest normal length positive integer */
+#define BIG	1000000000  /* largest power of 10 less than an unsigned long */
+#define MAXDIGS 10	    /* number of digits in BIG */
+d1056 1
+a1056 1
+		
+d1071 1
+a1071 1
+		
+d1086 1
+a1086 1
+		
+d1108 1
+a1108 1
+		
+d1162 1
+a1162 1
+				
+d1183 1
+a1183 1
+	  
+d1209 1
+a1209 1
+				/* not a control character, 
+d1241 1
+a1241 1
+	
+d1243 1
+a1243 1
+	
+d1250 1
+a1250 1
+	
+d1254 1
+a1254 1
+		value -= BIG;	/* will eventually underflow */
+d1261 1
+a1261 1
+	
+d1275 1
+a1275 1
+	
+d1282 1
+a1282 1
+	
+d1311 1
+a1311 1
+	
+d1316 1
+a1316 1
+	
+d1324 1
+a1324 1
+	
+d1329 1
+a1329 1
+			
+d1333 1
+a1333 1
+		
+d1343 2
+a1344 2
+	char	nt_name[NMAX+1];
+	unsigned short	nt_id;
+d1346 2
+a1347 2
+struct nametable	unames[NUID];
+struct nametable	gnames[NGID];
+d1352 3
+a1354 3
+unsigned short	id;
+struct nametable	*tbl;
+int		len;
+d1356 1
+a1356 1
+	register struct nametable	*nt, *nt_start;
+d1376 1
+a1376 1
+unsigned short	uid;
+d1378 4
+a1381 4
+	register struct passwd		*pw;
+	static int			init = 0;
+	struct passwd			*getpwent();
+	register struct nametable	*n;
+d1391 1
+a1391 1
+	if (n->nt_name[0])	/* occupied? */
+d1410 1
+a1410 1
+					continue;	/* duplicate, not uid */
+d1426 1
+a1426 1
+unsigned short	gid;
+d1428 4
+a1431 4
+	register struct group	*gr;
+	static int	init = 0;
+	struct group	*getgrent();
+	register struct nametable	*n;
+d1441 1
+a1441 1
+	if (n->nt_name[0])	/* occupied? */
+d1460 1
+a1460 1
+					continue;	/* duplicate, not gid */
+d1475 1
+a1475 1
+#ifdef	UCB_SYMLINKS
+d1483 1
+a1483 1
+		fprintf(stderr, "ls: out of memory\n");
+@

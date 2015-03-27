@@ -1,0 +1,4 @@
+range of e is employee
+retrieve (srok=e.startdate-e.birthdate,
+	cou=count(e.name by (e.startdate-e.birthdate)
+		where e.startdate-e.birthdate = e.startdate - e.birthdate))

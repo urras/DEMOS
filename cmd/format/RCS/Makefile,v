@@ -1,0 +1,51 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     89.05.28.18.05.27;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+#
+# Makefile для программ форматирования
+#
+# $Log$
+#
+
+CFLAGS=-O
+LDFLAGS=-s
+
+all: wf
+
+install: i_wf
+
+i_wf: wf
+	cp wf /etc/wf
+	chmod 700 /etc/wf
+
+wf: wf.c
+	$(CC) -o wf $(LDFLAGS) $(CFLAGS) wf.c
+
+clear clean:
+	rm -f *.[ob] wf
+
+CLRSRC: clear
+	rm -f wf.c
+@

@@ -1,0 +1,21 @@
+	rm -f ../../bin/xparser
+	ln xparser ../../bin/xparser; chmod 4740 ../../bin/xparser
+	rm -f ../../bin/decomp
+	ln decomp ../../bin/decomp; chmod 4740 ../../bin/decomp
+	cc -i version.o dbu01.o  ../../lib/dbulib ../../lib/ctlmod ../../lib/iutil ../../lib/gutil ../../lib/ctlmod -lm -o dbu01
+	chmod 4740 dbu01
+	ls -l dbu01; size dbu01
+-rwsr----- 1 rubin    abd        82274 фев 22 12:47 dbu01
+text	data	bss	dec	oct
+45952 +	11370 +	12934 =	70256 =	211160	dbu01
+	rm -f ../../bin/dbu01
+	ln dbu01 ../../bin/dbu01; chmod 4740 ../../bin/dbu01
+	cc -I../h -O -c dbu02.c
+	cc -i version.o dbu02.o  ../../lib/dbulib ../../lib/ctlmod ../../lib/iutil ../../lib/gutil ../../lib/ctlmod -lm -o dbu02
+	chmod 4740 dbu02
+	ls -l dbu02; size dbu02
+-rwsr----- 1 rubin    abd        75318 фев 22 12:48 dbu02
+text	data	bss	dec	oct
+41536 +	9646 +	19820 =	71002 =	212532	dbu02
+	rm -f ../../bin/dbu02
+	ln dbu02 ../../bin/dbu02; chmod 4740 ../../bin/dbu02

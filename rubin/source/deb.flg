@@ -1,0 +1,104 @@
+getch.c:32:**		xDEBUG -- to test Chardebug for 
+getch.c:71:#					ifdef xDEBUG
+getch.c:103:#					ifdef xDEBUG
+getch.c:124:#	ifdef xDEBUG
+getch.c:153:#	ifdef xDEBUG
+grammar.c:471:#ifdef YYDEBUGON
+grammar.c:473:#define YYDEBUG
+grammar.c:475:# ifdef YYDEBUG
+grammar.c:510:#ifdef YYDEBUG
+grammar.c:601:#ifdef YYDEBUG
+grammar.c:619:#ifdef YYDEBUG
+grammar.c:636:#ifdef YYDEBUG
+main.c:40:**		      (only available if xDEBUG is defined)
+main.c:43:**		      echoed (only if xDEBUG is defined)
+main.c:49:**		xDEBUG -- enables debugging flags -v and -c
+main.c:136:#		  ifdef xDEBUG
+main.c:168:#			ifdef xDEBUG
+yylex.c:51:#			ifdef xDEBUG
+do_seq.c:125:# ifdef xCM_DEBUG
+pb_put.c:49:# ifdef xCM_DEBUG
+pb_read.c:75:# ifdef xCM_DEBUG
+pb_write.c:53:# ifdef xCM_DEBUG
+readinput.c:104:# ifdef xCM_DEBUG
+readinput.c:171:# ifdef xCM_DEBUG
+resetp.c:53:# if 0 /* Не работает, предстоит разобраться def xCM_DEBUG      */
+grammar.c:15:# define	YYDEBUG
+grammar.c:379:#ifdef YYDEBUGON
+grammar.c:381:#define YYDEBUG
+grammar.c:383:# ifdef YYDEBUG
+grammar.c:418:#ifdef YYDEBUG
+grammar.c:509:#ifdef YYDEBUG
+grammar.c:527:#ifdef YYDEBUG
+grammar.c:544:#ifdef YYDEBUG
+ildr.c:25:# ifdef	DEBUG
+ildr.c:27:# endif	DEBUG
+ildr.c:55:# ifdef	DEBUG
+ildr.c:62:# endif	DEBUG
+ildr.c:96:# ifdef	DEBUG
+ildr.c:98:# endif	DEBUG
+ildr.c:101:# ifdef	DEBUG
+ildr.c:103:# endif	DEBUG
+ildr.c:106:# ifdef	DEBUG
+ildr.c:108:# endif DEBUG
+ildr.c:153:# ifdef	DEBUG
+ildr.c:160:# endif	DEBUG
+ildr.c:174:# ifdef	DEBUG
+ildr.c:176:# endif	DEBUG
+ildr.c:179:# ifdef	DEBUG
+ildr.c:181:# endif	DEBUG
+ildr.c:195:# ifdef	DEBUG
+ildr.c:199:# endif	DEBUG
+ildr.c:204:# ifdef	DEBUG
+ildr.c:206:# endif	DEBUG
+ildr.c:216:# ifdef	DEBUG
+ildr.c:219:# endif	DEBUG
+ildr.c:229:# ifdef	DEBUG
+ildr.c:232:# endif	DEBUG
+ildr.c:242:# ifdef	DEBUG
+ildr.c:245:# endif	DEBUG
+ildr.c:250:# ifdef	DEBUG
+ildr.c:253:# endif	DEBUG
+ildr.c:256:# ifdef	DEBUG
+ildr.c:259:# endif	DEBUG
+ildr.c:263:# ifdef	DEBUG
+ildr.c:266:# endif	DEBUG
+ildr.c:276:# ifdef	DEBUG
+ildr.c:279:# endif	DEBUG
+ildr.c:284:# ifdef	DEBUG
+ildr.c:287:# endif	DEBUG
+ildr.c:292:# ifdef	DEBUG
+ildr.c:295:# endif	DEBUG
+ildr.c:300:# ifdef	DEBUG
+ildr.c:303:# endif	DEBUG
+ildr.c:330:# ifdef	DEBUG
+ildr.c:339:# endif	DEBUG
+ildr.c:412:# ifdef	DEBUG
+ildr.c:414:# endif	DEBUG
+ildr.c:447:# ifdef	DEBUG
+ildr.c:450:# endif	DEBUG
+ildr.c:454:# ifdef	DEBUG
+ildr.c:457:# endif	DEBUG
+ildr.c:474:# ifdef	DEBUG
+ildr.c:480:# else	DEBUG
+ildr.c:482:# endif	DEBUG
+ildr.c:494:# ifdef	DEBUG
+ildr.c:496:# endif	DEBUG
+ildr.c:535:# ifdef	DEBUG
+ildr.c:538:# endif	DEBUG
+ildr.c:654:# ifdef	DEBUG
+ildr.c:693:# ifdef	DEBUG
+ildr.c:695:# endif	DEBUG
+initsocket.c:28:# ifdef	DEBUG
+initsocket.c:30:# endif	DEBUG
+initsocket.c:40:# ifdef	DEBUG
+initsocket.c:42:# endif	DEBUG
+initsocket.c:60:# ifdef	DEBUG
+initsocket.c:62:# endif	DEBUG
+rubin.c:1338:#ifdef YYDEBUGON
+rubin.c:1340:#define YYDEBUG
+rubin.c:1342:# ifdef YYDEBUG
+rubin.c:1377:#ifdef YYDEBUG
+rubin.c:1468:#ifdef YYDEBUG
+rubin.c:1486:#ifdef YYDEBUG
+rubin.c:1503:#ifdef YYDEBUG

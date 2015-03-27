@@ -1,0 +1,166 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.3
+date     88.10.20.15.59.40;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.30.18.16.58;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.30.17.27.33;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefil для построителя лексических анализаторов LEX.
+@
+
+
+1.3
+log
+@Добавлен c7t10 при сборке, таблица имен удаляется при install
+@
+text
+@#
+# $Log:	Makefile,v $
+# Revision 1.2  86/12/30  18:16:58  avg
+# В список SRC добавлен ncform.
+# 
+# Revision 1.1  86/12/30  17:27:33  avg
+# Initial revision
+#
+#
+#
+# Для версии исходных текстов без архивов RCS установите R=X
+R=
+RCS=RCS
+COFLAGS=
+
+CFLAGS= -O -DSMALL
+SEPID=
+
+LIB=/usr/lib/lex
+BIN=/usr/bin
+
+OBJ=lmain.o parser.o sub1.o sub2.o header.o
+SRC=once.h ldefs.h lmain.c parser.y sub1.c sub2.c header.c ncform
+
+.y.o    :
+	yacc $*.y
+	cc -P -C $(CFLAGS) y.tab.c
+	xstr -c y.tab.i
+	cc -c $(CFLAGS) x.c
+	rm y.tab.i y.tab.c
+	mv x.o $*.o
+
+.c.o    :
+	cc -P -C $(CFLAGS) $*.c
+	xstr -c $*.i
+	cc -c $(CFLAGS) x.c
+	rm $*.i
+	mv x.o $*.o
+
+####
+all:            lex ncform
+	cd lib; make R=$(R) COFLAGS=$(COFLAGS) libl.a
+
+########
+install:        i_lex i_ncform i_lib
+
+i_lex:        lex
+	cp   lex   $(BIN)/lex
+	strip $(BIN)/lex
+
+i_ncform: $(LIB) ncform
+	cp  ncform $(LIB)/ncform
+
+i_lib: $(LIB)
+	cd lib; make R=$(R) LIB=$(LIB) COFLAGS=$(COFLAGS) install
+
+$(LIB):
+	@@-set -x; if [ ! -d $(LIB) ] ; then mkdir $(LIB)
+
+lex:    $(OBJ) strings.o
+	$(CC) $(SEPID) $(CFLAGS) $(OBJ) strings.o -o lex
+	c7t10 lex
+	size lex
+	checkobj -40 lex
+
+parser.o lmain.o sub1.o sub2.o header.o: ldefs.h
+lmain.o:                                 once.h
+
+strings.o:      strings
+	xstr
+	cc -O -c xs.c
+	mv xs.o strings.o
+
+###########
+clear clean:
+	-rm -f *.[obi] *.bak
+	-rm -f lex strings xs.c x.c y.tab.c
+	cd lib; make clear
+
+CLRSRC: clear
+	-rm -f $(SRC)
+	cd lib; make CLRSRC
+
+source: $(SRC)
+	cd lib; make source
+
+$(R)once.h:     $(RCS)/once.h,v         ; co $(COFLAGS) once.h
+$(R)ldefs.h:    $(RCS)/ldefs.h,v        ; co $(COFLAGS) ldefs.h
+$(R)lmain.c:    $(RCS)/lmain.c,v        ; co $(COFLAGS) lmain.c
+$(R)parser.y:   $(RCS)/parser.y,v       ; co $(COFLAGS) parser.y
+$(R)sub1.c:     $(RCS)/sub1.c,v         ; co $(COFLAGS) sub1.c
+$(R)sub2.c:     $(RCS)/sub2.c,v         ; co $(COFLAGS) sub2.c
+$(R)header.c:   $(RCS)/header.c,v       ; co $(COFLAGS) header.c
+$(R)ncform:     $(RCS)/ncform,v         ; co $(COFLAGS) ncform
+$(R)Makefile:   $(RCS)/Makefile,v       ; co $(COFLAGS) Makefile
+@
+
+
+1.2
+log
+@В список SRC добавлен ncform.
+@
+text
+@d2 4
+a5 1
+# $Log: Makefile,v $
+d17 1
+a17 1
+SEPID=-s
+a47 1
+	-rm -f     $(BIN)/lex
+d49 1
+a51 1
+	-rm -f     $(LIB)/ncform
+d62 1
+d64 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 3
+a4 1
+# $Log$
+d7 1
+d20 1
+a20 1
+SRC=once.h ldefs.h lmain.c parser.y sub1.c sub2.c header.c
+@

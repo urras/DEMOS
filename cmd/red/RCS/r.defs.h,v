@@ -1,0 +1,1689 @@
+head     4.1;
+access   ;
+symbols  RED_4:3.1.2 RED_3_9:3.11 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+4.1
+date     88.03.31.21.58.59;  author alex;  state Exp;
+branches ;
+next     3.11;
+
+3.11
+date     87.06.12.18.09.23;  author alex;  state Exp;
+branches ;
+next     3.10;
+
+3.10
+date     87.06.08.20.02.50;  author alex;  state Exp;
+branches ;
+next     3.9;
+
+3.9
+date     87.06.06.16.48.40;  author alex;  state Exp;
+branches ;
+next     3.8;
+
+3.8
+date     87.06.05.23.49.32;  author alex;  state Exp;
+branches ;
+next     3.7;
+
+3.7
+date     87.06.04.23.42.53;  author alex;  state Exp;
+branches ;
+next     3.6;
+
+3.6
+date     87.04.02.18.33.33;  author alex;  state Stab;
+branches ;
+next     3.5;
+
+3.5
+date     87.02.17.06.53.24;  author alex;  state Exp;
+branches ;
+next     3.4;
+
+3.4
+date     86.09.19.19.46.39;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.49.12;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.00.20.10;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.04.20.23.39.22;  author alex;  state Exp;
+branches 3.1.1.1 3.1.2.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.02.19;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.16.21.49.50;  author alex;  state Stab;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.16.22.14.49;  author alex;  state Exp;
+branches ;
+next     3.1.1.4;
+
+3.1.1.4
+date     86.06.17.19.25.13;  author alex;  state Exp;
+branches ;
+next     3.1.1.5;
+
+3.1.1.5
+date     86.06.19.00.09.04;  author alex;  state Exp;
+branches ;
+next     3.1.1.6;
+
+3.1.1.6
+date     86.07.15.22.09.24;  author alex;  state Stab;
+branches ;
+next     ;
+
+3.1.2.1
+date     87.06.19.16.58.36;  author alex;  state Exp;
+branches ;
+next     3.1.2.2;
+
+3.1.2.2
+date     87.06.23.18.43.29;  author alex;  state Stab;
+branches ;
+next     3.1.2.3;
+
+3.1.2.3
+date     87.06.24.22.31.57;  author alex;  state Stab;
+branches ;
+next     3.1.2.4;
+
+3.1.2.4
+date     87.06.29.17.54.21;  author alex;  state Exp;
+branches ;
+next     3.1.2.5;
+
+3.1.2.5
+date     87.07.03.22.00.43;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+4.1
+log
+@Версия 4.1 - обкатка на UTEC, СМ
+@
+text
+@/*
+ *      Редактор RED.
+ *      Основной файл описаний для редактора RED
+ *      $Header: r.defs.h,v 3.1.2.5 87/07/03 22:00:43 alex Exp $
+ *      $Log:	r.defs.h,v $
+ * Revision 3.1.2.5  87/07/03  22:00:43  alex
+ * Graph_characters used in margin
+ * 
+ * Revision 3.1.2.4  87/06/29  17:54:21  alex
+ * Commans set to 0200-0277
+ * 
+ * Revision 3.1.2.3  87/06/24  22:31:57  alex
+ * New readch + gettc + tc table Tested
+ * 
+ * Revision 3.1.2.2  87/06/23  18:43:29  alex
+ * Вынесена переменная lread1 и это отлажено
+ * 
+ * Revision 3.1.2.1  87/06/19  16:58:36  alex
+ * Start revision for red/4
+ * 
+ * Revision 3.11  87/06/12  18:09:23  alex
+ * Исправлены ошибки в режиме vilcase и мелочи для vt-200
+ * 
+ * Revision 3.10  87/06/09  19:46:04  alex
+ * Исправлена работа с tty ~ VT200 и 15-ИЭ-0013
+ * 
+ * Revision 3.9  87/06/06  16:48:40  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.8  87/06/05  23:49:32  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.7  87/06/04  23:42:53  alex
+ * Scroll on -sr- or -al/dl- added
+ * 
+ * Revision 3.6  87/04/02  18:33:33  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.5  87/04/01  19:15:01  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.4  86/09/19  19:46:39  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:49:12  alex
+ * Версия для Демос / Мнос 2
+ * 
+ * Revision 3.2  86/07/24  00:20:10  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.6  86/07/15  22:09:24  alex
+ * RED 3.3/EC.
+ * 
+ * Revision 3.1.1.5  86/06/19  00:09:04  alex
+ * Отлажен на модели повтор сеанса
+ * 
+ * Revision 3.1.1.4  86/06/17  19:25:13  alex
+ * Правки.
+ * 
+ * Revision 3.1.1.3  86/06/16  22:14:49  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.2  86/06/09  22:25:18  alex
+ * TTY OUTPUT IS TESTED
+ * 
+ * Revision 3.1.1.1  86/06/05  00:02:19  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/04/20  23:39:22  alex
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:39:22  alex
+ * Начальная версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:39:22  alex
+ * *** empty log message ***
+ * 
+ *      Revision 1.4  86/04/13  21:55:13  alex
+ */
+
+#ifndef DEBUG
+#define WORK
+#endif
+
+#ifndef WORK
+#include <stdio.h>
+#endif
+
+/* Локальные параметры в ned.ddefs */
+#include LOCL
+
+#ifdef RUSDIAG
+#define DIAG(l,r) r
+#else
+#ifdef ALLDIAG
+short latdiag;
+#define DIAG(l,r) (latdiag?l:r)
+#else
+#define DIAG(l,r) l
+#endif
+#endif
+
+#ifdef WORK
+#define printf printf1
+#define DEBUGCHECK /* */
+#else
+#define DEBUGCHECK checkfsd()   /* check fsd consistency for debugging */
+#endif
+#undef NULL
+#define NIL 0
+#define EDITED 2       /* Значение openwrite, если файл редактировался */
+#define NULL ((char *)0)
+
+#define esc0 COCURS
+#define esc1 '\\'
+#define esc2 037
+
+#define ISACMD(c)  ((c&0300) == 0200)
+
+#ifndef DEMOSES
+#define LINELM 128                /* макс. длина строки на экране */
+#define LBUFFER 256     /* *** НЕ МЕНЬШЕ  fsdmaxl  **** */
+#else DEMOSES
+#define LINELM 132                /* макс. длина строки на экране */
+#define LBUFFER 512     /* *** НЕ МЕНЬШЕ  fsdmaxl  **** */
+#endif DEMOSES
+
+#define NLINESM 48                /* макс. число строк на экране  */
+#define NEWLINE 012     /* newline  */
+#define PARAMREDIT 40           /* редактируемая часть paramport */
+#define PARAMRINFO 78           /* последняя колонка в paramport */
+#define NPARAMLINES 1           /* число строк в PARAMPORT */
+#define FILEMODE 0664           /* режим доступа к создаваемым файлам */
+#define NTABS 30
+#define BIGTAB 32767
+
+#define FOREVER for (;;)
+#define BADF -1
+#define CONTF -2
+
+/* Внимание - коды движения курсора согласованы с командами ввода */
+#define VMOTCODE 4  /* коды 1 - 4 уводят курсор из текущей строки */
+#define UP 1 /* Up     */
+#define DN 2 /* Down   */
+#define RN 3 /* Return */
+#define HO 4 /* Home   */
+#define RT 5 /* Right  */
+#define LT 6 /* Left   */
+#define TB 7 /* Tab    */
+#define BT 8 /* Backtab*/
+
+ /* Признак - не переводить курсор через границу окна */
+#define MOVE_NOFIX 01000
+#define MOVE_MASK   0037
+/* Специальные коды для смещения окна на 1. если ролл, и dflplline, если нет*/
+#define PL1MOVEW 077777
+#define MI1MOVEW 077776
+
+  /* OUTPUT CODES */
+
+#ifndef DEMOSES
+#define COSTART 0
+#define COUP 1
+#define CODN 2
+#define CORN 3
+#define COHO 4
+#define CORT 5
+#define COLT 6
+#define COCURS 7
+#define COBELL 8
+#define COFIN 9
+#define COERASE 10
+#define COOPEN  11
+#define COCLOSE 12
+#define COVIOPE 13
+#define COVICLO 14
+#define COCYON  15
+#define COCYOFF 16
+#define COILINE 17
+#define CODELIN 18
+#define COSRFWD 19
+#define COSRBAK 20
+#define COCLLIN 21
+#define COCLSCR 22
+#define COANORMAL 23     /* Согласовано с атрибутами */
+#define COAINFO   24     /* Согласовано с атрибутами */
+#define COAERROR  25     /* Согласовано с атрибутами */
+#define COAMARG   26     /* Согласовано с атрибутами */
+#define COAOUT    27     /* Согласовано с атрибутами */
+#define COGSTART  28
+#define COGEND    29
+#define COMCOD  30 /* Число выходных кодов */
+#else DEMOSES
+# define COSTART 0
+/* #define COUP 1                       */
+/* #define CODN 2                          */
+/* #define CORN 3                       */
+# define COHO 4
+/* #define CORT 5                          */
+/* #define COLT 6                       */
+# define COCURS 7
+# define COBELL 8
+# define COFIN 9
+# define COERASE 10
+# define COMCOD 11 /* Число выходных кодов */
+#endif DEMOSES
+
+/*
+ * Атрибуты символов
+ * Кодируются старшими битамии символов
+ */
+#define NUMA(c) ((c>>8)&017) + COANORMAL   /* Номер атрибута */
+#define ATR(x)  (((x)&(017))<<8)             /* Получение атрибута */
+/*
+ * Атрибуты
+ */
+#define A_INFO ATR(1)
+#define A_ERROR ATR(2)
+#define A_MARG  ATR(3)
+#define A_OUT   ATR(4)
+#define A_NORM  ATR(0)
+short need_atr;      /* Требуемые атрибуты */
+/*
+ * Графические символы
+ */
+#define G_START 0241
+#define G_GH    0241  /* Гориз линия */
+#define G_GF    0242  /* Заполненный квадрат */
+#define G_GV    0243  /* Верт. линия */
+#define G_LD    0244  /*                                */
+#define G_MD    0245  /*     LU MU  RU                  */
+#define G_RD    0246  /*     LM CC  RM                  */
+#define G_LM    0247  /*     LD MD  RD                  */
+#define G_CC    0250  /*     - GH                       */
+#define G_RM    0251  /*     | GV                       */
+#define G_LU    0252  /*                                */
+#define G_MU    0253  /*                                */
+#define G_RU    0254  /*                                */
+#define G_KU    0255  /* Стрелка вверх                  */
+#define G_KD    0256  /* Стрелка вниз                   */
+#define G_KL    0257  /* Стрелка влево                  */
+#define G_KR    0260  /* Стрелка вправо                 */
+#define G_END   0260
+/* margin characters */
+#define LMCH  G_GV
+#define RMCH  G_GV
+#define TMCH  G_GH
+#define BMCH  G_GH
+#define MRMCH G_KR
+#define MLMCH G_KL
+#define ELMCH G_KD
+#define DOTCH G_GF
+#define AMCH  G_KU
+
+/* struct fsd -
+ * Описатель сегмента файла. Описывает от 1 до 127 строк файла,
+ * записанных подряд. Это минимальная компонента цепочки описателей
+ */
+#ifdef UN_CHAR
+typedef short schar;
+#else
+typedef char schar;
+#endif
+
+#define FSDMAXL 127     /* Макс. число строк в fsd */
+
+struct fsd
+	{
+	struct fsd *backptr;    /* Ссылка на пред. fsd   */
+	struct fsd *fwdptr;     /* Ссылка на след. fsd   */
+	char fsdnlines;         /* Число строк, которые описывает fsd */
+				/* 0 , если это конец цепи. */
+	schar fsdfile;          /* Дecкpиптop фaйлa, 0, ecли этo кoнeц цeпи */
+	int seekhigh;           /* Сдвиг в файле ( из двух слов): блок */
+	int seeklow;            /*                              : символ */
+	char fsdbytes;  /* Переменное число байт - столько, сколько нужно
+			для того, чтобы описать очередные fsdnlines-1 строк:
+			Интерпретация очередного байта:
+			1-127   смещение следующей строки от предыдущей
+			0       здесь помещается пустая строка
+			128+n   след. строка начинается с n*128+next байта
+				после начала предыдущей строки.
+			Имеется по меньшей мере fsdnlines-1 байтов, но может
+			быть и больше, если есть длинные строки
+			Отметим, что в принципе в одном fsd можно описать и
+			несмежные строки, но такая возможность не учтена
+			в функциях записи файла.               */
+	};
+/* Урезанный вариант - без fsdbyte */
+struct fsdsht {struct fsd *backptr, *fwdptr;
+	       char fsdnlines; schar fsdfile;
+	       int seekhigh, seeklow;};
+#define SFSD (sizeof (struct fsdsht))
+#define MAXFILES 14
+
+struct fsd *openfsds[MAXFILES];
+char *openfnames[MAXFILES],
+     openwrite[MAXFILES],       /* 1 - файл можно записывать */
+     movebak[MAXFILES];         /* 1 - файл уже двигали в .bak */
+int  nlines[MAXFILES];          /* Число непустых строк в файле */
+
+/* workspace - структура, которая описывает файл */
+struct workspace
+	{
+	struct fsd *curfsd;     /* ptr на текущий fsd */
+	int ulhclno;            /* номер строки, верхней на экране */
+	int ulhccno;            /* номер колонки, которая 0 на экране */
+	int curlno;             /* текущий номер строки */
+	int curflno;            /* номер строки, первой в curfsd */
+	char ws_flags;             /* не использовано        */
+	char wfile;             /* номер файла, 0 - если нет вообще */
+	int ccol;               /* curorcol, когда не активен */
+	int crow;               /* cursorline, когда неактивен */
+	};
+#define SWKSP (sizeof (struct workspace))
+
+struct workspace *curwksp, *pickwksp;
+int curfile;
+
+
+/* viewport - описатель окна на экране терминала
+ * все координаты на экране, а также ltext и ttext, измеряются по отношению
+ *      к (0,0) = начало экрана. Остальные 6 границ приводятся по отношению
+ *      к ltext и ttext.
+ *      Ниже границы, приведенные в координатах окна, помечены *w, а
+ *      приведенные в координатах всего экрана - *s
+ */
+
+#define SVIEWPORT (sizeof (struct viewport))
+
+struct viewport
+	{
+	struct workspace *wksp; /* Ссылка на workspace         */
+	struct workspace *altwksp;      /* Альтернативное workspace */
+	char prevport;          /* Номер пред. окна   */
+	char flags;             /* Флаги / признаки окна */
+	int ltext;              /*s Границы  текста (по отн. к 0,0) */
+	int rtext;              /*w Длина в ширину                  */
+	int ttext;              /*s Верхняя граница                 */
+	int btext;              /*w Высота окна                     */
+	int lmarg;              /*s границы окна == ..text или +1 */
+	int rmarg;              /*s Левая, правая, верхняя, нижняя */
+	int tmarg;              /*s */
+	int bmarg;              /*s */
+	int ledit;              /*w область редактирования в окне */
+	int redit;              /*w по отношению к .text: начало, длина */
+	int tedit;              /*w */
+	int bedit;              /*w */
+	char *firstcol;         /* Номера первых колонок, !=' '  */
+	char *lastcol;          /*  -//-  последних -//-         */
+	char *lmchars;          /* символы - левые ограничители  */
+	char *rmchars;          /* символы - правые ограничители */
+	};
+
+#define MAXPORTLIST 10
+struct viewport *portlist[MAXPORTLIST],
+		*curport,       /* текущее окно */
+		wholescreen,    /* весь экран   */
+		paramport;      /* окно для параметров */
+int nportlist;
+/*
+ * Описания флагов для окна
+ * ROLL - 0 / неизвестно, Y - да, N - roll невозможен
+ */
+#define WF_ROLL  03
+#define WF_YROLL 01
+#define WF_NROLL 02
+
+/* savebuf - структура, которая описывает буфер вставок */
+
+#define SSAVEBUF (sizeof (struct savebuf))
+
+struct  savebuf
+	{
+	int linenum;    /* Номер первой строки в "#" */
+	int nrows;      /* Число строк               */
+	int ncolumns;   /* Число колонок             */
+	};
+struct savebuf *pickbuf, *deletebuf;
+
+/*
+ * Управляющие символы
+ */
+#define CC                0200     /* Начало упр. кодов внутри red */
+#define CCQUIT             000+CC     /* terminate editor run */
+
+#define CCBACKTAB          BT+CC      /* tab left             */
+#define CCHOME             HO+CC      /* home cursor          */
+#define CCMOVEDOWN         DN+CC      /* move down 1 line     */
+#define CCMOVELEFT         LT+CC      /* backspace            */
+#define CCMOVERIGHT        RT+CC      /* forward move         */
+#define CCMOVEUP           UP+CC      /* move up 1 lin        */
+#define CCRETURN           RN+CC      /* return               */
+#define CCTAB              TB+CC      /* tab                  */
+
+#define CCGOTO             011+CC     /* goto linenumber      */
+#define CCPLPAGE           012+CC     /* minus a page         */
+#define CCMIPAGE           013+CC     /* plus a page          */
+#define CCPLLINE           014+CC     /* minus a line         */
+#define CCMILINE           015+CC     /* plus a line          */
+#define CCLPORT            016+CC     /* port left            */
+#define CCRPORT            017+CC     /* port right           */
+#define CCPLSRCH           020+CC     /* plus search          */
+#define CCMISRCH           021+CC     /* minus search         */
+#define CCTABS             022+CC     /* set tabs             */
+#define CCINSERT           023+CC     /* insert mode          */
+#define CCINSMODE          024+CC     /* insert mode          */
+#define CCCHPORT           025+CC     /* change port          */
+#define CCOPEN             026+CC     /* insert               */
+#define CCCLOSE            027+CC     /* delete               */
+#define CCPUT              030+CC     /* put                  */
+#define CCPICK             031+CC     /* pick                 */
+#define CCDELCH            032+CC     /* character delete     */
+#define CCBACKSPACE        033+CC     /* backspace and erase  */
+#define CCCTRLQUOTE        034+CC     /* knockdown next char  */
+#define CCTRUNCATE         035+CC     /* обрезать (пока только для lineop) */
+#define CCENTER            036+CC     /* enter parameter      */
+#define CCRESCREEN         037+CC     /* обновить экран*/
+#define CCSETFILE          040+CC     /* set file             */
+#define CCMAKEPORT         041+CC     /* make a viewport      */
+#define CCSAVEFILE         042+CC     /* make new file        */
+#define CCDOCMD            043+CC     /* execute a filter     */
+
+
+#define CCINTRUP           077+CC     /* interuption (for ttyfile)     */
+
+#ifdef DEMOSES
+#define CCICURSOR         0076+CC  /* зaпиcь пoлoж. кypcopa */
+#define CCILINE           0075+CC  /* нaчaлo oпиcaния cтpoки */
+#define CCELINE           0074+CC  /* кoнeц oпиcaния cтpoки */
+/* #define CCBACKSPACE       0244     /* backspace and erase  */
+#endif DEMOSES
+
+#define CCMAC             0001     /* macro marka                   */
+#define CCEMAC            CCMAC+('z'-'a')+1
+/*  */
+
+int cursorline;         /* physical screen position of */
+int cursorcol;          /*  cursor from (0,0)=ulhc of text in port */
+
+
+extern char  cntlmotions[];
+
+
+
+extern int tabstops[];
+char blanks[LINELM];
+
+extern int readch();             /* Текущий входной символ, -1 - дай еще! */
+char intrflag; /* 1 - был сигнал INTERUP */
+
+/* Умолчания */
+extern int defplline,defplpage,defmiline,defmipage,deflport,defrport,
+	definsert, defdelete, defpick;
+extern char *deffile;
+short defreturn;
+
+int errsw;    /* 1 - в окне параметров сообщение об ошибке */
+
+/*
+ * Глобальные параметры для param():
+ * paraml - длина параметра;
+ * char *paramv - сам параметр,
+ * paramtype - тип параметра,
+ * paramc0, paramr0, paramc1< paramr1 -
+ * размеры области при "cursor defined"
+ */
+int paraml;
+char *paramv;int paramtype;
+int paramc0, paramr0, paramc1, paramr1;
+
+/*
+ * cline 0- массив для строки, lcline - макс. длина,
+ * ncline - текущая длина, icline  - следующее приращение
+ * длины
+ * fcline - флаг (было изменение), clineno - номер строки в файле
+ */
+char *cline;
+int lcline;
+int ncline;
+int icline;
+char fcline;
+int clineno;
+
+/*
+ * Описатели файлов:
+ * tempfile, tempfh, tempfl - дескриптор и
+ * смещение во временном файле
+ * ttyfile - дескриптор файда протокола
+ * inputfile - дескриптор файла ввода команд из протокола
+ */
+int tempfile;
+int tempfh;
+int tempfl;
+int ttyfile;
+int inputfile;
+
+/*
+ * Oпиcaния для зaпиcи пpoтoкoлa
+ */
+#define PUTP(c) put1c((char)c,ttyfile)
+
+extern char *ps_inmac;
+char *searchkey;
+
+int userid,groupid;
+
+char *tmpname;         /* name of file, for do command */
+
+/* codes for output on terminal, defined in ned.vt.c  */
+int LINEL,NLINES; /* SIZE OF THE SCREEN  - VT.C */
+int eolflag;
+extern char *curspos,*cvtout[];
+
+#ifndef DEMOSES
+char *(*agoto)();  /* for termcap definitions */
+int (*atcread)();
+short slowsw;   /* is 1 if slow speed terminal */
+short lcasef, latf, flgtabs; /* terminal regim flags */
+short kioutf; /* Не 0 если 15IE0013  с непереключенной клавиатурой*/
+#ifdef RED_CYRILL
+short Rcyflag;
+#endif
+short on_scroll; /* Флаг, разрешающий roll */
+short fix_screen; /* Флаг запрещает автоматическую прокрутку экрана */
+short on_autoi;   /* Флаг включехия авто-сдвига */
+short autoindent; /* Auto-indent */
+#else DEMOSES
+int rawf, lcasef, latf, flgtabs, speccase; /* terminal regim flags */
+#endif DEMOSES
+short new_info; /* Признак - перерисовать info */
+short need_box; /* Признак - перерисовать рамку */
+
+char *append(), *salloc();
+char *s2i();
+struct fsd *file2fsd();
+#ifdef DEMOSES
+short newedit; /* Флаг - изменялось окно ввода */
+short dflinsert;
+short silentflag; /* He выдaвaть нa тepминaл */
+extern int werrflag;
+#endif DEMOSES
+@
+
+
+3.11
+log
+@Исправлены ошибки в режиме vilcase и мелочи для vt-200
+@
+text
+@d2 1
+a2 1
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.10 87/06/09 19:46:04 alex Exp $
+d6 18
+d48 1
+a48 1
+ * Bepqh dk LMNQ/DELNQ 2
+d118 1
+a118 1
+#define esc2 ('#'|0200)
+d120 1
+a120 2
+#define CONTROLCHAR (lread1 < 040)
+#define CTRLCHAR   (((lread1>=0)&&(lread1<040)) || ((lread1 >= 0177)&& (lread1<=0240)))
+d143 1
+d187 8
+a194 1
+#define COMCOD  23 /* Число выходных кодов */
+d210 36
+d247 9
+a255 9
+#define LMCH  '!'
+#define RMCH  '!'
+#define TMCH   '-'
+#define BMCH   '-'
+#define MRMCH '>'
+#define MLMCH '<'
+#define ELMCH ';'
+#define DOTCH '+'
+#define AMCH  '$'
+d384 4
+a387 1
+Управляющие символы */
+d389 8
+a396 8
+#define CCBACKTAB          BT      /* tab left             */
+#define CCHOME             HO      /* home cursor          */
+#define CCMOVEDOWN         DN      /* move down 1 line     */
+#define CCMOVELEFT         LT      /* backspace            */
+#define CCMOVERIGHT        RT      /* forward move         */
+#define CCMOVEUP           UP      /* move up 1 lin        */
+#define CCRETURN           RN      /* return               */
+#define CCTAB              TB      /* tab                  */
+d398 27
+a425 29
+#define CCCTRLQUOTE        000     /* knockdown next char  */
+#define CCPICK             011     /* pick                 */
+#define CCMAKEPORT         012     /* make a viewport      */
+#define CCOPEN             013     /* insert               */
+#define CCSETFILE          014     /* set file             */
+#define CCCHPORT           015     /* change port          */
+#define CCPLPAGE           016     /* minus a page         */
+#define CCGOTO             017     /* goto linenumber      */
+#define CCDOCMD            020     /* execute a filter     */
+#define CCMIPAGE           021     /* plus a page          */
+#define CCPLSRCH           022     /* plus search          */
+#define CCRPORT            023     /* port right           */
+#define CCPLLINE           024     /* minus a line         */
+#define CCDELCH            025     /* character delete     */
+#define CCSAVEFILE         026     /* make new file        */
+#define CCMILINE           027     /* plus a line          */
+#define CCMISRCH           030     /* minus search         */
+#define CCLPORT            031     /* port left            */
+#define CCPUT              032     /* put                  */
+#define CCTABS             033     /* set tabs             */
+#define CCINSERT           034     /* insert mode          */
+#define CCINSMODE          034     /* insert mode          */
+#define CCBACKSPACE        035     /* backspace and erase  */
+#define CCRESCREEN         035     /* обновить экран/не встречаются вместе*/
+#define CCCLOSE            036     /* delete               */
+#define CCENTER            037     /* enter parameter      */
+#define CCQUIT            0177     /* terminate editor run */
+#define CCINTRUP          0240     /* interuption (for ttyfile)     */
+#define CCTRUNCATE         036     /* обрезать (пока только для lineop) */
+d427 2
+d430 3
+a432 3
+#define CCICURSOR         0241     /* зaпиcь пoлoж. кypcopa */
+#define CCILINE           0242     /* нaчaлo oпиcaния cтpoки */
+#define CCELINE           0243     /* кoнeц oпиcaния cтpoки */
+d436 2
+a437 2
+#define CCMAC             0200     /* macro marka                   */
+
+d451 1
+a451 1
+extern int lread1;             /* Текущий входной символ, -1 - дай еще! */
+d505 2
+a506 1
+char *searchkey,*symac;
+@
+
+
+3.10
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.9 87/06/06 16:48:40 alex Exp $
+d6 3
+d251 1
+a251 1
+	char sp_flags;             /* не использовано        */
+@
+
+
+3.9
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.8 87/06/05 23:49:32 alex Exp $
+d6 4
+d248 1
+a248 1
+	char flags;             /* не использовано        */
+@
+
+
+3.8
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.7 87/06/04 23:42:53 alex Exp $
+d6 4
+d187 1
+d387 1
+d456 2
+@
+
+
+3.7
+log
+@Scroll on -sr- or -al/dl- added
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.6 87/04/02 18:33:33 alex Exp $
+d6 3
+a342 1
+
+a346 1
+
+d351 1
+d454 1
+@
+
+
+3.6
+log
+@Версия для Utec слита с версией с выделением прописных букв
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.5 87/04/01 19:15:01 alex Exp $
+d6 3
+d122 7
+d251 2
+d261 14
+a274 13
+	int prevport;           /* Номер пред. окна   */
+	int ltext;              /* Границы  текста (по отн. к 0,0) */
+	int rtext;              /* Длина в ширину                  */
+	int ttext;              /* Верхняя граница                 */
+	int btext;              /* Высота окна                     */
+	int lmarg;              /* границы окна == ..text или +1 */
+	int rmarg;              /* Левая, правая, верхняя, нижняя */
+	int tmarg;
+	int bmarg;
+	int ledit;              /* область редактирования в окне */
+	int redit;              /* по отношению к .text: начало, длина */
+	int tedit;
+	int bedit;
+d287 7
+d446 2
+d451 1
+@
+
+
+3.5
+log
+@проведены правки для выделения заглавных букв по vs
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.4 86/09/19 19:46:39 alex Exp $
+d6 3
+d135 11
+a145 3
+#define COVIOP  13
+#define COVICL  14
+#define COMCOD 15 /* Число выходных кодов */
+d359 1
+a359 1
+extern char deffile[];
+a361 1
+int gosw;     /* -- атавизм */
+d420 6
+a425 3
+int slowsw;   /* is 1 if slow speed terminal */
+int rawf, lcasef, latf, flgtabs; /* terminal regim flags */
+char kioutf; /* Не 0 если 15IE0013  с непереключенной клавиатурой*/
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.3 86/08/04 20:49:12 alex Exp $
+d6 3
+d132 3
+a134 1
+#define COMCOD 13 /* Число выходных кодов */
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.2 86/07/24 00:20:10 alex Exp $
+d6 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.1.6 86/07/15 22:09:24 alex Exp $
+d6 3
+d124 3
+a126 1
+#define COMCOD 11 /* Число выходных кодов */
+@
+
+
+3.1
+log
+@Базовая версия для ЕС.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1 86/04/20 23:39:22 alex Exp $
+d6 18
+d25 3
+a33 4
+ *
+ *
+ *
+ *
+d45 1
+a45 1
+#include "r.local.h"
+d50 4
+d56 1
+a57 1
+
+d75 2
+d78 6
+a84 1
+#define LBUFFER 256     /* *** НЕ МЕНЬШЕ  fsdmaxl  **** */
+d109 1
+d122 14
+d151 6
+d165 1
+a165 1
+	char fsdfile;           /* Дескриптор файла, 0, если это конец цепи */
+d173 1
+a173 1
+			-n      след. строка начинается с n*128+next байта
+d183 1
+a183 1
+	       char fsdnlines; char fsdfile;
+d231 1
+a231 1
+	int rmarg;
+d235 1
+a235 1
+	int redit;
+d296 2
+d300 2
+d306 8
+d349 1
+a349 1
+char *paramv, paramtype;
+d378 5
+d393 2
+a397 1
+
+d400 4
+d407 6
+@
+
+
+3.1.2.1
+log
+@Start revision for red/4
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.11 87/06/12 18:09:23 alex Exp $
+a5 50
+ * Revision 3.11  87/06/12  18:09:23  alex
+ * Исправлены ошибки в режиме vilcase и мелочи для vt-200
+ * 
+ * Revision 3.10  87/06/09  19:46:04  alex
+ * Исправлена работа с tty ~ VT200 и 15-ИЭ-0013
+ * 
+ * Revision 3.9  87/06/06  16:48:40  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.8  87/06/05  23:49:32  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.7  87/06/04  23:42:53  alex
+ * Scroll on -sr- or -al/dl- added
+ * 
+ * Revision 3.6  87/04/02  18:33:33  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.5  87/04/01  19:15:01  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.4  86/09/19  19:46:39  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:49:12  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  00:20:10  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.6  86/07/15  22:09:24  alex
+ * RED 3.3/EC.
+ * 
+ * Revision 3.1.1.5  86/06/19  00:09:04  alex
+ * Отлажен на модели повтор сеанса
+ * 
+ * Revision 3.1.1.4  86/06/17  19:25:13  alex
+ * Правки.
+ * 
+ * Revision 3.1.1.3  86/06/16  22:14:49  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.2  86/06/09  22:25:18  alex
+ * TTY OUTPUT IS TESTED
+ * 
+ * Revision 3.1.1.1  86/06/05  00:02:19  alex
+ * Отлажено_на_модели
+ * 
+a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:39:22  alex
+d13 4
+d28 1
+a28 1
+#include LOCL
+a32 4
+#ifdef ALLDIAG
+short latdiag;
+#define DIAG(l,r) (latdiag?l:r)
+#else
+a34 1
+#endif
+d36 1
+a53 2
+
+#ifndef DEMOSES
+d55 1
+a56 6
+#else DEMOSES
+#define LINELM 132                /* макс. длина строки на экране */
+#define LBUFFER 512     /* *** НЕ МЕНЬШЕ  fsdmaxl  **** */
+#endif DEMOSES
+
+#define NLINESM 48                /* макс. число строк на экране  */
+a78 7
+ /* Признак - не переводить курсор через границу окна */
+#define MOVE_NOFIX 01000
+#define MOVE_MASK   0037
+/* Специальные коды для смещения окна на 1. если ролл, и dflplline, если нет*/
+#define PL1MOVEW 077777
+#define MI1MOVEW 077776
+
+a80 1
+#ifndef DEMOSES
+d92 1
+a92 27
+#define COOPEN  11
+#define COCLOSE 12
+#define COVIOPE 13
+#define COVICLO 14
+#define COCYON  15
+#define COCYOFF 16
+#define COILINE 17
+#define CODELIN 18
+#define COSRFWD 19
+#define COSRBAK 20
+#define COCLLIN 21
+#define COCLSCR 22
+#define COMCOD  23 /* Число выходных кодов */
+#else DEMOSES
+# define COSTART 0
+/* #define COUP 1                       */
+/* #define CODN 2                          */
+/* #define CORN 3                       */
+# define COHO 4
+/* #define CORT 5                          */
+/* #define COLT 6                       */
+# define COCURS 7
+# define COBELL 8
+# define COFIN 9
+# define COERASE 10
+# define COMCOD 11 /* Число выходных кодов */
+#endif DEMOSES
+a102 1
+#define AMCH  '$'
+a107 6
+#ifdef UN_CHAR
+typedef short schar;
+#else
+typedef char schar;
+#endif
+
+d116 1
+a116 1
+	schar fsdfile;          /* Дecкpиптop фaйлa, 0, ecли этo кoнeц цeпи */
+d124 1
+a124 1
+			128+n   след. строка начинается с n*128+next байта
+d134 1
+a134 1
+	       char fsdnlines; schar fsdfile;
+d153 1
+a153 1
+	char ws_flags;             /* не использовано        */
+a167 2
+ *      Ниже границы, приведенные в координатах окна, помечены *w, а
+ *      приведенные в координатах всего экрана - *s
+d176 13
+a188 14
+	char prevport;          /* Номер пред. окна   */
+	char flags;             /* Флаги / признаки окна */
+	int ltext;              /*s Границы  текста (по отн. к 0,0) */
+	int rtext;              /*w Длина в ширину                  */
+	int ttext;              /*s Верхняя граница                 */
+	int btext;              /*w Высота окна                     */
+	int lmarg;              /*s границы окна == ..text или +1 */
+	int rmarg;              /*s Левая, правая, верхняя, нижняя */
+	int tmarg;              /*s */
+	int bmarg;              /*s */
+	int ledit;              /*w область редактирования в окне */
+	int redit;              /*w по отношению к .text: начало, длина */
+	int tedit;              /*w */
+	int bedit;              /*w */
+a200 7
+/*
+ * Описания флагов для окна
+ * ROLL - 0 / неизвестно, Y - да, N - roll невозможен
+ */
+#define WF_ROLL  03
+#define WF_YROLL 01
+#define WF_NROLL 02
+a246 1
+#define CCINSERT           034     /* insert mode          */
+a248 1
+#define CCRESCREEN         035     /* обновить экран/не встречаются вместе*/
+a252 9
+#define CCTRUNCATE         036     /* обрезать (пока только для lineop) */
+
+#ifdef DEMOSES
+#define CCICURSOR         0241     /* зaпиcь пoлoж. кypcopa */
+#define CCILINE           0242     /* нaчaлo oпиcaния cтpoки */
+#define CCELINE           0243     /* кoнeц oпиcaния cтpoки */
+/* #define CCBACKSPACE       0244     /* backspace and erase  */
+#endif DEMOSES
+
+d274 1
+a274 2
+extern char *deffile;
+short defreturn;
+d277 1
+d288 1
+a288 1
+char *paramv;int paramtype;
+a316 5
+/*
+ * Oпиcaния для зaпиcи пpoтoкoлa
+ */
+#define PUTP(c) put1c((char)c,ttyfile)
+
+a326 2
+
+#ifndef DEMOSES
+d329 1
+a329 15
+short slowsw;   /* is 1 if slow speed terminal */
+short lcasef, latf, flgtabs; /* terminal regim flags */
+short kioutf; /* Не 0 если 15IE0013  с непереключенной клавиатурой*/
+#ifdef RED_CYRILL
+short Rcyflag;
+#endif
+short on_scroll; /* Флаг, разрешающий roll */
+short fix_screen; /* Флаг запрещает автоматическую прокрутку экрана */
+short on_autoi;   /* Флаг включехия авто-сдвига */
+short autoindent; /* Auto-indent */
+#else DEMOSES
+int rawf, lcasef, latf, flgtabs, speccase; /* terminal regim flags */
+#endif DEMOSES
+short new_info; /* Признак - перерисовать info */
+short need_box; /* Признак - перерисовать рамку */
+d331 2
+a335 6
+#ifdef DEMOSES
+short newedit; /* Флаг - изменялось окно ввода */
+short dflinsert;
+short silentflag; /* He выдaвaть нa тepминaл */
+extern int werrflag;
+#endif DEMOSES
+@
+
+
+3.1.2.2
+log
+@wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.2.1 87/06/19 16:58:36 alex Exp $
+a5 3
+ * Revision 3.1.2.1  87/06/19  16:58:36  alex
+ * Start revision for red/4
+ * 
+d105 2
+a106 1
+#define ISACMD(c)  ((c)>=0 && (c)<=037 || (c)>=0177&& (c)<=0237)
+d390 1
+a390 1
+extern int readch();             /* Текущий входной символ, -1 - дай еще! */
+@
+
+
+3.1.2.3
+log
+@New readch + gettc + tc table Tested
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.2.2 87/06/23 18:43:29 alex Exp $
+a5 3
+ * Revision 3.1.2.2  87/06/23  18:43:29  alex
+ * wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+ * 
+d378 1
+a378 1
+#define CCEMAC            CCMAC+('z'-'a')+1
+d446 1
+a446 2
+extern char *ps_inmac;
+char *searchkey;
+@
+
+
+3.1.2.4
+log
+@Commans set to 0200-0277
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.2.3 87/06/24 22:31:57 alex Stab $
+a5 3
+ * Revision 3.1.2.3  87/06/24  22:31:57  alex
+ * New readch + gettc + tc table Tested
+ * 
+d7 1
+a7 1
+ * Вынесена переменная lread1 и это отлажено
+d39 1
+a39 1
+ * Версия для Демос / Мнос 2
+d109 1
+a109 1
+#define esc2 037
+d111 1
+a111 1
+#define ISACMD(c)  ((c&0300) == 0200)
+a133 1
+/* Внимание - коды движения курсора согласованы с командами ввода */
+d331 1
+a331 4
+ * Управляющие символы
+ */
+#define CC                0200     /* Начало упр. кодов внутри red */
+#define CCQUIT             000+CC     /* terminate editor run */
+d333 8
+a340 8
+#define CCBACKTAB          BT+CC      /* tab left             */
+#define CCHOME             HO+CC      /* home cursor          */
+#define CCMOVEDOWN         DN+CC      /* move down 1 line     */
+#define CCMOVELEFT         LT+CC      /* backspace            */
+#define CCMOVERIGHT        RT+CC      /* forward move         */
+#define CCMOVEUP           UP+CC      /* move up 1 lin        */
+#define CCRETURN           RN+CC      /* return               */
+#define CCTAB              TB+CC      /* tab                  */
+a341 27
+#define CCGOTO             011+CC     /* goto linenumber      */
+#define CCPLPAGE           012+CC     /* minus a page         */
+#define CCMIPAGE           013+CC     /* plus a page          */
+#define CCPLLINE           014+CC     /* minus a line         */
+#define CCMILINE           015+CC     /* plus a line          */
+#define CCLPORT            016+CC     /* port left            */
+#define CCRPORT            017+CC     /* port right           */
+#define CCPLSRCH           020+CC     /* plus search          */
+#define CCMISRCH           021+CC     /* minus search         */
+#define CCTABS             022+CC     /* set tabs             */
+#define CCINSERT           023+CC     /* insert mode          */
+#define CCINSMODE          024+CC     /* insert mode          */
+#define CCCHPORT           025+CC     /* change port          */
+#define CCOPEN             026+CC     /* insert               */
+#define CCCLOSE            027+CC     /* delete               */
+#define CCPUT              030+CC     /* put                  */
+#define CCPICK             031+CC     /* pick                 */
+#define CCDELCH            032+CC     /* character delete     */
+#define CCBACKSPACE        033+CC     /* backspace and erase  */
+#define CCCTRLQUOTE        034+CC     /* knockdown next char  */
+#define CCTRUNCATE         035+CC     /* обрезать (пока только для lineop) */
+#define CCENTER            036+CC     /* enter parameter      */
+#define CCRESCREEN         037+CC     /* обновить экран*/
+#define CCSETFILE          040+CC     /* set file             */
+#define CCMAKEPORT         041+CC     /* make a viewport      */
+#define CCSAVEFILE         042+CC     /* make new file        */
+#define CCDOCMD            043+CC     /* execute a filter     */
+d343 29
+a372 2
+#define CCINTRUP           077+CC     /* interuption (for ttyfile)     */
+
+d374 3
+a376 3
+#define CCICURSOR         0076+CC  /* зaпиcь пoлoж. кypcopa */
+#define CCILINE           0075+CC  /* нaчaлo oпиcaния cтpoки */
+#define CCELINE           0074+CC  /* кoнeц oпиcaния cтpoки */
+d380 1
+a380 1
+#define CCMAC             0001     /* macro marka                   */
+@
+
+
+3.1.2.5
+log
+@Graph_characters used in margin
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.2.4 87/06/29 17:54:21 alex Exp $
+a5 3
+ * Revision 3.1.2.4  87/06/29  17:54:21  alex
+ * Commans set to 0200-0277
+ * 
+d181 1
+a181 8
+#define COANORMAL 23     /* Согласовано с атрибутами */
+#define COAINFO   24     /* Согласовано с атрибутами */
+#define COAERROR  25     /* Согласовано с атрибутами */
+#define COAMARG   26     /* Согласовано с атрибутами */
+#define COAOUT    27     /* Согласовано с атрибутами */
+#define COGSTART  28
+#define COGEND    29
+#define COMCOD  30 /* Число выходных кодов */
+a196 36
+/*
+ * Атрибуты символов
+ * Кодируются старшими битамии символов
+ */
+#define NUMA(c) ((c>>8)&017) + COANORMAL   /* Номер атрибута */
+#define ATR(x)  (((x)&(017))<<8)             /* Получение атрибута */
+/*
+ * Атрибуты
+ */
+#define A_INFO ATR(1)
+#define A_ERROR ATR(2)
+#define A_MARG  ATR(3)
+#define A_OUT   ATR(4)
+#define A_NORM  ATR(0)
+short need_atr;      /* Требуемые атрибуты */
+/*
+ * Графические символы
+ */
+#define G_START 0241
+#define G_GH    0241  /* Гориз линия */
+#define G_GF    0242  /* Заполненный квадрат */
+#define G_GV    0243  /* Верт. линия */
+#define G_LD    0244  /*                                */
+#define G_MD    0245  /*     LU MU  RU                  */
+#define G_RD    0246  /*     LM CC  RM                  */
+#define G_LM    0247  /*     LD MD  RD                  */
+#define G_CC    0250  /*     - GH                       */
+#define G_RM    0251  /*     | GV                       */
+#define G_LU    0252  /*                                */
+#define G_MU    0253  /*                                */
+#define G_RU    0254  /*                                */
+#define G_KU    0255  /* Стрелка вверх                  */
+#define G_KD    0256  /* Стрелка вниз                   */
+#define G_KL    0257  /* Стрелка влево                  */
+#define G_KR    0260  /* Стрелка вправо                 */
+#define G_END   0260
+d198 9
+a206 9
+#define LMCH  G_GV
+#define RMCH  G_GV
+#define TMCH  G_GH
+#define BMCH  G_GH
+#define MRMCH G_KR
+#define MLMCH G_KL
+#define ELMCH G_KD
+#define DOTCH G_GF
+#define AMCH  G_KU
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:39:22  alex
+d13 4
+d54 1
+a54 1
+#define LINELM 132                /* макс. длина строки на экране */
+d56 1
+a56 1
+#define LBUFFER 512     /* *** НЕ МЕНЬШЕ  fsdmaxl  **** */
+d66 2
+a67 2
+/* #define BADF -1      */
+/* #define CONTF -2     */
+d82 3
+a84 3
+/* #define COUP 1                       */
+/* #define CODN 2                          */
+/* #define CORN 3                       */
+d86 2
+a87 2
+/* #define CORT 5                          */
+/* #define COLT 6                       */
+d124 1
+a124 1
+			128+n   след. строка начинается с n*128+next байта
+d182 1
+a182 1
+	int rmarg;              /* Левая, правая, верхняя, нижняя */
+d186 1
+a186 1
+	int redit;              /* по отношению к .text: начало, длина */
+d247 1
+a247 1
+#define CCINSERT           034     /* insert mode          */
+d327 3
+d332 1
+a335 2
+short newedit; /* Флаг - изменялось окно ввода */
+short dflinsert;
+@
+
+
+3.1.1.2
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.1.2 86/06/09 22:25:18 alex Exp $
+a5 6
+ * Revision 3.1.1.2  86/06/09  22:25:18  alex
+ * TTY OUTPUT IS TESTED
+ * 
+ * Revision 3.1.1.1  86/06/05  00:02:19  alex
+ * Отлажено_на_модели
+ * 
+d115 1
+a115 1
+	short fsdfile;          /* Дecкpиптop фaйлa, 0, ecли этo кoнeц цeпи */
+d287 1
+a287 1
+char *paramv;int paramtype;
+d327 1
+a327 1
+int rawf, lcasef, latf, flgtabs, speccase; /* terminal regim flags */
+a332 1
+extern int werrflag;
+@
+
+
+3.1.1.3
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@a257 4
+#define CCICURSOR         0241     /* зaпиcь пoлoж. кypcopa */
+#define CCILINE           0242     /* нaчaлo oпиcaния cтpoки */
+#define CCELINE           0243     /* кoнeц oпиcaния cтpoки */
+
+a321 5
+/*
+ * Oпиcaния для зaпиcи пpoтoкoлa
+ */
+#define PUTP(c) put1c((char)c,ttyfile)
+
+a338 1
+short silentflag; /* He выдaвaть нa тepминaл */
+@
+
+
+3.1.1.4
+log
+@Правки.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.1.3 86/06/16 22:14:49 alex Exp $
+a5 3
+ * Revision 3.1.1.3  86/06/16  22:14:49  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+d86 1
+a86 1
+# define COSTART 0
+d90 1
+a90 1
+# define COHO 4
+d93 5
+a97 5
+# define COCURS 7
+# define COBELL 8
+# define COFIN 9
+# define COERASE 10
+# define COMCOD 11 /* Число выходных кодов */
+a112 6
+#ifdef UN_CHAR
+typedef short schar;
+#else
+typedef char schar;
+#endif
+
+d121 1
+a121 1
+	schar fsdfile;          /* Дecкpиптop фaйлa, 0, ecли этo кoнeц цeпи */
+d139 1
+a139 1
+	       char fsdnlines; schar fsdfile;
+@
+
+
+3.1.1.5
+log
+@Отлажен на модели повтор сеанса
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.1.4 86/06/17 19:25:13 alex Exp $
+a5 3
+ * Revision 3.1.1.4  86/06/17  19:25:13  alex
+ * Правки.
+ * 
+d262 1
+a262 1
+#define CCRESCREEN         035     /* обновить экран       */
+a269 1
+#define CCBACKSPACE       0244     /* backspace and erase  */
+@
+
+
+3.1.1.6
+log
+@RED 3.3/EC.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.defs.h,v 3.1.1.5 86/06/19 00:09:04 alex Exp $
+a5 3
+ * Revision 3.1.1.5  86/06/19  00:09:04  alex
+ * Отлажен на модели повтор сеанса
+ * 
+a43 4
+#ifdef ALLDIAG
+short latdiag;
+#define DIAG(l,r) (latdiag?l:r)
+#else
+a45 1
+#endif
+d47 1
+a64 5
+
+#ifndef DEMOSES
+#define LINELM 128                /* макс. длина строки на экране */
+#define LBUFFER 256     /* *** НЕ МЕНЬШЕ  fsdmaxl  **** */
+#else DEMOSES
+d66 1
+a67 3
+#endif DEMOSES
+
+#define NLINESM 48                /* макс. число строк на экране  */
+d77 2
+a78 2
+#define BADF -1
+#define CONTF -2
+a91 14
+#ifndef DEMOSES
+#define COSTART 0
+#define COUP 1
+#define CODN 2
+#define CORN 3
+#define COHO 4
+#define CORT 5
+#define COLT 6
+#define COCURS 7
+#define COBELL 8
+#define COFIN 9
+#define COERASE 10
+#define COMCOD 11 /* Число выходных кодов */
+#else DEMOSES
+a103 1
+#endif DEMOSES
+a263 6
+
+#ifndef DEMOSES
+#define CCINSMODE          034     /* insert mode          */
+#define CCBACKSPACE        035     /* backspace and erase  */
+#define CCRESCREEN         035     /* обновить экран/не встречаются вместе*/
+#else DEMOSES
+a265 2
+#endif DEMOSES
+
+a269 2
+
+#ifdef DEMOSES
+a273 1
+#endif DEMOSES
+a338 1
+#ifdef DEMOSES
+a342 1
+#endif DEMOSES
+a354 7
+#ifndef DEMOSES
+char *(*agoto)();  /* for termcap definitions */
+int (*atcread)();
+int slowsw;   /* is 1 if slow speed terminal */
+int rawf, lcasef, latf, flgtabs; /* terminal regim flags */
+char kioutf; /* Не 0 если 15IE0013  с непереключенной клавиатурой*/
+#else DEMOSES
+a355 2
+#endif DEMOSES
+
+a358 1
+#ifdef DEMOSES
+a362 1
+#endif DEMOSES
+@

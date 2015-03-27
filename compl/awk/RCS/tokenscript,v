@@ -1,0 +1,32 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     87.01.07.21.58.54;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@e y.tab.h
+1,$s/# *define *//
+1,$s/^/"/
+1,$s/ /", /
+1,$s/$/,/
+!rm -f token.h
+w token.h
+q
+@

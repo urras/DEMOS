@@ -1,0 +1,201 @@
+dbu/modify.c:6:# include	<batch.h>
+dbu/modify.c:265:	fill_batch(&dold, &dnew);
+dbu/modify.c:269:	** done after the fill_batch in case we are modifing
+dbu/modify.c:1029:**	FILL_BATCH -- Create and fill a batch file containing the
+dbu/modify.c:1034:fill_batch(odesc, desc)
+dbu/modify.c:1044:	char			prebatch[MAXNAME + 4], modbatch[MAXNAME + 4];
+dbu/modify.c:1058:	concat(MOD_PREBATCH, Fileset, prebatch);
+dbu/modify.c:1059:	close(creat(prebatch, FILEMODE));
+dbu/modify.c:1060:	if ((Batch_fp = open(prebatch, 2)) < 0)
+dbu/modify.c:1061:		syserr("FILL_BATCH: open %.14s %d", prebatch, Batch_fp);
+dbu/modify.c:1064:	wrbatch(desc, sizeof *desc);
+dbu/modify.c:1080:			wrbatch(&lotid, sizeof lotid);
+dbu/modify.c:1081:			wrbatch(&atttup, sizeof atttup);
+dbu/modify.c:1087:	flushbatch();
+dbu/modify.c:1089:	concat(MODBATCH, Fileset, modbatch);
+dbu/modify.c:1090:	if (link(prebatch, modbatch) == -1)
+dbu/modify.c:1092:			prebatch, modbatch);
+dbu/modify.c:1093:	unlink(prebatch);
+dbu/modupdate.c:6:# include	<batch.h>
+dbu/modupdate.c:23:	char			batchname[MAXNAME + 3];
+dbu/modupdate.c:43:	concat(MODBATCH,Fileset,batchname);
+dbu/modupdate.c:48:		printf("Modupdate: %s, %s\n",batchname, temprel);
+dbu/modupdate.c:50:	if ((Batch_fp = open(batchname, 0)) < 0)
+dbu/modupdate.c:51:		syserr("MODUPDATE:Can't open %s", batchname);
+dbu/modupdate.c:54:	getbatch(desp, sizeof *desp);
+dbu/modupdate.c:127:		getbatch(&tid, sizeof tid);
+dbu/modupdate.c:128:		getbatch(&atttup, sizeof atttup);
+dbu/modupdate.c:176:	unlink(batchname);
+dbu/nmodify.c:5:# include	<batch.h>
+dbu/nmodify.c:265:	fill_batch(&dold, &dnew);
+dbu/nmodify.c:269:	** done after the fill_batch in case we are modifing
+dbu/nmodify.c:1149:**	FILL_BATCH -- Create and fill a batch file containing the
+dbu/nmodify.c:1154:fill_batch(odesc, descx)
+dbu/nmodify.c:1163:	char			prebatch[MAXNAME + 4], modbatch[MAXNAME + 4];
+dbu/nmodify.c:1178:	concat(MOD_PREBATCH, Fileset, prebatch);
+dbu/nmodify.c:1179:	close(creat(prebatch, FILEMODE));
+dbu/nmodify.c:1180:	if ((Batch_fp = open(prebatch, 2)) < 0)
+dbu/nmodify.c:1181:		syserr("FILL_BATCH: open %.14s %d", prebatch, Batch_fp);
+dbu/nmodify.c:1184:	wrbatch(desc, sizeof *desc);
+dbu/nmodify.c:1200:			wrbatch(&lotid, sizeof lotid);
+dbu/nmodify.c:1201:			wrbatch(&atttup, sizeof atttup);
+dbu/nmodify.c:1207:	flushbatch();
+dbu/nmodify.c:1209:	concat(MODBATCH, Fileset, modbatch);
+dbu/nmodify.c:1210:	if (link(prebatch, modbatch) == -1)
+dbu/nmodify.c:1212:			prebatch, modbatch);
+dbu/nmodify.c:1213:	unlink(prebatch);
+dbu/omodify.c:6:# include	<batch.h>
+dbu/omodify.c:253:	fill_batch(&dold, &dnew);
+dbu/omodify.c:257:	** done after the fill_batch in case we are modifing
+dbu/omodify.c:981:**	FILL_BATCH -- Create and fill a batch file containing the
+dbu/omodify.c:986:fill_batch(odesc, desc)
+dbu/omodify.c:996:	char			prebatch[MAXNAME + 4], modbatch[MAXNAME + 4];
+dbu/omodify.c:1010:	concat(MOD_PREBATCH, Fileset, prebatch);
+dbu/omodify.c:1011:	close(creat(prebatch, FILEMODE));
+dbu/omodify.c:1012:	if ((Batch_fp = open(prebatch, 2)) < 0)
+dbu/omodify.c:1013:		syserr("FILL_BATCH: open %.14s %d", prebatch, Batch_fp);
+dbu/omodify.c:1016:	wrbatch(desc, sizeof *desc);
+dbu/omodify.c:1032:			wrbatch(&lotid, sizeof lotid);
+dbu/omodify.c:1033:			wrbatch(&atttup, sizeof atttup);
+dbu/omodify.c:1039:	flushbatch();
+dbu/omodify.c:1041:	concat(MODBATCH, Fileset, modbatch);
+dbu/omodify.c:1042:	if (link(prebatch, modbatch) == -1)
+dbu/omodify.c:1044:			prebatch, modbatch);
+dbu/omodify.c:1045:	unlink(prebatch);
+dbu/rdwrbatch.c:5:# include	<batch.h>
+dbu/rdwrbatch.c:8:SCCSID(@(#)rdwrbatch.c	7.1	2/5/81)
+dbu/rdwrbatch.c:10:getbatch(loc, count)
+dbu/rdwrbatch.c:21:		printf("getbatch:%d (%d)\n", cnt, Batch_cnt);
+dbu/rdwrbatch.c:29:			if ((i = readbatch()) < cnt)
+dbu/rdwrbatch.c:30:				syserr("getbatch:can't read enough %d %d", i, cnt);
+dbu/rdwrbatch.c:41:			batchflush();	/* re-write buffer if necessary */
+dbu/rdwrbatch.c:49:putbatch(cp, count)
+dbu/rdwrbatch.c:61:		printf("putbatch:%d\n", cnt);
+dbu/rdwrbatch.c:77:			batchflush();
+dbu/rdwrbatch.c:80:				if ((i = readbatch()) < cnt)
+dbu/rdwrbatch.c:81:					syserr("putbatch:rd too small %d", i);
+dbu/rdwrbatch.c:89:readbatch()
+dbu/rdwrbatch.c:93:		syserr("readbatch:can't read %d %d", Batch_lread, Batch_fp);
+dbu/rdwrbatch.c:97:		printf("read %d bytes from batch\n", Batch_lread);
+dbu/rdwrbatch.c:101:		syserr("readbatch:bad id '%s' '%.20s' %d", Fileset, Batchbuf.file_id, Batch_lread);
+dbu/rdwrbatch.c:108:batchflush()
+dbu/rdwrbatch.c:118:			syserr("batchflush:can't seek %d", Batch_lread);
+dbu/rdwrbatch.c:124:			syserr("batchflush:can't write %d", i);
+dbu/resetrel.c:5:# include	<batch.h>
+dbu/rupdate.c:40:	ruboff("batch update");
+dbu/secupdate.c:6:# include	<batch.h>
+dbu/secupdate.c:59:		/* reposition batch file to the beginning. */
+dbu/secupdate.c:63:		getbatch(&Batchhd, sizeof Batchhd);	/* reread header */
+dbu/secupdate.c:85:		** Start reading the batch file and updating
+dbu/secupdate.c:91:			getbatch(&oldtid, Batchhd.tido_size);
+dbu/secupdate.c:92:			getbatch(oldtup, Batchhd.tupo_size);
+dbu/secupdate.c:93:			getbatch(newtup, Batchhd.tupn_size);
+dbu/secupdate.c:94:			getbatch(&newtid, Batchhd.tidn_size);
+dbu/update.c:6:# include	<batch.h>
+dbu/update.c:12:**	Update reads a batch file written by the
+dbu/update.c:13:**	access method routines (openbatch, addbatch, closebatch)
+dbu/update.c:17:**	is driven by the data in the Batchhd struct (see ../batch.h).
+dbu/update.c:19:**	secupdate. As a last step the batch file is removed.
+dbu/update.c:34:	char		*batchname();
+dbu/update.c:38:		printf("Update on %s\n", batchname());
+dbu/update.c:40:	/* set up to read batchhd */
+dbu/update.c:41:	Batch_cnt = BATCHSIZE;	/* force a read on next getbatch */
+dbu/update.c:43:	if ((Batch_fp = open(batchname(), 2)) < 0)
+dbu/update.c:44:		syserr("prim:can't open %s", batchname());
+dbu/update.c:45:	getbatch(&Batchhd, sizeof Batchhd);
+dbu/update.c:55:		rmbatch();
+dbu/update.c:66:		getbatch(&oldtid, Batchhd.tido_size);	/* read old tid */
+dbu/update.c:67:		getbatch(oldtup, Batchhd.tupo_size);	/* and portions of old tuple */
+dbu/update.c:68:		getbatch(newtup, Batchhd.tupn_size);	/* and the newtup */
+dbu/update.c:101:		putbatch(&oldtid, Batchhd.tidn_size);	/* write new tid if necessary */
+dbu/update.c:109:	batchflush();
+dbu/update.c:114:	rmbatch();
+decomp/call_ovqp.c:32:**			the batch file (if any).
+decomp/call_ovqp.c:128:		/* handle batch file */
+decomp/call_ovqp.c:137:					if (i = openbatch(De.ov_result, &Inddes, De.de_qmode))
+decomp/call_ovqp.c:138:						syserr("call_ovqp:opn batch %d", i);
+decomp/call_ovqp.c:224:**	Ovqp decides whether to use batch update or not. If ack == ACK
+decomp/call_ovqp.c:246:			closebatch();
+decomp/call_ovqp.c:255:			rmbatch();
+decomp/globs.h:102:	short		ov_bopen;	/* TRUE if batch file is open */
+decomp/openrs.c:80:	**	for users.  if we will need to open a batch file,
+decomp/qryproc.c:164:	/* call update processor if batch mode */
+h/batch.h:3:**  BATCH.H -- batch file declarations.
+h/batch.h:6:**		@(#)batch.h	7.1	2/5/81
+h/batch.h:14:struct batchbuf
+h/batch.h:17:	char	bbuf[BATCHSIZE];	/* buffer for batch storage */
+h/batch.h:28:struct batchhd
+h/batch.h:45:short	Batch_fp;	/* file descriptor for batch file */
+h/batch.h:48:short	Batch_lread;	/* number of bytes last read in readbatch() */
+h/batch.h:51:extern char	*Fileset;	/* unique id of batch maker */
+h/batch.h:52:struct batchbuf	Batchbuf;
+h/batch.h:53:struct batchhd	Batchhd;
+iutil/batch.c:6:# include	<batch.h>
+iutil/batch.c:9:SCCSID(@(#)batch.c	7.1	2/5/81)
+iutil/batch.c:12:**	Open batch prepares for batch processing.
+iutil/batch.c:13:**	1. If the batch is already open, return an error
+iutil/batch.c:14:**	2. Create the batch file.
+iutil/batch.c:19:**	6. Write out the batch structure.
+iutil/batch.c:33:openbatch(rel_desc, index_desc, mode)
+iutil/batch.c:40:	char			*p, *batchname();
+iutil/batch.c:46:		return (-1);	/* batch already open */
+iutil/batch.c:49:	p = batchname();	/* form batch name */
+iutil/batch.c:52:		printf("Openbatch %s\n", p);
+iutil/batch.c:55:		syserr("openbatch:can't creat %s,%d", p, Batch_fp);
+iutil/batch.c:96:		syserr("openbatch:mode %d", Batchhd.mode_up);
+iutil/batch.c:109:			syserr("openbatch:bad find %.12s", rel);
+iutil/batch.c:137:			syserr("openbatch:bad get index %d", i);
+iutil/batch.c:152:	wrbatch((char *) &Batchhd, sizeof Batchhd);
+iutil/batch.c:156:**  ADDBATCH -- add to batch file
+iutil/batch.c:159:addbatch(oldtid, newtuple, oldtuple)
+iutil/batch.c:170:		printf("addbatch\n");
+iutil/batch.c:174:	Batchhd.num_updts++;	/* increment the number of add batches */
+iutil/batch.c:177:	wrbatch((char *) oldtid, Batchhd.tido_size);
+iutil/batch.c:189:		wrbatch(&old[sp->rel_off], sp->dom_size);
+iutil/batch.c:194:	wrbatch(newtuple, Batchhd.tupn_size);
+iutil/batch.c:198:	wrbatch((char *) &newtid, Batchhd.tidn_size);
+iutil/batch.c:202:**  CLOSEBATCH -- close batch file
+iutil/batch.c:205:closebatch()
+iutil/batch.c:212:	flushbatch();	/* write out any remainder */
+iutil/batch.c:214:		syserr("closebatch:seek %d", i);
+iutil/batch.c:215:	wrbatch((char *) &Batchhd, sizeof Batchhd);	/* update num_updts */
+iutil/batch.c:216:	flushbatch();
+iutil/batch.c:218:		syserr("closebatch:close %d", i);
+iutil/batchxtra.c:5:# include	<batch.h>
+iutil/batchxtra.c:8:SCCSID(@(#)batchxtra.c	7.1	2/5/81)
+iutil/batchxtra.c:10:rmbatch()
+iutil/batchxtra.c:12:	char		*batchname();
+iutil/batchxtra.c:16:	p = batchname();
+iutil/batchxtra.c:18:		syserr("rmbatch:can't close %s %d", p, i);
+iutil/batchxtra.c:20:		syserr("rmbatch:can't unlink %s %d", p, i);
+iutil/batchxtra.c:25:**  BATCHNAME -- create batch file name
+iutil/batchxtra.c:29:batchname()
+iutil/batchxtra.c:34:	return(ztack("_SYSbatch", Fileset));
+iutil/writebatch.c:5:# include	<batch.h>
+iutil/writebatch.c:8:SCCSID(@(#)writebatch.c	7.1	2/5/81)
+iutil/writebatch.c:11:**  WRBATCH -- write batch file
+iutil/writebatch.c:14:wrbatch(cp, count)
+iutil/writebatch.c:25:		printf("wrbatch:%d (%d)\n", cnt, Batch_cnt);
+iutil/writebatch.c:40:			flushbatch();
+iutil/writebatch.c:44:**  FLUSHBATCH -- flush batch file
+iutil/writebatch.c:47:flushbatch()
+iutil/writebatch.c:58:			syserr("flushbatch:can't write %d", i);
+ovqp/equelpr.c:6:# include	<batch.h>
+ovqp/scan.c:285:			addbatch(&De.ov_uptid, De.ov_outtup, De.ov_origtup);
+support/restore.c:6:# include	<batch.h>
+support/restore.c:21:**	RESTORE attempts to complete updates from batch files left in a
+support/restore.c:22:**	database.  After finishing all the batch files it calls PURGE.
+support/restore.c:40:char		Berror;		/* batch error */
+support/restore.c:107:		restore();	/* recover batch update and modify files */
+support/restore.c:108:		printf("\tRecovery of batch files complete.\n");
+support/restore.c:112:		**	the batch files are completed and now the system
+support/restore.c:200:** RESTORE -- find the batch files and process them
+support/restore.c:237:		if (bequal("_SYSbatch", fname, 9))
+support/restore.c:240:			Batch_fp = open(batchname(), 0);
+support/restore.c:242:			getbatch(&Batchhd, sizeof(Batchhd));
+support/restore.c:243:			printf("\tFound batch file:  %s\n", fname);
+support/restore.c:257:			if((i = getbatch(&descr, sizeof(descr))) != sizeof(descr))
+support/rubin.c:114:**		+b -- enable/disable batch update.  Default on.
+support/rubin.y:113:**		+b -- enable/disable batch update.  Default on.
+support/sysmod.c:5:# include	<batch.h>
+support/tmpsys.c:5:# include	<batch.h>

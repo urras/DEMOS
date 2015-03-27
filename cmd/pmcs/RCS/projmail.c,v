@@ -1,0 +1,496 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.02.10.21.48.18;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.01.10.20.10.21;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.10.19.35.31;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.09.15.56.41;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Система рассылки почты проектам.
+@
+
+
+1.4
+log
+@Исправлены две ошибки:
+1) если не было никакой рассылки, то все вылетало.
+
+Причина: перепутаны аргументы putc.
+
+2) выкидывался первый проект в списке рассылки.
+Причина: to_okf оставался = 0 (а надо - 1) для первого проекта.
+@
+text
+@/*
+ * Послать сообщение проекту
+ *
+ * projmail проект имя_автора
+ *
+ * Имя проекта указывается БЕЗ = !
+ *
+ * $Header: projmail.c,v 1.3 88/01/10 20:10:21 avg Exp $
+ * $Log:        projmail.c,v $
+ * Revision 1.3  88/01/10  20:10:21  avg
+ * Убран лишний \n в заголовке и добавлено автоматическое
+ * заполнение поля Reply-to.
+ *
+ * Revision 1.2  88/01/10  19:35:31  avg
+ * Добавлена печать заголовка при добавлении в архив,
+ * сделано удаление временного файла,
+ * вместо хитрых dup-ов теперь используется fdopen.
+ *
+ * Revision 1.1  88/01/09  15:56:41  avg
+ * Initial revision
+ *
+ */
+
+#include <stdio.h>
+#include <ediag.h>
+#include "projdesc.h"
+
+#define Mailer       "/bin/mail"
+
+#define Construct(b,a,c) strcpy(b,a);strcat(b,"/");strcat(b,c)
+
+char *pname, *sender, *Time;
+
+/*
+ * Структура списка рассылки
+ */
+struct TOLIST {
+	struct TOLIST  *to_next;
+	short           to_okf;         /* = 0, если проект не разобран */
+	char            to_name[1];     /* flexible */
+}
+  *toq;         /* голова списка */
+
+FILE *pxf;      /* файл проектов */
+int debug;
+
+main(ac, av)
+char  **av;
+{
+	register struct projdesc *pd;
+	char buf[160], *mktemp(), *ctime();
+	FILE *pf;
+	long tim;
+	int S_edi;
+	register c;
+
+	if( !strcmp(av[1], "-d") ) {
+		debug++;
+		av[1] = av[0]; av++; ac--;
+		fprintf(stderr, "%s\n", "$Header: projmail.c,v 1.3 88/01/10 20:10:21 avg Exp $");
+	}
+	if( ac != 3 )
+		error("illegal call", "плохой формат вызова");
+
+	if( (c = dup(1)) < 0 ) {
+		if( open("/dev/console", 1) < 0 )
+			exit(2);
+		close(2);
+		dup(1);
+	} else
+		close(c);
+
+	pname  = av[1];
+	sender = av[2];
+	time( &tim );
+	S_edi = _ediag;         /* Дата ДОЛЖНА быть на английском языке */
+	_ediag = 1;
+	Time   = ctime(&tim);
+	_ediag = S_edi;
+
+	/*
+	 * Найти проект в PROJFILE
+	 */
+	Construct(buf, PROJSPOOL, PROJFILE);
+	if( (pxf = fopen(buf, "r")) == NULL )
+		error("can't open %s", "не могу открыть %s", buf);
+	while( (pd = getpd(pxf, NULL)) != NULL ) {
+		if( !strcmp(pname, pd->pd_pname) )
+			goto Found;
+	}
+	error("project %s not exist, message lost",
+	      "проект %s не существует, сообщение потеряно", pname);
+Found:
+	/*
+	 * Если нет никакой рассылки, просто записать сообщение в файл
+	 */
+	if( pd->pd_nusig == 0 ) {
+		Construct(buf, PROJSPOOL, pname);
+		if(debug)
+			fprintf(stderr, "APPEND TO: %s\n", buf);
+		if( (pf = fopen(buf, "a")) == NULL )
+			error("can't append to project file",
+			      "не могу дописать файл проекта");
+		puthead(pf);
+		fprintf(pf, "Reply-to: =%s\n", pname);
+		while( (c = getc(stdin)) != EOF )
+			putc(c, pf);
+		fclose(pf);
+		exit(0);
+	}
+
+	/*
+	 * Скопировать сообщение во временный файл
+	 */
+	strcpy(buf, mktemp("/tmp/pMailXXXXXX"));
+	if(debug)
+		fprintf(stderr, "mktemp: %s\n", buf);
+	if( (pf = fopen(buf, "w")) == NULL ) {
+CMT:            unlink(buf);
+		error("can't create temp",
+		      "не могу создать врем. файл");
+	}
+	fprintf(pf, "Reply-to: =%s\n", pname);
+	while( (c = getc(stdin)) != EOF )
+		putc(c, pf);
+	fclose(pf);
+	if( (pf = fopen(buf, "r")) == NULL )
+		goto CMT;
+	if(debug)
+		fprintf(stderr, "toq_built\n");
+	toq_built(pd);
+	if( toq == NULL ) {
+		unlink(buf);
+		exit(0);        /* Zero list. Hope that's OK ? */
+	}
+	if(debug)
+		fprintf(stderr, "toq_built done\n");
+
+	/*
+	 * Собственно прямая запись в файлы проектов
+	 * и рассылка почты
+	 */
+	SendMail(pf);
+	DirectWrite(pf);
+	wait(&S_edi);
+	unlink(buf);
+	exit(0);
+}
+
+/*
+ * Печатать заголовок сообщения
+ */
+puthead(f)
+FILE *f;
+{
+	fprintf(f, "From %s %s", sender, Time);
+}
+
+/*
+ * Печать сообщения об ошибке и завершение выполнения
+ * программы
+ */
+error(e, r, a)
+char *e, *r;
+{
+	fprintf(stderr, "projmail: ");
+	fprintf(stderr, ediag(e, r), a);
+	putc('\n', stderr);
+	exit(1);
+}
+
+/*
+ * Построение списка рассылки
+ */
+toq_built(pd)
+struct projdesc *pd;
+{
+	char buf[50];
+	register char **p;
+	register struct TOLIST *t;
+
+	/*
+	 * Сначала запишем сам проект
+	 */
+	buf[0] = '=';
+	strcpy(buf+1, pname);
+	append(buf);
+	toq->to_okf = 1;
+
+	/*
+	 * Теперь добавим все из списка
+	 */
+	for( p = pd->pd_usig ; *p ; p++ )
+		append(*p);
+
+	/*
+	 * Если в списке есть еще не просмотренные вторичные ссылки,
+	 * разрешить их
+	 */
+	for(;;) {
+		for( t = toq ; t ; t = t->to_next ) {
+			if( t->to_name[0] == '=' && t->to_okf == 0 )
+				goto Seek;
+		}
+		break;
+    Seek:
+		if(debug)
+			fprintf(stderr, "NEW SCAN\n");
+		for( t = toq ; t ; t = t->to_next ) {
+			if( t->to_name[0] == '=' && t->to_okf == 0 )
+				t->to_okf = 2;
+		}
+		rewind(pxf);
+		while( (pd = getpd(pxf, NULL)) != NULL ) {
+			for( t = toq ; t ; t = t->to_next ) {
+				if( t->to_name[0] != '=' || t->to_okf == 1 )
+					continue;
+				if( !strcmp(t->to_name+1, pd->pd_pname) )
+					goto fnd;
+				break;
+			}
+			continue;
+		    fnd:
+			t->to_okf = 1;
+			for( p = pd->pd_usig ; *p ; p++ )
+				append(*p);
+		}
+
+		/*
+		 * Если нет проектов, на которые кто-либо ссылался,
+		 * удалить их из списка
+		 */
+		for( t = toq ; t ; t = t->to_next ) {
+			if( t->to_next != NULL && t->to_next->to_okf == 2 ) {
+				if(debug)
+					fprintf(stderr, "Deleting %s\n", t->to_next->to_name);
+				t->to_next = t->to_next->to_next;
+			}
+		}
+		if( toq->to_okf == 2 ) {
+			if(debug)
+				fprintf(stderr, "Deleting %s\n", toq->to_name);
+			toq = toq->to_next;
+		}
+	}
+}
+
+/*
+ * Добавить элемент списка рассылки
+ */
+append(s)
+char *s;
+{
+	register struct TOLIST *t;
+
+	/*
+	 * Проверим - нет ли уже этого имени
+	 */
+	for( t = toq ; t != NULL ; t = t->to_next )
+		if( !strcmp(s, t->to_name) )
+			return;
+	if( !strcmp(s, sender) )
+		return;
+
+	/*
+	 * Теперь добавим это имя в список
+	 */
+	t = (struct TOLIST *)malloc( sizeof(struct TOLIST) + strlen(s) );
+	if( t == NULL )
+		error("not enough core", "не хватает памяти");
+	strcpy(t->to_name, s);
+	t->to_okf = 0;
+	t->to_next = toq;
+	toq = t;
+}
+
+/*
+ * Рассылка почты заинтересованным пользователям и
+ * удаленным системам (вызывает mail)
+ */
+SendMail(f)
+register FILE *f;
+{
+	int pd[2];
+	int s;
+	register c;
+	char buf[512];
+	char *vect[200];
+	struct TOLIST *t;
+	register FILE *outf;
+
+	s = 0;
+	vect[s++] = "mail";
+	vect[s++] = "-r";
+	vect[s++] = sender;
+	for( t = toq ; t != NULL ; t = t->to_next ) {
+		if( t->to_name[0] != '=' )
+			vect[s++] = t->to_name;
+	}
+	if( s == 3 ) return;
+	vect[s] = NULL;
+
+	if(debug) {
+		fprintf(stderr, "MAILS: ");
+		for(s=0; vect[s]; s++) fprintf(stderr, "'%s' ", vect[s]);
+		fprintf(stderr, "\n");
+	}
+	pipe(pd);
+	if( !(s = fork()) ) {
+		/* NEW PROCESS */
+		close(0);
+		dup(pd[0]); /* --> 0 */
+		for( s = 3; s < 16 ; s++ )
+			close(s);
+		execv(Mailer, vect);
+		error( "can't exec %s", "не могу запустить %s", Mailer);
+	}
+	if( s == -1 )
+		error( "can't fork", "не могу создать процесс" );
+	close(pd[0]);
+	outf = fdopen(pd[1], "w");
+	rewind(f);
+	while( (c = getc(f)) != EOF)
+		putc(c, outf);
+	fclose(outf);
+}
+
+/*
+ * Копирование непосредственно в файлы
+ */
+DirectWrite(f)
+register FILE *f;
+{
+	char buf[160];
+	register c;
+	struct TOLIST *t;
+	register FILE *tf;
+
+	for( t = toq ; t ; t = t->to_next ) {
+		if( t->to_name[0] != '=' )
+			continue;
+		Construct(buf, PROJSPOOL, t->to_name+1);
+		if(debug)
+			fprintf(stderr, "Append to '%s'\n", buf);
+		if( (tf = fopen(buf, "a")) == NULL ) {
+			fprintf(stderr, ediag("projmail: can't append to %s\n",
+					      "projmail: не могу дописать %s\n"), buf);
+			continue;
+		}
+		rewind(f);
+		puthead(tf);
+		while( (c = getc(f)) != EOF )
+			putc(c, tf);
+		fclose(tf);
+	}
+}
+@
+
+
+1.3
+log
+@Убран лишний \n в заголовке и добавлено автоматическое
+заполнение поля Reply-to.
+\
+@
+text
+@d8 1
+a8 1
+ * $Header: projmail.c,v 1.2 88/01/10 19:35:31 avg Exp $
+d10 4
+d60 1
+a60 1
+		fprintf(stderr, "%s\n", "$Header: projmail.c,v 1.2 88/01/10 19:35:31 avg Exp $");
+d107 1
+a107 1
+			putc(pf, c);
+d188 1
+@
+
+
+1.2
+log
+@Добавлена печать заголовка при добавлении в архив,
+сделано удаление временного файла,
+вместо хитрых dup-ов теперь используется fdopen.
+@
+text
+@d8 1
+a8 1
+ * $Header: projmail.c,v 1.1 88/01/09 15:56:41 avg Exp $
+d10 5
+d56 1
+a56 1
+		fprintf(stderr, "%s\n", "$Header: projmail.c,v 1.1 88/01/09 15:56:41 avg Exp $");
+d101 1
+d119 1
+d152 1
+a152 1
+	fprintf(f, "From %s %s\n", sender, Time);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d8 5
+a12 2
+ * $Header$
+ * $Log$
+d51 1
+a51 1
+		fprintf(stderr, "%s\n", "$Header$");
+d121 2
+a122 1
+	if( toq == NULL )
+d124 1
+d134 2
+a135 1
+	wait( &S_edi );
+d278 1
+d300 1
+a300 1
+		dup(pd[0]);
+d309 1
+a309 7
+	s = dup(1);
+	fflush(stdout);
+	setbuf(stdout, buf);
+
+	close(1);
+	dup(pd[1]);     /* --> 1 */
+	close(pd[1]);
+d312 2
+a313 3
+		putchar(c);
+	close(1);
+	dup(s);
+d320 1
+a320 1
+FILE *f;
+d324 2
+a325 2
+	register struct TOLIST *t;
+	FILE *tf;
+d331 2
+a332 1
+		fprintf(stderr, "Append to '%s'\n", buf);
+d339 1
+@

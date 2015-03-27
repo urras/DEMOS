@@ -1,0 +1,183 @@
+head     1.4;
+access   avg dmitry alex dvolodin rygoff;
+symbols  Архыз0:1.3.1;
+locks    rygoff:1.4;
+comment  @# @;
+
+
+1.4
+date     88.11.02.22.15.58;  author dvolodin;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.09.29.16.03.48;  author avg;  state Exp;
+branches 1.3.1.1;
+next     1.2;
+
+1.2
+date     87.07.14.13.50.45;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.13.15.41.41;  author alex;  state Stab;
+branches ;
+next     ;
+
+1.3.1.1
+date     88.11.02.22.21.52;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile для второй фазы загрузчика.
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@#
+# Makefile для второй фазы загрузки системы
+#
+# $Log: Makefile,v $
+# Revision 1.3  87/09/29  16:03:48  avg
+# Добавлена возможность указания своего устройства загрузки
+# (в отличие от того, которое в sys/reboot.h).
+# см. BOOTDEV в Makefile.
+#
+# Revision 1.2  87/07/14  13:50:45  dmitry
+# У boot введена чистка таблицы имен.
+#
+# Revision 1.1  86/12/13  15:41:41  alex
+# Initial revision
+#
+#
+
+# Устройство загрузки (по умолчанию берется из sys/reboot.h).
+# BOOTDEV= '-DMY_DEFNAME="rp(0,0)confa"'
+# BOOTDEV= '-DMY_DEFNAME="tm(0,1)"'     # для дистрибутива ДЕМОС на СМ-4 etc
+# BOOTDEV= '-DMY_DEF85="fd(0,0)confa"'  # для дистрибутива ДЕМОС на Э-85
+
+# Для версии исх. текстов без архива RCS установите R=X
+R=
+RCS=RCS
+COFLAGS=
+
+INCLUDES=       -I/usr/include -I..
+CFLAGS =        -O ${INCLUDES}
+
+../boot:        boot.o bootpar.o M.o ubmapset.o bootdev.o ../libsa.a ../c.o
+		ld -X -o ../boot M.o ubmapset.o boot.o bootpar.o bootdev.o ../c.o ../libsa.a -lc
+
+../c.o : ../c.c
+	$(CC) $(CFLAGS) -c ../c.c
+	mv c.o ../c.o
+
+boot.o: boot.c
+	$(CC) $(CFLAGS) -c $(BOOTDEV) boot.c
+
+source: Makefile boot.c M.s ubmapset.c
+
+$(R)boot.c    :    ; co $(COFLAGS) boot.c
+$(R)M.s       :    ; co $(COFLAGS) M.s
+$(R)ubmapset.c:    ; co $(COFLAGS) ubmapset.c
+$(R)bootpar.c:     ; co $(COFLAGS) bootpar.c
+$(R)bootdev.c:     ; co $(COFLAGS) bootdev.c
+$(R)Makefile  :    ; co $(COFLAGS) Makefile
+
+clean clear:
+	-rm -f *.[ob]
+
+CLRSRC: clear
+	-rm -f boot.c M.s ubmapset.c
+@
+
+
+1.3
+log
+@Добавлена возможность указания своего устройства загрузки
+(в отличие от того, которое в sys/reboot.h).
+см. BOOTDEV в Makefile.
+@
+text
+@d5 5
+d19 1
+a19 1
+BOOTDEV=
+d31 2
+a32 2
+../boot:        boot.o bootpar.o M.o ubmapset.o ../libsa.a ../c.o
+		ld -X -o ../boot M.o ubmapset.o boot.o bootpar.o ../c.o ../libsa.a -lc
+d47 1
+@
+
+
+1.3.1.1
+log
+@Правки из САО под 1630.
+@
+text
+@d4 1
+a4 9
+# $Log:	Makefile,v $
+# Revision 1.4  88/08/04  15:21:05  sys
+# ++
+# 
+# Revision 1.3  87/09/29  16:03:48  avg
+# Добавлена возможность указания своего устройства загрузки
+# (в отличие от того, которое в sys/reboot.h).
+# см. BOOTDEV в Makefile.
+#
+d14 1
+a14 1
+# BOOTDEV= '-DMY_DEFNAME="rp(0,0)confa"'
+d26 2
+a27 2
+../boot:        boot.o bootpar.o M.o ubmapset.o bootdev.o ../libsa.a ../c.o
+		ld -X -o ../boot M.o ubmapset.o boot.o bootpar.o bootdev.o ../c.o ../libsa.a -lc
+a41 1
+$(R)bootdev.c:     ; co $(COFLAGS) bootdev.c
+@
+
+
+1.2
+log
+@У boot введена чистка таблицы имен.
+@
+text
+@d4 4
+a7 1
+# $Log:	Makefile,v $
+a9 1
+# 
+d11 1
+d13 5
+d32 4
+d39 1
+a39 1
+$(R)M.s       :   ; co $(COFLAGS) M.s
+d41 2
+a42 2
+$(R)bootpar.c:    ; co $(COFLAGS) bootpar.c
+$(R)Makefile  :   ; co $(COFLAGS) Makefile
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+# $Log$
+d19 1
+a19 1
+		ld -o ../boot M.o ubmapset.o boot.o bootpar.o ../c.o ../libsa.a -lnonfpc
+@

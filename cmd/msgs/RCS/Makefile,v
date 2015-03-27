@@ -1,0 +1,74 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     90.09.19.17.25.27;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.08.04.17.35.52;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@
+Маке-файл для msgs.
+@
+
+
+1.2
+log
+@???
+@
+text
+@#
+#         *     *  ****   ****   ****
+#         **   ** *    * *    * *    *
+#         * * * * *      *      *
+#         *  *  *  ****  *       ****
+#         *     *      * *   **      *
+#         *     * *    * *    * *    *
+#         *     *  ****   *****  ****
+#
+#   Сообщения об изменениях в системе
+#   $Header$
+#
+
+R       =
+COFLAGS =
+CIFLAGS = -u -q
+RCS     = RCS
+DESTDIR =
+CFLAGS=-O
+all:  msgs
+msgs: msgs.c msgs.h
+	cc $(CFLAGS) -o msgs msgs.c -ltermlib
+install:
+	cp msgs ${DESTDIR}/usr/bin; strip /usr/bin/msgs
+clean:
+	-rm -f msgs
+msgs.c :
+	RCS=$(RCS) $(COFLAGS) co msgs.c
+msgs.h :
+	RCS=$(RCS) $(COFLAGS) co msgs.h
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 18
+d20 1
+d24 1
+a24 1
+	install -s msgs ${DESTDIR}/usr/bin
+d27 4
+@

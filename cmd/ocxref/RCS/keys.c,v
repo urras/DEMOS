@@ -1,0 +1,91 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    andrew:1.1; strict;
+comment  @ * @;
+
+
+1.1
+date     87.09.14.20.40.23;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+** keys.c
+**
+** Быстрый и занимающий мало памяти поиск ключевых слов C
+**
+** Андрей Чернов, МГУ ВМК 5 курс (andrew)
+** Copyright (c) 1987 Андрей Чернов.
+** All rights reserved.
+** This program may not be sold, but may be distributed
+** provided this header is included.
+** $Header: keys.c,v 1.1 87/09/14 18:34:18 andrew Exp $
+** $Log:	keys.c,v $
+*/
+
+#ifndef lint
+char r_c_s_id[] = "$Header: keys.c,v 1.1 87/09/14 18:34:18 andrew Exp $";
+#endif
+
+#include <stdio.h>
+
+static char *kw[] = {
+    "auto",
+    "break",
+    "case",
+    "char",
+    "const",
+    "continue",
+    "default",
+    "defined",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extern",
+    "float",
+    "for",
+    "goto",
+    "if",
+    "int",
+    "long",
+    "register",
+    "return",
+    "short",
+    "signed",
+    "sizeof",
+    "static",
+    "struct",
+    "switch",
+    "typedef",
+    "union",
+    "unsigned",
+    "void",
+    "volatile",
+    "while",
+    NULL
+};
+
+int     keyword (s)
+char   *s;
+{
+    register    res;
+    register char **ss;
+
+    for (ss = kw; *ss && (res = strcmp (s, *ss)) > 0; ss++);
+    return (res == 0);
+}
+@

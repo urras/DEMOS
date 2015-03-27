@@ -1,0 +1,56 @@
+head     0.3;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.3
+date     86.09.24.21.49.32;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.37.27;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.15.02;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -ΙΞΤΕÒΠÒΕΤΑΤΟÒ
+@
+
+
+0.3
+log
+@χΕÒΣΙΡ ΙΪ νξοσ
+@
+text
+@builtin()
+{return(0);}
+/* ιαό ΙΝ. ι. χ. λυςώατοχα, νοσλχα, 1984 (λοι-8) */
+@
+
+
+0.2
+log
+@χΕÒΣΙΡ ΙΪ 2.9
+@
+text
+@d3 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@a2 1
+/* ιαό ΙΝ. ι. χ. λυςώατοχα, νοσλχα, 1984 (λοι-8) */
+@

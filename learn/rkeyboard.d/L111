@@ -1,0 +1,11 @@
+#print
+Проба
+#
+cp %s/pro  pro
+chmod 0777 pro
+#user
+#fail
+молодец!!!!
+#log
+#next
+222 10

@@ -1,0 +1,322 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.4
+date     90.09.19.17.24.17;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.17.23.15.50;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.06.05.17.16.58;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.13.16.37.45;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@???
+@
+text
+@# Makefile for "more"
+#
+# $Log: Makefile,v $
+# Revision 1.3  88/09/17  23:15:50  avg
+# Теперь more транслируется с библиотекой jobs.
+#
+# Revision 1.2  88/06/05  17:16:58  avg
+# Приведен в соответствие.
+#
+#
+# Invoked as:
+#       make all
+#   or  make install
+# Plain "make" is equivalent to "make all".
+#
+# If you add or delete functions, remake funcs.h by doing:
+#       make newfuncs
+# This depends on the coding convention of function headers looking like:
+#       " \t public <function-type> \n <function-name> ( ... ) "
+#
+
+# для трансляции без архивов RCS установите R=X
+R=
+RCS=RCS
+COFLAGS=
+
+##########################################################################
+# System-specific parameters
+##########################################################################
+
+# Define XENIX if running under XENIX 3.0
+XENIX = 0
+
+# VOID is 1 if your C compiler supports the "void" type,
+# 0 if it does not.
+VOID = 0
+
+# off_t is the type which lseek() returns.
+# It is also the type of lseek()'s second argument.
+
+off_t = long
+
+# TERMIO is 1 if your system has /usr/include/termio.h.
+# This is normally the case for System 5.
+# If TERMIO is 0 your system must have /usr/include/sgtty.h.
+# This is normally the case for BSD.
+TERMIO = 0
+
+# SIGSETMASK is 1 if your system has the sigsetmask() call.
+# This is normally the case only for BSD 4.2,
+# not for BSD 4.1 or System 5.
+SIGSETMASK = 0
+
+
+##########################################################################
+# Optional and semi-optional features
+##########################################################################
+
+# REGCMP is 1 if your system has the regcmp() function.
+# This is normally the case for System 5.
+# RECOMP is 1 if your system has the re_comp() function.
+# This is normally the case for BSD.
+# If neither is 1, pattern matching is supported, but without metacharacters.
+# В данном варианте функция re_comp() включена явно (из 4.2bsd). (#31.w)
+REGCMP = 0
+RECOMP = 1
+
+# SHELL_ESCAPE is 1 if you wish to allow shell escapes.
+# (This is possible only if your system supplies the system() function.)
+SHELL_ESCAPE = 1
+
+# EDITOR is 1 if you wish to allow editor invocation (the "v" command).
+# (This is possible only if your system supplies the system() function.)
+# EDIT_PGM is the name of the (default) editor to be invoked.
+EDITOR = 1
+EDIT_PGM = /bin/red
+# EDIT_PGM = /usr/ucb/vi
+
+# ONLY_RETURN is 1 if you want RETURN to be the
+# only input which
+# will continue past an error message.
+# Otherwise, any key will continue past an error message.
+ONLY_RETURN = 0
+
+
+##########################################################################
+# Compilation environment.
+##########################################################################
+
+# LIBS is the list of libraries needed.
+LIBS = -ltermcap -ljobs
+
+# INSTALL_MORE is a list of the public versions of more.
+INSTALL_MORE =       /usr/bin/more
+
+# OPTIM is passed to the compiler and the loader.
+# It is normally "-O" but may be, for example, "-g".
+OPTIM = -O
+
+
+##########################################################################
+# Files
+##########################################################################
+
+SRC1 =       main.c option.c prim.c
+SRC2 =  ch.c position.c input.c output.c screen.c prompt.c \
+	line.c signal.c help.c ttyin.c command.c version.c checkf.c
+SRC =   $(SRC1) $(SRC2)
+HDR =   less.h position.h funcs.h
+OBJ =   main.o option.o prim.o ch.o position.o input.o output.o screen.o \
+	prompt.o line.o signal.o help.o ttyin.o command.o version.o checkf.o
+# добавлено checkf.c (из More).
+
+##########################################################################
+# Rules
+##########################################################################
+
+DEFS =  "-DTERMIO=$(TERMIO)" \
+	"-DSIGSETMASK=$(SIGSETMASK)" \
+	"-Doff_t=$(off_t)" "-DVOID=$(VOID)" \
+	"-DREGCMP=$(REGCMP)" "-DRECOMP=$(RECOMP)" \
+	"-DSHELL_ESCAPE=$(SHELL_ESCAPE)" \
+	"-DEDITOR=$(EDITOR)" "-DEDIT_PGM=\"$(EDIT_PGM)\"" \
+	"-DONLY_RETURN=$(ONLY_RETURN)" \
+	"-DXENIX=$(XENIX)"
+
+CFLAGS = $(OPTIM) $(DEFS)
+
+
+all: more
+
+more: $(OBJ)
+	cc $(OPTIM) -o more $(OBJ) $(LIBS)
+
+install: more
+	cp more ${INSTALL_MORE}
+	-rm -f version.c
+
+source: $(SRC)
+
+$(OBJ): $(HDR)
+
+newfuncs: $(SRC)
+	mv funcs.h funcs.h.OLD
+	awk -f mkfuncs.awk $(SRC) >funcs.h
+
+clean clear:
+	rm -f *.[ob] less more
+
+CLRSRC: clean
+	rm -f *.[ch]
+
+version.c:
+	echo 'char version[] = "DEMOS 2.1  ' `date`'";' > version.c
+
+# RCS rules
+
+$(R)main.c:     $(RCS)/main.c,v;        co $(COFLAGS) main.c
+$(R)option.c:   $(RCS)/option.c,v;      co $(COFLAGS) option.c
+$(R)prim.c:     $(RCS)/prim.c,v;        co $(COFLAGS) prim.c
+$(R)ch.c:       $(RCS)/ch.c,v;          co $(COFLAGS) ch.c
+$(R)position.c: $(RCS)/position.c,v;    co $(COFLAGS) position.c
+$(R)position.h: $(RCS)/position.h,v;    co $(COFLAGS) position.h
+$(R)input.c:    $(RCS)/input.c,v;       co $(COFLAGS) input.c
+$(R)output.c:   $(RCS)/output.c,v;      co $(COFLAGS) output.c
+$(R)screen.c:   $(RCS)/screen.c,v;      co $(COFLAGS) screen.c
+$(R)prompt.c:   $(RCS)/prompt.c,v;      co $(COFLAGS) prompt.c
+$(R)line.c:     $(RCS)/line.c,v;        co $(COFLAGS) line.c
+$(R)signal.c:   $(RCS)/signal.c,v;      co $(COFLAGS) signal.c
+$(R)help.c:     $(RCS)/help.c,v;        co $(COFLAGS) help.c
+$(R)ttyin.c:    $(RCS)/ttyin.c,v;       co $(COFLAGS) ttyin.c
+$(R)command.c:  $(RCS)/command.c,v;     co $(COFLAGS) command.c
+$(R)checkf.c:   $(RCS)/checkf.c,v;      co $(COFLAGS) checkf.c
+$(R)less.h:     $(RCS)/less.h,v;        co $(COFLAGS) less.h
+$(R)funcs.h:    $(RCS)/funcs.h,v;       co $(COFLAGS) funcs.h
+$(R)Makefile:   $(RCS)/Makefile,v;      co $(COFLAGS) Makefile
+@
+
+
+1.3
+log
+@Теперь more транслируется с библиотекой jobs.
+@
+text
+@d4 3
+d106 2
+a107 3
+SRC2 =  ch.c position.c input.c output.c screen.c \
+	prompt.c line.c signal.c help.c ttyin.c command.c version.c  \
+	regex.c checkf.c
+d111 2
+a112 3
+	prompt.o line.o signal.o help.o ttyin.o command.o version.o     \
+	checkf.o regex.o
+# добавлено checkf.c (из More), regex.c из 4.2bsd.
+a172 1
+$(R)regex.c:    $(RCS)/regex.c,v;       co $(COFLAGS) regex.c
+@
+
+
+1.2
+log
+@Приведен в соответствие.
+@
+text
+@d3 3
+a5 1
+# $Log$
+d7 1
+d88 1
+a88 1
+LIBS = -ltermcap
+d107 1
+d138 1
+a138 1
+$(OBJ): less.h funcs.h
+d140 3
+a142 1
+newfuncs:
+d162 1
+d174 1
+a174 1
+$(R)more.h:     $(RCS)/more.h,v;        co $(COFLAGS) more.h
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+# Makefile for "less"
+d3 2
+a14 4
+# Also provided:
+#       make lint       # Runs "lint" on all the sources.
+#       make clean      # Removes "less" and the .o files.
+#       make clobber    # Pretty much the same as make "clean".
+d16 4
+d87 2
+a88 4
+# INSTALL_LESS is a list of the public versions of less.
+# INSTALL_MAN is a list of the public versions of the manual page.
+INSTALL_LESS =       /usr/ucb/less
+INSTALL_MAN =   /usr/man/man1/less.1
+d125 1
+a125 1
+all: less
+d127 2
+a128 2
+less: $(OBJ)
+	cc $(OPTIM) -o less $(OBJ) $(LIBS)
+d130 3
+a132 1
+install: install_man install_less
+a133 8
+install_man: less.l
+	for f in $(INSTALL_MAN); do  rm -f $$f; cp less.l $$f;  done
+	touch install_man
+
+install_less: less
+	for f in $(INSTALL_LESS); do  rm -f $$f; cp less $$f;  done
+	touch install_less
+
+a135 3
+lint:
+	lint -hp $(DEFS) $(SRC)
+
+d140 2
+a141 2
+clean:
+	rm -f $(OBJ) less
+d143 2
+a144 2
+clobber:
+	rm -f *.o less install_less install_man
+d146 24
+a169 3
+shar:
+	shar -v INSTALLATION less.l makefile.* *.h *.awk $(SRC1) > less.shar.a
+	shar -v $(SRC2) > less.shar.b
+@

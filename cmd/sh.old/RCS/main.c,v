@@ -1,0 +1,790 @@
+head     0.6;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.6
+date     87.03.30.12.25.44;  author dmitry;  state Exp;
+branches ;
+next     0.5;
+
+0.5
+date     87.03.30.11.10.04;  author dmitry;  state Exp;
+branches ;
+next     0.4;
+
+0.4
+date     86.09.29.18.28.20;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.52.43;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.40.52;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.16.49;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -…Œ‘≈“–“≈‘¡‘œ“
+@
+
+
+0.6
+log
+@»Õ...
+@
+text
+@static char rcsid[]
+	= "$Header: main.c,v 0.1 86/09/24 21:16:49 alex Exp $ KIAE";
+/*
+ * KIAE  shell
+ */
+
+#include        "defs.h"
+#include        "dup.h"
+#include        "sym.h"
+#include        "timeout.h"
+#include        <sys/types.h>
+#include        <sys/stat.h>
+#include        <sgtty.h>
+
+UFD             output = 2;
+LOCAL BOOL      beenhere = FALSE;
+BOOL            loginshell = FALSE;
+CHAR            tmpout[20] = "/tmp/sh-";
+FILEBLK         stdfile;
+FILE            standin = &stdfile;
+#ifdef stupid
+#include        <execargs.h>
+#endif
+
+PROC VOID       exfile();
+
+main(c, v)
+	INT             c;
+	STRING          v[];
+{
+	REG INT         rflag=ttyflg;
+
+#ifdef RL
+	/* Check that it's login shell -- ignore EOF */
+	IF c == 1 && v[0][0] == '-' && v[0][1] == 0 THEN
+		loginshell = TRUE;
+	FI
+#endif
+
+	/* initialise storage allocation */
+	stdsigs();
+	setbrk(BRKINCR);
+	addblok((POS)0);
+
+	/* set names from userenv */
+	getenv();
+
+	/* print version */
+/*      prs(version);   */
+
+	/* look for restricted */
+/*      IF c>0 ANDF any('r', *v) THEN rflag=0 FI */
+
+	/* look for options */
+	dolc=options(c,v);
+	IF dolc<2 THEN flags |= stdflg FI
+	IF (flags&stdflg)==0
+	THEN    dolc--;
+	FI
+	dolv=v+c-dolc; dolc--;
+
+	/* return here for shell file execution */
+	setjmp(subshell);
+
+	/* number of positional parameters */
+	assnum(&dolladr,dolc);
+	cmdadr=dolv[0];
+
+	/* set pidname */
+	assnum(&pidadr, getpid());
+
+	/* set up temp file names */
+	settmp();
+
+	/* default ifs */
+	dfault(&ifsnod, sptbnl);
+
+	IF (beenhere++)==FALSE
+	THEN    /* ? profile */
+		IF *cmdadr=='-'
+		    ANDF (input=pathopen(nullstr, profile))>=0
+		THEN    exfile(rflag); flags &= ~ttyflg;
+		FI
+		IF rflag==0 THEN flags |= rshflg FI
+
+		/* open input file if specified */
+		IF comdiv
+		THEN    estabf(comdiv); input = -1;
+		ELSE    input=((flags&stdflg) ? 0 : chkopen(cmdadr));
+			comdiv--;
+		FI
+#ifdef stupid
+	ELSE    *execargs=dolv; /* for `ps' cmd */
+#endif
+	FI
+
+	exfile(0);
+	done();
+}
+
+LOCAL VOID      exfile(prof)
+BOOL            prof;
+{
+	REG L_INT       mailtime = 0;
+	REG INT         userid;
+	struct stat     statb;
+
+	/* move input */
+	IF input>0
+	THEN    Ldup(input,INIO);
+		input=INIO;
+	FI
+
+	/* move output to safe place */
+	IF output==2
+	THEN    Ldup(dup(2),OTIO);
+		output=OTIO;
+	FI
+
+#ifdef RL
+	userid=getuid()&0377;
+#else
+	userid=getuid();
+#endif
+
+	/* decide whether interactive */
+	IF (flags&intflg) ORF ((flags&oneflg)==0 ANDF gtty(output,&statb)==0 ANDF gtty(input,&statb)==0)
+	THEN    dfault(&ps1nod, (userid?stdprompt:supprompt));
+		dfault(&ps2nod, readmsg);
+		flags |= ttyflg|prompt; ignsig(KILL);
+	ELSE    flags |= prof; flags &= ~prompt;
+	FI
+
+	IF setjmp(errshell) ANDF prof
+	THEN    close(input); return;
+	FI
+
+	/* error return here */
+	loopcnt=breakcnt=peekc=0; iopend=0;
+	IF input>=0 THEN initf(input) FI
+
+	/* command loop */
+	LOOP    tdystak(0);
+		stakchk(); /* may reduce sbrk */
+		exitset();
+		IF (flags&prompt) ANDF standin->fstak==0 ANDF !eof
+		THEN    IF mailnod.namval
+			    ANDF stat(mailnod.namval,&statb)>=0 ANDF statb.st_size
+			    ANDF (statb.st_mtime != mailtime)
+			    ANDF mailtime
+			THEN    prs(mailmsg)
+			FI
+			mailtime=statb.st_mtime;
+			prs(ps1nod.namval);
+		FI
+
+		trapnote=0; peekc=cii(readc());
+		IF eof THEN return FI
+		execute(cmd(NL,MTFLG),0);
+		eof |= (flags&oneflg);
+	POOL
+}
+
+chkpr(eor)
+char eor;
+{
+	IF (flags&prompt) ANDF standin->fstak==0 ANDF eor==NL
+	THEN    prs(ps2nod.namval);
+	FI
+}
+
+settmp()
+{
+	itos(getpid()); serial=0;
+	tmpnam=movstr(numbuf,&tmpout[TMPNAM]);
+}
+
+Ldup(fa, fb)
+	REG INT         fa, fb;
+{
+	dup(fa|DUPFLG, fb);
+	close(fa);
+#ifndef RL       /* ‰Ã— ÌÓÔÛ ÚÏ 1.2 */
+	ioctl(fb, FIOCLEX, 0);
+#endif
+}
+/* È·¸ …Õ. È. ˜. ÎıÚ˛·ÙÔ˜·, ÌÔÛÎ˜·, 1984 (ÎÔÈ-8) */
+@
+
+
+0.5
+log
+@˜Ÿ¬“œ€≈Œœ ⁄¡‘ŸÀ¡Œ…≈ ”…«Œ¡Ã¡ SIGTSTP.
+@
+text
+@d1 2
+a2 1
+#
+d4 1
+a4 3
+ * $Header: main.c,v 0.4 86/09/29 18:28:20 alex Exp $
+ *
+ *
+d7 7
+a13 7
+#include	"defs.h"
+#include	"dup.h"
+#include	"sym.h"
+#include	"timeout.h"
+#include	<sys/types.h>
+#include	<sys/stat.h>
+#include	<sgtty.h>
+d15 9
+a23 6
+UFD		output = 2;
+LOCAL BOOL	beenhere = FALSE;
+CHAR		tmpout[20] = "/tmp/sh-";
+FILEBLK		stdfile;
+FILE		standin = &stdfile;
+#include	<execargs.h>
+d25 1
+a25 1
+PROC VOID	exfile();
+a26 3
+
+
+
+d28 2
+a29 2
+	INT		c;
+	STRING		v[];
+d31 1
+a31 1
+	REG INT		rflag=ttyflg;
+d33 7
+d48 3
+d52 1
+a52 1
+/*	IF c>0 ANDF any('r', *v) THEN rflag=0 FI */
+d58 1
+a58 1
+	THEN	dolc--;
+d79 1
+a79 1
+	THEN	/* ? profile */
+d82 1
+a82 1
+		THEN	exfile(rflag); flags &= ~ttyflg;
+d88 2
+a89 2
+		THEN	estabf(comdiv); input = -1;
+		ELSE	input=((flags&stdflg) ? 0 : chkopen(cmdadr));
+d92 3
+a94 1
+	ELSE	*execargs=dolv;	/* for `ps' cmd */
+d101 2
+a102 2
+LOCAL VOID	exfile(prof)
+BOOL		prof;
+d104 3
+a106 3
+	REG L_INT	mailtime = 0;
+	REG INT		userid;
+	struct stat	statb;
+d110 1
+a110 1
+	THEN	Ldup(input,INIO);
+d116 1
+a116 1
+	THEN	Ldup(dup(2),OTIO);
+d120 3
+d124 1
+d128 1
+a128 1
+	THEN	dfault(&ps1nod, (userid?stdprompt:supprompt));
+d131 1
+a131 1
+	ELSE	flags |= prof; flags &= ~prompt;
+d135 1
+a135 1
+	THEN	close(input); return;
+d143 1
+a143 1
+	LOOP	tdystak(0);
+d147 1
+a147 1
+		THEN	IF mailnod.namval
+d151 1
+a151 1
+			THEN	prs(mailmsg)
+d154 1
+a154 1
+			prs(ps1nod.namval); alarm(TIMEOUT); flags |= waiting;
+d157 2
+a158 5
+		trapnote=0; peekc=readc();
+		IF eof
+		THEN	return;
+		FI
+		alarm(0); flags &= ~waiting;
+d168 1
+a168 1
+	THEN	prs(ps2nod.namval);
+d179 1
+a179 1
+	REG INT		fa, fb;
+d183 1
+d185 1
+d187 1
+@
+
+
+0.4
+log
+@˜≈“”…—, ”Ã…‘¡— …⁄ 2.9 … ‰ÂÌÔÛ ¬≈⁄ “’””À…» ƒ…¡«Œœ”‘…À
+@
+text
+@d3 1
+a3 1
+ * $Header$
+a35 1
+	signal(18,1);
+@
+
+
+0.3
+log
+@˜≈“”…— …⁄ ÌÓÔÛ
+@
+text
+@d3 1
+a3 1
+ * ÌÓÔÛ ÚÏ 1.2 shell
+d8 7
+a14 7
+#include        "defs.h"
+#include        "dup.h"
+#include        "sym.h"
+#include        "timeout.h"
+#include        <sys/types.h>
+#include        <sys/stat.h>
+#include        <sgtty.h>
+d16 6
+a21 9
+UFD             output = 2;
+LOCAL BOOL      beenhere = FALSE;
+BOOL            loginshell = FALSE;
+CHAR            tmpout[20] = "/tmp/sh-";
+FILEBLK         stdfile;
+FILE            standin = &stdfile;
+#ifdef stupid
+#include        <execargs.h>
+#endif
+d23 1
+a23 1
+PROC VOID       exfile();
+d25 3
+d29 2
+a30 2
+	INT             c;
+	STRING          v[];
+d32 1
+a32 2
+	REG INT         rflag=ttyflg;
+	STRING          XLANG;
+a33 7
+#ifdef RL
+	/* Check that it's login shell -- ignore EOF */
+	IF c == 1 && v[0][0] == '-' && v[0][1] == 0 THEN
+		loginshell = TRUE;
+	FI
+#endif
+
+d36 1
+d41 1
+a41 3
+	initmess( !((XLANG = getenv( meslang )) != ((STRING) 0) ANDF
+		    *XLANG != 'r' ) );
+	getuenv();
+a42 3
+	/* print version */
+/*      prs(version);   */
+
+d44 1
+a44 1
+/*      IF c>0 ANDF any('r', *v) THEN rflag=0 FI */
+d50 1
+a50 1
+	THEN    dolc--;
+d71 1
+a71 1
+	THEN    /* ? profile */
+d74 1
+a74 1
+		THEN    exfile(rflag); flags &= ~ttyflg;
+d80 2
+a81 2
+		THEN    estabf(comdiv); input = -1;
+		ELSE    input=((flags&stdflg) ? 0 : chkopen(cmdadr));
+d84 1
+a84 3
+#ifdef stupid
+	ELSE    *execargs=dolv; /* for `ps' cmd */
+#endif
+d91 2
+a92 2
+LOCAL VOID      exfile(prof)
+BOOL            prof;
+d94 3
+a96 3
+	REG L_INT       mailtime = 0;
+	REG INT         userid;
+	struct stat     statb;
+d100 1
+a100 1
+	THEN    Ldup(input,INIO);
+d106 1
+a106 1
+	THEN    Ldup(dup(2),OTIO);
+a109 3
+#ifdef RL
+	userid=getuid()&0377;
+#else
+a110 1
+#endif
+d114 1
+a114 1
+	THEN    dfault(&ps1nod, (userid?stdprompt:supprompt));
+d117 1
+a117 9
+/*
+		{
+	#include <signal.h>
+		signal(SIGTTIN, SIG_IGN);
+		signal(SIGTTOU, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
+		}
+*/
+	ELSE    flags |= prof; flags &= ~prompt;
+d121 1
+a121 1
+	THEN    close(input); return;
+d129 1
+a129 1
+	LOOP    tdystak(0);
+d133 1
+a133 1
+		THEN    IF mailnod.namval
+d137 1
+a137 1
+			THEN    prs(mailmsg)
+d140 1
+a140 1
+			prs(ps1nod.namval);
+d143 5
+a147 2
+		trapnote=0; peekc=cii(readc());
+		IF eof THEN return FI
+d157 1
+a157 1
+	THEN    prs(ps2nod.namval);
+d168 1
+a168 1
+	REG INT         fa, fb;
+a171 1
+#ifndef RL       /* ‰Ã— ÌÓÔÛ ÚÏ 1.2 */
+a172 1
+#endif
+a173 1
+/* È·¸ …Õ. È. ˜. ÎıÚ˛·ÙÔ˜·, ÌÔÛÎ˜·, 1984 (ÎÔÈ-8) */
+@
+
+
+0.2
+log
+@˜≈“”…— …⁄ 2.9
+@
+text
+@d3 1
+a3 1
+ * UNIX shell
+a4 2
+ * S. R. Bourne
+ * Bell Telephone Laboratories
+d8 7
+a14 7
+#include	"defs.h"
+#include	"dup.h"
+#include	"sym.h"
+#include	"timeout.h"
+#include	<sys/types.h>
+#include	<sys/stat.h>
+#include	<sgtty.h>
+d16 9
+a24 6
+UFD		output = 2;
+LOCAL BOOL	beenhere = FALSE;
+CHAR		tmpout[20] = "/tmp/sh-";
+FILEBLK		stdfile;
+FILE		standin = &stdfile;
+#include	<execargs.h>
+d26 1
+a26 1
+PROC VOID	exfile();
+a27 3
+
+
+
+d29 2
+a30 2
+	INT		c;
+	STRING		v[];
+d32 2
+a33 1
+	REG INT		rflag=ttyflg;
+d35 7
+a43 1
+	signal(18,1);
+d48 3
+a50 1
+	getenv();
+d52 3
+d56 1
+a56 1
+/*	IF c>0 ANDF any('r', *v) THEN rflag=0 FI */
+d62 1
+a62 1
+	THEN	dolc--;
+d83 1
+a83 1
+	THEN	/* ? profile */
+d86 1
+a86 1
+		THEN	exfile(rflag); flags &= ~ttyflg;
+d92 2
+a93 2
+		THEN	estabf(comdiv); input = -1;
+		ELSE	input=((flags&stdflg) ? 0 : chkopen(cmdadr));
+d96 3
+a98 1
+	ELSE	*execargs=dolv;	/* for `ps' cmd */
+d105 2
+a106 2
+LOCAL VOID	exfile(prof)
+BOOL		prof;
+d108 3
+a110 3
+	REG L_INT	mailtime = 0;
+	REG INT		userid;
+	struct stat	statb;
+d114 1
+a114 1
+	THEN	Ldup(input,INIO);
+d120 1
+a120 1
+	THEN	Ldup(dup(2),OTIO);
+d124 3
+d128 1
+d132 1
+a132 1
+	THEN	dfault(&ps1nod, (userid?stdprompt:supprompt));
+d135 9
+a143 1
+	ELSE	flags |= prof; flags &= ~prompt;
+d147 1
+a147 1
+	THEN	close(input); return;
+d155 1
+a155 1
+	LOOP	tdystak(0);
+d159 1
+a159 1
+		THEN	IF mailnod.namval
+d163 1
+a163 1
+			THEN	prs(mailmsg)
+d166 1
+a166 1
+			prs(ps1nod.namval); alarm(TIMEOUT); flags |= waiting;
+d169 2
+a170 5
+		trapnote=0; peekc=readc();
+		IF eof
+		THEN	return;
+		FI
+		alarm(0); flags &= ~waiting;
+d180 1
+a180 1
+	THEN	prs(ps2nod.namval);
+d191 1
+a191 1
+	REG INT		fa, fb;
+d195 1
+d197 1
+d199 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d1 1
+a1 2
+static char rcsid[]
+	= "$Header: main.c,v 1.1 86/03/07 18:06:41 fox Rel $ KIAE";
+d3 5
+a7 1
+ * KIAE  shell
+d10 7
+a16 7
+#include        "defs.h"
+#include        "dup.h"
+#include        "sym.h"
+#include        "timeout.h"
+#include        <sys/types.h>
+#include        <sys/stat.h>
+#include        <sgtty.h>
+d18 6
+a23 9
+UFD             output = 2;
+LOCAL BOOL      beenhere = FALSE;
+BOOL            loginshell = FALSE;
+CHAR            tmpout[20] = "/tmp/sh-";
+FILEBLK         stdfile;
+FILE            standin = &stdfile;
+#ifdef stupid
+#include        <execargs.h>
+#endif
+d25 1
+a25 1
+PROC VOID       exfile();
+d27 3
+d31 2
+a32 2
+	INT             c;
+	STRING          v[];
+d34 1
+a34 1
+	REG INT         rflag=ttyflg;
+a35 7
+#ifdef RL
+	/* Check that it's login shell -- ignore EOF */
+	IF c == 1 && v[0][0] == '-' && v[0][1] == 0 THEN
+		loginshell = TRUE;
+	FI
+#endif
+
+d38 1
+a44 3
+	/* print version */
+/*      prs(version);   */
+
+d46 1
+a46 1
+/*      IF c>0 ANDF any('r', *v) THEN rflag=0 FI */
+d52 1
+a52 1
+	THEN    dolc--;
+d73 1
+a73 1
+	THEN    /* ? profile */
+d76 1
+a76 1
+		THEN    exfile(rflag); flags &= ~ttyflg;
+d82 2
+a83 2
+		THEN    estabf(comdiv); input = -1;
+		ELSE    input=((flags&stdflg) ? 0 : chkopen(cmdadr));
+d86 1
+a86 3
+#ifdef stupid
+	ELSE    *execargs=dolv; /* for `ps' cmd */
+#endif
+d93 2
+a94 2
+LOCAL VOID      exfile(prof)
+BOOL            prof;
+d96 3
+a98 3
+	REG L_INT       mailtime = 0;
+	REG INT         userid;
+	struct stat     statb;
+d102 1
+a102 1
+	THEN    Ldup(input,INIO);
+d108 1
+a108 1
+	THEN    Ldup(dup(2),OTIO);
+a111 3
+#ifdef RL
+	userid=getuid()&0377;
+#else
+a112 1
+#endif
+d116 1
+a116 1
+	THEN    dfault(&ps1nod, (userid?stdprompt:supprompt));
+d119 1
+a119 9
+/*
+		{
+	#include <signal.h>
+		signal(SIGTTIN, SIG_IGN);
+		signal(SIGTTOU, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
+		}
+*/
+	ELSE    flags |= prof; flags &= ~prompt;
+d123 1
+a123 1
+	THEN    close(input); return;
+d131 1
+a131 1
+	LOOP    tdystak(0);
+d135 1
+a135 1
+		THEN    IF mailnod.namval
+d139 1
+a139 1
+			THEN    prs(mailmsg)
+d142 1
+a142 1
+			prs(ps1nod.namval);
+d145 5
+a149 2
+		trapnote=0; peekc=cii(readc());
+		IF eof THEN return FI
+d159 1
+a159 1
+	THEN    prs(ps2nod.namval);
+d170 1
+a170 1
+	REG INT         fa, fb;
+a173 1
+#ifndef RL       /* ‰Ã— ÌÓÔÛ ÚÏ 1.2 */
+a174 1
+#endif
+a175 1
+/* È·¸ …Õ. È. ˜. ÎıÚ˛·ÙÔ˜·, ÌÔÛÎ˜·, 1984 (ÎÔÈ-8) */
+@

@@ -1,0 +1,34 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.12.30.17.22.56;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Библиотека lex.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+# include "stdio.h"
+main(){
+yylex();
+exit(0);
+}
+@

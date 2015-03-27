@@ -1,0 +1,276 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.29.34;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@#include "defs"
+
+
+/* End of declaration section of procedure.  Allocate storage. */
+
+enddcl()
+{
+register struct entrypoint *p;
+
+parstate = INEXEC;
+docommon();
+doequiv();
+docomleng();
+for(p = entries ; p ; p = p->nextp)
+	doentry(p);
+}
+
+
+/* ROUTINES DEALING WITH AUTOMATIC AND TEMPORARY STORAGE */
+
+frtemp(p)
+struct addrblock *p;
+{
+holdtemps = mkchain(p, holdtemps);
+}
+
+
+
+
+/* allocate an automatic variable slot */
+
+struct addrblock *autovar(nelt, t, lengp)
+register int nelt, t;
+expptr lengp;
+{
+ftnint leng;
+register struct addrblock *q;
+
+if(t == TYCHAR)
+	if( ISICON(lengp) )
+		leng = lengp->const.ci;
+	else	{
+		fatal("automatic variable of nonconstant length");
+		}
+else
+	leng = typesize[t];
+autoleng = roundup( autoleng, typealign[t]);
+
+q = ALLOC(addrblock);
+q->tag = TADDR;
+q->vtype = t;
+if(t == TYCHAR)
+	q->vleng = ICON(leng);
+q->vstg = STGAUTO;
+q->ntempelt = nelt;
+#if TARGET==PDP11 || TARGET==VAX
+	/* stack grows downward */
+	autoleng += nelt*leng;
+	q->memoffset = ICON( - autoleng );
+#else
+	q->memoffset = ICON( autoleng );
+	autoleng += nelt*leng;
+#endif
+
+return(q);
+}
+
+
+struct addrblock *mktmpn(nelt, type, lengp)
+int nelt;
+register int type;
+expptr lengp;
+{
+ftnint leng;
+chainp p, oldp;
+register struct addrblock *q;
+
+if(type==TYUNKNOWN || type==TYERROR)
+	fatal1("mktmpn: invalid type %d", type);
+
+if(type==TYCHAR)
+	if( ISICON(lengp) )
+		leng = lengp->const.ci;
+	else	{
+		err("adjustable length");
+		return( errnode() );
+		}
+for(oldp = &templist ; p = oldp->nextp ; oldp = p)
+	{
+	q = p->datap;
+	if(q->vtype==type && q->ntempelt==nelt &&
+	    (type!=TYCHAR || q->vleng->const.ci==leng) )
+		{
+		oldp->nextp = p->nextp;
+		free(p);
+		return(q);
+		}
+	}
+q = autovar(nelt, type, lengp);
+q->istemp = YES;
+return(q);
+}
+
+
+
+
+struct addrblock *mktemp(type, lengp)
+int type;
+expptr lengp;
+{
+return( mktmpn(1,type,lengp) );
+}
+
+
+settype(v, type, length)
+register struct nameblock * v;
+register int type;
+register int length;
+{
+if(type == TYUNKNOWN)
+	return;
+
+if(type==TYSUBR && v->vtype!=TYUNKNOWN && v->vstg==STGARG)
+	{
+	v->vtype = TYSUBR;
+	frexpr(v->vleng);
+	}
+else if(type < 0)	/* storage class set */
+	{
+	if(v->vstg == STGUNKNOWN)
+		v->vstg = - type;
+	else if(v->vstg != -type)
+		dclerr("incompatible storage declarations", v);
+	}
+else if(v->vtype == TYUNKNOWN)
+	{
+	if( (v->vtype = lengtype(type, length))==TYCHAR && length!=0)
+		v->vleng = minicon(ICON(length));
+	}
+else if(v->vtype!=type || (type==TYCHAR && v->vleng->const.ci!=length) )
+	dclerr("incompatible type declarations", v);
+}
+
+
+
+
+
+lengtype(type, length)
+register int type;
+register int length;
+{
+switch(type)
+	{
+	case TYREAL:
+		if(length == 8)
+			return(TYDREAL);
+		if(length == 4)
+			goto ret;
+		break;
+
+	case TYCOMPLEX:
+		if(length == 16)
+			return(TYDCOMPLEX);
+		if(length == 8)
+			goto ret;
+		break;
+
+	case TYSHORT:
+	case TYDREAL:
+	case TYDCOMPLEX:
+	case TYCHAR:
+	case TYUNKNOWN:
+	case TYSUBR:
+	case TYERROR:
+		goto ret;
+
+	case TYLOGICAL:
+		if(length == 4)
+			goto ret;
+		break;
+
+	case TYLONG:
+		if(length == 0)
+			return(tyint);
+		if(length == 2)
+			return(TYSHORT);
+		if(length == 4)
+			goto ret;
+		break;
+	default:
+		fatal1("lengtype: invalid type %d", type);
+	}
+
+if(length != 0)
+	err("incompatible type-length combination");
+
+ret:
+	return(type);
+}
+
+
+
+
+
+ftnint iarrlen(q)
+register struct nameblock *q;
+{
+ftnint leng;
+
+leng = typesize[q->vtype];
+if(leng <= 0)
+	return(-1);
+if(q->vdim)
+	if( ISICON(q->vdim->nelt) )
+		leng *= q->vdim->nelt->const.ci;
+	else	return(-1);
+if(q->vleng)
+	if( ISICON(q->vleng) )
+		leng *= q->vleng->const.ci;
+	else 	return(-1);
+return(leng);
+}
+
+
+
+exequals(lp, rp)
+register struct primblock *lp;
+register expptr rp;
+{
+if(lp->tag != TPRIM)
+	{
+	err("assignment to a non-variable");
+	frexpr(lp);
+	frexpr(rp);
+	}
+else if(lp->namep->vclass!=CLVAR && lp->argsp)
+	{
+	if(parstate >= INEXEC)
+		err("statement function amid executables");
+	else
+		mkstfunct(lp, rp);
+	}
+else
+	{
+	if(parstate < INDATA)
+		enddcl();
+	puteq(mklhs(lp), rp);
+	}
+}
+
+
+@

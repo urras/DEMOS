@@ -1,0 +1,332 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    andrew:1.4; strict;
+comment  @ * @;
+
+
+1.4
+date     87.09.17.18.35.00;  author andrew;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.09.16.17.31.45;  author andrew;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.09.15.21.24.35;  author andrew;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.09.15.17.11.13;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+cxref
+@
+
+
+1.4
+log
+@Оказывается, допустимы константы вида ''
+@
+text
+@%{
+/*
+** cscan.l
+**
+** Does the major work of removing identifiers and constants
+** from the input stream, for Cxref. Its output is then extensively
+** postprocessed.
+**
+** Андрей Чернов, МГУ ВМК 5 курс (andrew)
+** Copyright (c) 1987 Андрей Чернов.
+** All rights reserved.
+** This program may not be sold, but may be distributed
+** provided this header is included.
+** $Header: cscan.l,v 1.3 87/09/16 17:31:45 andrew Exp $
+** $Log:	cscan.l,v $
+ * Revision 1.3  87/09/16  17:31:45  andrew
+ * Теперь в конструкции 'оо...' возможно любое число символов.
+ * 
+ * Revision 1.2  87/09/15  21:24:35  andrew
+ * Добавлено распознавание констант вида 'аа' (2 символа для СМ)
+ * А также программе sort не выдается ненужная информация о константах,
+ * если не указано обратное.
+ * 
+ * Revision 1.1  87/09/15  17:11:13  andrew
+ * Initial revision
+ * 
+*/
+
+#ifndef lint
+char r_id[] = "$Header: cscan.l,v 1.3 87/09/16 17:31:45 andrew Exp $";
+#endif
+#include <ediag.h>
+extern int cflag, sflag, iflag, fflag;
+extern int line_no;
+extern char *fname, *basename();
+%}
+
+%Start N C
+
+letter  [A-Za-zА-Яа-я_]
+odigit  [0-7]
+digit   ({odigit}|[89])
+xdigit  ({digit}|[a-fA-F])
+chr     ([^\\']|("\\"(({odigit}{1,3})|("x"({xdigit}{1,3}))|[\\abfrnltv'])))
+
+%%
+		BEGIN N;
+
+<N>^"#"[ \t]*"line"[ \t]+.*     |
+<N>^"#"[ \t]*"undef"[ \t]+      |
+<N>^"#"[ \t]*"error"[ \t]+      |
+<N>^"#"[ \t]*"pragma"[ \t]+     |
+<N>^"#"[ \t]*"elif"[ \t]+       |
+<N>^"#"[ \t]*"else".*           |
+<N>^"#"[ \t]*"endif".*          |
+<N>^"#"[ \t]*"ifndef"[ \t]+     |
+<N>^"#"[ \t]*"ifdef"[ \t]+      |
+<N>^"#"[ \t]*"define"[ \t]+     |
+<N>^"#"[ \t]*"if"[ \t]+         |
+<N>^"#"[ \t]*"include"[ \t]+.*  ;       /* forget about include-file names */
+
+<N>"\n"            line_no++;
+
+<N>"/*"            {       /* get rid of comments */
+			register char c, c1;
+
+		  loop: while((c = input()) != '*' && c != 0)
+				if(c == '\n')
+					line_no++;
+
+			if(c == 0)
+			{
+				fprintf(stderr,
+				ediag (
+				"unexpected EOF in comment at line %d, file %s\n",
+				"неожиданный EOF в комментарии строки %d, файл %s\n"
+				),
+					line_no, basename(fname));
+				exit(1);
+			}
+
+			if((c1 = input()) != '/')
+			{
+				unput(c1);	/* could be '*' before '/' */
+				goto loop;
+			}
+		}
+
+<N>"'"          {
+		yyless (0);
+		BEGIN C;
+		}
+
+<C>"'"{chr}*"'"         {
+			outchar();
+			BEGIN N;
+			}
+
+<C>"'"                       {
+					fprintf(stderr,
+					ediag (
+					"illegal character constant at line %d, file %s\n",
+					"неверная символьная константа в строке %d, файл %s\n"
+					),
+							line_no, basename(fname));
+					exit(1);
+				}
+
+<N>\"                      {       /* collect quoted strings */
+				register char c;
+				register int i;
+
+				for(i = 1, c = input(); ; i++, c = input())
+					switch (c) {
+					case '"':
+						yytext[i] = c;
+						yytext[++i] = '\0';
+						yyleng = i - 1;
+						goto fini;
+					
+					case '\\':
+						yytext[i] = '\\';
+						yytext[++i] = input();
+						if (yytext[i] == '\n')
+						{
+							line_no++;
+							yytext[i] = 'N';
+							/* make visible */
+						}
+						break;
+
+					case 0:
+						fprintf(stderr,
+					ediag (
+					"unexpected EOF inside string at line %d, file %s\n",
+					"неожиданный EOF в строковой константе строки %d, файл %s\n"
+					),
+							line_no, basename(fname));
+						exit(1);
+						break;
+
+					default:
+						yytext[i] = c;
+						break;
+					}
+
+				fini:
+					outstring();
+		}
+
+<N>"-"?{digit}+[lLUu]?                      |
+<N>"-"?0[Xx]{xdigit}+[lLUu]?              outint();
+
+<N>"-"?{digit}*"."{digit}+([Ee][+-]?{digit}+)?    |
+<N>"-"?{digit}+"."{digit}*([Ee][+-]?{digit}+)?    |
+<N>"-"?{digit}+[Ee][+-]?{digit}+                          outfloat();
+
+<N>[a-z]+[^A-ZА-Яа-я0-9_]       {
+			yyless (yyleng - 1);
+			if (!keyword(yytext)) outid();
+			}
+
+<N>{letter}({letter}|{digit})*  outid();  /* what we actually want */
+
+<N>.                       ;       /* delete everything else */
+
+%%
+
+#include "constdefs.h"
+
+extern char *fname;
+extern char *basename();
+
+static outchar()
+{
+	if (cflag) outtext(CHAR);
+}
+
+static outstring()
+{
+	if (sflag) outtext(STRING);
+}
+
+static outint()
+{
+	int i;
+
+	if (!iflag) return;
+
+	i = strlen(yytext);
+
+	/* handle long and unsigned integer constants */
+
+	if (yytext[i-1] == 'l' || yytext[i-1] == 'L' ||
+	    yytext[i-1] == 'u' || yytext[i-1] == 'U')
+		yytext[i-1] = '\0';
+
+	outtext(INT);
+}
+
+static outfloat()
+{
+	if (fflag) outtext(FLOAT);
+}
+
+static outtext(type)
+char type;
+{
+	printf("~%c%s\t%s\t%d\n", type, yytext, basename(fname), line_no);
+}
+@
+
+
+1.3
+log
+@Теперь в конструкции 'оо...' возможно любое число символов.
+@
+text
+@d14 1
+a14 1
+** $Header: cscan.l,v 1.2 87/09/15 21:24:35 andrew Exp $
+d16 3
+d30 1
+a30 1
+char r_id[] = "$Header: cscan.l,v 1.2 87/09/15 21:24:35 andrew Exp $";
+d94 1
+a94 1
+<C>"'"{chr}+"'"         {
+@
+
+
+1.2
+log
+@Добавлено распознавание констант вида 'аа' (2 символа для СМ)
+А также программе sort не выдается ненужная информация о константах,
+если не указано обратное.
+@
+text
+@d14 1
+a14 1
+** $Header: cscan.l,v 1.1 87/09/15 17:11:13 andrew Exp $
+d16 5
+d27 1
+a27 1
+char r_id[] = "$Header: cscan.l,v 1.1 87/09/15 17:11:13 andrew Exp $";
+d91 1
+a91 1
+<C>"'"({chr}{1,2})"'"   {     /* На СМ размер слова 2 байта, на других исправить */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d14 1
+a14 1
+** $Header: cscan.l,v 1.1 87/09/14 20:40:28 andrew Exp $
+d16 3
+d22 1
+a22 1
+char r_id[] = "$Header: cscan.l,v 1.1 87/09/14 20:40:28 andrew Exp $";
+d25 1
+d32 5
+a36 4
+letter          [A-Za-zА-Яа-я_]
+odigit          [0-7]
+digit           [0-9]
+xdigit          [0-9a-fA-F]
+d86 4
+a89 7
+<C>"'"[^\\']"'"                  |
+<C>"'\\"({odigit}{1,3})"'"         |
+<C>"'\\x"({xdigit}{1,3})"'"        |
+<C>"'\\"[\\abfrnltv']"'"         {
+				outchar();
+				BEGIN N;
+			     }
+d168 1
+a168 1
+	outtext(CHAR);
+d173 1
+a173 1
+	outtext(STRING);
+d178 1
+a178 1
+	int i = strlen(yytext);
+d180 4
+d195 1
+a195 1
+	outtext(FLOAT);
+@

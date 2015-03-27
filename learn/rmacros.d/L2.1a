@@ -1,0 +1,25 @@
+#print
+Если у Вас имеется документ, напечатаный по правилам "-ms", то его
+можно воспроизвести на терминале, набрав :
+
+  nroff -ms ФАЙЛ
+
+где ФАЙЛ- имя файла, в котором содержится этот документ. Например,
+файл "decl" в текущем справочнике подготовлен в формате, подходящем
+для получения такого документа. Проделайте это. Затем ответьте "готов".
+#create decl
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+#copyin
+#user
+#uncopyin
+#match nroff -ms decl
+#log
+#next
+3.1a 10

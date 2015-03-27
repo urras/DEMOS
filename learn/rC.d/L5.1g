@@ -1,0 +1,37 @@
+#print
+Напишите программу, копирующую свой ввод на вывод,
+замещая последовательность из одного или более пробелов
+на один.
+#once #create Ref
+   В    этом       файле несколько строк    , включающих
+пробелы, и       при этом           в достаточно смешных       местах.
+#once #create Ref1
+          
+#once #create Answer
+   В этом файле несколько строк , включающих
+пробелы, и при этом в достаточно смешных местах.
+#user
+a.out <Ref >test
+a.out <Ref1 >>test
+#cmp test Answer
+#succeed
+Один способ:
+
+ #include <stdio.h>
+
+main()
+{
+	int c;
+
+	for (c = getchar(); c != EOF; ) {
+		putchar(c);
+		if (c == ' ')
+			while ((c = getchar()) == ' ')
+				;
+		else
+			c = getchar();
+	}
+}
+#log
+#next
+9.1a 10

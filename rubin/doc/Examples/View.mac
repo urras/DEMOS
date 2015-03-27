@@ -1,0 +1,4 @@
+range of e is employee
+range of d is dept
+define view empdpt (ename=e.name,e.salary,dname=d.name)
+where e.manager = d.manager

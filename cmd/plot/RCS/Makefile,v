@@ -1,0 +1,175 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.4
+date     88.12.05.14.51.55;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.14.17.05.50;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.14.16.59.23;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.10.21.16.54;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@Добавлен драйвер для ЭМ-7052.
+@
+text
+@
+
+# Эта штука добавляется в исходный файл перед
+# запуском rcs               Давидов 04.28.88
+#
+# $Header: Makefile,v 1.3 88/09/14 17:05:50 abs Exp $
+# $Log: Makefile,v $
+# Revision 1.3  88/09/14  17:05:50  abs
+# всякие финтифлюхи с именами каталогов.
+#
+# Revision 1.2  88/09/14  16:59:23  abs
+# изменен DESTDIR.
+#
+# Revision 1.1  88/05/10  21:16:54  root
+# Initial revision
+#
+
+
+
+CFLAGS = -n -O -s
+DESTDIR=/usr/lib/plot
+
+all:    s5400 t4014 t300 t300s t450 vplot e85 eplot em7052 plot
+
+install:     i_s5400 i_t4014 i_t300 i_t300s i_t450 i_vplot i_e85 i_eplot i_em7052 i_plot
+
+i_t4014: t4014      ; cp t4014 ${DESTDIR}
+i_t300: t300        ; cp t300 ${DESTDIR}
+i_t300s: t300s      ; cp t300s ${DESTDIR}
+i_t450: t450        ; cp t450 ${DESTDIR}
+i_s5400: s5400      ; cp s5400 ${DESTDIR} ; ln ${DESTDIR}/s5400 ${DESTDIR}/sigma
+i_vplot: vplot      ; cp vplot ${DESTDIR}
+i_e85: e85          ; cp e85 ${DESTDIR} ; ln ${DESTDIR}/e85 ${DESTDIR}/el85ipk
+i_eplot: eplot      ; cp eplot ${DESTDIR}
+i_em7052: em7052    ; cp em7052 ${DESTDIR}
+i_plot: plot        ; cp plot  /usr/ucb/bin/plot
+
+t4014:    driver.o
+	cc -n -s -o t4014  driver.o -lt4014 -lm
+t300:   driver.o
+	cc -n -s -o t300 driver.o -lt300 -lm
+t300s:  driver.o
+	cc -n -s -o t300s driver.o -lt300s -lm
+t450:   driver.o
+	cc -n -s -o t450 driver.o -lt450 -lm
+e85:    driver.o
+	cc -n -s -o e85 driver.o -le85 -lm
+s5400:  driver.o
+	cc -n -s -o s5400 driver.o -ls5400 -lm
+eplot:  driver.o
+	cc -n -s -o eplot driver.o -lepson -lm
+em7052: driver.o
+	cc -n -s -o em7052 driver.o -lem7052 -lm
+
+vplot:  chrtab.o vplot.o
+	cc -n -s -o vplot vplot.o chrtab.o
+
+plot:   plot.c
+	cc -n -s -o plot -O plot.c
+
+clean clear:
+	-rm -f *.[ob]
+	-rm -f  t4014 t300 t300s t450 vplot e85 eplot s5400 em7052 plot
+
+Makefile:       RCS/Makefile,v;  co Makefile
+driver.c:       RCS/driver.c,v;  co driver.c
+vplot.c:        RCS/vplot.c,v;   co vplot.c
+chrtab.c:       RCS/chrtab.c,v;  co chrtab.c
+@
+
+
+1.3
+log
+@всякие финтифлюхи с именами каталогов.
+@
+text
+@d6 1
+a6 1
+# $Header: Makefile,v 1.2 88/09/14 16:59:23 abs Exp $
+d8 3
+d23 1
+a23 1
+all:    s5400 t4014 t300 t300s t450 vplot e85 eplot plot
+d25 1
+a25 1
+install:     i_s5400 i_t4014 i_t300 i_t300s i_t450 i_vplot i_e85 i_eplot i_plot
+d31 1
+a31 1
+i_s5400: s5400      ; cp s5400 ${DESTDIR}
+d33 1
+a33 1
+i_e85: e85          ; cp e85 ${DESTDIR}
+d35 1
+d52 2
+d57 1
+d63 1
+a63 1
+	-rm -f  t4014 t300 t300s t450 vplot e85 eplot s5400
+@
+
+
+1.2
+log
+@изменен DESTDIR.
+@
+text
+@d6 1
+a6 1
+# $Header: Makefile,v 1.1 88/05/10 21:16:54 root Exp $
+d8 3
+d32 1
+a32 1
+i_plot: plot        ; cp plot  ${DESTDIR}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+# $Header$
+# $Log$
+d15 1
+a15 1
+DESTDIR=/usr/plot
+d17 1
+a17 1
+all:    s5400 t4014 t300 t300s t450 vplot e85 eplot
+d19 1
+a19 1
+install:     i_s5400 i_t4014 i_t300 i_t300s i_t450 i_vplot i_e85 i_eplot
+d29 1
+d48 2
+@

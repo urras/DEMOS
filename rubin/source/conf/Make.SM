@@ -1,0 +1,380 @@
+###################################################################
+###################################################################
+###								###
+###								###
+###     ****     *   *    *****    *   *    *   *               ###
+###     *   *    *   *    *        *  **    *   *               ###
+###     *   *    *   *    *****    * ***    *****               ###
+###     ****      ****    *   *    * * *    *   *               ###
+###     *            *    *   *    **  *    *   *               ###
+###     *         ***     *****    *   *    *   *               ###
+###								###
+###           Реляционная база данных РУБИН                     ###
+###								###
+###                                                             ###
+###								###
+###################################################################
+###################################################################
+#
+#
+#
+#  Основной Маке-файл для сборки СУБД Рубин - вариант СМ-1420
+#  Кроме того, здесь содержатся модули, определяющие конфигурацию
+#  самой СУБД. Утилиты, работающие автономно, а также сама команда
+#  "rubin" содержатся в справочнике 'support'
+#
+#
+#       Основные задания, которые выполняет данный Makefile:
+#               allclean        чистка всех обэектных и промежуточных
+#                               файлов
+#               allinstall      установка СУБД в справочники самой системы
+#                               RUBIN
+#                       INSTALL=список действий
+#               sysinstall      установка компонент rubin в системные
+#                               справочники
+#                       SYSBIN= bin справочник для выполняемых команд
+#                       SYSLIB= справочник для библиотек (/usr/lib).
+#       Для всего этого определено:
+#               CPUTYPE=тип процессора. Он устанавливается также в файле
+#                       ../h/local.h
+#
+#       Примеры использования:
+#               Перетрансляция всей системы:
+#			make allclean allinstall
+#               Установка rubin для всех пользователей:
+#			make allinstall sysinstall
+#
+#  Информация о системе:
+
+SHELL=/bin/sh
+# Корневой справочник RUBIN
+RUBIN=	../..
+# размещение файлов вставок
+H=	../h
+# размещение системных библиотек
+LIB=	$(RUBIN)/lib
+# размещение исполняемых компонент (должно соответствовать описанию
+# в таблице процессов)
+BIN=	$(RUBIN)/bin
+# размещение молулей общего пользования
+SYSBIN= /usr/local/bin
+# размещение пользовательской библиотеки
+SYSLIB=	/usr/local/lib
+
+ALL= monitor parser qrymod decomp dbu1 dbu2
+
+SRCS=	monitor.c parser.c qrymod.c decomp.c alldbu.c vaxrubin.c \
+	sysdump.c version.c dbu1.c dbu2.c
+
+#
+#  Библиотеки
+#
+#       Порядок их следования не менять
+#
+CTLMOD=	$(LIB)/ctlmod
+IUTIL=	$(LIB)/iutil
+GUTIL=	$(LIB)/gutil
+MATH=	-lm
+
+ALLLIB= $(CTLMOD) $(IUTIL) $(GUTIL) $(CTLMOD)
+
+#
+# Печать типа ЭВМ
+#
+
+all install insall allinstall: pttype
+
+pttype: typeMASH
+	typeMASH
+typeMASH: typeMASH.c /lib/cpp
+	cc -o typeMASH typeMASH.c
+
+#
+#  Об`ектные файлы
+#
+MONITOR=$(LIB)/monitor
+PARSER=	$(LIB)/parser
+QRYMOD=	$(LIB)/qrymod
+DECOMP=	$(LIB)/decomp
+OVQP=	$(LIB)/ovqp
+DBULIB=	$(LIB)/dbulib
+CPUTYPE=PDP
+#
+#  Всякие команды
+#
+CFLAGS=	-I$H -O
+LDFLAGS= -n
+CHMOD=	chmod
+BINMODE=751
+SUMODE=	4740
+CP=	cp
+REL=
+PR=	print
+HEADER=	Configuration Tables
+MAKE=	make CPUTYPE=$(CPUTYPE)
+MFLAGS=	-k
+INSTALL=install
+
+#
+#       Полная перетрансляция
+#
+
+all: all1 $(ALL)
+
+#
+#  And the processes....
+#
+#	Proper loading order is:
+#		conf table
+#		library(s) for modules
+#		ctlmod library
+#		iutil library
+#		gutil library
+#
+
+#  Sysdump
+
+sysdump: version.o sysdump.o $(CTLMOD) $(ALLLIB)
+	$(CC) $(LDFLAGS) version.o $@.o $(OTHERS) $(ALLLIB) -o $@
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+#  Monitor
+
+monitor: version.o monitor.o $(MONITOR) $(CTLMOD) $(IUTIL) $(GUTIL)
+	$(CC) version.o $@.o $(OTHERS) $(MONITOR) $(CTLMOD) $(IUTIL) $(GUTIL) -o $@
+	c7t10 monitor
+	$(CHMOD) $(BINMODE) $@
+	ls -l $@; size $@
+
+#  Parser
+
+#parser: version.o parser.o $(PARSER) $(ALLLIB)
+#        $(CC) $(LDFLAGS) `cat par.lst` $(MATH) -o $@
+#        $(CHMOD) $(SUMODE) $@
+#        ls -l $@; size $@
+BPARSER=\
+../ctlmod/initp.o\
+../ctlmod/setp.o\
+../gutil/bmove.o\
+../gutil/need.o\
+../gutil/bequal.o\
+../gutil/scompare.o\
+../gutil/sequal.o\
+../gutil/atol.o\
+../gutil/length.o
+
+
+parser: version.o parser.o $(PARSER) $(ALLLIB)
+	$(CC) $(LDFLAGS) $(BPARSER) -Q2 version.o parser.o $(PARSER) $(ALLLIB) $(MATH) -o $@
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+#  Query Modification
+BQRY=\
+../ctlmod/initp.o\
+../ctlmod/setp.o\
+../gutil/scompare.o\
+../gutil/sequal.o\
+../gutil/smove.o\
+../gutil/clrmem.o\
+../gutil/xputchar.o\
+../gutil/ztack.o\
+../gutil/bequal.o\
+../gutil/bitcnt.o\
+../gutil/bitpos.o\
+../gutil/freebuf.o\
+../gutil/length.o\
+../gutil/xalloc.o\
+../gutil/need.o\
+../gutil/pmove.o
+
+
+qrymod: version.o qrymod.o $(QRYMOD) $(ALLLIB) qry.lst
+	$(CC) $(LDFLAGS) $(BQRY) -Q2 version.o qrymod.o $(OTHERS) $(QRYMOD) $(ALLLIB) $(MATH) -o $@
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+#  Decomp/OVQP
+
+#decomp: version.o decomp.o dec.lst $(DECOMP) $(OVQP) $(ALLLIB)
+#        csh  -f -c '$(CC) $(LDFLAGS) `cat dec.lst` $(MATH) -o $@'
+#        $(CHMOD) $(SUMODE) $@
+#        ls -l $@; size $@
+BDECOMP=\
+../gutil/smove.o\
+../gutil/bequal.o\
+../gutil/bitcnt.o\
+../gutil/bitpos.o\
+../gutil/concat.o\
+../gutil/length.o\
+../gutil/xalloc.o\
+../gutil/need.o\
+../gutil/pad.o\
+../gutil/sequal.o
+
+decomp: version.o decomp.o $(DECOMP) $(OVQP) $(ALLLIB)
+	$(CC) $(LDFLAGS) $(BDECOMP) -Q2 version.o decomp.o $(OTHERS) $(DECOMP) $(OVQP)  $(ALLLIB) $(MATH) -o $@'
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+
+#  All DBU routines.
+
+alldbu: version.o alldbu.o $(DBULIB) $(ALLLIB)
+	$(CC) $(LDFLAGS) version.o $@.o $(OTHERS) $(DBULIB) $(ALLLIB) $(MATH) -o $@
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+BDBU2=\
+../gutil/bmove.o\
+../gutil/smove.o\
+../gutil/need.o\
+../gutil/pmove.o\
+../gutil/sequal.o\
+../gutil/atof.o\
+../gutil/bequal.o
+
+
+dbu2: version.o dbu2.o $(DBULIB) $(ALLLIB)
+	$(CC) $(LDFLAGS) $(BDBU2) -Q2 version.o dbu2.o $(OTHERS)  $(DBULIB) $(ALLLIB) $(MATH) -o $@
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+BDBU1=\
+../gutil/bequal.o\
+../gutil/length.o\
+../gutil/need.o\
+../gutil/sequal.o\
+../gutil/smove.o\
+../gutil/bmove.o
+
+dbu1: version.o dbu1.o $(DBULIB) $(ALLLIB) dbu1.lst
+	$(CC) $(LDFLAGS) $(BDBU1) -Q2 version.o dbu1.o $(OTHERS) $(DBULIB) $(ALLLIB) $(MATH) -o $@
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+#  Full BIG System
+
+ALLLIBS=$(PARSER) $(QRYMOD) $(DECOMP) $(OVQP) $(DBULIB) $(ALLLIB)
+
+vaxrubin: version.o vaxrubin.o $(ALLLIBS)
+	$(CC) -s $(LDFLAGS) version.o $@.o $(OTHERS) $(ALLLIBS) $(MATH) -o $@
+	$(CHMOD) $(SUMODE) $@
+	ls -l $@; size $@
+
+#################################################################
+#
+#	Install the world
+#
+
+insall:  installPDP installVAX
+install: $(BIN)/monitor
+
+install: $(BIN)/parser $(BIN)/qrymod $(BIN)/decomp $(BIN)/dbu1 $(BIN)/dbu2
+
+$(BIN)/monitor: monitor
+	$(CP) monitor $(BIN)/monitor
+$(BIN)/parser: parser
+	$(CP) parser $(BIN)/parser; $(CHMOD) $(SUMODE) $(BIN)/parser
+$(BIN)/qrymod: qrymod
+	$(CP) qrymod $(BIN)/qrymod; $(CHMOD) $(SUMODE) $(BIN)/qrymod
+$(BIN)/decomp: decomp
+	$(CP) decomp $(BIN)/decomp; $(CHMOD) $(SUMODE) $(BIN)/decomp
+$(BIN)/alldbu: alldbu
+	$(CP) alldbu $(BIN)/alldbu; $(CHMOD) $(SUMODE) $(BIN)/alldbu
+$(BIN)/vaxrubin: vaxrubin
+	$(CP) vaxrubin $(BIN)/vaxrubin; $(CHMOD) $(SUMODE) $(BIN)/vaxrubin
+$(BIN)/sysdump: sysdump
+	$(CP) sysdump $(BIN)/sysdump; $(CHMOD) $(SUMODE) $(BIN)/sysdump
+
+allinstall: version.o all1 install
+
+all1:
+	cd ../h; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../gutil; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../iutil; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../ctlmod; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../dbu; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../decomp; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../equel; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../libq; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../monitor; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../ovqp; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../parser; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../qrymod; $(MAKE) $(MFLAGS) $(INSTALL)
+	cd ../support; $(MAKE) $(MFLAGS) $(INSTALL)
+
+# install the user programs
+sysinstall:
+	@echo 'you may have to be root for this to work....'
+	cd ../support; $(MAKE) $(MFLAGS) SYSBIN=$(SYSBIN) SYSLIB=$(SYSLIB) sysinstall
+	cd ../equel; $(MAKE) $(MFLAGS) SYSBIN=$(SYSBIN) SYSLIB=$(SYSLIB) sysinstall
+	cd ../libq; $(MAKE) $(MFLAGS) SYSBIN=$(SYSBIN) SYSLIB=$(SYSLIB) sysinstall
+
+#################################################################
+#
+#	Miscellaneous entries
+#
+
+new:
+	rm -f $(ALL)
+
+print: sources
+	$(PR) Makefile *.[csy]
+
+clean: new
+	rm -f *.o
+	rm -f a.out core
+	rm -f typeMASH
+
+allclean: clean
+	cd ../h; $(MAKE) $(MFLAGS) clean
+	cd ../gutil; $(MAKE) $(MFLAGS) clean
+	cd ../iutil; $(MAKE) $(MFLAGS) clean
+	cd ../ctlmod; $(MAKE) $(MFLAGS) clean
+	cd ../dbu; $(MAKE) $(MFLAGS) clean
+	cd ../decomp; $(MAKE) $(MFLAGS) clean
+	cd ../equel; $(MAKE) $(MFLAGS) clean
+	cd ../libq; $(MAKE) $(MFLAGS) clean
+	cd ../monitor; $(MAKE) $(MFLAGS) clean
+	cd ../ovqp; $(MAKE) $(MFLAGS) clean
+	cd ../parser; $(MAKE) $(MFLAGS) clean
+	cd ../qrymod; $(MAKE) $(MFLAGS) clean
+	cd ../support; $(MAKE) $(MFLAGS) clean
+
+sources: $(SRCS)
+
+$(SRCS):
+	$(GET) $(REL) SCCS/s.$@
+
+depend:
+	grep '^#[ 	]*include' $(SRCS) | sed -n -f ../h/depend.sed > makedep
+	echo '/^# DO NOT DELETE THIS LINE/+2,$$d' >eddep
+	echo '$$r makedep' >>eddep
+	echo 'w' >>eddep
+	cp Makefile Makefile.bak
+	ed - Makefile < eddep
+	rm eddep makedep
+	echo '# DEPENDENCIES MUST END AT END OF FILE' >> Makefile
+	echo '# IF YOU PUT STUFF HERE IT WILL GO AWAY' >> Makefile
+	echo '# see make depend above' >> Makefile
+
+# DO NOT DELETE THIS LINE -- make depend uses it
+
+monitor.o:$H/func.h
+parser.o:$H/defines.h
+parser.o:$H/aux.h
+parser.o:$H/access.h
+parser.o:$H/func.h
+qrymod.o:$H/func.h
+decomp.o:$H/func.h
+alldbu.o:$H/func.h
+vaxrubin.o:$H/defines.h
+vaxrubin.o:$H/aux.h
+vaxrubin.o:$H/access.h
+vaxrubin.o:$H/func.h
+sysdump.o:$H/func.h
+# DEPENDENCIES MUST END AT END OF FILE
+# IF YOU PUT STUFF HERE IT WILL GO AWAY
+# see make depend above

@@ -1,0 +1,66 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.24.19.38.00;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.17.12.45.48;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@Изменено расположение некоторых команд (в том числе и mkmf).
+@
+text
+@/*
+**
+** $Header: bin.h,v 1.1 88/05/17 12:45:48 root Exp $
+** $Log:	bin.h,v $
+ * Revision 1.1  88/05/17  12:45:48  root
+ * Initial revision
+ * 
+**
+*/
+
+/*
+ * Command pathnames
+ */
+#define CP              "/bin/cp"
+#define CSH             "/bin/csh"
+#define DIFF            "/bin/diff"
+#define GREP            "/bin/grep"
+#define MKDIR           "/bin/mkdir"
+#define MV              "/bin/mv"
+#define RMDIR           "/bin/rmdir"
+#define SH              "/bin/sh"
+#define EGREP           "/usr/bin/egrep"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 5
+a7 2
+** $Header$
+** $Log$
+a16 1
+#define EGREP           "/bin/egrep"
+d22 1
+@

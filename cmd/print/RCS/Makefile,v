@@ -1,0 +1,496 @@
+head     1.11;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.11
+date     90.09.19.17.29.19;  author root;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     88.02.01.13.11.42;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.01.30.17.34.14;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     87.03.21.18.43.29;  author yst;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     87.03.19.22.46.33;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.09.22.21.05.35;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.09.09.21.31.11;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.06.14.21.39.12;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.05.19.15.45.05;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.05.17.22.33.14;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.05.17.22.19.27;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Общий Makefile для программ печати.
+@
+
+
+1.11
+log
+@???
+@
+text
+@#
+# Общий Makefile для программ спулинга и форматирования печати.
+# Автор: Антонов В.Г.
+#
+# $Log: Makefile,v $
+# Revision 1.10  88/02/01  13:11:42  avg
+# Добавлен Print в clean
+#
+# Revision 1.9  88/01/30  17:34:14  avg
+# Добавлена команда для online печати - Print.
+#
+# Revision 1.8  87/03/21  18:43:29  yst
+# Сделана правка для установки lp_daemon, для
+# работы с файлом бюджетов.
+#
+# Revision 1.7  87/03/19  22:46:33  avg
+# Добавлены библиоткеки libjobs к lp_daemon и lprm.
+#
+# Revision 1.6  86/09/22  21:05:35  avg
+# print и lpr теперь работают под root, а не под daemon.
+#
+# Revision 1.5  86/09/09  21:31:11  avg
+# Добавлен lprm.
+#
+# Revision 1.4  86/06/14  21:39:12  avg
+# Добавлен вход Revision.
+#
+# Revision 1.3  86/05/19  15:45:05  avg
+# Добавлены зависимости от include-файлов у print.
+#
+# Revision 1.2  86/05/17  22:33:14  avg
+# Небольшая правка - вместо gtty.c,v было gtty1.c,v.
+#
+# Revision 1.1  86/05/17  22:19:27  avg
+# Initial revision
+#
+#
+
+CFLAGS=-O
+LDFLAGS=-n -s
+DAEMON=daemon
+SUSER=root
+BIN=/usr/bin
+
+# Если версия исх. текстов без архивов RCS
+# установите R=X
+R=
+COFLAGS=
+CIFLAGS=-u -q
+RCS=RCS
+SRC= lpset.c pr.c lpr.c tospool.c getlp.c lpq.c\
+     getlp.h lpspool.h gtty.c lprm.c
+
+I=/usr/include
+IS=/usr/include/sys
+IU=/usr/ucb/include
+
+all: lpset print pr lpr lpq lp_daemon lprm Print
+###
+
+install: i_lpset i_print i_pr i_lpr i_lpq i_lp_daemon i_lprm i_Print
+#######
+
+source: $(SRC)
+######
+
+
+### LPSET ###
+
+i_lpset: lpset
+	-rm -f ${BIN}/lpset
+	cp lpset ${BIN}/lpset
+	chmod 755 ${BIN}/lpset
+
+lpset:  lpset.c $(I)/stdio.h $(IS)/ioctl.h $(I)/ediag.h
+	$(CC) $(LDFLAGS) $(CFLAGS) lpset.c -o lpset
+
+$(R)lpset.c: $(RCS)/lpset.c,v
+	co $(COFLAGS) lpset.c
+
+
+### LPQ ###
+
+i_lpq:  lpq
+	-rm -f ${BIN}/lpq
+	cp lpq ${BIN}/lpq
+	chown $(DAEMON) ${BIN}/lpq
+	chmod 4755 ${BIN}/lpq
+
+lpq:    lpq.c $(I)/dir.h $(I)/stdio.h $(I)/ediag.h lpspool.h
+	$(CC) $(LDFLAGS) $(CFLAGS) lpq.c -o lpq
+
+$(R)lpq.c: $(RCS)/lpq.c,v
+	co $(COFLAGS) lpq.c
+
+### LPR ###
+
+i_lpr:  lpr
+	-rm -f ${BIN}/lpr
+	cp lpr ${BIN}/lpr
+	chown $(SUSER) ${BIN}/lpr
+	chmod 4755 ${BIN}/lpr
+
+lpr:    lpr.o tospool.c getlp.o $(I)/ediag.h $(I)/stdio.h $(I)/stat.h\
+	getlp.h lpspool.h gtty.o
+	$(CC) $(LDFLAGS) $(CFLAGS) tospool.c lpr.o getlp.o gtty.o -o lpr
+
+lpr.o:  lpr.c $(I)/stdio.h $(I)/ediag.h getlp.h lpspool.h
+
+$(R)lpr.c:  $(RCS)/lpr.c,v
+	co $(COFLAGS) lpr.c
+
+
+### PR ###
+
+i_pr:   pr
+	-rm -f /bin/pr
+	cp pr /bin/pr
+	chmod 755 /bin/pr
+
+pr:     pr.c $(I)/stdio.h $(I)/stat.h $(I)/ediag.h
+	$(CC) $(LDFLAGS) -DPR $(CFLAGS) pr.c -o pr
+
+$(R)pr.c: $(RCS)/pr.c,v
+	co $(COFLAGS) pr.c
+
+
+### PRINT ###
+
+i_print: print
+	-rm -f ${BIN}/print
+	cp print ${BIN}/print
+	chown $(SUSER) ${BIN}/print
+	chmod 4755 ${BIN}/print
+
+print:  pr.c tospool.c $(I)/stdio.h $(I)/ediag.h $(I)/stat.h\
+	getlp.h lpspool.h gtty.o getlp.o $(IS)/ioctl.h $(I)/sgtty.h
+	$(CC) $(LDFLAGS) -DPRINT $(CFLAGS) pr.c tospool.c getlp.o gtty.o -o print
+
+
+### \PRINT ###
+
+i_Print: Print
+	-rm -f ${BIN}/Print
+	cp Print ${BIN}/Print
+	chown $(SUSER) ${BIN}/Print
+	chmod 4755 ${BIN}/Print
+
+Print:  pr.c tospool.c lp_daemon.c $(I)/stdio.h $(I)/ediag.h $(I)/stat.h\
+	getlp.h lpspool.h gtty.o getlp.o $(IS)/ioctl.h $(I)/sgtty.h\
+	$(IS)/ioctl.h $(I)/dir.h $(IU)/bud.h
+	$(CC) $(LDFLAGS) -DPRINT -DONLINE $(CFLAGS) \
+	      pr.c tospool.c lp_daemon.c getlp.o gtty.o -o Print
+
+
+### LP_DAEMON ###
+
+i_lp_daemon: lp_daemon
+	-rm -f /etc/lp_daemon
+	cp lp_daemon /etc/lp_daemon
+	chown $(DAEMON) /etc/lp_daemon
+	chgrp sys /etc/lp_daemon
+	chmod 6755 /etc/lp_daemon
+
+lp_daemon: lp_daemon.c $(I)/stdio.h $(I)/ediag.h $(I)/sgtty.h lpspool.h\
+	   $(I)/dir.h getlp.h $(IS)/ioctl.h $(I)/signal.h  $(I)/utmp.h
+	$(CC) $(CFLAGS) $(LDFLAGS) lp_daemon.c -o lp_daemon -ljobs
+
+$(R)lp_daemon.c: $(RCS)/lp_daemon.c,v
+	co $(COFLAGS) lp_daemon.c
+
+### LPRM ###
+
+i_lprm:  lprm
+	-rm -f ${BIN}/lprm
+	cp lprm ${BIN}/lprm
+	chown $(DAEMON) ${BIN}/lprm
+	chmod 4755 ${BIN}/lprm
+
+lprm:   lprm.c $(I)/ediag.h $(I)/stdio.h $(I)/dir.h $(I)/signal.h lpspool.h
+	$(CC) $(LDFLAGS) $(CFLAGS) lprm.c -o lprm -ljobs
+
+$(R)lprm.c:  $(RCS)/lprm.c,v
+	co $(COFLAGS) lprm.c
+
+### COMMON ROUTINES ###
+
+$(R)lpspool.h: $(RCS)/lpspool.h,v
+	co $(COFLAGS) lpspool.h
+
+$(R)getlp.h: $(RCS)/getlp.h,v
+	co $(COFLAGS) getlp.h
+
+getlp.o: getlp.c $(I)/stdio.h $(IS)/ioctl.h getlp.h
+
+$(R)getlp.c: $(RCS)/getlp.c,v
+	co $(COFLAGS) getlp.c
+
+gtty.o: gtty.c $(I)/whoami.h $(I)/sgtty.h getlp.h
+
+$(R)gtty.c: $(RCS)/gtty.c,v
+	co gtty.c
+
+$(R)tospool.c: $(RCS)/tospool.c,v
+	co $(COFLAGS) tospool.c
+
+
+#### INSTALLING INTO RCS ARCHIVES ####
+
+Revision:
+	ci -q $?
+
+clear clean:
+###########
+	-rm -f lpset print pr lpq lp_daemon lpr lprm Print
+	-rm -f *.[ob]
+
+CLRSRC: clear
+######
+	-rm -f *.[ch]
+@
+
+
+1.10
+log
+@Добавлен Print в clean
+@
+text
+@d6 3
+d56 1
+a57 1
+
+d151 1
+a151 1
+	$(IS)/ioctl.h $(I)/dir.h $(I)/bud.h
+@
+
+
+1.9
+log
+@Добавлена команда для online печати - Print.
+@
+text
+@d6 3
+d212 1
+a212 1
+	-rm -f lpset print pr lpq lp_daemon lpr lprm
+@
+
+
+1.8
+log
+@Сделана правка для установки lp_daemon, для
+работы с файлом бюджетов.
+@
+text
+@d6 4
+d52 1
+a52 1
+all: lpset print pr lpr lpq lp_daemon lprm
+d55 1
+a55 1
+install: i_lpset i_print i_pr i_lpr i_lpq i_lp_daemon i_lprm
+a126 1
+	cp print ${BIN}/print
+d135 15
+d204 2
+a205 8
+Revision: .revision
+
+.revision: $(SRC) Makefile
+	rcs -l $?
+	ci $(CIFLAGS) $?
+	rcs -u $?
+	date >.revision
+
+@
+
+
+1.7
+log
+@Добавлены библиоткеки libjobs к lp_daemon и lprm.
+@
+text
+@d6 3
+d138 2
+a139 1
+	chmod 4755 /etc/lp_daemon
+@
+
+
+1.6
+log
+@print и lpr теперь работают под root, а не под daemon.
+@
+text
+@d6 3
+d30 1
+d45 1
+a45 1
+all: lpset
+d58 3
+a60 3
+	-rm -f /bin/lpset
+	cp lpset /bin/lpset
+	chmod 755 /bin/lpset
+d72 4
+a75 4
+	-rm -f /bin/lpq
+	cp lpq /bin/lpq
+	chown $(DAEMON) /bin/lpq
+	chmod 4755 /bin/lpq
+d86 4
+a89 4
+	-rm -f /bin/lpr
+	cp lpr /bin/lpr
+	chown $(SUSER) /bin/lpr
+	chmod 4755 /bin/lpr
+d118 5
+a122 5
+	-rm -f /bin/print
+	cp print /bin/print
+	cp print /bin/print
+	chown $(SUSER) /bin/print
+	chmod 4755 /bin/print
+d139 1
+a139 1
+	$(CC) $(CFLAGS) $(LDFLAGS) lp_daemon.c -o lp_daemon
+d147 4
+a150 4
+	-rm -f /bin/lprm
+	cp lprm /bin/lprm
+	chown $(DAEMON) /bin/lprm
+	chmod 4755 /bin/lprm
+d153 1
+a153 1
+	$(CC) $(LDFLAGS) $(CFLAGS) lprm.c -o lprm
+@
+
+
+1.5
+log
+@Добавлен lprm.
+@
+text
+@d6 3
+d26 1
+d84 1
+a84 1
+	chown $(DAEMON) /bin/lpr
+d117 1
+a117 1
+	chown $(DAEMON) /bin/print
+a138 2
+
+
+@
+
+
+1.4
+log
+@Добавлен вход Revision.
+@
+text
+@d6 3
+d30 2
+a31 1
+SRC= lpset.c pr.c lpr.c tospool.c getlp.c lpq.c getlp.h lpspool.h gtty.c
+d40 1
+a40 1
+install: i_lpset i_print i_pr i_lpr i_lpq i_lp_daemon
+d137 15
+d181 1
+d187 1
+a187 1
+	-rm -f lpset print pr lpq lp_daemon lpr
+@
+
+
+1.3
+log
+@Добавлены зависимости от include-файлов у print.
+@
+text
+@d6 3
+d25 1
+d27 1
+d39 1
+a39 1
+source: lpset.c pr.c lpr.c tospool.c getlp.c lpq.c getlp.h lpspool.h gtty.c
+d153 10
+@
+
+
+1.2
+log
+@Небольшая правка - вместо gtty.c,v было gtty1.c,v.
+@
+text
+@d6 3
+d105 1
+a105 1
+	chmod 4755 !$
+d108 1
+a108 1
+	getlp.h lpspool.h gtty.o getlp.o
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 3
+a7 1
+# $Log$
+d9 1
+d140 1
+a140 1
+$(R)gtty.c: $(RCS)/gtty1.c,v
+@

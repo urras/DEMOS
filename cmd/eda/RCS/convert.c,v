@@ -1,0 +1,267 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     86.11.12.18.49.03;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.11.18.00.40;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.50.35;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.3
+log
+@Правлена работа с UPPERONLY - терминалами.
+(Не проверено при КОИ-8).
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: convert.c,v 1.2 86/11/11 18:00:40 avg Exp $";
+#endif
+
+/*
+ * $Log:        convert.c,v $
+ * Revision 1.2  86/11/11  18:00:40  avg
+ * Добавлен #ifdef UPPERONLY для упрощения makefile:
+ * теперь convert транслируется всегда.
+ *
+ * Revision 1.1  86/11/11  17:50:35  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 24.07.1986
+ */
+
+#include NAME
+
+#ifdef UPPERONLY
+
+#include "glob.h"
+#ifdef V2
+# include <sys/code.h>
+#endif
+
+char cvbuf[NCOL];
+
+#if !defined(Ucode) && !defined(KOI8)
+# define Ucode
+#endif
+
+/*
+ * Преобразовать из внутреннего кода в U-код
+ */
+conv_to(p, mleng)
+char *p;
+{
+	register char *ps,*rs;
+	char *q,*r;
+
+	q = &p[mleng];
+	ps = p;
+	r = &cvbuf[mleng];
+	rs = cvbuf;
+	while( ps <= q) {
+		if(*ps == '\\' && ps < q) {
+			switch(*(++ps)) {
+			case '(':
+				*rs++ = '{';
+				break;
+			case ')':
+				*rs++ = '}';
+				break;
+			case '!':
+				*rs++ = '|';
+				break;
+			case '^':
+				*rs++ = '~';
+				break;
+			case '\'':
+				*rs++ = '`';
+				break;
+			case '\\':
+				*rs++ = '\\';
+				break;
+			default:
+				*rs++ = *ps;    /* Там большие буквы */
+			}
+		} else if((*ps > 0100 && *ps < 0133) ||
+#ifdef Ucode
+			  (*ps & 0340) == 0300 )
+#else
+			  (*ps & 0340) == 0340 )
+#endif
+			*rs++ = *ps ^ 040;      /* Б->М */
+		else
+			*rs++ = *ps;
+		ps++;
+	}
+	while( rs <= r )
+		*rs++ = ' ';
+	rs = cvbuf;
+	ps = p;
+	while( rs <= r )
+		*ps++ = *rs++;
+}
+
+/*
+ * Преобразовать из U-кода во внутренний код
+ */
+conv_from(p, mleng)
+char *p;
+{
+	register char *ps,*rs;
+	char *r,*pq;
+	char sym;
+	int  ccnt;
+
+	ps = p;
+	ccnt = 0;
+	r = &cvbuf[width1];
+	rs = cvbuf;
+	pq = ps+mleng;
+	while( ps <= pq && rs <= r ) {
+		switch( *ps ) {
+		case '{' :
+			sym = '(';
+			goto esc;
+		case '}' :
+			sym = ')';
+			goto esc;
+		case '|' :
+			sym = '!';
+			goto esc;
+		case '~' :
+			sym = '^';
+			goto esc;
+		case '\\' :
+			sym = '\\';
+			goto esc;
+		case '`' :
+			sym = '\'';
+esc:
+			if( rs < r ) {
+				*rs++ = '\\';
+				*rs++ = sym;
+				ccnt++;
+			}
+			break;
+		default :
+			sym = *ps;
+#ifdef Ucode
+			if( (sym & 0340) == 0300 ||           /* Б. рус. */
+			    (sym > 0100 && sym < 0133) )      /* Б. лат. */
+				goto esc;
+			if( (sym & 0340) == 0340 ||           /* М. рус. */
+			     (sym > 0140 && sym < 0173) )     /* М. лат. */
+				sym ^= 040;
+#else
+			if( (sym & 0340) == 0340 ||           /* Б. рус. */
+			    (sym > 0100 && sym < 0133) )      /* Б. лат. */
+				goto esc;
+			if( (sym & 0340) == 0300 ||           /* М. рус. */
+			     (sym > 0140 && sym < 0173) )     /* М. лат. */
+				sym ^= 040;
+
+#endif Ucode
+			*rs++ = sym;
+		}
+		ps++;
+	}
+	r = &cvbuf[(mleng+ccnt<width)?(mleng+ccnt):width1];
+	ps = p;
+	rs = cvbuf;
+	while( rs <= r )
+		*ps++ = *rs++;
+	return(ccnt);
+}
+
+#endif
+@
+
+
+1.2
+log
+@Добавлен #ifdef UPPERONLY для упрощения makefile: 
+теперь convert транслируется всегда.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: convert.c,v 1.1 86/11/11 17:50:35 avg Exp $";
+d7 4
+d72 3
+a74 1
+				if((*ps > 0100 && *ps < 0133) ||
+d76 1
+a76 1
+				   (*ps & 0340) == 0300)
+d78 1
+a78 1
+				   (*ps & 0340) == 0340)
+d80 2
+a81 5
+					*rs++ = *ps ^ 040;      /* Б->М */
+				else
+					*rs++ = *ps;
+			}
+		} else
+d138 2
+a139 1
+			if( (sym & 0340) == 0300 )            /* Б. рус. */
+d141 3
+a143 6
+			else if( sym > 0100 && sym < 0133 )   /* Б. лат. */
+				goto esc;
+			else if( sym > 0140 && sym < 0173 )   /* М. лат. */
+				sym &= ~040;
+			else if( (sym & 0340) == 0340 )       /* М. рус. */
+				sym &= ~040;
+d145 2
+a146 1
+			if( (sym & 0340) == 0340 )            /* Б. рус. */
+d148 3
+a150 6
+			else if( sym > 0100 && sym < 0133 )   /* Б. лат. */
+				goto esc;
+			else if( sym > 0140 && sym < 0173 )   /* М. лат. */
+				sym &= ~040;
+			else if( (sym & 0340) == 0300 )       /* М. рус. */
+				sym |= 040;
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d19 3
+d165 2
+@

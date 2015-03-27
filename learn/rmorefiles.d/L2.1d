@@ -1,0 +1,10 @@
+#print
+Если Вы наберете "ls >list", появиться ли имя "list" в файле с именем
+ "list"?  Решите и ответьте да или нет.
+#copyin
+#user
+#uncopyin
+#match да
+#log
+#next
+2.1e 10

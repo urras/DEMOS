@@ -1,0 +1,198 @@
+
+RED(5)             ДЕМОС. Форматы данных              RED(5)
+
+
+ИИММЯЯ
+        rreedd - таблица определения команд редактора red.
+
+ООППИИССААННИИЕЕ
+        Ниже приведено описание клавиатуры в редакторе  red.
+        Это  описание  определяет кодировку команд редактора
+        на клавиатуре терминала и является просто фрагментом
+        текста редактора.
+
+ * Кодирование кодов в строке определений:
+ * ^^_C - Управляющий символ _C&037
+ * ==_C - Символ _C
+ * xxxx - функциональная возможность из _t_e_r_m_c_a_p с кодом xxxx
+ * ??xxxx - то же, но если xxxx нет, то и не надо;
+ * :yyyyyyyyyy:zzzzzzzzzz:... - одна из строк _y_y_y_y_y, _z_z_z_z_z_z
+ * (выбирается та, которая определена в _t_e_r_m_c_a_p)
+
+  Таблица кодов клавиш терминала и их комбинаций */
+  Сюда же записываются коды при переопределении  */
+  Состоит из трех частей:
+  1. Движение курсора. Всегда можно ввести с клавиатуры.
+  2. Функциональная клавитура и ее замена;
+  3. Ввод через управляющие символы.
+
+CCCC+RRNN,
+               "^^MM",
+CCCC+LLTT,
+               "::kkll::^^LL",
+CCCC+RRTT,
+               "::kkrr::^^RR",
+CCCC+UUPP,
+               "::kkuu::^^UU",
+CCCC+DDNN,
+               "::kkdd::^^DD",
+CCCC+HHOO,
+               "::kkhh::^^HH",
+CCCC+BBTT,
+               "^^BB",
+CCCC+TTBB,
+               "^^II",
+CCCCBBAACCKKSSPPAACCEE,
+               "^^??",
+CCCCCCTTRRLLQQUUOOTTEE,
+               "^^AA",
+CCCCQQUUIITT,
+               "^^JJ^^??",
+CCCCEENNTTEERR,
+               "^^JJ== ",
+
+
+  Ввод команд через цифровую клавиатуру
+  а заодно и замена если ее нет
+
+CCCCCCHHPPOORRTT,
+               "::ff00::^^JJ==00",
+CCCCDDOOCCMMDD,
+               "::ff22ff00::^^JJ^^JJ==00",
+CCCCEENNTTEERR,
+
+
+                            -1-                     ДEMOC/PV
+
+
+RED(5)             ДЕМОС. Форматы данных              RED(5)
+
+
+               "::ff11::^^JJ==11",
+CCCCEENNTTEERR,
+               "::ff22ff11::^^JJ^^JJ==11",
+CCCCPPLLSSRRCCHH,
+               "::ff33::^^JJ==33",
+CCCCMMIISSRRCCHH,
+               "::ff22ff33::^^JJ^^JJ==33",
+CCCCGGOOTTOO,
+               "::ff44::^^JJ==44",
+CCCCMMAAKKEEPPOORRTT,
+               "::ff22ff44::^^JJ^^JJ==44",
+CCCCIINNSSMMOODDEE,
+               "::ff55::^^JJ==55",
+CCCCTTAABBSS,
+               "::ff22ff55::^^JJ^^JJ==55",
+CCCCDDEELLCCHH,
+               "::ff66::^^JJ==66",
+CCCCDDEELLCCHH,
+               "::ff22ff66::^^JJ^^JJ==66",
+CCCCPPLLPPAAGGEE,
+               "::ff77::^^JJ==77",
+CCCCMMIIPPAAGGEE,
+               "::ff22ff77::^^JJ^^JJ==77",
+CCCCOOPPEENN,
+               "::ff88::^^JJ==88",
+CCCCCCLLOOSSEE,
+               "::ff22ff88::^^JJ^^JJ==88",
+CCCCPPIICCKK,
+               "::ff99::^^JJ==99",
+CCCCPPUUTT,
+               "::ff22ff99::^^JJ^^JJ==99",
+CCCCCCTTRRLLQQUUOOTTEE,
+               "::ff..::^^JJ==..",
+CCCCEENNTTEERR,
+               "::ff22ff..::^^JJ^^JJ==..",
+CCCCSSEETTFFIILLEE,
+               "::ff--::^^JJ==--",
+CCCCSSAAVVEEFFIILLEE,
+               "::ff22ff--::^^JJ^^JJ==--",
+CCCCLLPPOORRTT,
+               "::ff22kkll::^^JJkkll"
+CCCCRRPPOORRTT,
+               "::ff22kkrr::^^JJkkrr",
+
+   Ввод отдельных команд через упр. клавиши
+
+CCCC++BBTT,
+               "::kkBB::..ff..",
+CCCCPPLLPPAAGGEE,
+               "::kkNN::^^ZZ",
+CCCCMMIIPPAAGGEE,
+               "::kkPP::^^XX",
+CCCCOOPPEENN,
+               "::kkAA::kk22",
+CCCCCCLLOOSSEE,
+               "::kkLL::kk33",
+CCCCEENNTTEERR,
+               "::kkEE::kk11",
+
+
+                            -2-                     ДEMOC/PV
+
+
+RED(5)             ДЕМОС. Форматы данных              RED(5)
+
+
+CCCCDDEELLCCHH,
+               "::kkDD::kk55",
+CCCCIINNSSMMOODDEE,
+               "::kkII::kk44",
+CCCCPPLLLLIINNEE,
+               "::kkFF::kk66",
+CCCCMMIILLIINNEE,
+               "::kkRR::kk77",
+
+  Ввод команд через  ^С:
+
+CCCCPPLLLLIINNEE,
+               "^^TT", /* Для совместимости */
+CCCCMMIILLIINNEE,
+               "^^WW", /* Для совместимости */
+CCCCDDEELLCCHH,
+               "^^UU", /* Для совместимости */
+CCCCSSEETTFFIILLEE,
+               "^^DD", /* Для совместимости */
+CCCCPPIICCKK,
+               "^^FF", /* Для совместимости */
+CCCCPPUUTT,
+               "^^GG", /* Для совместимости */
+CCCCDDOOCCMMDD,
+               "^^PP", /* Для совместимости */
+CCCCRREESSCCRREEEENN,
+               "^^LL",
+CCCCPPLLSSRRCCHH,
+               "^^RR",
+CCCCMMIISSRRCCHH,
+               "^^EE",
+CCCCSSAAVVEEFFIILLEE,
+               "^^VV",
+CCCCBBAACCKKSSPPAACCEE,
+               "^^HH",
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            -3-                     ДEMOC/PV
+
+
+

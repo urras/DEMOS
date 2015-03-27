@@ -1,0 +1,1673 @@
+head     22.4;
+access   avg dmitry flerov davidov alex fox korotaev ache dvolodin abs;
+symbols  Архыз0:1.5.1;
+locks    ;
+comment  @ * @;
+
+
+22.4
+date     90.11.12.19.21.57;  author root;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.05.11.16.56.29;  author korotaev;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.27.14.33.20;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.41.30;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.30.17.01.50;  author korotaev;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.02.06.13.50.22;  author abs;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.01.29.20.36.26;  author korotaev;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.01.07.21.40.23;  author korotaev;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.11.17.22.58.29;  author dvolodin;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.09.10.23.35.56;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.06.29.15.47.32;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.06.07.11.50.52;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.06.06.14.40.03;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.03.23.13.40.43;  author korotaev;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.53.09;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы.  Машинно-независимая часть.
+@
+
+
+22.4
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	syslocal.c,v $
+ * Revision 22.3  89/05/11  16:56:29  korotaev
+ * В selwakeup'е неправильно восстанавливался приоритет.
+ * 
+ * Revision 22.2  89/04/27  14:33:20  korotaev
+ * Изменения в связи с передвижением каталогов и файлов
+ * 
+ * Revision 22.1  89/04/12  15:41:30  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/30  17:01:50  korotaev
+ * Begining DEMOS 2.2.
+ * 
+ * Revision 1.10  89/02/06  13:50:22  abs
+ * вынес bcmp из под всяких #ifdef-ов
+ * 
+ * Revision 1.9  89/01/29  20:36:26  korotaev
+ * Исправлние собственных опечаток.
+ *
+ * Revision 1.8  89/01/07  21:40:23  korotaev
+ * Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+ *
+ * (from VAX/UTS SV.2)
+ *
+ * Revision 1.7  88/11/17  22:58:29  dvolodin
+ * *** empty log message ***
+ *
+ * Revision 1.6  88/09/10  23:35:56  ache
+ * Формат select приведен в соответствие с 4.2 BSD
+ *
+ * Revision 1.5  88/06/29  15:47:32  korotaev
+ * Исправлено поле в <sys/inode.h>
+ *
+ * Revision 1.4  88/06/07  11:50:52  korotaev
+ * Исправлены совсем небольшие вещи в IPK_SELECT.
+ *
+ * Revision 1.3  88/06/06  14:40:03  korotaev
+ * Вставлен IPK_SELECT (from TCP/IP).
+ *
+ * Revision 1.2  88/03/23  13:40:43  korotaev
+ * Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+ *
+ * Revision 1.1  86/04/19  15:53:09  avg
+ * Initial revision
+ *
+ */
+
+#include <sys/param.h>
+#include <sys/dir.h>
+#include <sys/proc.h>
+#include <sys/seg.h>
+#include <sys/user.h>
+#include <sys/systm.h>
+#include <sys/inode.h>
+#include <sys/ino.h>
+#include <sys/file.h>
+#include <sys/conf.h>
+#ifdef  UCB_QUOTAS
+#    include "../include/quota.h"
+#    include <sys/qstat.h>
+#    include "../include/buf.h"
+#endif
+#ifdef  UCB_VHANGUP
+#include <sys/tty.h>
+#endif
+#include <sys/autoconfig.h>
+#ifdef  UCB_NET
+#    include <sys/mbuf.h>
+#    include <sys/protosw.h>
+#    include <sys/socket.h>
+#    include <sys/socketvar.h>
+#    include "../include/ubavar.h"
+#    include "../include/map.h"
+#    include "h/../net/if.h"
+#    include "h/../net/in_systm.h"
+#endif
+
+/*
+ * These routines implement local system calls
+ */
+
+/*
+ * nostk -- Set up the process to have no stack segment.
+ *          The process is responsible for the management
+ *          of its own stack, and can thus use the full
+ *          64k byte address space.
+ */
+
+nostk()
+{
+#ifndef VIRUS_VFORK
+	register size;
+
+	size = u.u_procp->p_size - u.u_ssize;
+	if(estabur(u.u_tsize, u.u_dsize, 0, u.u_sep, RO))
+		return;
+	u.u_ssize = 0;
+	expand(size);
+#else
+	if(estabur(u.u_tsize, u.u_dsize, 0, u.u_sep, RO))
+		return;
+	expand(0,S_STACK);
+	u.u_ssize = 0;
+#endif
+}
+
+#if     !defined(NONSEPARATE) && defined(NONFP)
+/*
+ * fetchi -- fetch from user I space
+ *           required because the mfpi instruction
+ *           does not work if current and previous
+ *           are both user.
+ */
+
+fetchi()
+{
+	struct a {
+		caddr_t iaddr;
+	};
+
+	u.u_r.r_val1 = fuiword(((struct a *)u.u_ap)->iaddr);
+}
+#endif
+
+#ifdef UCB_QUOTAS
+/*
+ * quota -- establish or change the quota on a directory
+ */
+quota()
+{
+	register struct inode *ip;
+	register struct a {
+		char    *name;
+		daddr_t current;
+		daddr_t max;
+	} *uap;
+
+	if (!suser())
+		return;
+	ip = namei(uchar, LOOKUP, 1);
+	if (ip == NULL)
+		return;
+	else
+		if ((ip->i_mode & IFMT) != IFQUOT) {
+			u.u_error = EACCES;
+			return;
+		}
+	/*
+	 * Round the current up to be a multiple of the
+	 * counting unit.
+	 */
+	uap = (struct a *) u.u_ap;
+#if     QCOUNT==2
+	ip->i_un.i_qused = ((uap->current + QCOUNT - 1) >> 1) << 1;
+#else
+	ip->i_un.i_qused = (uap->current + QCOUNT - 1) / QCOUNT * QCOUNT;
+#endif
+	ip->i_un.i_qmax = uap->max;
+	ip->i_flag |= IUPD|IACC;
+	iput(ip);
+}
+
+/*
+ * the qfstat system call.
+ */
+qfstat()
+{
+	register struct file  *fp;
+	register struct a {
+		int     fdes;
+		struct  qstat *sb;
+	} *uap = (struct a *) u.u_ap;
+
+	fp = getf(uap->fdes);
+	if(fp == NULL)
+		return;
+	qstat1(fp->f_inode, uap->sb);
+}
+
+/*
+ * the qstat system call.
+ */
+qstat()
+{
+	register struct inode *ip;
+	struct a {
+		char    *fname;
+		struct  qstat *sb;
+	};
+
+	ip = namei(uchar, LOOKUP, 0);
+	if(ip == (struct inode *) NULL)
+		return;
+	qstat1(ip, ((struct a *) u.u_ap)->sb);
+	iput(ip);
+}
+
+/*
+ * The basic routine for qfstat and qstat:
+ * get the inode and pass all of it back.
+ */
+qstat1(ip, ub)
+register struct inode *ip;
+struct inode *ub;
+{
+	register struct dinode *dp;
+	register struct buf *bp;
+	struct qstat qs, *qp;
+
+#ifdef UCB_FSFIX
+	iupdat(ip, &time, &time, 0);
+#else
+	iupdat(ip, &time, &time);
+#endif
+
+	/*
+	 * first copy from inode table
+	 */
+	qp = &qs;
+	*((struct inode *) qp) = *ip;
+
+	/*
+	 * next the dates in the disk
+	 */
+	bp = bread(ip->i_dev, itod(ip->i_number));
+	dp = (struct dinode *) mapin(bp);
+	dp += itoo(ip->i_number);
+	qs.qs_atime = dp->di_atime;
+	qs.qs_mtime = dp->di_mtime;
+	qs.qs_ctime = dp->di_ctime;
+	mapout(bp);
+	brelse(bp);
+	if (copyout((caddr_t) & qs, (caddr_t) ub, sizeof qs) < 0)
+		u.u_error = EFAULT;
+}
+#endif UCB_QUOTA
+
+
+
+
+
+#ifdef  UCB_LOGIN
+/*
+ * login -- mark a process as a login process,
+ *          and record accounting information.
+ */
+login()
+{
+	register i;
+	struct a {
+		int     tslot;
+		char    crn[4];
+	};
+
+	if (suser()) {
+		u.u_login = ((struct a *) u.u_ap)->tslot;
+		for (i = 0; i < sizeof u.u_crn; i++)
+			u.u_crn[i] = ((struct a *) u.u_ap)->crn[i];
+	}
+}
+#endif
+
+#ifdef  UCB_LOAD
+/*
+ * gldav -- get the load averages
+ */
+gldav()
+{
+	extern short avenrun[];
+	struct a {
+		short   *ptr;
+	};
+
+	if (copyout( (caddr_t) avenrun, (caddr_t) (((struct a *) u.u_ap)->ptr),
+	    3 * sizeof(short)) < 0)
+		u.u_error = EFAULT;
+}
+#endif
+
+#ifndef NONFP
+/*
+ * fperr - return floating point error registers
+ */
+fperr()
+{
+	u.u_r.r_val1 = u.u_fperr.f_fec;
+	u.u_r.r_val2 = u.u_fperr.f_fea;
+}
+#endif
+
+#ifdef  UCB_VHANGUP
+/*
+ * Revoke access to the current tty by all processes.
+ * Used only by the super-user in init
+ * to give ``clean'' terminals at login.
+ */
+vhangup()
+{
+	if (suser()) {
+		if (u.u_ttyp == NULL)
+			return;
+		forceclose(u.u_ttyd);
+		if ((u.u_ttyp->t_state) & ISOPEN)
+			gsignal(u.u_ttyp->t_pgrp, SIGHUP);
+	}
+}
+
+forceclose(dev)
+dev_t   dev;
+{
+	register struct file *fp;
+	register struct inode *ip;
+	register int n = 0;
+
+	for (fp = file; fp < fileNFILE; fp++) {
+#ifdef  UCB_NET
+		if (fp->f_flag & FSOCKET)
+			continue;
+#endif
+		if (fp->f_count == 0)
+			continue;
+		ip = fp->f_inode;
+		if ((ip->i_mode & IFMT) != IFCHR)
+			continue;
+		if (ip->i_un.i_rdev != dev)
+			continue;
+		fp->f_flag &= ~(FREAD | FWRITE);
+		n++;
+	}
+	return (n);
+}
+#endif  UCB_VHANGUP
+
+int conf_int = CONF_MAGIC; /* Used to pass result from int service to probe() */
+
+/*
+ * Routine to allow user level code to call various internal
+ * functions; in configuration it calls for the probe and
+ * attach functions of the various drivers.
+ */
+ucall()
+{
+	register struct a {
+		int priority;
+		int (*routine)();
+		int arg0;
+		int arg1;
+	} *uap;
+
+	if (suser()) {
+		uap = (struct a *) u.u_ap;
+		(void) splx(uap->priority);
+		u.u_r.r_val1 = (*uap->routine)(uap->arg0, uap->arg1);
+		(void) _spl0();
+	}
+}
+
+
+int     nselcoll;
+int     selwait;
+
+
+#ifdef  UCB_NET
+
+extern  u_long LocalAddr;       /* Generic local net address    */
+
+int     nlbase;         /* net error log area in clicks */
+int     nlsize = 01000;
+int     nlclick, nlbyte;
+
+int     netoff = 0;
+int     protoslow;
+int     protofast;
+int     ifnetslow;
+
+/*
+ * Initialize network code.  Called from main().
+ */
+netinit()
+{
+	extern struct uba_device ubdinit[];
+	register struct uba_driver *udp;
+	register struct uba_device *ui = &ubdinit;
+
+	if (netoff)
+		return;
+	nlbase = nlclick = malloc(coremap, nlsize);  /* net error log */
+	MAPSAVE();
+	mbinit();
+	for (ui = &ubdinit ; udp = ui->ui_driver ; ui++) {
+		if (badaddr(ui->ui_addr, 2))
+			continue;
+		ui->ui_alive = 1;
+		udp->ud_dinfo[ui->ui_unit] = ui;
+		(*udp->ud_attach)(ui);
+	}
+#ifdef INET
+	loattach();                     /* XXX */
+	ifinit();
+	pfinit();                       /* must follow interfaces */
+#endif
+	MAPREST();
+}
+
+/*
+ * Entered via software interrupt vector at spl1.  Check netisr bit array
+ * for tasks requesting service.
+ */
+netintr()
+{
+	int onetisr;
+	mapinfo map;
+
+	savemap(map);
+	while (spl7(), (onetisr = netisr)) {
+		netisr = 0;
+		splnet();
+		if (onetisr & (1 << NETISR_RAW))
+			rawintr();
+		if (onetisr & (1 << NETISR_IP))
+			ipintr();
+		if (protofast <= 0) {
+			protofast = hz / PR_FASTHZ;
+			pffasttimo();
+		}
+		if (protoslow <= 0) {
+			protoslow = hz / PR_SLOWHZ;
+			pfslowtimo();
+		}
+		if (ifnetslow <= 0) {
+			ifnetslow = hz / IFNET_SLOWHZ;
+			if_slowtimo();
+		}
+	}
+	restormap(map);
+}
+
+int     nprint = 0;            /* enable nprintf */
+
+/*
+ * net printf.  prints to net log area in memory (nlbase, nlsize).
+ */
+nprintf(fmt, x1)
+char *fmt;
+unsigned x1;
+{
+	if (enprint)
+		prf(fmt, &x1, 4);
+}
+#endif  UCB_NET
+
+/*
+ * Select system call.
+ */
+select()
+{
+	register struct uap  {
+		int     nfd;
+		fd_set *rp, *wp, *ep;
+		struct timeval {
+			long    tv_sec;
+			long    tv_usec;
+		} *timo;
+	} *ap = (struct uap *)u.u_ap;
+	fd_set rd, wr;
+	int nfds = 0;
+	register int rem, tsel;
+	long selscan();
+	long readable = 0, writeable = 0;
+	time_t t = time;
+	int ncoll;
+	struct timeval tim;
+
+	if (ap->nfd > NOFILE)
+		ap->nfd = NOFILE;
+	else if (ap->nfd < 0) {
+		u.u_error = EBADF;
+		return;
+	}
+	if (ap->rp && copyin((caddr_t)ap->rp, (caddr_t)&rd, sizeof(fd_set)))
+		return;
+	if (ap->wp && copyin((caddr_t)ap->wp, (caddr_t)&wr, sizeof(fd_set)))
+		return;
+	if (!ap->timo)
+		tim.tv_sec = 077777;
+	else {
+		if (copyin((caddr_t)ap->timo, (caddr_t)&tim, sizeof(struct timeval)))
+			return;
+		if (tim.tv_sec > 077777)
+			tim.tv_sec = 077777;
+		else if (tim.tv_sec < 0)
+			return;
+	}
+retry:
+	ncoll = nselcoll;
+	u.u_procp->p_flag |= SSEL;
+	if (ap->rp)
+		readable = selscan(ap->nfd, rd, &nfds, FREAD);
+	if (ap->wp)
+		writeable = selscan(ap->nfd, wr, &nfds, FWRITE);
+	if (u.u_error || readable || writeable)
+		goto done;
+	if ((rem = tim.tv_sec + t - time) <= 0)
+		goto done;
+	(void) _spl6();
+	if ((u.u_procp->p_flag & SSEL) == 0 || nselcoll != ncoll) {
+		u.u_procp->p_flag &= ~SSEL;
+		(void) _spl0();
+		goto retry;
+	}
+	u.u_procp->p_flag &= ~SSEL;
+	tsel = tsleep((caddr_t)&selwait, PZERO + 1, rem);
+	(void) _spl0();
+	switch (tsel) {
+
+		case TS_OK:
+			goto retry;
+
+		case TS_SIG:
+			u.u_error = EINTR;
+			return;
+
+		case TS_TIME:
+			break;
+	}
+done:
+	rd.fds_bits[0] = readable;
+	wr.fds_bits[0] = writeable;
+	u.u_r.r_val1 = nfds;
+	if (ap->rp)
+		(void) copyout((caddr_t)&rd, (caddr_t)ap->rp, sizeof(fd_set));
+	if (ap->wp)
+		(void) copyout((caddr_t)&wr, (caddr_t)ap->wp, sizeof(fd_set));
+}
+
+long
+selscan(nfd, fds, nfdp, flag)
+	int nfd, flag, *nfdp;
+	fd_set fds;
+{
+	register int able, i;
+	struct file *fp;
+	register struct inode *ip;
+	long bits,res = 0;
+
+	bits = fds.fds_bits[0];
+	while (i = ffs(bits)) {
+		if ( i > nfd )
+			break;
+		bits &= ~(1L << (i - 1));
+		fp = u.u_ofile[i - 1];
+		if (fp == NULL) {
+			u.u_error = EBADF;
+			return (0);
+		}
+#ifdef UCB_NET
+		if (fp->f_flag & FSOCKET)
+			able = soselect(fp->f_socket, flag);
+		else
+#endif UCB_NET
+		{
+			ip = fp->f_inode;
+			switch (ip->i_mode & IFMT) {
+
+			case IFCHR:
+				able = (*cdevsw[major(ip->i_un.i_rdev)].d_select)
+					(ip->i_un.i_rdev, flag);
+				break;
+
+			case IFIFO:
+				plock(ip);
+				able = fifoselect( ip, flag );
+				prele(ip);
+				break;
+
+			case IFBLK:
+			case IFREG:
+			case IFDIR:
+			case IFLNK:
+#ifdef UCB_QUOTAS
+			case IFQUOT:
+#endif
+				able = 1;
+				break;
+			}
+		}
+		if (able) {
+			res |= (1L << (i - 1));
+			(*nfdp)++;
+		}
+	}
+	return (res);
+}
+
+ffs(mask)
+	long mask;
+{
+	register int i;
+	register imask;
+
+	if (mask == 0)
+		return (0);
+
+	imask = loint(mask);
+	for (i = 1; i <= 16; i++) {
+		if (imask & 1)
+			return (i);
+		imask >>= 1;
+	}
+	imask = hiint(mask);
+	for(; i <= 32; i++) {
+		if (imask & 1)
+			return (i);
+		imask >>= 1;
+	}
+	return (0);     /* can't get here anyway! */
+}
+
+fifoselect(ip, flag)
+register struct inode *ip;
+register int  flag;
+{
+	switch( flag ){
+	case FREAD:
+		if( ip->i_size > 0 )
+			return(1);
+		if(ip->i_rsel && ip->i_rsel->p_wchan == (caddr_t)&selwait)
+			ip->i_flag |= ISRCOLL;
+		else
+			ip->i_rsel = u.u_procp;
+		break;
+	case FWRITE:
+		if( ip->i_size < PIPSIZ )
+			return(1);
+		if(ip->i_wsel && ip->i_wsel->p_wchan == (caddr_t)&selwait)
+			ip->i_flag |= ISWCOLL;
+		else
+			ip->i_wsel = u.u_procp;
+		break;
+	}
+	return(0);
+}
+
+/*ARGSUSED*/
+seltrue(dev, flag)
+	dev_t dev;
+	int flag;
+{
+	return (1);
+}
+
+selwakeup(p, coll)
+	register struct proc *p;
+	register int coll;
+{
+	mapinfo  map;
+	register a;
+
+	if (coll) {
+		nselcoll++;
+		wakeup((caddr_t) &selwait);
+	}
+	a = spl6();
+	savemap(map);
+	if (p) {
+		if (p->p_wchan == (caddr_t) &selwait)
+			setrun(p);
+		else
+			if (p->p_flag & SSEL)
+				p->p_flag &= ~SSEL;
+	}
+	restormap(map);
+	splx(a);
+}
+
+
+#ifdef UCB_NET
+
+char    hostname[32] = "hostnameunknown";
+int     hostnamelen = 16;
+
+gethostname()
+{
+	register struct a {
+		char    *hostname;
+		int     len;
+	} *uap = (struct a *) u.u_ap;
+	register int len;
+
+	len = uap->len;
+	if (len > hostnamelen)
+		len = hostnamelen;
+	if (copyout((caddr_t) hostname, (caddr_t) uap->hostname, len))
+		u.u_error = EFAULT;
+}
+
+sethostname()
+{
+	register struct a {
+		char    *hostname;
+		int     len;
+	} *uap = (struct a *) u.u_ap;
+
+	if (suser()) {
+		if (uap->len > sizeof (hostname) - 1) {
+			u.u_error = EINVAL;
+			return;
+		}
+		hostnamelen = uap->len;
+		if (copyin((caddr_t) uap->hostname, hostname, uap->len + 1))
+			u.u_error = EFAULT;
+	}
+}
+
+#endif  UCB_NET
+
+
+/*
+ * Sleep on chan at pri.
+ * Return in no more than the indicated number of seconds.
+ * (If seconds==0, no timeout implied)
+ * Return       TS_OK if chan was awakened normally
+ *              TS_TIME if timeout occurred
+ *              TS_SIG if asynchronous signal occurred
+ *
+ * SHOULD HAVE OPTION TO SLEEP TO ABSOLUTE TIME OR AN
+ * INCREMENT IN MILLISECONDS!
+ */
+tsleep(chan, pri, seconds)
+	caddr_t chan;
+	int pri, seconds;
+{
+	label_t lqsav;
+	register struct proc *pp;
+	register sec, rval;
+
+	pp = u.u_procp;
+	(void) _spl7();
+	sec = 0;
+	rval = 0;
+	if (pp->p_clktim && pp->p_clktim < seconds)
+		seconds = 0;
+	if (seconds) {
+		pp->p_flag |= STIMO;
+		sec = pp->p_clktim - seconds;
+		pp->p_clktim = seconds;
+	}
+	bcopy((caddr_t) u.u_qsav, (caddr_t) lqsav, sizeof (label_t));
+	if (save(u.u_qsav))
+		rval = TS_SIG;
+	else {
+		sleep(chan, pri);
+		if ((pp->p_flag & STIMO) == 0 && seconds)
+			rval = TS_TIME;
+		else
+			rval = TS_OK;
+	}
+	pp->p_flag &= ~STIMO;
+	bcopy((caddr_t) lqsav, (caddr_t) u.u_qsav, sizeof (label_t));
+	if (sec > 0)
+		pp->p_clktim += sec;
+	else
+		pp->p_clktim = 0;
+	(void) _spl0();
+	return (rval);
+}
+
+
+/*
+ * compare bytes; same result as VAX cmpc3.
+ * аналог strncmp( s1, s2, n )
+ */
+bcmp(s1, s2, n)
+register char *s1, *s2;
+register n;
+{
+	do
+		if (*s1++ != *s2++)
+			break;
+	while (--n);
+
+	return(n);
+}
+
+#ifdef UCB_NET
+
+/*
+ * Provide about n microseconds of delay
+ */
+delay(n)
+long n;
+{
+	register hi,low;
+
+	low = (n & 0177777);
+	hi = n >> 16;
+	if (hi == 0)
+		hi = 1;
+	do {
+		do { } while (--low);
+	} while(--hi);
+}
+
+struct  vaxque {                /* queue format expected by VAX queue instr's */
+	struct  vaxque  *vq_next;
+	struct  vaxque  *vq_prev;
+};
+
+/*
+ * Insert an entry onto queue.
+ */
+_insque(e,prev)
+	register struct vaxque *e,*prev;
+{
+	e->vq_prev = prev;
+	e->vq_next = prev->vq_next;
+	prev->vq_next->vq_prev = e;
+	prev->vq_next = e;
+}
+
+/*
+ * Remove an entry from queue.
+ */
+_remque(e)
+	register struct vaxque *e;
+{
+	e->vq_prev->vq_next = e->vq_next;
+	e->vq_next->vq_prev = e->vq_prev;
+}
+
+setreuid()
+{
+	struct a {
+		int	ruid;
+		int	euid;
+	} *uap;
+	register int ruid, euid;
+
+	uap = (struct a *) u.u_ap;
+	ruid = uap->ruid;
+	if (ruid == -1)
+		ruid = u.u_ruid;
+	if (u.u_ruid != ruid && u.u_uid != ruid && !suser())
+		return;
+	euid = uap->euid;
+	if (euid == -1)
+		euid = u.u_uid;
+	if (u.u_ruid != euid && u.u_uid != euid && !suser())
+		return;
+	/*
+	 * Everything's okay, do it.
+	 */
+	u.u_procp->p_uid = ruid;
+	u.u_ruid = ruid;
+	u.u_uid = euid;
+}
+
+setregid()
+{
+	register struct a {
+		int	rgid;
+		int	egid;
+	} *uap;
+	register int rgid, egid;
+
+	uap = (struct a *) u.u_ap;
+	rgid = uap->rgid;
+	if (rgid == -1)
+		rgid = u.u_rgid;
+	if (u.u_rgid != rgid && u.u_gid != rgid && !suser())
+		return;
+	egid = uap->egid;
+	if (egid == -1)
+		egid = u.u_gid;
+	if (u.u_rgid != egid && u.u_gid != egid && !suser())
+		return;
+	if (u.u_rgid != rgid)
+		u.u_rgid = rgid;
+	if (u.u_gid != egid)
+		u.u_gid = egid;
+}
+
+/*
+ *	Get/Set our local internet address.
+ *	Names changed from Vax code because of PDP11 length restrictions
+ */
+gethostid()
+{
+	u.u_r.r_off = (off_t) LocalAddr;
+}
+
+sethostid()
+{
+	struct a {
+		u_long	hostid;
+	} *uap = (struct a *) u.u_ap;
+
+	if (suser())
+		LocalAddr = uap->hostid;
+}
+#endif	UCB_NET
+@
+
+
+22.3
+log
+@В selwakeup'е неправильно восстанавливался приоритет.
+@
+text
+@d3 3
+d60 1
+a60 1
+#    include <sys/quota.h>
+d62 1
+a62 1
+#    include <sys/buf.h>
+d73 2
+a74 2
+#    include <sys/ubavar.h>
+#    include <sys/map.h>
+@
+
+
+22.2
+log
+@Изменения в связи с передвижением каталогов и файлов
+@
+text
+@d3 3
+d654 2
+a655 1
+	mapinfo map;
+d661 1
+a661 1
+	(void) _spl6();
+d671 1
+a671 1
+	(void) _spl0();
+@
+
+
+22.1
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+d69 2
+a70 2
+#    include "../net/if.h"
+#    include "../net/in_systm.h"
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@d3 3
+d40 1
+a40 1
+#include "param.h"
+@
+
+
+1.10
+log
+@вынес bcmp из под всяких #ifdef-ов
+@
+text
+@d2 4
+a5 1
+ * $Log:        syslocal.c,v $
+a226 5
+#ifndef MENLO_JCL
+/*
+ * killpg -- send all processes the specified
+ *           process group the given signal.
+ */
+a227 6
+killpg()
+{
+	struct a {
+		int     pgrp;
+		int     sig;
+	};
+a228 3
+	killgrp(((struct a *) u.u_ap)->pgrp, ((struct a *) u.u_ap)->sig, 0);
+}
+#endif
+a229 5
+#ifdef UCB_SUBM
+/*
+ * killbkg -- signal processes in the specified group that
+ *            have not been blessed by a submit call
+ */
+a230 89
+killbkg()
+{
+	struct a {
+		int     pgrp;
+		int     sig;
+	};
+
+	killgrp(((struct a *) u.u_ap)->pgrp, ((struct a *) u.u_ap)->sig, SSUBM);
+}
+#endif
+
+#if     defined(UCB_SUBM) || !defined(MENLO_JCL)
+/*
+ * common code for killpg and killbkg
+ *
+ * if mask is non-zero, send signal
+ * only to processes whose (p_flag & mask)
+ * is zero.
+ */
+
+killgrp(pgrp, sig, mask)
+register pgrp;
+register sig;
+{
+	register struct proc *p;
+	int count;
+
+	if(!suser())
+		return;
+	count = 0;
+	for(p = &proc[2]; p <= maxproc; p++) {
+		if(p->p_stat == SZOMB || p->p_pgrp != pgrp)
+			continue;
+
+		/*
+		 * include following if suser is immune
+		 *
+		if(p->p_uid == 0)
+			continue;
+		 *
+		 */
+
+		if(mask && (mask & p->p_flag)) {
+			continue;
+		}
+		count++;
+		psignal(p, sig);
+	}
+	if(count == 0)
+		u.u_error = ESRCH;
+}
+#endif
+
+#ifdef  UCB_SUBM
+/*
+ * submit -- mark the specified process to allow execution after logout
+ */
+
+submit()
+{
+	register struct proc *p;
+#ifndef MENLO_JCL
+	register group;
+#endif
+	register pid;
+	struct a {
+		int     pid;
+	};
+
+	pid = ((struct a *) u.u_ap)->pid;
+#ifndef MENLO_JCL
+	group = u.u_procp->p_pgrp;
+#endif
+	for(p = &proc[2]; p <= maxproc; p++)
+		if(p->p_pid == pid) {
+#ifndef MENLO_JCL
+			if(p->p_pgrp != group && !suser())
+				return;
+#else
+			if (p->p_uid != u.u_uid && !suser())
+				return;
+#endif
+			p->p_flag |= SSUBM;
+			return;
+		}
+	u.u_error = ESRCH;
+}
+#endif  UCB_SUBM
+
+a346 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a350 1
+#endif
+a440 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a663 1
+#endif
+a704 1
+#if defined( UCB_NET ) || defined( IPK_SELECT )
+a755 1
+#endif
+@
+
+
+1.9
+log
+@Исправлние собственных опечаток.
+@
+text
+@d2 4
+a5 1
+ * $Log:	syslocal.c,v $
+d8 1
+a8 1
+ * 
+d10 1
+a10 1
+ * 
+d13 1
+a13 1
+ * 
+d776 2
+a777 2
+char	hostname[32] = "hostnameunknown";
+int	hostnamelen = 16;
+d782 2
+a783 2
+		char	*hostname;
+		int	len;
+d797 2
+a798 2
+		char	*hostname;
+		int	len;
+d820 3
+a822 3
+ * Return	TS_OK if chan was awakened normally
+ *		TS_TIME if timeout occurred
+ *		TS_SIG if asynchronous signal occurred
+d868 16
+d903 3
+a905 18
+/*
+ * compare bytes; same result as VAX cmpc3.
+ */
+bcmp(s1, s2, n)
+register char *s1, *s2;
+register n;
+{
+	do
+		if (*s1++ != *s2++)
+			break;
+	while (--n);
+
+	return(n);
+}
+
+struct	vaxque {		/* queue format expected by VAX queue instr's */
+	struct	vaxque	*vq_next;
+	struct	vaxque	*vq_prev;
+@
+
+
+1.8
+log
+@Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+
+(from VAX/UTS SV.2)
+@
+text
+@d3 5
+d219 1
+a219 1
+#endif
+a220 2
+#ifdef  UCB_LOGIN
+=======
+@
+
+
+1.7
+log
+@*** empty log message ***
+@
+text
+@d2 4
+a5 1
+ * $Log:        syslocal.c,v $
+a117 3
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+a118 1
+#endif
+a139 1
+#endif
+a140 1
+#ifdef UCB_QUOTAS
+d150 1
+a150 1
+	} *uap;
+a151 1
+	uap = (struct a *) u.u_ap;
+a168 3
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+a169 1
+#endif
+d216 2
+a350 15
+#ifndef MENLO_JCL
+/*
+ * establish a new process group
+ */
+setpgrp()
+{
+	register struct proc *pp;
+
+	if (suser()) {
+		pp = u.u_procp;
+		pp->p_pgrp = pp->p_pid;
+	}
+}
+#endif
+
+a650 4
+#else
+		if (fp->f_flag & FPIPE)
+			able = 1;
+		else
+d656 4
+a659 4
+				case IFCHR:
+					able = (*cdevsw[major(ip->i_un.i_rdev)].d_select)
+						(ip->i_un.i_rdev, flag);
+					break;
+d661 10
+a670 6
+				case IFBLK:
+				case IFREG:
+				case IFDIR:
+#ifdef UCB_SYMLINKS
+				case IFLNK:
+#endif
+d672 1
+a672 1
+				case IFQUOT:
+d674 2
+a675 2
+					able = 1;
+					break;
+d708 25
+@
+
+
+1.6
+log
+@Формат select приведен в соответствие с 4.2 BSD
+@
+text
+@d2 4
+a5 1
+ * $Log:	syslocal.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d14 1
+a14 1
+ * 
+d17 1
+a17 1
+ * 
+d20 1
+a20 1
+ * 
+d132 1
+a132 1
+#if	QCOUNT==2
+d151 2
+a152 2
+		int	fdes;
+		struct	qstat *sb;
+d169 2
+a170 2
+		char	*fname;
+		struct	qstat *sb;
+d173 1
+a173 1
+#ifndef	UCB_SYMLINKS
+d227 1
+a227 1
+ *	     process group the given signal.
+d233 2
+a234 2
+		int	pgrp;
+		int	sig;
+d244 1
+a244 1
+ *	      have not been blessed by a submit call
+d250 2
+a251 2
+		int	pgrp;
+		int	sig;
+d258 1
+a258 1
+#if	defined(UCB_SUBM) || !defined(MENLO_JCL)
+d300 1
+a300 1
+#ifdef	UCB_SUBM
+d308 1
+a308 1
+#ifndef	MENLO_JCL
+d313 1
+a313 1
+		int	pid;
+d317 1
+a317 1
+#ifndef	MENLO_JCL
+d322 1
+a322 1
+#ifndef	MENLO_JCL
+d334 1
+a334 1
+#endif	UCB_SUBM
+d336 1
+a336 1
+#ifdef	UCB_LOGIN
+d339 1
+a339 1
+ *	    and record accounting information.
+d345 2
+a346 2
+		int	tslot;
+		char	crn[4];
+d372 1
+a372 1
+#ifdef	UCB_LOAD
+d380 1
+a380 1
+		short	*ptr;
+d400 1
+a400 1
+#ifdef	UCB_VHANGUP
+d418 1
+a418 1
+dev_t	dev;
+d441 1
+a441 1
+#endif	UCB_VHANGUP
+d469 1
+a469 1
+int	nselcoll;
+d476 1
+a476 1
+extern	u_long LocalAddr;	/* Generic local net address	*/
+d478 3
+a480 3
+int	nlbase;         /* net error log area in clicks */
+int	nlsize = 01000;
+int	nlclick, nlbyte;
+d482 4
+a485 4
+int	netoff = 0;
+int	protoslow;
+int	protofast;
+int	ifnetslow;
+d509 1
+a509 1
+	loattach();			/* XXX */
+d511 1
+a511 1
+	pfinit();			/* must follow interfaces */
+d549 1
+a549 1
+int	nprint = 0;            /* enable nprintf */
+d561 1
+a561 1
+#endif	UCB_NET
+d570 1
+a570 1
+		int	nfd;
+d657 1
+a657 1
+		
+d743 2
+d750 2
+a751 1
+	if (p)
+d757 2
+@
+
+
+1.5
+log
+@Исправлено поле в <sys/inode.h>
+@
+text
+@d3 3
+d568 5
+a572 2
+		fd_set *rp, *wp;
+		long    timo;
+d581 1
+d593 10
+a602 1
+
+d612 1
+a612 2
+	rem = (ap->timo + 999) / 1000 - (time - t);
+	if (ap->timo == 0 || rem <= 0)
+@
+
+
+1.4
+log
+@Исправлены совсем небольшие вещи в IPK_SELECT.
+@
+text
+@d3 3
+d665 1
+a665 1
+						((int)ip->i_un.i_rdev, flag);
+@
+
+
+1.3
+log
+@Вставлен IPK_SELECT (from TCP/IP).
+@
+text
+@d3 3
+d639 1
+a639 1
+		if (i >= nfd)
+d651 4
+d696 1
+a696 1
+	for (i = 1; i < 16; i++) {
+@
+
+
+1.2
+log
+@Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+@
+text
+@d3 3
+a430 31
+#ifdef	UCB_RENICE
+/*
+ * renice -- change the nice value of a process
+ */
+renice()
+{
+	register struct proc *p;
+	register struct a {
+		int pid;
+		int nice;
+	} *uap;
+
+	uap = (struct a *) u.u_ap;
+
+	for (p = &proc[2]; p <= maxproc; p++)
+		if (p->p_pid == uap->pid) {
+			if (suser()) {
+				u.u_r.r_val1 = p->p_nice;
+				p->p_nice = MAX(uap->nice, -127);
+			}
+			else if (p->p_uid == u.u_uid) {
+				u.u_r.r_val1 = p->p_nice;
+				p->p_nice = MIN(MAX(p->p_nice, uap->nice), 127);
+				u.u_error = 0;
+			}
+			return;
+		}
+	u.u_error = ESRCH;
+}
+#endif	UCB_RENICE
+
+d455 7
+a473 1
+int	nselcoll;
+d549 1
+d551 1
+d559 1
+a559 1
+		fd_set	*rp, *wp;
+d564 1
+d568 1
+a568 1
+	int s, tsel, ncoll, rem;
+d572 1
+a572 1
+	if (ap->nfd < 0) {
+d588 1
+a588 1
+	if (u.u_error)
+a589 2
+	if (readable || writeable)
+		goto done;
+d593 1
+a593 1
+	s = spl6();
+d596 1
+a596 1
+		splx(s);
+d601 1
+a601 1
+	splx(s);
+a616 3
+	s = sizeof (fd_set);
+	if (s * NBBY > ap->nfd)
+		s = (ap->nfd + NBBY - 1) / NBBY;
+d626 1
+a626 1
+	int nfd;
+a627 1
+	int *nfdp, flag;
+d629 1
+d631 1
+a631 1
+	struct inode *ip;
+a632 1
+	int i, able;
+d644 1
+d647 3
+a649 1
+		else {
+d661 6
+d713 1
+a713 1
+	int coll;
+a714 2
+	int s;
+
+d719 1
+a719 1
+	s = spl6();
+d726 1
+a726 1
+	splx(s);
+d729 4
+d769 4
+d790 1
+a790 1
+	register sec, n, rval;
+d793 1
+a793 1
+	n = spl7();
+d819 1
+a819 1
+	splx(n);
+d822 4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d19 3
+a21 3
+#include <sys/quota.h>
+#include <sys/qstat.h>
+#include <sys/buf.h>
+d28 6
+a33 6
+#include <sys/mbuf.h>
+#include <sys/protosw.h>
+#include <sys/socket.h>
+#include <sys/socketvar.h>
+#include <sys/ubavar.h>
+#include <sys/map.h>
+@

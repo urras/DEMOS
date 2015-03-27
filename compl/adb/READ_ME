@@ -1,0 +1,6 @@
+To convert back to a separate I/D version,
+change `SEPID = -n' to `SEPID = -i' in
+`makefile'.
+
+If you have floating-point hardware, change
+`FP=-f' to `FP=' in `makefile'.

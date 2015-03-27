@@ -1,0 +1,1945 @@
+head     4.1;
+access   ;
+symbols  RED_4:3.1.2 RED_3_9:3.16 DEMOS_2:3.4 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+4.1
+date     88.03.31.22.04.06;  author alex;  state Exp;
+branches ;
+next     3.16;
+
+3.16
+date     87.06.12.18.10.36;  author alex;  state Exp;
+branches ;
+next     3.15;
+
+3.15
+date     87.06.06.16.49.20;  author alex;  state Exp;
+branches ;
+next     3.14;
+
+3.14
+date     87.06.05.23.50.59;  author alex;  state Exp;
+branches ;
+next     3.13;
+
+3.13
+date     87.06.04.23.44.05;  author alex;  state Exp;
+branches ;
+next     3.12;
+
+3.12
+date     87.04.21.22.46.13;  author alex;  state Stab;
+branches ;
+next     3.11;
+
+3.11
+date     87.04.02.18.32.07;  author alex;  state Exp;
+branches ;
+next     3.10;
+
+3.10
+date     87.02.17.06.52.18;  author alex;  state Exp;
+branches ;
+next     3.9;
+
+3.9
+date     86.11.25.08.06.07;  author alex;  state Exp;
+branches ;
+next     3.8;
+
+3.8
+date     86.10.29.02.45.11;  author root;  state Exp;
+branches ;
+next     3.7;
+
+3.7
+date     86.10.14.23.02.21;  author alex;  state Exp;
+branches ;
+next     3.6;
+
+3.6
+date     86.09.19.21.38.58;  author alex;  state Exp;
+branches ;
+next     3.5;
+
+3.5
+date     86.09.19.19.54.51;  author alex;  state Exp;
+branches ;
+next     3.4;
+
+3.4
+date     86.08.04.20.52.34;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.07.24.23.37.38;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.04.32;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.04.20.23.42.22;  author alex;  state Exp;
+branches 3.1.1.1 3.1.2.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.05.55;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.06.00.14.36;  author alex;  state Exp;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.16.21.53.45;  author alex;  state Stab;
+branches ;
+next     3.1.1.4;
+
+3.1.1.4
+date     86.06.16.22.19.26;  author alex;  state Exp;
+branches ;
+next     3.1.1.5;
+
+3.1.1.5
+date     86.06.20.23.33.40;  author alex;  state Exp;
+branches ;
+next     3.1.1.6;
+
+3.1.1.6
+date     86.07.15.22.13.04;  author alex;  state Stab;
+branches ;
+next     ;
+
+3.1.2.1
+date     87.06.19.17.01.14;  author alex;  state Exp;
+branches ;
+next     3.1.2.2;
+
+3.1.2.2
+date     87.06.23.18.51.57;  author alex;  state Exp;
+branches ;
+next     3.1.2.3;
+
+3.1.2.3
+date     87.06.23.20.51.36;  author alex;  state Stab;
+branches ;
+next     3.1.2.4;
+
+3.1.2.4
+date     87.06.24.22.34.59;  author alex;  state Stab;
+branches ;
+next     3.1.2.5;
+
+3.1.2.5
+date     87.07.03.22.02.45;  author alex;  state Exp;
+branches ;
+next     3.1.2.6;
+
+3.1.2.6
+date     87.07.09.20.42.35;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+4.1
+log
+@Версия 4.1 - обкатка на UTEC, СМ
+@
+text
+@/*
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+ *
+ *      $Header: r.main.c,v 3.1.2.6 87/07/09 20:42:35 alex Exp $
+ *      $Log:	r.main.c,v $
+ * Revision 3.1.2.6  87/07/09  20:42:35  alex
+ * REVISION
+ * 
+ * Revision 3.1.2.5  87/07/03  22:02:45  alex
+ * Graph_characters used in margin
+ * 
+ * Revision 3.1.2.4  87/06/24  22:34:59  alex
+ * New readch + gettc + tc table Tested
+ * 
+ * Revision 3.1.2.3  87/06/23  20:51:36  alex
+ * Automatic_revisions
+ * 
+ * Revision 3.1.2.2  87/06/23  18:51:57  alex
+ * wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+ * 
+ * Revision 3.1.2.1  87/06/19  17:01:14  alex
+ * Start revision for red/4
+ * 
+ * Revision 3.16  87/06/12  18:10:36  alex
+ * Исправлены ошибки в режиме vilcase и мелочи для vt-200
+ * 
+ * Revision 3.15  87/06/06  16:49:20  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.14  87/06/05  23:50:59  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.13  87/06/04  23:44:05  alex
+ * Scroll on -sr- or -al/dl- added
+ * 
+ * Revision 3.12  87/04/21  22:46:13  alex
+ * Debug
+ * 
+ * Revision 3.11  87/04/02  18:32:07  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.10  87/04/01  19:13:58  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.9  86/11/25  08:06:07  alex
+ * Исправлено ioctl(..,TIOCFLUSH,&flag)
+ * 
+ * Revision 3.8  86/10/29  02:45:11  root
+ * Версия от 27 октября.
+ * 
+ * Revision 3.7  86/10/14  23:02:21  alex
+ * Версия.
+ * 
+ * Revision 3.6  86/09/19  21:38:58  alex
+ * 
+ * 
+ * Revision 3.5  86/09/19  19:54:51  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.4  86/08/04  20:52:34  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.3  86/07/24  23:37:38  alex
+ * Ob}aq wers
+ * Общая версия названа 3.3
+ * 
+ * Revision 3.2  86/07/24  19:04:32  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.6  86/07/15  22:13:04  alex
+ * RED 3.3/EC.
+ * 
+ * Revision 3.1.1.5  86/06/20  23:33:40  alex
+ * Введен для отладки на СМ ключ "C" - не устанавливать режимы терминала.
+ * Версия отлажена и получила номер 3.2 (пока на модели).
+ * 
+ * Revision 3.1.1.4  86/06/16  22:19:26  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.2  86/06/06  00:14:36  alex
+ * Введена установка ключей
+ * 
+ * Revision 3.1.1.1  86/06/05  00:05:55  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/04/20  23:42:22  alex
+ * Базовая версия для ЕС.
+ * Revision 1.5  86/04/13  21:56:42  alex
+ * .
+ * 
+ *
+ *  Главная программа - вход/выход, открытие окон,
+ *  разбор параметров
+ *
+ */
+
+
+/*
+ * Аргументы:
+ *
+ *      red [-КЛЮЧИ] файл [номер строки]
+ *
+ *      либо
+ *      red [-КЛЮЧИ] -
+ *      (повтор сеанса)
+ *      либо
+ *      red [-КЛЮЧИ] -r файл_протокол
+ *      (повтор сеанса из файла протокол)
+ *      либо
+ *      red  [-КЛЮЧИ]
+ *      (редактировать с того же места)
+ *
+ *      Ключи могут задаваться через переменную REDKEYS. Описание ключей
+ *      начинается со знака "-" или "+".
+ */
+#include "r.defs.h"
+#include <signal.h>
+
+#ifndef lint
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.1.2.6 87/07/09 20:42:35 alex Exp $";
+#endif
+
+static char *keys;
+char *ttynm, *ttytmp, *rfile;
+struct savebuf pb,db;
+int sig(),igsig(),testsig();
+long lseek();
+#ifdef SIGNOSPC
+int werrsig();
+int werrflag;
+#endif
+extern char *getvers();
+
+/*
+ * main(nargs,args)
+ * Головная программа
+ */
+main(nargs,args)
+int nargs;
+char **args;
+{
+    int i;
+    char *cp, ichar,*getenv();
+    i=0; /* режим работы 0 - норм, 1 - повторный, 2 - из файла /tmp/tt.. */
+#ifdef ALLDIAG
+    latdiag = ((cp = getenv ("MSG")) && *cp == 'l');
+#endif
+    while ( nargs > 1 && *(cp=args[1]) == '-') {
+        nargs--; 
+        args++;
+        switch ( cp[1]) {
+        case '\0': 
+            i = 2; 
+            break;
+        case 'r':
+	    if ((cp= *++args), nargs-- <= 1 || (inputfile = open( cp,0)) < 0)
+        {
+                    printf1(DIAG("Can't open command file.\n","Не могу открыть файл-протокол"));
+                    exit(1);
+                }
+            break;
+	case '-': case '+':
+	    keys = cp + 1;
+            break;
+        default:
+	    printf1(DIAG("Illegal key:","Неверный ключ: ")); printf1(cp);
+	    printf1("\n");
+            exit(1);
+        } 
+    }
+    if (i == 0 && nargs == 1) {
+        i=1; 
+        ichar='!';
+    }
+        else ichar = ' ';
+    startup(i);
+    if ( inputfile )
+    {
+        if (read(inputfile,&ichar,1) <= 0)
+        {
+            cleanup();
+            printf1(DIAG("Command file is empty.\n","Файл с протоколом пуст\n"));
+            exit(1);
+        }
+    }
+    else
+	PUTP(ichar); /* Для пoвтopa ceaнca */
+    getstate(ichar);
+    if (nargs > 1 && *args[1] != '\0')
+    {
+        i =  defplline+1;
+        if ( (nargs > 2) && (s2i(args[2],&i) || i <= defplline+1))
+            i = defplline+1;
+        poscursor(curwksp->ccol,curwksp->crow);
+        writefile(CCENTER,args[1],CCSETFILE);
+        if (editfile(args[1],i-defplline-1,0,1,1) <= 0 )
+        {
+            putup(0,curport->btext);
+            poscursor (curwksp->ccol,curwksp->crow);
+        }
+        else
+        {
+            if (nargs>2 && i>1) writefile(CCENTER,args[2],CCGOTO);
+        }
+    }
+    else
+    {
+        putup(0,curport->btext);
+        poscursor (curwksp->ccol,curwksp->crow);
+    }
+    telluser(getvers(),0);
+    mainloop();
+    savestate();    /* Записать выходное состояние */
+    cleanup();
+    dumpcbuf(0);
+    exit(0);
+}
+
+/*
+ * startup() - Инициализация режимов и файлов
+ */
+char *ttyname();
+int oldttmode;
+startup(f)
+int f; /* 2 - повторить сеанс из ttyfile ;
+        * 1 - начать заново
+        */
+{
+    register int i;
+    register char *c, *name;
+    char *getnm(), *getenv();
+    NICE; /* Установить приоритет (опред. в ned.?defs) */
+    userid = GETUID;
+    groupid = GETGID;
+    setuid(userid);
+    setgid(groupid);
+    for (i=LINEL; i;) blanks[--i] = ' ';
+    if(!(name = getenv("USER"))) name = getnm(userid);
+    ttynm=ttyname(0); 
+    if( !ttynm) ttynm="nottyno\0\0";
+    c=ttynm; 
+    while( *++c); 
+    *c++='.'; 
+    *c=0;
+    tmpname =append( append( "/tmp/retm" , c-3) ,name);
+    ttytmp  =append( append( "/tmp/rett" , c-3) ,name);
+    rfile   =append( append( "/tmp/resv" , c-3) ,name);
+    *--c=0;
+    if (f) { 
+        ttyfile=open(ttytmp,2);
+        if( ttyfile>=0 && f !=2) close(ttyfile);
+    }
+    if (f != 2) {
+        unlink(ttytmp);
+        ttyfile=creat(ttytmp,FILEMODE); 
+    }
+    else inputfile = ttyfile;
+    if (ttyfile <0) {
+        printf1("can't open ttyfile.\n"); 
+        exit(1); 
+    }
+    if ((i = (unlink(tmpname),creat(tmpname,0600))) < 0)
+    {
+        printf1("Can't open temporary file.\n");
+        exit(1);
+    }
+    /*  Рабочий файл нужен на read/write - приходится переоткрыть */
+    close(i);
+    i = open(tmpname,2);
+    openfnames[i] = tmpname;
+    openwrite[i] = 1;
+    tempfile = i;
+    /* файл '#' -- запоминание убранного и отмеченного  */
+    openfnames[2] = "#";
+    nlines[2] = 0;
+    pickwksp = (struct workspace *)salloc(SWKSP);
+    pickwksp->curfsd = openfsds[2] = (struct fsd *)salloc(SFSD);
+    pickwksp->wfile = 2;
+    pickbuf = &pb;
+    deletebuf = &db;
+    /* Устанавливаем режимы терминала */
+/*  printf("ttstartup enter\r\n");      */
+    ttstartup();
+/*  printf("ttstartup exit\r\n");       */
+    if ( keys || ( keys = getenv("REDKEYS"))) setkeys(keys);
+    /* Устанавливаем описатель всего экрана */
+    setupviewport(&wholescreen,0,LINEL-1,0,NLINES-1,0);
+    /* Устанавливаем описатель окна параметров */
+    setupviewport(&paramport,LMARG-1,LINEL-1-LMARG,NLINES-NPARAMLINES,NLINES-1,0);
+    paramport.rtext -= 3;
+    paramport.redit = PARAMREDIT - 5 - LMARG*2;
+    /* Закрываем терминал на прием сообщений от других */
+    oldttmode = getpriv(0);
+#ifndef DEMOSES
+    chmod(ttynm,0600);
+#endif -DEMOSES
+    /*
+     * Переопределяем сигналы
+     */
+/*    printf("signals start\r\n");      */
+    for (i=SIGTERM; i; i--) signal(i,sig);
+    signal(SIGINT,testsig);
+    signal(SIGQUIT,igsig);
+#ifdef SIGSTOP
+    signal(SIGTSTP,SIG_IGN);
+    signal(SIGCONT,SIG_IGN);
+#endif
+#ifdef SIGNOSPC
+    signal(SIGNFILE,werrsig);
+    signal(SIGNOSPC,werrsig);
+#endif
+/*    printf("signals exit\r\n");       */
+    curport = &wholescreen;
+    putcha(COSTART); 
+    putcha(COHO);
+    dumpcbuf();
+/*    printf ("Start exit\n");  */
+    return;
+}
+
+/*
+ * cleanup() -
+ * Почиститься перед выходом
+ */
+cleanup()
+{
+	/* restore tty mode and exit */
+	ttcleanup();
+	close(tempfile);
+	unlink(tmpname);
+	close(ttyfile);
+#ifndef DEMOSES
+/* Дeлo в тoм, чтo нa EC пpи этoм измeняeтcя и tub#### */
+	chmod(ttynm,07777 & oldttmode);
+#endif -DEMOSES
+}
+
+/*
+ * savestate() - Запись состояния окон для
+ *             - продолжения работы с того же места
+ */
+savestate()
+{
+    int i, nletters;
+    register int portnum;
+    register char *f1;
+    char *fname;
+    register struct viewport *port;
+    int sbuf;
+    curwksp->ccol = cursorcol;
+    curwksp->crow = cursorline;
+    if ((sbuf=(unlink(rfile),creat(rfile,FILEMODE)))<=0) return;
+    put1w(nportlist,sbuf);
+    for (portnum=0; portnum < nportlist; portnum++)
+        if (portlist[portnum] == curport) break;
+    put1w(portnum,sbuf);
+    for (i=0;i<nportlist;i++)
+    {
+        port = portlist[i];
+        put1w(port->prevport,sbuf);
+        put1w(port->lmarg,sbuf);
+        put1w(port->rmarg,sbuf);
+        put1w(port->tmarg,sbuf);
+        put1w(port->bmarg,sbuf);
+        if (f1=fname=openfnames[port->altwksp->wfile])
+        {
+            while (*f1++);
+            nletters = f1 - fname;
+            put1w(nletters,sbuf);
+            f1 = fname;
+            do put1c(*f1,sbuf); 
+            while (*f1++);
+            put1w(port->altwksp->ulhclno,sbuf);
+            put1w(port->altwksp->ulhccno,sbuf);
+            put1w(port->altwksp->ccol,sbuf);
+            put1w(port->altwksp->crow,sbuf);
+        }
+        else put1w(0,sbuf);
+        f1 = fname = openfnames[port->wksp->wfile];
+        while (*f1++);
+        nletters = f1 - fname;
+        put1w(nletters,sbuf);
+        f1 = fname;
+        do put1c(*f1,sbuf); 
+        while (*f1++);
+        put1w(port->wksp->ulhclno,sbuf);
+        put1w(port->wksp->ulhccno,sbuf);
+        put1w(port->wksp->ccol,sbuf);
+        put1w(port->wksp->crow,sbuf);
+    }
+    close(sbuf);
+    return;
+}
+
+/*
+ * getstate(ichar) -- восстанови состояние окон
+ *      '!' - восстановить,
+ *      ' ' - создать заново
+ */
+
+getstate(ichar)
+char ichar;
+{
+    int nletters, lmarg, rmarg, tmarg, bmarg, row, col, portnum, gf;
+    register int i,n;
+    register char *f1;
+    char *fname;
+    int gbuf;
+    struct viewport *port;
+    if (ichar != '!' || (gbuf=open(rfile,0))<=0 || (nportlist = get1w(gbuf)) == -1)
+    {
+        makestate(); 
+        ichar = ' ';
+        return;
+    }
+    portnum   = get1w(gbuf);
+    for (n=0;n<nportlist; n++)
+    {
+        port = portlist[n] = (struct viewport *)salloc(SVIEWPORT);
+        port->prevport = get1w(gbuf);
+        lmarg = get1w(gbuf);
+        rmarg = get1w(gbuf);
+        tmarg = get1w(gbuf);
+        bmarg = get1w(gbuf);
+        setupviewport(port,lmarg,rmarg,tmarg,bmarg,1);
+        drawport(port,0);
+        gf = 0;
+        if (nletters=get1w(gbuf))
+        {
+            f1 = fname = salloc(nletters);
+            do *f1 = get1c(gbuf); 
+            while (*f1++);
+            row = get1w(gbuf);
+            col = get1w(gbuf);
+            if (editfile(fname,row,col,0,0) == 1) gf = 1;
+            curwksp->ccol = get1w(gbuf);
+            curwksp->crow = get1w(gbuf);
+            poscursor(curwksp->ccol,curwksp->crow);
+        }
+        nletters=get1w(gbuf);
+        f1 = fname = salloc(nletters);
+        do *f1 = get1c(gbuf); 
+        while (*f1++);
+        row = get1w(gbuf);
+        col = get1w(gbuf);
+        if (editfile(fname,row,col,0,(n==portnum ? 0:1)) == 1) gf=1;
+        curwksp->ccol = get1w(gbuf);
+        curwksp->crow = get1w(gbuf);
+        if (gf == 0)
+        {
+            if (editfile(deffile,0,0,0,(n==portnum ? 0:1)) <= 0)
+                error("Default file gone: notify sys admin.");
+            curwksp->ccol = curwksp->crow = 0;
+        }
+        poscursor(curwksp->ccol,curwksp->crow);
+    }
+    switchport(portlist[portnum]);
+    poscursor(curwksp->ccol,curwksp->crow);
+    if (nportlist > 1)  for (i=0;i<nportlist;i++) chgport(-1);
+    close(gbuf);
+    return;
+}
+
+/*
+ * makestate() -- создание начального состояния окон
+ */
+makestate()
+{
+	register struct viewport *port;
+	nportlist = 1;
+	port = portlist[0] = (struct viewport *)salloc(SVIEWPORT);
+	setupviewport(portlist[0],0,LINEL-1,0,NLINES-NPARAMLINES-1,1);
+	drawport(port,0);
+	poscursor(0,0);
+}
+
+/*
+ * sig() -
+ * Фатальный сигнал
+ */
+sig()
+{
+fatal("Fatal signal");
+}
+
+#ifdef SIGNOSPC
+/* werrsig() - oбpaбoтaть oш. зaпиcи    */
+werrsig()
+{
+	werrflag = 1;
+	signal(SIGQUIT,werrsig);
+	signal(SIGINT,testsig);
+	signal(SIGNFILE,werrsig);
+	signal(SIGNOSPC,werrsig);
+}
+#endif
+
+/* igsig() - Установить игнорирование */
+igsig()
+{
+	signal(SIGQUIT,igsig);
+	signal(SIGINT,testsig);
+#ifdef SIGNOSPC
+	signal(SIGNFILE,igsig);
+	signal(SIGNOSPC,igsig);
+#endif
+}
+
+/*
+ * testsig() -
+ * проверить, не было ли прерывания
+ */
+testsig()
+{ 
+	signal(2,igsig);
+	if(intrflag) fatal(DIAG("RED WAS INTERUPTED\n","RED прерван\n"));
+	igsig();
+	intrflag=1;
+}
+
+/*
+ * fatal(s) -- Печать аварийного состояния
+ */
+fatal(s)
+char *s;
+{
+    putcha(COFIN); 
+    putcha(COBELL); 
+    putcha(COBELL);
+    dumpcbuf(0);
+    ttcleanup();
+    printf1(DIAG("\nFirst the bad news - the RED just    ","\n Сначала огорчим: Red слетел:"));
+    if (s) {
+        printf1(DIAG("died:\n","сбой:"));
+        printf1(s);
+    }                                                                                         
+    if(userid%51==0) printf1("\n ReD - KiAe MoScOw RuDnEv A.p.\n");
+    else printf1(DIAG("ran out of space.\n","Исчерпал оперативную память"));
+    printf1(DIAG("\n Now the good news - your editing session can be reproduced\n  from file ","\n Сеанс можно воспроизвести из файла:"));
+    printf1(ttytmp);
+    printf1(DIAG("\n use command 'red -' to do it.\n","\nиспользуйте команду 'red -'\n"));
+#ifndef WORK
+    if (inputfile || (!isatty(1)) )
+    {
+        register int i;
+        register struct workspace *w;
+	int j;
+        if (s) printf("%s\n\n",s);
+        for (i = 0; i < MAXFILES; i++) if (openfsds[i])
+        {
+            printf("\n*** OPENFSDS[%d] - file %s\n",i,openfnames[i]);
+            printfsd(openfsds[i]);
+        }
+        for (i = 0; i < nportlist; i++)
+        {
+            w = portlist[i]->wksp;
+            printf("\nViewport #%d: FSD chain %d, current line %d at block %o,\n",
+            i,w->wfile,w->curlno,w->curfsd);
+            printf(" first line %d, ulhc (%d,%d)\n",w->curflno,w->ulhccno,
+            w->ulhclno);
+        }
+	ptfree();
+        for (i=12; i; i--) signal(i,0);
+    }
+#endif
+    close(ttyfile);
+    exit(1);
+}
+
+/*
+ * setkeys(строка)
+ * - установка ключей.
+ */
+short dconflag;
+short cdebflag;
+short zerowsflag = 1;
+int imodesw;
+setkeys(keys)
+register char *keys;
+{ 
+    register int set=1, ko= -1;
+    while ( *keys ) switch ( *keys++ ) {
+case '-': set = 0;
+	  break;
+case '+': set = 1;
+	  break;
+case 'e': latf = set;
+#ifdef RED_CYRILL
+	  Rcyflag = 1-set;
+#endif
+	  ko = CCRESCREEN;
+	  break;
+case 'l': lcasef = set;
+	  ko= CCRESCREEN;
+	  break;
+case 'i': imodesw = set;
+	  break;
+#ifdef DEMOSES
+case 's': speccase = set;
+	  break;
+case 'z': zerowsflag = set;
+	  break;
+case 'S': silentflag = set;
+	  break;
+case 'd': dconflag = set;
+	  break;
+#else
+case 'S': slowsw = set;
+	  break;
+#endif +DEMOSES
+case 's': on_scroll = set;
+	  break;
+case 'a': on_autoi = set;
+	  break;
+case 'f': fix_screen = set;
+	  break;
+case 't': flgtabs = set;
+	  ko= CCRESCREEN;
+	  break;
+case 'C': cdebflag = set;
+	  break;
+case 'w':
+#ifdef DEMOSES
+	  newedit = 1;
+#endif +DEMOSES
+	  if(curwksp && curwksp->wfile )
+	      openwrite[curwksp->wfile]= set;
+	  break;
+default:
+	if(ko ==- 1) ko=0;
+        break;
+    }
+    return(ko);
+}
+
+/*   Руднев А.П. Москва, ИАЭ им. Курчатова, 1984 */
+@
+
+
+3.16
+log
+@Исправлены ошибки в режиме vilcase и мелочи для vt-200
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.15 87/06/06 16:49:20 alex Exp $
+d6 21
+a98 1
+#define VERS DIAG("** Red (kiae v.3.9/u 12.06.87)","** Red (ИAЭ v.3.9/u 12.06.87)")
+d122 1
+a122 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.15 87/06/06 16:49:20 alex Exp $";
+d134 1
+d213 1
+a213 1
+    telluser(VERS,0);
+d215 1
+a215 3
+    putcha(COFIN);  
+    dumpcbuf(0);
+    printf("\n");
+a216 1
+    savestate();    /* Записать выходное состояние */
+d302 1
+a302 1
+/*  printf("signals start\r\n");        */
+d314 1
+a314 1
+/*  printf("signals exit\r\n");         */
+d319 1
+d583 1
+a583 1
+    register int set=1, ko=0;
+d593 1
+a593 1
+	  lread1 = CCRESCREEN;
+d596 1
+a596 1
+	  lread1 = CCRESCREEN;
+d620 1
+a620 1
+	  lread1 = CCRESCREEN;
+d632 1
+a632 1
+        ko = 1; 
+@
+
+
+3.15
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.14 87/06/05 23:50:59 alex Exp $
+d6 4
+d78 1
+a78 1
+#define VERS DIAG("** Red (kiae v.3.9/u 05.06.87)","** Red (ИAЭ v.3.9/u 05.06.87)")
+d102 1
+a102 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.14 87/06/05 23:50:59 alex Exp $";
+@
+
+
+3.14
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.13 87/06/04 23:44:05 alex Exp $
+d6 4
+d98 1
+a98 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.13 87/06/04 23:44:05 alex Exp $";
+d591 2
+@
+
+
+3.13
+log
+@Scroll on -sr- or -al/dl- added
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.12 87/04/21 22:46:13 alex Exp $
+d6 3
+d70 1
+a70 1
+#define VERS DIAG("** Red (kiae v.3.8/u 02.06.87)","** Red (ИAЭ v.3.8/u 02.06.87)")
+d94 1
+a94 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.12 87/04/21 22:46:13 alex Exp $";
+d566 1
+d569 1
+d591 1
+@
+
+
+3.12
+log
+@Debug
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.11 87/04/02 18:32:07 alex Exp $
+d6 3
+d44 1
+a44 1
+ * Введен для отлади на СМ ключ "C" - не устанавливать режимы терминала.
+d67 1
+a67 1
+#define VERS DIAG("** Red (kiae v.3.7/u 21.04.87)","** Red (ИAЭ v.3.7/u 21.04.87)")
+d91 1
+a91 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.11 87/04/02 18:32:07 alex Exp $";
+d578 1
+a578 1
+case 's': slowsw = set;
+d581 4
+@
+
+
+3.11
+log
+@Версия для Utec слита с версией с выделением прописных букв
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.10 87/04/01 19:13:58 alex Exp $
+d6 3
+d64 1
+a64 1
+#define VERS DIAG("** Red (kiae v.3.7/u 29.03.87)","** Red (ИAЭ v.3.7/u 29.03.87)")
+d88 1
+a88 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.10 87/04/01 19:13:58 alex Exp $";
+d252 1
+d254 1
+d270 1
+d282 1
+d286 1
+@
+
+
+3.10
+log
+@проведены правки для выделения заглавных букв по vs
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.9 86/11/25 08:06:07 alex Exp $
+d6 3
+d61 1
+a61 1
+#define VERS DIAG("** Red (kiae v.3.6 17.02.87)","** Red (ИAЭ v.3.6  17.02.87)")
+d85 1
+a85 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.9 86/11/25 08:06:07 alex Exp $";
+a534 1
+short vilcasef;
+d549 3
+a552 3
+case 'v': vilcasef = set;
+	  lcasef  = 1 - set;
+	  break;
+d565 3
+@
+
+
+3.9
+log
+@Исправлено ioctl(..,TIOCFLUSH,&flag)
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.8 86/10/29 02:45:11 root Exp $
+d6 3
+d58 1
+a58 1
+#define VERS DIAG("** Red (kiae v.3.5 24.11.10.86)","** Red (ИAЭ v.3.5  24.11.86)")
+d82 1
+a82 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.8 86/10/29 02:45:11 root Exp $";
+d532 1
+d547 3
+@
+
+
+3.8
+log
+@Версия от 27 октября.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.7 86/10/14 23:02:21 alex Exp $
+d6 3
+d55 1
+a55 1
+#define VERS DIAG("** Red (kiae v.3.4 27.10.86)","** Red (ИAЭ v.3.4  27.10.86)")
+d79 1
+a79 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.7 86/10/14 23:02:21 alex Exp $";
+@
+
+
+3.7
+log
+@Версия.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.6 86/09/19 21:38:58 alex Exp $
+d6 3
+d52 1
+a52 1
+#define VERS DIAG("** Red (kiae v.3.4 14.10.86)","** Red (ИAЭ v.3.4  14.10.86)")
+d76 1
+a76 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.6 86/09/19 21:38:58 alex Exp $";
+@
+
+
+3.6
+log
+@
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.5 86/09/19 19:54:51 alex Exp $
+d6 3
+d49 1
+a49 1
+#define VERS DIAG("** Red (kiae v.3.3 24.7.86)","** Red (ИAЭ v.3.3  24.07.86)")
+d73 1
+a73 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.5 86/09/19 19:54:51 alex Exp $";
+@
+
+
+3.5
+log
+@Версия для СМ-1700
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.4 86/08/04 20:52:34 alex Exp $
+d6 3
+d70 1
+a70 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.4 86/08/04 20:52:34 alex Exp $";
+d253 4
+@
+
+
+3.4
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.3 86/07/24 23:37:38 alex Exp $
+d6 3
+d67 1
+a67 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.3 86/07/24 23:37:38 alex Exp $";
+d89 1
+a89 1
+    char *cp, ichar;
+d92 1
+a92 1
+    latdiag = ((cp = getenv ("MSG")) && *cp == 'l';
+@
+
+
+3.3
+log
+@Ob}aq wers
+Общая версия названа 3.3
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.2 86/07/24 19:04:32 alex Exp $
+d6 4
+d64 1
+a64 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.2 86/07/24 19:04:32 alex Exp $";
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.1.6 86/07/15 22:13:04 alex Exp $
+d6 3
+d36 1
+a36 1
+#define VERS DIAG("** Red (kiae v.3.3/ES 30.6.86)","** Red (ИAЭ v.3.3/EC  30.06.86)")
+d60 1
+a60 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.1.1.6 86/07/15 22:13:04 alex Exp $";
+@
+
+
+3.1
+log
+@Базовая версия для ЕС.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1 86/04/20 23:42:22 alex Exp $
+d6 16
+d23 1
+a23 2
+ * *** empty log message ***
+ * 
+d33 1
+a33 1
+#define VERS DIAG("** Red (kiae v.3/EXPR 04.86)","** Red (ИАЭ v.3/EXPR  04.86)")
+d38 1
+a38 1
+ *      red файл [номер строки]
+d41 1
+a41 1
+ *      red -
+d44 4
+a47 1
+ *      red
+d50 2
+a51 1
+ *
+d55 1
+d57 1
+a57 1
+static char *sccsid="@@(#) red - MNOS 1.2 && DEMOS 1.2 $Header: r.main.c,v 3.1 86/04/20 23:42:22 alex Exp $";
+d60 1
+d65 4
+d76 1
+a76 1
+char *args[];
+a79 10
+    if(atcread)
+    { 
+        i=(*atcread)();
+        if(i) {
+            printf1((i==1?
+            DIAG("unknown term capabilities\n please, type \n  TERM=<type>;export TERM \n and repeat red\n","Не задано описание возможностей терминала, \n наберите TERM=тип;export TERM и повторите вызов"):
+            DIAG("re can not work with this terminal\n","red не может работать с этим терминалом")));
+            exit(1);
+        }
+    }
+d81 12
+a92 6
+    if (nargs == 1) {
+        i=1; 
+        ichar='!';
+    }
+    else
+        if(*(cp = args[1]) == '-')
+a93 5
+            if(*++cp)
+                /* Указан файл протокола */
+            {   
+                if ((inputfile = open( cp,0)) < 0)
+                {
+d97 8
+a104 3
+            } 
+            else i=2;
+            nargs=1;
+d106 5
+d123 1
+a123 1
+        write(ttyfile,&ichar,1); /* Для повтора сеанса */
+d150 1
+a150 1
+    dumpcbuf(); 
+d154 1
+a154 1
+    dumpcbuf();
+d222 1
+d226 3
+a228 3
+    setupviewport(&paramport,0,LINEL-1,NLINES-NPARAMLINES,NLINES-1,0);
+    paramport.rtext--;
+    paramport.redit = PARAMREDIT;
+d231 1
+d233 1
+d240 4
+a250 14
+ * writefile -
+ * Записать команду с аргументами в файл протокола
+ */
+
+writefile(code1,str,code2)
+int code1, code2;
+char *str;
+{
+	write(ttyfile,&code1,1);
+	for(;*str;str++) write(ttyfile,str,1);
+	write(ttyfile,&code2,1);
+}
+
+/*
+d261 2
+d264 1
+d415 12
+d430 6
+a435 2
+signal(3,igsig);
+signal(2,testsig);
+d459 1
+a459 1
+    dumpcbuf();
+d498 52
+@
+
+
+3.1.2.1
+log
+@Start revision for red/4
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.16 87/06/12 18:10:36 alex Exp $
+d6 2
+a7 2
+ * Revision 3.16  87/06/12  18:10:36  alex
+ * Исправлены ошибки в режиме vilcase и мелочи для vt-200
+a8 63
+ * Revision 3.15  87/06/06  16:49:20  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.14  87/06/05  23:50:59  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.13  87/06/04  23:44:05  alex
+ * Scroll on -sr- or -al/dl- added
+ * 
+ * Revision 3.12  87/04/21  22:46:13  alex
+ * Debug
+ * 
+ * Revision 3.11  87/04/02  18:32:07  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.10  87/04/01  19:13:58  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.9  86/11/25  08:06:07  alex
+ * Исправлено ioctl(..,TIOCFLUSH,&flag)
+ * 
+ * Revision 3.8  86/10/29  02:45:11  root
+ * Версия от 27 октября.
+ * 
+ * Revision 3.7  86/10/14  23:02:21  alex
+ * Версия.
+ * 
+ * Revision 3.6  86/09/19  21:38:58  alex
+ * 
+ * 
+ * Revision 3.5  86/09/19  19:54:51  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.4  86/08/04  20:52:34  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.3  86/07/24  23:37:38  alex
+ * Ob}aq wers
+ * Общая версия названа 3.3
+ * 
+ * Revision 3.2  86/07/24  19:04:32  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.6  86/07/15  22:13:04  alex
+ * RED 3.3/EC.
+ * 
+ * Revision 3.1.1.5  86/06/20  23:33:40  alex
+ * Введен для отладки на СМ ключ "C" - не устанавливать режимы терминала.
+ * Версия отлажена и получила номер 3.2 (пока на модели).
+ * 
+ * Revision 3.1.1.4  86/06/16  22:19:26  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.2  86/06/06  00:14:36  alex
+ * Введена установка ключей
+ * 
+ * Revision 3.1.1.1  86/06/05  00:05:55  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/04/20  23:42:22  alex
+ * Базовая версия для ЕС.
+d18 1
+a18 1
+#define VERS DIAG("** Red (kiae v.3.9/u 12.06.87)","** Red (ИAЭ v.3.9/u 12.06.87)")
+d23 1
+a23 1
+ *      red [-КЛЮЧИ] файл [номер строки]
+d26 1
+a26 1
+ *      red [-КЛЮЧИ] -
+d29 1
+a29 4
+ *      red [-КЛЮЧИ] -r файл_протокол
+ *      (повтор сеанса из файла протокол)
+ *      либо
+ *      red  [-КЛЮЧИ]
+d32 1
+a32 2
+ *      Ключи могут задаваться через переменную REDKEYS. Описание ключей
+ *      начинается со знака "-" или "+".
+a35 1
+
+d37 1
+a37 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.16 87/06/12 18:10:36 alex Exp $";
+a39 1
+static char *keys;
+a43 4
+#ifdef SIGNOSPC
+int werrsig();
+int werrflag;
+#endif
+d51 1
+a51 1
+char **args;
+d54 11
+a64 1
+    char *cp, ichar,*getenv();
+d66 6
+a71 12
+#ifdef ALLDIAG
+    latdiag = ((cp = getenv ("MSG")) && *cp == 'l');
+#endif
+    while ( nargs > 1 && *(cp=args[1]) == '-') {
+        nargs--; 
+        args++;
+        switch ( cp[1]) {
+        case '\0': 
+            i = 2; 
+            break;
+        case 'r':
+	    if ((cp= *++args), nargs-- <= 1 || (inputfile = open( cp,0)) < 0)
+d73 5
+d81 3
+a83 8
+            break;
+	case '-': case '+':
+	    keys = cp + 1;
+            break;
+        default:
+	    printf1(DIAG("Illegal key:","Неверный ключ: ")); printf1(cp);
+	    printf1("\n");
+            exit(1);
+a84 5
+    }
+    if (i == 0 && nargs == 1) {
+        i=1; 
+        ichar='!';
+    }
+d97 1
+a97 1
+	PUTP(ichar); /* Для пoвтopa ceaнca */
+d124 1
+a124 1
+    dumpcbuf(0);
+d128 1
+a128 1
+    dumpcbuf(0);
+a194 1
+/*  printf("ttstartup enter\r\n");      */
+a195 2
+/*  printf("ttstartup exit\r\n");       */
+    if ( keys || ( keys = getenv("REDKEYS"))) setkeys(keys);
+d199 3
+a201 3
+    setupviewport(&paramport,LMARG-1,LINEL-1-LMARG,NLINES-NPARAMLINES,NLINES-1,0);
+    paramport.rtext -= 3;
+    paramport.redit = PARAMREDIT - 5 - LMARG*2;
+a203 1
+#ifndef DEMOSES
+a204 1
+#endif -DEMOSES
+a207 1
+/*  printf("signals start\r\n");        */
+a210 9
+#ifdef SIGSTOP
+    signal(SIGTSTP,SIG_IGN);
+    signal(SIGCONT,SIG_IGN);
+#endif
+#ifdef SIGNOSPC
+    signal(SIGNFILE,werrsig);
+    signal(SIGNOSPC,werrsig);
+#endif
+/*  printf("signals exit\r\n");         */
+a213 1
+    dumpcbuf();
+d218 14
+a241 2
+#ifndef DEMOSES
+/* Дeлo в тoм, чтo нa EC пpи этoм измeняeтcя и tub#### */
+a242 1
+#endif -DEMOSES
+a392 12
+#ifdef SIGNOSPC
+/* werrsig() - oбpaбoтaть oш. зaпиcи    */
+werrsig()
+{
+	werrflag = 1;
+	signal(SIGQUIT,werrsig);
+	signal(SIGINT,testsig);
+	signal(SIGNFILE,werrsig);
+	signal(SIGNOSPC,werrsig);
+}
+#endif
+
+d396 2
+a397 6
+	signal(SIGQUIT,igsig);
+	signal(SIGINT,testsig);
+#ifdef SIGNOSPC
+	signal(SIGNFILE,igsig);
+	signal(SIGNOSPC,igsig);
+#endif
+d421 1
+a421 1
+    dumpcbuf(0);
+a459 67
+
+/*
+ * setkeys(строка)
+ * - установка ключей.
+ */
+short dconflag;
+short cdebflag;
+short zerowsflag = 1;
+int imodesw;
+setkeys(keys)
+register char *keys;
+{ 
+    register int set=1, ko=0;
+    while ( *keys ) switch ( *keys++ ) {
+case '-': set = 0;
+	  break;
+case '+': set = 1;
+	  break;
+case 'e': latf = set;
+#ifdef RED_CYRILL
+	  Rcyflag = 1-set;
+#endif
+	  lread1 = CCRESCREEN;
+	  break;
+case 'l': lcasef = set;
+	  lread1 = CCRESCREEN;
+	  break;
+case 'i': imodesw = set;
+	  break;
+#ifdef DEMOSES
+case 's': speccase = set;
+	  break;
+case 'z': zerowsflag = set;
+	  break;
+case 'S': silentflag = set;
+	  break;
+case 'd': dconflag = set;
+	  break;
+#else
+case 'S': slowsw = set;
+	  break;
+#endif +DEMOSES
+case 's': on_scroll = set;
+	  break;
+case 'a': on_autoi = set;
+	  break;
+case 'f': fix_screen = set;
+	  break;
+case 't': flgtabs = set;
+	  lread1 = CCRESCREEN;
+	  break;
+case 'C': cdebflag = set;
+	  break;
+case 'w':
+#ifdef DEMOSES
+	  newedit = 1;
+#endif +DEMOSES
+	  if(curwksp && curwksp->wfile )
+	      openwrite[curwksp->wfile]= set;
+	  break;
+default:
+        ko = 1; 
+        break;
+    }
+    return(ko);
+}
+
+@
+
+
+3.1.2.2
+log
+@wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.2.1 87/06/19 17:01:14 alex Exp $
+a5 3
+ * Revision 3.1.2.1  87/06/19  17:01:14  alex
+ * Start revision for red/4
+ * 
+d105 1
+a105 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.1.2.1 87/06/19 17:01:14 alex Exp $";
+d567 1
+a567 1
+    register int set=1, ko= -1;
+d577 1
+a577 1
+	  ko = CCRESCREEN;
+d580 1
+a580 1
+	  ko= CCRESCREEN;
+d604 1
+a604 1
+	  ko= CCRESCREEN;
+d616 1
+a616 1
+	if(ko ==- 1) ko=0;
+@
+
+
+3.1.2.3
+log
+@Automatic_revisions
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.2.2 87/06/23 18:51:57 alex Exp $
+a5 3
+ * Revision 3.1.2.2  87/06/23  18:51:57  alex
+ * wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+ * 
+d84 1
+d108 1
+a108 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.1.2.2 87/06/23 18:51:57 alex Exp $";
+a119 1
+extern char *getvers();
+d198 1
+a198 1
+    telluser(getvers(),0);
+@
+
+
+3.1.2.4
+log
+@New readch + gettc + tc table Tested
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.2.3 87/06/23 20:51:36 alex Exp $
+a5 3
+ * Revision 3.1.2.3  87/06/23  20:51:36  alex
+ * Automatic_revisions
+ * 
+d110 1
+a110 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.1.2.3 87/06/23 20:51:36 alex Exp $";
+d203 3
+@
+
+
+3.1.2.5
+log
+@Graph_characters used in margin
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.2.4 87/06/24 22:34:59 alex Stab $
+a5 3
+ * Revision 3.1.2.4  87/06/24  22:34:59  alex
+ * New readch + gettc + tc table Tested
+ * 
+d113 1
+a113 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.1.2.4 87/06/24 22:34:59 alex Stab $";
+d206 1
+a207 1
+    cleanup();
+d226 1
+a226 1
+    /* userid = GETUID;
+d229 1
+a229 1
+    setgid(groupid);    */
+d293 1
+a293 1
+/*    printf("signals start\r\n");      */
+d305 1
+a305 1
+/*    printf("signals exit\r\n");       */
+a309 1
+/*    printf ("Start exit\n");  */
+@
+
+
+3.1.2.6
+log
+@REVISION
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.2.5 87/07/03 22:02:45 alex Exp $
+a5 3
+ * Revision 3.1.2.5  87/07/03  22:02:45  alex
+ * Graph_characters used in margin
+ * 
+d116 1
+a116 1
+static char *sccsid="@@(#) RED / DEMOS-EC/SM $Header: r.main.c,v 3.1.2.5 87/07/03 22:02:45 alex Exp $";
+d229 1
+a229 1
+    userid = GETUID;
+d232 1
+a232 1
+    setgid(groupid);
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:42:22  alex
+d18 1
+a18 1
+#define VERS DIAG("** Red (kiae v.3/ES 06.86)","** Red (ИАЭ v.3/ЕС  06.86)")
+d37 1
+a37 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.1 86/04/20 23:42:22 alex Exp $";
+d55 10
+d124 1
+a124 1
+    dumpcbuf(0);
+d128 1
+a128 1
+    dumpcbuf(0);
+d199 3
+a201 3
+    setupviewport(&paramport,LMARG-1,LINEL-1-LMARG,NLINES-NPARAMLINES,NLINES-1,0);
+    paramport.rtext -= 3;
+    paramport.redit = PARAMREDIT - 5 - LMARG*2;
+d421 1
+a421 1
+    dumpcbuf(0);
+@
+
+
+3.1.1.2
+log
+@Введена установка ключей
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.1.1 86/06/05 00:05:55 alex Exp $
+a5 3
+ * Revision 3.1.1.1  86/06/05  00:05:55  alex
+ * Отлажено_на_модели
+ * 
+d9 3
+d26 1
+a26 1
+ *      red [-КЛЮЧИ] файл [номер строки]
+d29 1
+a29 1
+ *      red [-КЛЮЧИ] -
+d32 1
+a32 4
+ *      red [-КЛЮЧИ] -r файл_протокол
+ *      (повтор сеанса из файла протокол)
+ *      либо
+ *      red  [-КЛЮЧИ]
+d35 1
+a35 2
+ *      Ключи могут задаваться через переменную REDKEYS. Описание ключей
+ *      начинается со знака "-" или "+".
+d40 1
+a40 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.1.1.1 86/06/05 00:05:55 alex Exp $";
+d42 1
+a42 1
+static char *keys;
+d54 1
+a54 1
+char **args;
+d59 1
+a59 24
+    while ( nargs > 1 && *(cp=args[1]) == '-') {
+        nargs--; 
+        args++;
+        switch ( cp[1]) {
+        case '\0': 
+            i = 2; 
+            break;
+        case 'r':
+	    if ((cp= *++args), nargs-- <= 1 || (inputfile = open( cp,0)) < 0)
+                {
+                printf1(DIAG("Can't open command file.\n","Не могу открыть файл-протокол"));
+                exit(1);
+            }
+            break;
+	case '-': case '+':
+	    keys = cp + 1;
+            break;
+        default:
+	    printf1(DIAG("Illegal key:","Неверный ключ: ")); printf1(cp);
+	    printf1("\n");
+            exit(1);
+        }
+    }
+    if (i == 0 && nargs == 1) {
+d63 16
+a78 1
+    else ichar = ' ';
+a188 1
+    if ( keys || ( keys = getenv("REDKEYS"))) setkeys(keys);
+a452 30
+
+/*
+ * setkeys(строка)
+ * - установка ключей.
+ */
+
+setkeys(keys)
+register char *keys;
+{ 
+    register int set=1, ko=0;
+    while ( *keys ) switch ( *keys++ ) {
+case '-': set = 0;
+	  break;
+case '+': set = 1;
+	  break;
+case 'e': latf = set;
+	  break;
+case 'l': lcasef = set;
+	  break;
+case 's': speccase = set;
+	  break;
+case 't': flgtabs = set;
+	  break;
+default:
+        ko = 1; 
+        break;
+    }
+    return(ko);
+}
+
+@
+
+
+3.1.1.3
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.1.2 86/06/06 00:14:36 alex Exp $
+a5 3
+ * Revision 3.1.1.2  86/06/06  00:14:36  alex
+ * Введена установка ключей
+ * 
+d21 1
+a21 1
+#define VERS DIAG("** Red (kiae v.3.1/ES 12.6.86)","** Red (ИAЭ v.3.1/EC  12.06.86)")
+d44 1
+a44 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.1.1.3 86/06/12 00:14:36 alex Exp $";
+a50 4
+#ifdef SIGNOSPC
+int werrsig();
+int werrflag;
+#endif
+d214 1
+a214 2
+    /* !!!! */
+    for (i=NSIG; i; i--) signal(i,sig);
+a216 4
+#ifdef SIGNOSPC
+    signal(SIGNFILE,werrsig);
+    signal(SIGNOSPC,werrsig);
+#endif
+a398 12
+#ifdef SIGNOSPC
+/* werrsig() - oбpaбoтaть oш. зaпиcи    */
+werrsig()
+{
+	werrflag = 1;
+	signal(SIGQUIT,werrsig);
+	signal(SIGINT,testsig);
+	signal(SIGNFILE,werrsig);
+	signal(SIGNOSPC,werrsig);
+}
+#endif
+
+d402 2
+a403 6
+	signal(SIGQUIT,igsig);
+	signal(SIGINT,testsig);
+#ifdef SIGNOSPC
+	signal(SIGNFILE,igsig);
+	signal(SIGNOSPC,igsig);
+#endif
+d471 1
+a471 1
+short dconflag;
+a487 7
+	  break;
+case 'd': dconflag = set;
+	  break;
+case 'w':
+	  newedit = 1;
+	  if(curwksp && curwksp->wfile )
+	      openwrite[curwksp->wfile]= set;
+@
+
+
+3.1.1.4
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@d109 1
+a109 1
+	PUTP(ichar); /* Для пoвтopa ceaнca */
+d236 14
+a507 2
+	  break;
+case 'S': silentflag = set;
+@
+
+
+3.1.1.5
+log
+@Введен для отлади на СМ ключ "C" - не устанавливать режимы терминала.
+Версия отлажена и получила номер 3.2 (пока на модели).
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.1.4 86/06/16 22:19:26 alex Exp $
+a5 3
+ * Revision 3.1.1.4  86/06/16  22:19:26  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+d24 1
+a24 1
+#define VERS DIAG("** Red (kiae v.3.2/ES 20.6.86)","** Red (ИAЭ v.3.2/EC  20.06.86)")
+d47 1
+a47 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.1.1.4 86/06/16 22:19:26 alex Exp $";
+a485 1
+short cdebflag;
+a503 2
+	  break;
+case 'C': cdebflag = set;
+@
+
+
+3.1.1.6
+log
+@RED 3.3/EC.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.main.c,v 3.1.1.5 86/06/20 23:33:40 alex Exp $
+a5 4
+ * Revision 3.1.1.5  86/06/20  23:33:40  alex
+ * Введен для отлади на СМ ключ "C" - не устанавливать режимы терминала.
+ * Версия отлажена и получила номер 3.2 (пока на модели).
+ * 
+d27 1
+a27 1
+#define VERS DIAG("** Red (kiae v.3.3/ES 30.6.86)","** Red (ИAЭ v.3.3/EC  30.06.86)")
+d50 1
+a50 1
+static char *sccsid="@@(#) RED / DEMOS-EC $Header: r.main.c,v 3.1.1.5 86/06/20 23:33:40 alex Exp $";
+a72 3
+#ifdef ALLDIAG
+    latdiag = ((cp = getenv ("MSG")) && *cp == 'l';
+#endif
+d220 1
+a220 1
+    /* chmod(ttynm,0600);  */
+d249 1
+a249 2
+/* Дeлo в тoм, чтo нa EC пpи этoм измeняeтcя и tub#### */
+/*      chmod(ttynm,07777 & oldttmode);    */
+a489 1
+short zerowsflag = 1;
+a505 2
+	  break;
+case 'z': zerowsflag = set;
+@

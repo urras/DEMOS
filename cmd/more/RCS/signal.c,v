@@ -1,0 +1,291 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.09.17.23.15.01;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.05.06.19.31.02;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.04.10.19.17.04;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.13.16.42.14;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@Теперь more не сшибается по повторному CTRL/C.
+@
+text
+@/*
+ * Routines dealing with signals.
+ *
+ * A signal usually merely causes a bit to be set in the "signals" word.
+ * At some convenient time, the mainline code checks to see if any
+ * signals need processing by calling psignal().
+ * An exception is made if we are reading from the keyboard when the
+ * signal is received.  Some operating systems will simply call the
+ * signal handler and NOT return from the read (with EINTR).
+ * To handle this case, we service the interrupt directly from
+ * the handler if we are reading from the keyboard.
+ */
+
+#include "less.h"
+#include <signal.h>
+#include <setjmp.h>
+
+/*
+ * The type of signal handler functions.
+ * Usually int, although it should be void.
+ */
+typedef int             HANDLER;
+
+/*
+ * "sigs" contains bits indicating signals which need to be processed.
+ */
+public int sigs;
+#define S_INTERRUPT     01
+#ifdef SIGTSTP
+#define S_STOP          02
+#endif
+
+extern int reading;
+extern char *first_cmd;
+extern jmp_buf main_loop;
+
+/*
+ * Interrupt signal handler.
+ */
+	static HANDLER
+interrupt()
+{
+#ifdef INTTERM
+	SIGNAL(SIGINT, SIG_IGN);
+	lower_left();
+	clear_eol();
+	flush();
+	raw_mode(0);
+	exit(0);
+#else
+	SIGNAL(SIGINT, interrupt);
+	sigs |= S_INTERRUPT;
+	if (reading)
+		psignals();
+#endif
+}
+
+#ifdef SIGTSTP
+/*
+ * "Stop" (^Z) signal handler.
+ */
+	static HANDLER
+stop()
+{
+	SIGNAL(SIGTSTP, stop);
+	sigs |= S_STOP;
+	if (reading)
+		psignals();
+}
+#endif
+
+/*
+ * Set up the signal handlers.
+ */
+	public void
+init_signals()
+{
+	(void) SIGNAL(SIGINT, interrupt);
+#ifdef SIGTSTP
+	(void) SIGNAL(SIGTSTP, stop);
+#endif
+}
+
+/*
+ * Process any signals we have recieved.
+ * A received signal cause a bit to be set in "sigs".
+ */
+	public void
+psignals()
+{
+	register int tsignals;
+
+	tsignals = sigs;
+	sigs = 0;
+	if (tsignals == 0)
+		return;
+
+	dropout();              /* Discard any buffered output */
+
+#ifdef SIGTSTP
+	if (tsignals & S_STOP)
+	{
+		/*
+		 * Clean up the terminal.
+		 */
+#ifdef SIGTTOU
+		SIGNAL(SIGTTOU, SIG_IGN);
+#endif
+		lower_left();
+		clear_eol();
+		flush();
+		raw_mode(0);
+#ifdef SIGTTOU
+		SIGNAL(SIGTTOU, SIG_DFL);
+#endif
+		SIGNAL(SIGTSTP, SIG_DFL);
+#if SIGSETMASK
+		/*
+		 * This system will not allow us to send a
+		 * stop signal (SIGTSTP) to ourself
+		 * while we are in the signal handler, like maybe now.
+		 * (This can be the case if we are reading; see comment above.)
+		 * So we ask the silly system for permission to do so.
+		 */
+		sigsetmask(0);
+#endif
+		kill(getpid(), SIGTSTP);
+		/*
+		 * ... Bye bye. ...
+		 * Hopefully we'll be back later and resume here...
+		 * Reset the terminal and arrange to repaint the
+		 * screen when we get back to the main command loop.
+		 */
+		SIGNAL(SIGTSTP, stop);
+		raw_mode(1);
+		first_cmd = "r";
+		longjmp(main_loop, 1);
+	}
+#endif
+	if (tsignals & S_INTERRUPT)
+	{
+		bell();
+		/*
+		 * {{ You may wish to replace the bell() with
+		 *    error("Interrupt"); }}
+		 */
+	}
+
+	longjmp(main_loop, 1);
+}
+
+/*
+ * Pass the specified command to a shell to be executed.
+ * Like plain "system()", but handles resetting terminal modes, etc.
+ */
+	public void
+lsystem(cmd)
+	char *cmd;
+{
+	int inp;
+
+	/*
+	 * Print the command which is to be executed.
+	 */
+	lower_left();
+	clear_eol();
+	puts("!");
+	puts(cmd);
+	puts("\n");
+
+	/*
+	 * De-initialize the terminal and take out of raw mode.
+	 */
+	deinit();
+	flush();
+	raw_mode(0);
+
+	/*
+	 * Restore signals to their defaults.
+	 */
+	SIGNAL(SIGINT, SIG_DFL);
+#ifdef SIGTSTP
+	SIGNAL(SIGTSTP, SIG_DFL);
+#endif
+	/*
+	 * Pass the command to the system to be executed.
+	 */
+	inp = dup(0);
+	close(0);
+	open("/dev/tty", 0);
+
+	system(cmd);
+
+	close(0);
+	dup(inp);
+	close(inp);
+
+	/*
+	 * Reset signals, raw mode, etc.
+	 */
+	init_signals();
+	raw_mode(1);
+	init();
+}
+@
+
+
+1.3
+log
+@Сделана реакция на сигнал INTR.
+@
+text
+@d44 1
+@
+
+
+1.2
+log
+@Сделан ediag + исправлены некоторые ошибки
+@
+text
+@d43 7
+d54 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d22 1
+a22 1
+typedef	int		HANDLER;
+d28 1
+a28 1
+#define	S_INTERRUPT	01
+d30 1
+a30 1
+#define	S_STOP		02
+d79 1
+a79 1
+	public void 
+d89 1
+a89 1
+	dropout();		/* Discard any buffered output */
+d110 1
+a110 1
+		 * This system will not allow us to send a 
+d135 1
+a135 1
+		 * {{ You may wish to replace the bell() with 
+@

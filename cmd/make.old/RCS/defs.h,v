@@ -1,0 +1,230 @@
+head     1.3;
+access   ;
+symbols  SM4:1.1;
+locks    dvolodin:1.3;
+comment  @ * @;
+
+
+1.3
+date     87.04.14.13.01.54;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.30.20.49.42;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.01.10.09.28.52;  author fox;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.3
+log
+@Разное. (by Егошин).
+@
+text
+@/* $Header: defs.h,v 1.2 86/12/30 20:49:42 root Exp $  */
+/* $Log:        defs.h,v $
+ * Revision 1.2  86/12/30  20:49:42  root
+ * Изменили под МНОС
+ *
+ * Revision 1.1  86/01/10  09:28:52  fox
+ * Initial revision
+ *
+ */
+
+#include <stdio.h>
+#include <ctype.h>
+#include <ediag.h>
+
+#define SHELLCOM "/bin/sh"
+#define DESCFILE        "/lib/make.rc"
+#define DESCFILE1       "/usr/lib/make.rc"
+
+typedef long int TIMETYPE;
+
+/*  to install metering, add a statement like */
+#define METERFILE "/usr/make/Meter"
+/* to turn metering on, set external variable meteron to 1 */
+
+/* define FSTATIC to be static on systems with C compilers
+   supporting file-static; otherwise define it to be null
+*/
+#define FSTATIC static
+
+#define NO 0
+#define YES 1
+#define unequal strcmp
+
+#ifndef SMALL
+#define HASHSIZE 1021
+#define NLEFTS 512
+#define INMAX 2500
+#define OUTMAX 3500
+#define QBUFMAX 2500
+#define MAXVNAME 100
+#define MAXARGS 200
+#else
+#define HASHSIZE  509
+#define NLEFTS     40
+#define INMAX    1500
+#define OUTMAX   2500
+#define QBUFMAX  1500
+#define MAXVNAME 20
+#define MAXARGS  100
+#endif
+
+#define MAXDIR 10
+#define ALLDEPS  1
+#define SOMEDEPS 2
+
+#define META 01
+#define TERMINAL 02
+#define NSYMB 256
+extern char funny[NSYMB];
+
+
+#define ALLOC(x) (struct x *) ckalloc(sizeof(struct x))
+
+extern int sigivalue;
+extern int sigqvalue;
+extern int waitpid;
+extern int dbgflag;
+extern int prtrflag;
+extern int silflag;
+extern int noexflag;
+extern int keepgoing;
+extern int noruleflag;
+extern int touchflag;
+extern int questflag;
+extern int ndocoms;
+extern int ignerr;
+extern int okdel;
+extern int inarglist;
+extern char *prompt;
+extern int nopdir;
+extern char junkname[ ];
+
+
+
+struct nameblock
+	{
+	struct nameblock *nxtnameblock;
+	char *namep;
+	struct lineblock *linep;
+	int done:3;
+	int septype:3;
+	TIMETYPE modtime;
+	};
+
+extern struct nameblock *mainname ;
+extern struct nameblock *firstname;
+
+struct lineblock
+	{
+	struct lineblock *nxtlineblock;
+	struct depblock *depp;
+	struct shblock *shp;
+	};
+extern struct lineblock *sufflist;
+
+struct depblock
+	{
+	struct depblock *nxtdepblock;
+	struct nameblock *depname;
+	};
+
+struct shblock
+	{
+	struct shblock *nxtshblock;
+	char *shbp;
+	};
+
+struct varblock
+	{
+	struct varblock *nxtvarblock;
+	char *varname;
+	char *varval;
+	int noreset:1;
+	int used:1;
+	};
+extern struct varblock *firstvar;
+
+struct pattern
+	{
+	struct pattern *nxtpattern;
+	char *patval;
+	};
+extern struct pattern *firstpat;
+
+struct opendir
+	{
+	struct opendir *nxtopendir;
+	FILE * dirfc;
+	char *dirn;
+	};
+extern struct opendir *firstod;
+
+
+struct chain
+	{
+	struct chain *nextp;
+	char *datap;
+	};
+
+char *copys(), *concat(), *subst();
+int *ckalloc();
+struct nameblock *srchname(), *makename();
+TIMETYPE exists();
+@
+
+
+1.2
+log
+@Изменили под МНОС
+@
+text
+@d1 5
+a5 2
+/* $Header: defs.h,v 1.1 86/01/10 09:28:52 fox Exp $  */
+/* $Log:	defs.h,v $
+d8 1
+a8 1
+ * 
+d16 2
+a36 2
+#define NCHARS 500
+#define NINTS  250
+d40 2
+a44 2
+#define NCHARS    500
+#define NINTS     250
+d48 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header: defs,v 1.1 86/01/06 03:38:35 fox Exp $  */
+/* $Log:	defs,v $
+d10 1
+d27 1
+d29 1
+a29 1
+#define unequal strcmp
+d37 10
+a47 1
+
+@

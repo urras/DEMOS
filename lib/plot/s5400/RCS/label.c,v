@@ -1,0 +1,58 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     90.09.24.16.44.46;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.02.16.06.25;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.2
+log
+@???
+@
+text
+@/* $Header: label.c,v 1.1 88/02/02 16:06:25 dvolodin Exp $
+ * $Log:        label.c,v $
+ * Revision 1.1  88/02/02  16:06:25  dvolodin
+ * Initial revision
+ *
+ */
+
+# include <stdio.h>
+
+label( s )
+char *s ;
+{
+	printf( "BA%s\033g", s);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header$
+ * $Log$
+d12 3
+a14 1
+{}
+@

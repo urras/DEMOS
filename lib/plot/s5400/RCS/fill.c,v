@@ -1,0 +1,33 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     90.09.24.16.44.42;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* заливка области */
+sfill( x,y, newcolor, boundcolor )
+{
+	move( x,y);
+	printf( "HI%XJK%X", newcolor, boundcolor );
+}
+/* ограничение :
+   граница области ДОЛЖНА БЫТЬ ЗАМКНУТА И быть именно указанного цвета */
+@

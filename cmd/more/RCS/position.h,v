@@ -1,0 +1,32 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.02.13.16.42.40;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Include file for interfacing to position.c modules.
+ */
+#define	TOP		0
+#define	TOP_PLUS_ONE	1
+#define	BOTTOM		-1
+#define	BOTTOM_PLUS_ONE	-2
+@

@@ -1,0 +1,61 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.05.10.21.29.25;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@
+
+
+# Эта штука добавляется в исходный файл перед
+# запуском rcs               Давидов 04.28.88
+#
+# $Header$
+# $Log$
+
+
+
+CFLAGS = -n -O
+
+
+cp:     all
+	cp prep ${DESTDIR}/usr/bin
+	rm prep *.o
+
+cmp:    all
+	cmp prep ${DESTDIR}/usr/bin/prep
+	rm *.o
+
+prep:   prep0.o prep1.o prep2.o; cc -s -o prep -n *.o
+
+prep0.o: prep0.c prep.h
+prep1.o: prep1.c prep.h
+prep2.o: prep2.c
+
+clean:
+	rm -f *.o
+
+Makefile:       RCS/Makefile,v;         co Makefile
+prep0.c:        RCS/prep0.c,v;         co prep0.c
+prep1.c:        RCS/prep1.c,v;         co prep1.c
+prep2.c:        RCS/prep2.c,v;         co prep2.c
+prep.h:         RCS/prep.h,v;           co prep.h
+@

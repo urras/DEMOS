@@ -1,0 +1,132 @@
+
+MSGCTL(2)         ДЕМОС. Системные вызовы          MSGCTL(2)
+
+
+ИИММЯЯ
+       mmssggccttll - изменение параметров очереди сообщений.
+
+ФФООРРММААТТ
+       #iinncclluuddee <_s_y_s/_t_y_p_e_s._h>
+       #iinncclluuddee <_s_y_s/_i_p_c._h>
+       #iinncclluuddee <_s_y_s/_m_s_g._h>
+
+       mmssggccttll( _i_d, _c_m_d, _b_u_f )
+       iinntt _i_d, _c_m_d;
+       ssttrruucctt mmssqquuiidd__ddss *_b_u_f;
+
+ООППИИССААННИИЕЕ
+       Системный вызов mmssggccttll  выполняет  указанную  команду
+       _c_m_d  над  очередью  сообщений  с  идентификатором _i_d.
+       Отрабатываются следующие команды:
+
+       IIPPCC__SSTTAATT
+              Читает заголовок (паспорт)  очереди  в  струк-
+              туру, указываемую параметром _b_u_f.
+
+       IIPPCC__SSEETT
+              Устанавливает поля mmssgg__ppeerrmm..uuiidd, mmssgg__ppeerrmm..ggiidd,
+              mmssgg__ppeerrmm..mmooddee  (только  9  младших  бит - коды
+              доступа) и mmssgg__qqbbyytteess из соответствующих полей
+              структуры _b_u_f
+
+       IIPPCC__RRMMIIDD
+              Удаляет очередь _i_d,  продолжив  все  процессы,
+              ожидающие чтения/записи в эту очередь.
+
+       Структура mmssggiidd__ddss определена так:
+
+       ssttrruucctt mmssggiidd__ddss {
+         ssttrruucctt iippcc__ppeerrmm  mmssgg__ppeerrmm;  /* права доступа */
+         ssttrruucctt mmssgg *mmssgg__ffiirrsstt;
+         ssttrruucctt mmssgg *mmssgg__llaasstt;
+         uu__sshhoorrtt mmssgg__ccbbyytteess; /* количество байт в очереди */
+         uu__sshhoorrtt mmssgg__qqnnuumm;   /* количество сообщенИй      */
+         uu__sshhoorrtt mmssgg__qqbbyytteess; /* макс. количество байт     */
+         uu__sshhoorrtt mmssgg__llssppiidd;  /* pid последнего mmssggssnndd     */
+         uu__sshhoorrtt mmssgg__llrrppiidd;  /* pid последнего mmssggrrccvv     */
+         ttiimmee__tt  mmssgg__ssttiimmee;  /* время посл. mmssggssnndd-а */
+         ttiimmee__tt  mmssgg__rrttiimmee;  /* время посл. mmssggrrccvv-а */
+         ttiimmee__tt  mmssgg__ccttiimmee;  /* время посл. модификации паспорта */
+       };
+
+       Структура iippcc__ppeerrmm определена так:
+
+       ssttrruucctt iippcc__ppeerrmm {
+           uu__sshhoorrtt  uuiidd;  /* текущий ид-р пользователя */
+           uu__sshhoorrtt  ggiidd;  /* текущая группа пользователя */
+           uu__sshhoorrtt  ccuuiidd; /* идентификатор создателя */
+           uu__sshhoorrtt  ccggiidd; /* группа создателя */
+           uu__sshhoorrtt  mmooddee; /* коды доступа */
+           uu__sshhoorrtt  sseeqq;  /* используется системой */
+           kkeeyy__tt    kkeeyy;  /* ключ ресурса */
+       };
+
+
+                            -1-                      ДЕМОС/P
+
+
+MSGCTL(2)         ДЕМОС. Системные вызовы          MSGCTL(2)
+
+
+ЗЗААММЕЕЧЧААННИИЯЯ
+       Текущее состояние очередей сообщений можно узнать при
+       помощи команды /_e_t_c/_i_p_c_s_t_a_t
+
+ККООДДЫЫ ООШШИИББООКК
+       При ошибке системный вызов возвращает значение  -1  и
+       код ошибки в переменной eerrrrnnoo.
+
+       [[EENNOOEENNTT]]    Очереди с идентификатором _i_d  не  сущест-
+                   вует.
+
+       [[EEAACCCCEESS]]    Не имеете права доступа к очереди.
+
+       [[EEFFAAUULLTT]]    В качестве аргумента указан адрес,  лежа-
+                   щий вне адресного простанства процесса.
+
+       [[EEFFBBIIGG]]     Попытка  увеличить  максимальную  емкость
+                   очереди в байтах (mmssgg__qqbbyytteess).
+
+       [[EEIINNVVAALL]]    Указана недопустимая команда.
+
+ДДООППООЛЛННИИТТЕЕЛЛЬЬННЫЫЕЕ ССССЫЫЛЛККИИ
+       _m_s_g_g_e_t(2), _m_s_g_s_n_d(2), _i_p_c_s_t_a_t(8).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            -2-                      ДЕМОС/P
+

@@ -1,0 +1,169 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.01.26.15.05.38;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.01.06.10.44.51;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.09.22.21.07.23;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.05.17.21.38.08;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Описания форматов файлов спулинга.
+@
+
+
+1.4
+log
+@Правлена обработка tstr и istr.
+@
+text
+@/*
+ * Форматы файлов спулинга
+ * Автор: Антонов В.Г.
+ *
+ * $Log:        lpspool.h,v $
+ * Revision 1.3  87/01/06  10:44:51  avg
+ * Разделено имя физического устройсва печати и логического
+ * устройства спулинга.
+ *
+ * Revision 1.2  86/09/22  21:07:23  avg
+ * Добавлено определение UID для DAEMON.
+ *
+ * Revision 1.1  86/05/17  21:38:08  avg
+ * Initial revision
+ *
+ */
+
+#define MAXFNAME        256     /* Макс. длина имени файла */
+
+/*
+ * Формат файла состояния спулинга (lock)
+ * Каждая запись файла соотвествует одной строке таблицы lptab.
+ * (т.е. имеет номер lpslot).
+ * Первое слово (типа int) содержит номер процесса-демона.
+ */
+
+struct LP_SPOOL {
+	char     lps_file[16];  /* Имя заголовка печатающегося файла
+				   (в таблице очереди спулинга) */
+	int      lps_pid;       /* Ид. процесса печати */
+				/* Если у-во неактивно, равен 0 */
+	unsigned lps_pages;     /* Число уже напечатанных страниц */
+};
+
+
+/*
+ * Очередь спулинга
+ * Элементы хранится в файлах, имеющих имя, полученное из
+ * номера процесса.
+ *
+ */
+struct LP_QUEUE {
+	char    lpq_printer[20];        /* Имя лог. печ. у-ва */
+	char    lpq_dev[64];            /* Имя физ. АЦПУ */
+	char    lpq_user[16];           /* Имя пользователя */
+	short   lpq_slot;               /* Элемент таблицы состояния */
+	short   lpq_flags;              /* Флаги драйвера АЦПУ */
+	short   lpq_width;              /* Ширина печати */
+	short   lpq_length;             /* Длина листа */
+	char    lpq_class;              /* Класс АЦПУ */
+
+	char    lpq_speed;              /* Скорость передачи по линии */
+	short   lpq_local;              /* Локальные режимы */
+	char    lpq_crdly;              /* Задержки */
+	char    lpq_nldly;
+	char    lpq_vtdly;
+	char    lpq_htdly;
+	char    lpq_stopc;              /* Для управления потоком - стоп  */
+	char    lpq_startc;             /* Для управления потоком - старт */
+	short   lpq_ldisc;              /* Дисциплина линии */
+
+	short   lpq_xflags;             /* Режимы спулинга */
+	short   lpq_ncopy;              /* Число копий на печать */
+	short   lpq_npages;             /* Число листов бумаги */
+	char    lpq_spoolfile[10];      /* Имя файла спулинга */
+	char    lpq_filename[MAXFNAME]; /* Имя исх. файла */
+	char    lpq_filter[120];        /* Программа-фильтр */
+	char    lpq_type[32];           /* Тип АЦПУ */
+	char    lpq_istr[64];           /* строка - инициализация у-ва */
+	char    lpq_tstr[64];           /* строка - выключение у-ва */
+};
+
+/* Поле xflags : */
+#define XF_MAIL         1       /* Послать почту пользователю по
+				   концу печати */
+#define XF_WRITE        2       /* Если пользователь работает,
+				   по концу печати послать сообщение */
+#define XF_NOSPOOL      4       /* В lpq_filename содержится имя
+				    файла, из которого надо печатать */
+#define XF_RUS          8       /* Сообщения посылать на русском языке */
+
+
+/*-----------------------------------*/
+/* Имена файлов/программ             */
+/*-----------------------------------*/
+
+#define LP_LOCK         "/usr/spool/lpd/lock"
+#define LP_DIR          "/usr/spool/lpd"
+#define LP_DAEMON       "/etc/lp_daemon"
+
+
+/* UID of daemon */
+
+#define DAEMON  1
+@
+
+
+1.3
+log
+@Разделено имя физического устройсва печати и логического
+устройства спулинга.
+@
+text
+@d6 4
+d69 2
+@
+
+
+1.2
+log
+@Добавлено определение UID для DAEMON.
+@
+text
+@d6 3
+d39 2
+a40 1
+	char    lpq_printer[20];        /* Имя печ. у-ва (с /dev/) */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d80 5
+@

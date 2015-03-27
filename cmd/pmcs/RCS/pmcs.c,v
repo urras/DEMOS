@@ -1,0 +1,944 @@
+head     1.6;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.6
+date     89.02.04.18.39.23;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.01.10.20.49.23;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.01.10.18.49.17;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.01.10.18.33.32;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.10.17.11.30;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.09.15.56.34;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Система рассылки почты проектам.
+@
+
+
+1.6
+log
+@Исправлена идиотская диагностика.
+@
+text
+@/*
+ * Система управления рассылкой почты проектам
+ *
+ * Вызов: pmds {lndarp}[us] [польз] [каталог] [проект]
+ *
+ *      l - печать списка проектов
+ *      n - создать новый проект
+ *      d - удалить проект
+ *
+ *      p - печатает все проекты, для которых пользователь
+ *          включен в sig (включая косвенные)
+ *      a - добавить пользователя в sig
+ *      r - удалить пользователя из sig
+ *
+ *      u польз   - выпольнит операцию для пользователя  польз
+ *      s каталог - устанавливает каталог проектов в  каталог
+ *
+ * Программа дложна работать с SETUID-ом по root!
+ *
+ * $Log:        pmcs.c,v $
+ * Revision 1.5  88/01/10  20:49:23  avg
+ * Изменена проверка использования ключа s вместе с l или p.
+ *
+ * Revision 1.4  88/01/10  18:49:17  avg
+ * Изменена проверка: добавлять и удалять СЕБЯ из списка
+ * расслки проекта теперь можно по ЛЮБОМУ проекту.
+ *
+ * Revision 1.3  88/01/10  18:33:32  avg
+ * Неправильно указывалось имя файла архива при создании проекта.
+ * Заменено strcpy на strcat.
+ *
+ * Revision 1.2  88/01/10  17:11:30  avg
+ * Правлено несколько мелких плюх.
+ *
+ * Revision 1.1  88/01/09  15:56:34  avg
+ * Initial revision
+ *
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: pmcs.c,v 1.5 88/01/10 20:49:23 avg Exp $";
+#endif
+
+#include <stdio.h>
+#include <ediag.h>
+#include <signal.h>
+#include <stat.h>
+#include "projdesc.h"
+
+char *user, *getlogin(), *getenv();
+char *spool = PROJSPOOL;
+FILE    *pf;
+char **project = NULL;
+
+char pfname[160];       /* имя файла проектов */
+int onintr();
+
+main(c, v)
+char **v;
+{
+	register char **av;
+	register char *p;
+	int      uused = 0, sused = 0;
+	enum { Nothing, List, New, Destroy, Append, Projects, Remove } flag;
+	int fd;
+	char MFname[160];
+
+	if( c < 1 ) {
+Usage:          error( "Usage: pmcs {lndarp}[us] [user] [spooldir] [proj]",
+		       "Вызов: pmcs {lndarp}[us] [польз] [каталог] [проект]" );
+	}
+	umask(0);
+	if( signal(SIGINT, SIG_IGN) != SIG_IGN )
+		signal(SIGINT,  onintr);
+	if( signal(SIGTERM, SIG_IGN) != SIG_IGN )
+		signal(SIGTERM, onintr);
+	flag = Nothing;
+	user = NULL;
+	av = &v[2];
+	for( p = v[1] ; *p ; p++ ) {
+	switch( *p ) {
+	    case 'u':   /* установить имя пользователя */
+		if( *av == NULL || uused++ )
+			goto Usage;
+		user = *av++;
+		break;
+
+	    case 's':   /* установить каталог спулинга */
+		if( *av == NULL || sused++ )
+			goto Usage;
+		spool = *av++;
+		break;
+
+	    case '-':
+		break;
+
+	    case 'a':
+		if( flag != Nothing ) goto Usage;
+		flag = Append;
+		break;
+
+	    case 'l':
+		if( flag != Nothing ) goto Usage;
+		flag = List;
+		break;
+
+	    case 'd':
+		if( flag != Nothing ) goto Usage;
+		flag = Destroy;
+		break;
+
+	    case 'n':
+		if( flag != Nothing ) goto Usage;
+		flag = New;
+		break;
+
+	    case 'r':
+		if( flag != Nothing ) goto Usage;
+		flag = Remove;
+		break;
+
+	    case 'p':
+		if( flag != Nothing ) goto Usage;
+		flag = Projects;
+		break;
+
+	    default:
+		goto Usage;
+	}
+	}
+	if( flag == Nothing )
+		goto Usage;
+
+	if(sused && flag != List && flag != Projects && getuid() != 0 )
+		error("pmcs: you are not a superuser for use s option",
+		      "pmcs: вы не суперпользователь, а используете ключ s");
+	if( *av != NULL )
+		project = av;
+
+	strcpy(pfname, spool);
+	strcat(pfname, "/");
+	strcat(pfname, PROJFILE);
+
+	pf = fopen(pfname, "r");
+	if( flag != New ) {
+		if( pf == NULL )
+			error("pmcs: can't open project file %s",
+			      "pmcs: не могу открыть список проектов %s", pfname);
+	} else {
+		if( pf == NULL ) {
+			printf(ediag("Making new project spool: %s\n",
+				     "Создается новый архив проектов: %s\n"), spool);
+			mkdir(spool);
+			if( chmod(spool, 01777) == -1 )
+				error("pmcs: can't create directory %s",
+				      "pmcs: не могу создать каталог %s", spool);
+			if( (fd = creat(pfname, 0600)) < 0 )
+				error("pmcs: can't create project file",
+				      "pmcs: не могу создать список проектов");
+			close(fd);
+			pf = fopen(pfname, "r");
+		}
+	}
+
+	if( flag == List || flag == Projects ) {
+		if( user == NULL )
+			user = getenv("USER");
+	} else if( flag == New ) {
+		if( user != NULL ) {
+			if( getuid() != 0 )
+				error("pmcs: you are not a superuser",
+				      "pmcs: вы не суперпользователь");
+		}
+	} else if( project != NULL && getuid() != 0 &&
+		!((flag == Append || flag == Remove) && user == NULL) ) {
+		struct stat s;
+
+		for( av = project ; *av ; av++ ) {
+			strcpy(MFname, spool);
+			strcat(MFname, "/");
+			strcat(MFname, *av);
+			if(stat(MFname, &s) < 0 || s.st_uid != getuid())
+				error("pmcs: you are not owner of %s",
+				      "pmcs: вы не владелец %s", *av);
+		}
+	}
+	if( user == NULL )
+		user = getlogin();
+
+	switch( flag ) {
+	    case List:
+		list();
+		break;
+
+	    case Projects:
+		pRojects();
+		break;
+
+	    case Append:
+		append();
+		break;
+
+	    case Remove:
+		remove();
+		break;
+
+	    case Destroy:
+		destroy();
+		break;
+
+	    case New:
+		new();
+	}
+
+	exit(0);
+}
+
+/*
+ * Создать каталог
+ */
+mkdir(d)
+char *d;
+{
+	int s;
+
+	if( s = fork() ) {
+		wait(&s);
+	} else {
+		execl( "/bin/mkdir", "mkdir", d, 0 );
+		exit(1);
+	}
+}
+
+/*
+ * Вывести список проектов
+ */
+list()
+{
+	register struct projdesc *p;
+	register char **qq;
+	int flg = 0;
+
+	while( (p = getpd(pf, NULL)) != NULL ) {
+		if( project != NULL ) {
+			for( qq = project ; *qq ; qq++ )
+				if( !strcmp(*qq, p->pd_pname) )
+					goto fnd;
+			continue;
+		fnd:    ;
+		}
+		if( flg == 0 ) {
+			flg++;
+			printf(ediag("PROJ NAME       DESCRIPTION\n",
+				     "ИМЯ ПРОЕКТА     ОПИСАНИЕ\n") );
+		}
+		printf( "%-14.14s  %s\n", p->pd_pname, p->pd_desc );
+	}
+	if( flg )
+		return;
+	if( project == NULL )
+		error( "pmcs: no projects", "pmcs: нет проектов" );
+	else
+		error( "pmcs: no project %s", "pmcs: нет проекта %s", project );
+}
+
+/*
+ * Вывести список проектов для пользователя
+ */
+pRojects()
+{
+	register struct projdesc *p;
+	register char **pp;
+	struct list {
+		short         uflag;            /* 0 - не интересует */
+						/* 1 - прямо    */
+						/* 2 - косвенно */
+		struct list  *next;
+		struct xlist *refs;
+		char          proj[1];
+	} *z, *head = NULL, *inq, *tail;
+	register struct list *l;
+	int flg, cnt, i, j;
+	struct xlist {
+		struct list  *ref;
+		struct xlist *forw;
+	} *xlr, *xq;
+
+	/*
+	 * Построим таблицу процессов
+	 */
+	while( (p = getpd(pf, NULL)) != NULL ) {
+		flg = 0;
+		xlr = NULL;
+		for( pp = p->pd_usig ; *pp != NULL ; pp++ ) {
+			if( *pp[0] == '=' ) {
+				/* если проекта нет, добавим его */
+				for( l = head ; l != NULL ; l = l->next ) {
+					if( !strcmp(*pp+1, l->proj) )
+						goto Found;
+				}
+				l = myalloc( sizeof(struct list) + strlen(*pp+1) );
+				l->next = head;
+				l->refs = NULL;
+				head = l;
+				strcpy(l->proj, *pp+1);
+		    Found:
+				/* добавим косвенную ссылку */
+				xq = myalloc( sizeof(struct xlist) );
+				xq->forw = xlr;
+				xlr = xq;
+				xq->ref = l;
+			} else if( !strcmp(user, *pp) )
+				flg = 1;
+		}
+
+		/* если проекта нет, добавим его */
+		for( l = head ; l != NULL ; l = l->next ) {
+			if( !strcmp(p->pd_pname, l->proj) )
+				goto Fproj;
+		}
+		l = myalloc(sizeof(struct list) + strlen(p->pd_pname));
+		l->next = head;
+		head = l;
+		strcpy(l->proj, p->pd_pname);
+    Fproj:
+		l->refs = xlr;
+		l->uflag = flg;
+	}
+
+	/*
+	 * Построим косвенные ссылки
+	 */
+	do {
+		flg = 0;
+		for( l = head ; l != NULL ; l = l->next ) {
+			if( l->uflag != 0 )
+				continue;
+			for( xq = l->refs ; xq != NULL ; xq = xq->forw ) {
+				if( xq->ref->uflag != 0 ) {
+					l->uflag = 2;
+					flg++;
+					break;
+				}
+			}
+		}
+	} while( flg );
+
+	/*
+	 * Удалим лишние входы из таблицы
+	 */
+	cnt = 0;
+	l = head;
+	head = NULL;
+	for( ; l != NULL ; l = z ) {
+		z = l->next;
+		if( l->uflag == 0 )
+			continue;
+		l->next = head;
+		head = l;
+		cnt++;
+	}
+	if( head == NULL ) {
+		fprintf(stderr, ediag("pmcs: user %s not in sigs\n",
+				      "pmcs: пользователь %s не получает сообщений от проектов\n"), user );
+		return;
+	}
+
+	/*
+	 * Отсортируем пузырьком таблицу
+	 */
+	if( head->next == NULL )
+		goto NoSort;
+	do {
+		flg = 0;
+		l = head;
+		z = head->next;
+		head = NULL;
+		inq = z->next;
+		for(;;) {
+			if( strcmp(l->proj, z->proj) > 0 ) {
+				if( head == NULL )
+					head = tail = z;
+				else {
+					tail->next = z;
+					tail = z;
+				}
+				z->next = NULL;
+				flg++;
+			} else {
+				if( head == NULL )
+					head = tail = l;
+				else {
+					tail->next = l;
+					tail = l;
+				}
+				l->next = NULL;
+				l = z;
+			}
+			z = inq;
+			if( z == NULL )
+				break;
+			inq = inq->next;
+		}
+		tail->next = l;
+		l->next = NULL;
+	} while( flg );
+NoSort:
+
+	/*
+	 * Напечатаем таблицу проектов
+	 */
+	cnt = (cnt+3)/4;
+	for( flg = 0; flg < cnt ; flg++ ) {
+		l = head;
+		for( i = 0 ; i < 4 ; i++ ) {
+			if( l == NULL )
+				break;
+			printf( "%c%-16.16s", (l->uflag==1)?'+':' ', l->proj );
+			j = 0;
+			while( j < cnt && l != NULL )
+				j++, l = l->next;
+		}
+		putchar( '\n' );
+		head = head->next;
+	}
+}
+
+/*
+ * Выделить n байтов памяти
+ */
+myalloc(n)
+{
+	register p;
+
+	p = malloc(n);
+	if( p == NULL )
+		error( "pmcs: not enough core\n",
+		       "pmcs: не хватает памяти\n" );
+	return p;
+}
+
+FILE *tfd;
+char  tfname[160];
+int tempok;
+#include <stat.h>
+int pindex[50];
+
+/*
+ * Начало обработки редактирования
+ */
+edbegin()
+{
+	register i;
+
+	if( project == NULL )
+		error( "pmcs: project(s) must be specified",
+		       "pmcs: нужно указать проект(ы)" );
+	for( i = 0; i < 50 ; i++ )
+		pindex[i] = 0;
+	mktemp();
+}
+
+/*
+ * Конец редактирования
+ * флаг = 0, если не было изменений
+ */
+edend(flg)
+{
+	register char **qq;
+
+	if(flg)
+		cltemp();
+	else
+		unlink(tfname);
+	for( qq = project; *qq ; qq++ ) {
+		if( !pindex[qq-project] )
+			fprintf(stderr, ediag("pmcs: project %s not exist\n",
+					      "pmcs: проект %s не существует\n"), *qq);
+	}
+}
+
+/*
+ * Добавить пользователя в список рассылки проекта
+ */
+append()
+{
+	register struct projdesc *p;
+	register char **pp;
+	int flg, cflg, ccflg;
+	char **qq;
+
+	edbegin();
+	ccflg = 0;
+	while( (p = getpd(pf, tfd)) != NULL ) {
+		putpd(p);
+		flg = cflg = 0;
+		for( qq = project ; *qq ; qq++ ) {
+			if( !strcmp(p->pd_pname, *qq) ) {
+				pindex[qq-project]++;
+				flg = 1;
+			}
+		}
+		if( flg ) {
+			pp = p->pd_usig;
+			while( *pp ) {
+				if( !strcmp(*pp++, user) ) {
+					cflg++;
+					break;
+				}
+			}
+			if( !cflg ) {
+				if( p->pd_nusig > 0 )
+					fprintf(tfd, ",");
+				fprintf(tfd, "%s", user);
+				ccflg++;
+			}
+		}
+		putc('\n', tfd);
+	}
+	edend(ccflg);
+}
+
+/*
+ * Удалить пользователя из списка рассылки проекта
+ */
+remove()
+{
+	register struct projdesc *p;
+	register char **pp;
+	int flg, cflg;
+	char **qq;
+
+	edbegin();
+	cflg = 0;
+	while( (p = getpd(pf, tfd)) != NULL ) {
+		flg = 0;
+		for( qq = project ; *qq ; qq++ ) {
+			if( !strcmp(p->pd_pname, *qq) ) {
+				pindex[qq-project]++;
+				if( flg )
+					continue;
+				flg++;
+				pp = p->pd_usig;
+				while( *pp ) {
+					if( !strcmp(*pp++, user) ) {
+						cflg++;
+						*--pp = p->pd_usig[--(p->pd_nusig)];
+						p->pd_usig[p->pd_nusig] = NULL;
+					}
+				}
+			}
+		}
+		putpd(p);
+		putc('\n', tfd);
+	}
+	edend(cflg);
+}
+
+/*
+ * Уничтожить проект
+ */
+destroy()
+{
+	register struct projdesc *p;
+	register char **pp;
+	int flg, cflg;
+	char **qq;
+
+	edbegin();
+	cflg = 0;
+	while( (p = getpd(pf, tfd)) != NULL ) {
+		flg = 0;
+		for( qq = project ; *qq ; qq++ ) {
+			if( !strcmp(p->pd_pname, *qq) ) {
+				pindex[qq-project]++;
+				flg = 1;
+			}
+		}
+		if( flg ) {
+			/*
+			 * Special checkin allowed
+			 */
+			 cflg++;
+			 continue;
+		}
+		putpd(p);
+		putc('\n', tfd);
+	}
+	edend(cflg);
+}
+
+/*
+ * Создать новый проект
+ */
+new()
+{
+	register char **qq;
+	char buf[160];
+	register struct projdesc *p;
+	char **qs;
+	char *pd;
+	char *pds[50];
+	FILE *opf;
+	int fd;
+
+	/*
+	 * Проверим на дублирование имен
+	 */
+	if( project == NULL )
+		error( "pmcs: project(s) must be specified",
+		       "pmcs: нужно указать проект(ы)" );
+	for( qq = project ; qq[1] ; qq++ ) {
+		for( qs = qq+1 ; *qs ; qs++ ) {
+			if( !strcmp(*qq, *qs) )
+				error("pmcs: duplicate project name %s",
+				      "pmcs: дважды указано имя проекта %s", *qq);
+		}
+	}
+
+	/*
+	 * Проверим на наличие такого проекта (проектов)
+	 */
+	while( (p = getpd(pf, NULL)) != NULL ) {
+		 for( qq = project ; *qq ; qq++ ) {
+			if( !strcmp(p->pd_pname, *qq) )
+				error("pmcs: project %s exists",
+				      "pmcs: проект %s уже существует", *qq);
+		 }
+	}
+
+	/*
+	 * Прочитаем строку описания проекта
+	 */
+	for( qq = project ; *qq ; qq++ ) {
+		if( isatty(0) ) {
+			printf(ediag("Enter description line for %s:\n>> ",
+				     "Введите строку - описание %s:\n>> "), *qq );
+		}
+		if( gets(buf) == NULL )
+			buf[0] = '\0';
+		pd = myalloc(1+strlen(buf));
+		strcpy(pd, buf);
+		pds[qq-project] = pd;
+	}
+
+	/*
+	 * Допишем описания новых проектов
+	 */
+	fclose(pf);
+	mktemp();
+	if( (opf = fopen(pfname, "a")) == NULL )
+		error( "pmcs: can't append to project file",
+		       "pmcs: не могу дописать файл проектов" );
+	for( qq = project ; *qq ; qq++ )
+		fprintf(opf, "%s:%s:\n", *qq, pds[qq-project]);
+	fclose(opf);
+	unlink(tfname);
+	tempok = 0;
+
+	/*
+	 * Создадим файлы проектов
+	 */
+	for( qq = project ; *qq ; qq++ ) {
+		strcpy(buf, spool);
+		strcat(buf, "/");
+		strcat(buf, *qq);
+		fd = creat(buf, 0644);
+		if( fd < 0 )
+			fprintf(stderr, ediag("pmcs (warning): can't create %s\n",
+					      "pmcs (предупреждение): не могу создать %s\n"), buf);
+		else {
+			close(fd);
+			if( fork() == 0 ) {
+				execl("/bin/chown", "chown", user, buf, 0);
+				error("pmcs: can't exec chown",
+				      "pmcs: не могу вызвать chown");
+			}
+			wait(&fd);
+		}
+	}
+}
+
+/*
+ * Создать временный файл
+ */
+mktemp()
+{
+	int cntr = 0;
+	struct stat stb;
+
+	strcpy(tfname, spool);
+	strcat(tfname, "/");
+	strcat(tfname, PROJFILE);
+	strcat(tfname, ".$");   /* Like eda blocking ... */
+Looping:
+	if( stat(tfname, &stb) >= 0 ) {
+		if( ++cntr > 30 )
+			error("pmcs: projects file locked\n",
+			      "pmcs: файл проектов блокирован\n");
+		if( cntr == 1 )
+			fprintf(stderr, ediag("wait...\n","ждите...\n" ) );
+		sleep(3);
+		goto Looping;
+	}
+	tempok = 1;
+	if( (tfd = fopen(tfname, "w")) == NULL )
+		error("pmcs: can't create temp file %s",
+		      "pmcs: не могу создать временный файл %s", tfname);
+}
+
+/*
+ * Закрытие временного файла
+ */
+cltemp()
+{
+	if( ferror(pf) )
+		error("pmcs: error reading %s",
+		      "pmcs: ошибка чтения %s", pfname );
+	if( ferror(tfd) )
+		error("pmcs: error writing temp",
+		      "pmcs: ошибка записи временного файла");
+	fclose(pf);
+	fclose(tfd);
+	unlink(pfname);
+	link(tfname, pfname);
+	unlink(tfname);
+	tempok = 0;
+}
+
+/*
+ * Выдать диагностику об ошибке
+ */
+error(e, r, a)
+char *e, *r;
+{
+	fprintf(stderr, ediag(e,r), a);
+	fprintf(stderr, "\n" );
+	if( tfname[0] != '\0' )
+		unlink(tfname);
+	exit(1);
+}
+
+/*
+ * Обработка прерывания
+ */
+onintr()
+{
+	if( tempok )
+		unlink(tfname);
+	exit(2);
+}
+
+/*
+ * Печать строки файла проектов
+ */
+putpd(p)
+register struct projdesc *p;
+{
+	register char **pp;
+	register char *q;
+	char *escape();
+	int len,cl;
+
+	fprintf(tfd,"%s:%s:", p->pd_pname, p->pd_desc );
+	len = strlen(p->pd_pname) + strlen(p->pd_desc) + 2;
+
+	pp = p->pd_usig;
+	while( *pp ) {
+		q = escape(*pp);
+		cl = 1 + strlen(q);
+		if( len+cl > 72 ) {
+			fprintf(tfd, "\\\n\t" );
+			len = 8;
+		}
+		fprintf(tfd, "%s", q);
+		len += cl;
+		if( *++pp != NULL )
+			fprintf(tfd, ",");
+	}
+}
+
+/*
+ * Квотировать хитрые символы
+ */
+char *escape(s)
+register char *s;
+{
+	register char *q;
+	static char buf[160];
+	register c;
+
+	q = buf;
+	while( c = *s++ ) {
+		switch(c) {
+		    case ' ':
+		    case ':':
+		    case ',':
+		    case '\\':
+			*q++ = '\\';
+		}
+		*q++ = c;
+	}
+	*q = '\0';
+	return buf;
+}
+@
+
+
+1.5
+log
+@Изменена проверка использования ключа s вместе с l или p.
+@
+text
+@d21 3
+d41 1
+a41 1
+static char rcsid[] = "$Header: pmcs.c,v 1.4 88/01/10 18:49:17 avg Exp $";
+d69 2
+a70 2
+Usage:          error( "Usage: pmds {lndarp}[us] [user] [spooldir] [proj]",
+		       "Вызов: pmds {lndarp}[us] [польз] [каталог] [проект]" );
+@
+
+
+1.4
+log
+@Изменена проверка: добавлять и удалять СЕБЯ из списка
+расслки проекта теперь можно по ЛЮБОМУ проекту.
+@
+text
+@d21 4
+d38 1
+a38 1
+static char rcsid[] = "$Header: pmcs.c,v 1.3 88/01/10 18:33:32 avg Exp $";
+a85 3
+		if( getuid() != 0 )
+			error("pmcs: you are not a superuser",
+			      "pmcs: вы не суперпользователь");
+d131 3
+@
+
+
+1.3
+log
+@Неправильно указывалось имя файла архива при создании проекта.
+Заменено strcpy на strcat.
+@
+text
+@d21 4
+d34 1
+a34 1
+static char rcsid[] = "$Header: pmcs.c,v 1.2 88/01/10 17:11:30 avg Exp $";
+d167 2
+a168 1
+	} else if( project != NULL && getuid() != 0 ) {
+@
+
+
+1.2
+log
+@Правлено несколько мелких плюх.
+@
+text
+@d21 3
+d30 1
+a30 1
+static char rcsid[] = "$Header: pmcs.c,v 1.1 88/01/09 15:56:34 avg Exp $";
+d142 2
+a143 2
+			mkdir( spool );
+			if( chmod(spool, 01777) < 0 )
+d654 1
+a654 1
+		strcpy(buf, *qq);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d20 4
+a23 1
+ * $Log$
+d27 1
+a27 1
+static char rcsid[] = "$Header$";
+d52 1
+a52 1
+	char MFname[160]
+d161 1
+a161 1
+		struct stat st;
+@

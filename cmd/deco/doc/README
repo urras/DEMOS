@@ -1,0 +1,51 @@
+This directory contains files, used by Demos Commander.
+Copyright (C) 1989, 1990 Demos/*, Moscow.
+
+Demos Commander was created at Demos Coop. in 1989.
+It is much alike the world-famous Norton Commander.
+Demos Commander works on many computers running Unix-compatible
+operating systems, and handles various terminal devices
+using termcap data base.
+
+This release is prepared to run on Xenix-286, Xenix-386 systems.
+
+To install Demos Commander you must have machine, running Xenix.
+
+1) Login as root, insert floppy disk with Demos Commander Packadge
+in drive and enter command
+
+	# custom
+
+then install packadge as described in operating system manuals.
+
+2) Choose terminal type, appropriate for you terminal device:
+
+	xenix   - for standard xenix console
+	ansi    - for ansi terminal
+
+or other supported by your /etc/termcap database.
+
+3) Setup terminal type:
+
+	$ TERM=termtype
+	$ export TERM
+
+in shell, or
+
+	% setenv TERM termtype
+
+in cshell.
+
+4) run Demos Commander:
+
+	$ deco
+
+Using ansi terminal you lose colors and pseudo-graphics.
+Functional keys F0-F9 can be entered as ESC 0 - ESC 9.
+
+5) Exit from Demos Commander - F0 or ^C or 'exit' command.
+
+________________________
+Demos/* is a trade mark of Demos Cooperative, Moscow, fax 231-21-29
+
+Mon Jun 11 21:24:09 MSK 1990                    Vakulenko S. V.

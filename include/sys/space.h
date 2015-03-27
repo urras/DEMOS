@@ -1,20 +1,3 @@
-/*
- *      $Log:	space.h,v $
- * Revision 1.4  89/05/13  15:32:10  abs
- * копия данного файла должна попадать в /usr/include/sys
- * 	после каждой генерации ядра.
- * 
- * Revision 1.3  89/05/11  18:01:23  abs
- * из msg.h и sem.h константы перетащены сюда.
- *
- * Revision 1.2  89/05/05  19:52:00  korotaev
- * В этот файл вставлен MAXUSERS.
- *
- * Revision 1.1  89/04/24  17:03:17  korotaev
- * Initial revision
- *
- */
-
 #ifndef _sys_space_h_
 # define _sys_space_h_
 
@@ -129,3 +112,20 @@
 #endif
 
 #endif _sys_space_h_
+
+/*
+ *      $Log:	space.h,v $
+ * Revision 1.4  89/05/13  15:32:10  abs
+ * копия данного файла должна попадать в /usr/include/sys
+ * 	после каждой генерации ядра.
+ * 
+ * Revision 1.3  89/05/11  18:01:23  abs
+ * из msg.h и sem.h константы перетащены сюда.
+ *
+ * Revision 1.2  89/05/05  19:52:00  korotaev
+ * В этот файл вставлен MAXUSERS.
+ *
+ * Revision 1.1  89/04/24  17:03:17  korotaev
+ * Initial revision
+ *
+ */

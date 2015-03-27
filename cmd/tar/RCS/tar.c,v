@@ -1,0 +1,4396 @@
+head     1.20;
+access   abs korotaev;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.20
+date     89.06.22.13.12.11;  author korotaev;  state Exp;
+branches ;
+next     1.19;
+
+1.19
+date     89.01.31.17.57.26;  author korotaev;  state Exp;
+branches ;
+next     1.18;
+
+1.18
+date     88.10.19.15.21.17;  author abs;  state Exp;
+branches ;
+next     1.17;
+
+1.17
+date     88.10.19.10.59.18;  author abs;  state Exp;
+branches ;
+next     1.16;
+
+1.16
+date     88.02.19.21.08.11;  author nms;  state Exp;
+branches ;
+next     1.15;
+
+1.15
+date     87.06.12.13.52.15;  author avg;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     87.03.13.21.55.05;  author avg;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     87.03.13.21.26.36;  author avg;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     87.02.03.16.49.27;  author alex;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     87.01.04.20.30.30;  author alex;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     86.12.26.16.06.40;  author alex;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     86.12.21.17.31.34;  author alex;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     86.12.10.20.30.23;  author alex;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     86.11.28.15.59.13;  author mike;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.09.21.20.02.33;  author dmitry;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.09.19.21.54.39;  author dmitry;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.08.22.14.40.18;  author mike;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.23.21.25.34;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.07.22.20.58.30;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.07.02.11.08.51;  author mike;  state Exp;
+branches ;
+next     0.0;
+
+0.0
+date     86.06.04.17.13.00;  author mike;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Ленточный архив.
+@
+
+
+1.20
+log
+@tar стал более универсальным.
+@
+text
+@/*
+ *      $Log:	tar.c,v $
+ * Revision 1.19  89/01/31  17:57:26  korotaev
+ * Теперь правильно (?) обрабатывает переход с ленты на лнту.
+ * Раньше он мог в этом месте работать рекурсивно и, соответственно,
+ * накладывал стек на данные.
+ * 
+ * Revision 1.18  88/10/19  15:21:17  abs
+ * слегка поправлены грамматические ошибки.
+ * 
+ * Revision 1.17  88/10/19  10:59:18  abs
+ * Научен склонять русские слова когда это надо.
+ *
+ * Revision 1.16  88/02/19  21:08:11  nms
+ * Исправлен язык сообщений. При MSG=r наш любимый tar изъяснялся на английском.
+ *
+ * Revision 1.15  87/06/12  13:52:15  avg
+ * 1. Правлена плюха с ключем / при чтении link-а.
+ * 2. Немного исправлены диагностики.
+ * 3. Теперь можно указывать цифрами магнитофоны 8 и 9.
+ *
+ * Revision 1.14  87/03/13  21:55:05  avg
+ * Добавлен перевод строки в диагностике.
+ *
+ * Revision 1.13  87/03/13  21:26:36  avg
+ * Заделан ключ B для записи/чтения на флоппи.
+ *
+ * Revision 1.12  87/02/03  16:49:27  alex
+ * Исправлена ошибка в режиме "-S" (не сбрасывался последний блок).
+ *
+ * Revision 1.11  87/01/04  20:30:30  alex
+ * 1. Исправлены ошибки с ключом "-s".
+ * 2. Исправлены попытки сделать fprintf(ediag(... .
+ * 3. В "newtape" вставлено закрытие/открытие ленты.
+ * 4. Введен ключ "S длина_ленты_килобайт".
+ * 5. Для экономии места написали функцию "pterr".
+ *
+ * Revision 1.10  86/12/26  16:06:40  alex
+ * Исправлена очередная ошибка - не проверялся код ответа функции "lstat", "stat".
+ *
+ * Revision 1.9  86/12/21  17:31:34  alex
+ * Исправлена запись symlink в случае, если файла, на который
+ * сделана ссылка, нет.
+ *
+ * Revision 1.8  86/12/10  20:30:23  alex
+ * 1. Исправлена ошибка в readlink (Какой ??? написал там longname).
+ * 2. Исправлена диагностика read error вместо идиотского changed size.
+ * 3. Не исправлена - ошибка в режиме "ci" -> "нарушение защиты памяти"
+ * 4. Не исправлено то, что в режиме ci без v tar ничего не говорит при ошибке записи,
+ * а просто тупо чегой то ждет. Также ничего не говорится о файле, на котором
+ * произошла ошибка чтения с ленты.
+ *
+ * Revision 1.7  86/11/28  15:59:13  mike
+ * Вставлен новый ключ `-d', который указывает перекодирование
+ * файлов из КОИ-8 в UCODE или наоборот (зависит от внутренней кодировки
+ * системы).
+ *
+ * Revision 1.6  86/09/21  20:02:33  dmitry
+ * В выдаче сообщения об ошибке readlink был пропущен перевод строки.
+ *
+ * Revision 1.5  86/09/19  21:54:39  dmitry
+ * Исправлена орф. ошибка.
+ *
+ * Revision 1.4  86/08/22  14:40:18  mike
+ * Исправлена работа с ключом '-i' (мнололенточная запись).
+ * Отлажены ключи '-u' и '-r' (возможно обновление и запись
+ * только с лентой /dev/*rmt?).
+ * Исправлена работа с ключом '-a' (возмона работа тоже только
+ * с лентой /dev/*rmt?).
+ *
+ * Revision 1.3  86/07/23  21:25:34  avg
+ * Извиняюсся, апшибочка вышла, ваше высокоблагородие !
+ * Небольшая правка в responce и все как новенькое!
+ *
+ * Revision 1.2  86/07/22  20:58:30  avg
+ * Если нет ключа f и в среде устанолена переменная TAPE,
+ * ее значение будет использовано в качестве имени ленты.
+ *
+ * Revision 1.1  86/07/02  11:08:51  mike
+ * Вставлены новые ключи:
+ *   -n - нерекурсивная запись ( для записи через find );
+ *   -s - список файлов для записи брать в указанном файле в
+ *        аргументе вызова (для длинных списков имен файлов);
+ *   -i - при чтении игнорировать ошибки заголовков файлов,
+ *        многоленточный tar при записи;
+ *   -a - при чтении просмотр всех файлов на ленте (ленточных
+ *        файлов);
+ *   -/ - при чтении обрезание первого '/' (для считывания
+ *        не абсолютных имен файлов а относительных).
+ *
+ * Коды ответа:
+ *        0 - нормальное окончание;
+ *        1 - ошибка при разборе параметров;
+ *        2 - ошибка при работе tar, не связанная с лентой;
+ *        3 - ошибка по вине ленты при чтении;
+ *        4 - -- // --             при записи.
+ *
+ */
+
+/*NOXSTR*/
+
+#ifndef lint
+static   char   rcsid[] = "$Header: tar.c,v 1.19 89/01/31 17:57:26 korotaev Exp $";
+#endif
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/dir.h>
+#include <sys/mtio.h>
+#include <sys/code.h>
+#include <signal.h>
+#include <ediag.h>
+#include <setjmp.h>
+#include <ctype.h>
+
+#define YES             1
+#define NO              0
+#define TBLOCK          512
+#define NBLOCK          32      /* maximum tape blocking */
+#define BLOCKDFLT       20      /* default tape blckng */
+#define PIPEBLOCK       8       /* dflt pipe blckng; 4K */
+#define FILEBLOCK       2       /* dflt blckng for disk archives */
+#define TAPEBLOCK       20      /* dflt tape blckng for blckng tape */
+#define NAMSIZ          100
+#define min(a,b) (((a) < (b))? (a): (b))
+#define TABLE           1
+#define COMPARE         2
+#define EXTRACT         3
+#define REPLACE         4
+#define NREPFILE        NBLOCK  /* кол-во запомненных посл-их файлов */
+#define BLKSAVE         4
+#define REGF           -1
+#define CHRF            0
+#define BLKF            1
+#define MERRORS         10   /* max numbers of tape errors in '-i' options */
+#define CODSIZE         256  /* размер таблицы перекодировки */
+
+union hblock {
+    char dummy[TBLOCK];
+    struct header {
+	char name[NAMSIZ];
+	char mode[8];
+	char uid[8];
+	char gid[8];
+	char size[12];
+	char mtime[12];
+	char chksum[8];
+	char linkflag;
+	char linkname[NAMSIZ];
+	char code;
+	int  cryptflag;
+    } dbuf;
+} dblock, tbuf[NBLOCK];
+
+#define DUMMSUM ((int)(' ')*sizeof(dblock.dbuf.chksum))
+
+struct linkbuf {
+    ino_t   inum;
+    dev_t   devnum;
+    int     count;
+    char    pathname[NAMSIZ];
+    struct  linkbuf *nextp;
+} *ihead;
+
+off_t            lseek();
+time_t           time();
+char            *mktemp();
+char            *ctime();
+char            *malloc();
+char            *rindex();
+int              onintr(), onquit(), onhup()/*, onterm()*/;
+daddr_t          bsrch();
+daddr_t          lookup();
+long             atol();
+struct  linkbuf *found();
+
+struct  stat     stbuf;
+
+#ifdef Ucode
+
+    static char codes = 'U';        /* для UCODE */
+
+    char  recode[CODSIZE] = {       /* таблица перекодировки */
+    0000, 0001, 0002, 0003, 0004, 0005, 0006, 0007,
+    0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017,
+    0020, 0021, 0022, 0023, 0024, 0025, 0026, 0027,
+    0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037,
+    0040, 0041, 0042, 0043, 0044, 0045, 0046, 0047,
+    0050, 0051, 0052, 0053, 0054, 0055, 0056, 0057,
+    0060, 0061, 0062, 0063, 0064, 0065, 0066, 0067,
+    0070, 0071, 0072, 0073, 0074, 0075, 0076, 0077,
+    0100, 0101, 0102, 0103, 0104, 0105, 0106, 0107,
+    0110, 0111, 0112, 0113, 0114, 0115, 0116, 0117,
+    0120, 0121, 0122, 0123, 0124, 0125, 0126, 0127,
+    0130, 0131, 0132, 0133, 0134, 0135, 0136, 0137,
+    0140, 0141, 0142, 0143, 0144, 0145, 0146, 0147,
+    0150, 0151, 0152, 0153, 0154, 0155, 0156, 0157,
+    0160, 0161, 0162, 0163, 0164, 0165, 0166, 0167,
+    0170, 0171, 0172, 0173, 0174, 0175, 0176, 0177,
+    0200, 0201, 0202, 0203, 0204, 0205, 0206, 0207,
+    0210, 0211, 0212, 0213, 0214, 0215, 0216, 0217,
+    0220, 0221, 0222, 0223, 0224, 0225, 0226, 0227,
+    0230, 0231, 0232, 0233, 0234, 0235, 0236, 0237,
+    0240, 0241, 0242, 0243, 0244, 0245, 0246, 0247,
+    0250, 0251, 0252, 0253, 0254, 0255, 0256, 0257,
+    0260, 0261, 0262, 0263, 0264, 0265, 0266, 0267,
+    0270, 0271, 0272, 0273, 0274, 0275, 0276, 0277,
+     'ю',  'а',  'б',  'ц',  'д',  'е',  'ф',  'г',
+     'х',  'и',  'й',  'к',  'л',  'м',  'н',  'о',
+     'п',  'я',  'р',  'с',  'т',  'у',  'ж',  'в',
+     'ь',  'ы',  'з',  'ш',  'э',  'щ',  'ч',  'ъ',
+     'Ю',  'А',  'Б',  'Ц',  'Д',  'Е',  'Ф',  'Г',
+     'Х',  'И',  'Й',  'К',  'Л',  'М',  'Н',  'О',
+     'П',  'Я',  'Р',  'С',  'Т',  'У',  'Ж',  'В',
+     'Ь',  'Ы',  'З',  'Ш',  'Э',  'Щ',  'Ч', 0372
+    };
+
+#else
+
+    static char codes = '8';        /* для КОИ8 */
+
+    char  recode[CODSIZE] = {       /* таблица перекодировки */
+    0000, 0001, 0002, 0003, 0004, 0005, 0006, 0007,
+    0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017,
+    0020, 0021, 0022, 0023, 0024, 0025, 0026, 0027,
+    0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037,
+    0040, 0041, 0042, 0043, 0044, 0045, 0046, 0047,
+    0050, 0051, 0052, 0053, 0054, 0055, 0056, 0057,
+    0060, 0061, 0062, 0063, 0064, 0065, 0066, 0067,
+    0070, 0071, 0072, 0073, 0074, 0075, 0076, 0077,
+    0100, 0101, 0102, 0103, 0104, 0105, 0106, 0107,
+    0110, 0111, 0112, 0113, 0114, 0115, 0116, 0117,
+    0120, 0121, 0122, 0123, 0124, 0125, 0126, 0127,
+    0130, 0131, 0132, 0133, 0134, 0135, 0136, 0137,
+    0140, 0141, 0142, 0143, 0144, 0145, 0146, 0147,
+    0150, 0151, 0152, 0153, 0154, 0155, 0156, 0157,
+    0160, 0161, 0162, 0163, 0164, 0165, 0166, 0167,
+    0170, 0171, 0172, 0173, 0174, 0175, 0176, 0177,
+    0200, 0201, 0202, 0203, 0204, 0205, 0206, 0207,
+    0210, 0211, 0212, 0213, 0214, 0215, 0216, 0217,
+    0220, 0221, 0222, 0223, 0224, 0225, 0226, 0227,
+    0230, 0231, 0232, 0233, 0234, 0235, 0236, 0237,
+    0240, 0241, 0242, 0243, 0244, 0245, 0246, 0247,
+    0250, 0251, 0252, 0253, 0254, 0255, 0256, 0257,
+    0260, 0261, 0262, 0263, 0264, 0265, 0266, 0267,
+    0270, 0271, 0272, 0273, 0274, 0275, 0276, 0277,
+    0341, 0342, 0367, 0347, 0344, 0345, 0366, 0372,
+    0351, 0352, 0353, 0354, 0355, 0356, 0357, 0360,
+    0362, 0363, 0364, 0365, 0346, 0350, 0343, 0376,
+    0373, 0375, 0377, 0371, 0370, 0374, 0340, 0361,
+    0301, 0302, 0327, 0307, 0304, 0305, 0326, 0332,
+    0311, 0312, 0313, 0314, 0315, 0316, 0317, 0320,
+    0322, 0323, 0324, 0325, 0306, 0310, 0303, 0336,
+    0333, 0335, 0337, 0331, 0330, 0334, 0300, 0321
+    };
+
+#endif
+
+int     ttp[16] = {
+	0033401, 0000000, 0177777, 0177777,     /* 0033600 */
+	0177777, 0177777, 0177777, 0077777,
+	0000000, 0000000, 0000000, 0000000,
+#ifdef Ucode
+	0177777, 0177777, 0177777, 0177777
+#else
+	0177777, 0177777, 0177777, 0077777
+#endif
+};
+
+char    lnflag;         /* -X  link from linkdir if identical */
+char    aflag;          /* прочитывание многофайловой ленты */
+char    dflag, perflg, vflag, cflag, mflag, fflag, oflag, pflag, hflag;
+char    wflag, iflag, slflag, term, first, mtdev, Bflag, writing, norepflag;
+char    norecursive; /* Специальный режим для системы архивирования */
+char   *linkdir;        /* link from this directory if identical */
+char   *ncom;
+char    nameyw[NAMSIZ],namenw[NAMSIZ];
+char    wdir[NAMSIZ];
+short   npblock, mt;
+short   chksum, recno, linkerrok;
+int     freemem = 1;
+int     nblock;
+int     infile;
+long    maxsize, currsize, flpsize, currflpsize;
+FILE   *vfile = stdout;
+FILE   *spfile = (FILE *)NULL;  /* список файлов для записи, чтения */
+int     crptflg;
+
+daddr_t low;
+daddr_t high;
+
+FILE   *tfile;
+char    tname[] = "/tmp/tarXXXXXX";
+
+char   *usefile;
+char    magtape[] = "/dev/nrmt0";
+
+jmp_buf  rep_jmp;
+char    *rep_arg[NREPFILE], *rep_m;
+short    nrep = 0;
+long     nblk = 0, rep_blk[NREPFILE];
+
+/* склонение числительных русского языка */
+/* s1 - для 5 6 7 8 9 10 11 12 ...
+ * s2 - для 1
+ * s3 - для 2 3 4
+ */
+char *grammar( i, s1, s2, s3 )
+long i;
+char *s1, *s2, *s3;
+{
+	i = i % 100l;
+	if( i>10l && i <= 20l )return s1;
+	i = i % 10l;
+	if( i==1l ) return s2;
+	if( i == 2l || i == 3l || i == 4l )
+	       return s3;
+	return s1;
+}
+
+/*YESXSTR*/
+
+main(argc, argv)
+int   argc;
+char *argv[];
+{
+	     char  work;
+    register char *cp;
+    register int   i;
+
+    ncom = *argv;
+    if (argc < 2)
+	usage();
+    tfile = NULL;
+    if( (usefile = getenv("TAPE")) == NULL )
+	usefile =  magtape;
+    argv[argc] = 0;
+    argv++;
+    for (cp = *argv++; *cp; cp++)
+	switch(*cp) {
+	case 'f':
+	       /* Имя архива берем из argv (если '-', то это
+		* либо ст. ввод либо ст. вывод в зависимости от
+		* операции.
+		*/
+	    usefile = *argv++;
+	    fflag++;
+	    break;
+	case 'c':
+	       /* Инициализация нового архива на ленте.
+		*/
+	    cflag++;
+	    work = REPLACE;
+	    break;
+	case 'o':
+	       /* Не выдавать диагностику: 'cannot creat'.
+		*/
+	    oflag++;
+	    break;
+	case 'p':
+	       /* Считывать файлы с сохранением всех мод (rwxst)
+		* и принадлежности файлов.
+		*/
+	    pflag++;
+	    break;
+	case 'u':
+	       /* Дозапись в архив изменившихся из перечисленных файлов.
+		*/
+	    mktemp(tname);
+	    if ((tfile = fopen(tname, "w")) == NULL) {
+		pterr("%s: cannot create temporary file (%s)\n","%s: не могу создать временный файл (%s)\n",ncom,tname);
+		done(1);
+	    }
+	    fprintf(tfile, "!!!!!/!/!/!/!/!/!/! 000\n");
+	   /* FALL THROUGH */
+	case 'r':
+	       /* Дозапись в архив в конец ленты.
+		*/
+	    work = REPLACE;
+	    break;
+	case 'v':
+	       /* Показ всех вып-ых действий (verbouse).
+		*/
+	    vflag++;
+	    break;
+	case 'w':
+	       /* Подтверждение по каждому действию.
+		* ( y/n/=name/#name/!command)
+		*/
+	    wflag++;
+	    break;
+	case 'C':
+	       /* Сравнение всех файлов на ленте с имеющимися.
+		*/
+	    work = COMPARE;
+	    break;
+	case 'X':
+	       /* Сравнение всех файлов на ленте с имеющимися
+		* в каталоге из argv. если совпадают то link-ся,
+		* иначе считываются с ленты.
+		*/
+	    linkdir = *argv++;
+	    lnflag++;
+	    work = EXTRACT;
+	    break;
+	case 'x':
+	       /* Считывание файлов с ленты.
+		*/
+	    work = EXTRACT;
+	    break;
+	case 't':
+	       /* Чтение каталога ленты.
+		*/
+	    work = TABLE;
+	    break;
+	case 'm':
+	       /* Изменять даты и время у считанных файлов.
+		*/
+	    mflag++;
+	    break;
+	case 'h':
+	       /* Обрабатывать символические ссылки как если бы
+		* они были обычными каталогами или файлами.
+		*/
+	    hflag++;
+	    break;
+	case '-':
+	    break;
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9':
+	       /* Изменить номер стантндартной ленты: /dev/nrmtX
+		*/
+	    magtape[9] = *cp;
+	    usefile = magtape;
+	    fflag++;
+	    break;
+	case 'S':
+	       /* Размер ленты.
+		*/
+	    maxsize= 2l*atol(*argv++);
+	    if (maxsize == 0 || maxsize <= 0) {
+		pterr("%s: invalid tape size\n","%s: ошибочный размер ленты\n",ncom,NBLOCK);
+		done(1);
+	    }
+	    break;
+	case 'B':
+	       /* Размер флоппи
+		*/
+	    flpsize= 2l*atol(*argv++);
+	    if (flpsize == 0 || flpsize <= 0) {
+		pterr("%s: invalid floppy size\n","%s: ошибочный размер флоппи-диска\n",ncom,NBLOCK);
+		done(1);
+	    }
+	    Bflag++;
+	    break;
+	case 'b':
+	       /* Блок-фактор на ленте.
+		*/
+	    nblock = atoi(*argv++);
+	    if (nblock > NBLOCK || nblock <= 0) {
+		pterr("%s: invalid blocksize (max %d)\n","%s: ошибочный коэффициент блокировки (допустим: 1 - %d)\n",ncom,NBLOCK);
+		done(1);
+	    }
+	    break;
+	case 'l':
+	       /* Не выдавать диагностику при невозможности
+		* разрешить все связи файла.
+		*/
+	    linkerrok++;
+	    break;
+	case 'n':
+	       /* Нерекурсивная запись.
+		*/
+	    norecursive++; /* Специально для системы копирования */
+	    break;
+	case 's':
+	       /* Список файлов взять из файла в argv (если '-',
+		* то из ст. ввода).
+		*/
+	    if( strcmp(*argv,"-") == 0 )
+		spfile = stdin;
+	    else if( (spfile = fopen(*argv,"r")) == NULL ){
+		    pterr("%s: cannot open spisok-file %s\n","%s: не могу открыть файл-список %s\n",ncom,*argv);
+		    done(2);
+	    }
+	    argv++;
+	    break;
+	case 'i':
+	       /* Игнорировать при чтении ошибки заголовков.
+		* При записи - многоленточная запись.
+		*/
+	    iflag++;
+	    break;
+	case 'a':
+	       /* прочитывание многофайловой ленты
+		*/
+	    aflag++;
+	    break;
+	case '/':
+	       /* обрезание первого слеша при считывании.
+		*/
+	    slflag++;
+	    break;
+	case 'd':
+	       /* перекодировать файлы.
+		*/
+	    dflag = 1;
+	    break;
+	case 'D':
+	       /* перекодировать файлы, не проверяя кодировки системы записи
+		*/
+	    dflag = 2;
+	    break;
+	default:
+	    pterr("%s: %c: unknown option\n","%s: неизвестный ключ (%c)\n",ncom,*cp);
+	    usage();
+	}
+    if( work == REPLACE ){
+	if( cflag && tfile != NULL ){
+	    pterr("%s: options '-c' and '-u' uncompatible\n","%s: ключи '-c' и '-u' несовместимы\n",ncom);
+	    done(1);
+	}
+	if( aflag ){
+	    pterr("%s: option '-a' and write tape uncompatible\n","%s: ключ '-a' и режим записи на ленту несовместимы\n",ncom);
+	    done(1);
+	}
+	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
+	    signal(SIGINT, onintr);
+	if (signal(SIGHUP, SIG_IGN) != SIG_IGN)
+	    signal(SIGHUP, onhup);
+	if (signal(SIGQUIT, SIG_IGN) != SIG_IGN)
+	    signal(SIGQUIT, onquit);
+/*
+	if (signal(SIGTERM, SIG_IGN) != SIG_IGN)
+	    signal(SIGTERM, onterm);
+*/
+	if( iflag ){
+	    if( spfile == stdin ){
+		pterr("%s: options '-s' with '-' and '-i' uncompatible\n","%s: ключи '-s' с '-' и '-i' несовместимы\n",ncom);
+		done(1);
+	    }
+	    if( (rep_m = malloc(NREPFILE*(NAMSIZ+1)*sizeof(char))) == NULL ){
+		pterr("%s: no memory. Retranslate NREPFILE less\n","%s: нет памяти. Уменьшите NREPFILE и перетранслируйте программу\n",ncom);
+		done(2);
+	    }
+	    for( i = 0 ; i < NREPFILE ; i++ )
+		rep_arg[i] = &rep_m[i*(NAMSIZ+1)];
+	}
+	if (strcmp(usefile, "-") == 0) {
+	    if (cflag == 0) {
+		pterr("%s: can only create standard output archives\n","%s: стандартный вывод нельзя дозаписать\n",ncom);
+		done(1);
+	    }
+	    vfile = stderr;
+	    mt = dup(1);
+	    close(1); dup(2);   /* for stdout */
+	    nblock = PIPEBLOCK;
+	} else if ((mt = open(usefile, 2)) < 0) {
+	    if (cflag == 0 || (mt =  creat(usefile, 0666)) < 0) {
+		pterr("%s: cannot open %s\n","%s: не могу открыть %s\n",ncom,usefile);
+		done(2);
+	    }
+	}
+	writing = 1;
+	chk_mtdev();
+	/*
+	if( cflag == 0 && mtdev == BLKF ) {
+	    pterr("%s: cannot update blocked tapes\n","%s: не могу дозаписать блочную ленту\n",ncom);
+	    done(1);
+	}
+	*/
+	setbuf(vfile,NULL);
+	dorep(argv);
+    } else if (work) {
+	if( spfile != NULL ){
+	    pterr("%s: option '-s' and read tape uncompatible\n","%s: ключ '-s' и режим чтения ленты несовместимы\n",ncom);
+	    done(1);
+	}
+	if (strcmp(usefile, "-") == 0) {
+	    mt = dup(0);
+	    close(0);
+	    dup(2);     /* для режима "w" */
+	    nblock = PIPEBLOCK;
+	} else if ((mt = open(usefile, 0)) < 0) {
+	    pterr("%s: cannot open %s\n","%s: не могу открыть %s\n",ncom,usefile);
+	    done(2);
+	}
+	chk_mtdev();
+	if( aflag && mtdev != CHRF ) {
+	    pterr("%s: cannot make options '-a' with blocked tapes\n","%s: не могу обслужить ключ '-a' с блочной лентой\n",ncom);
+	    done(1);
+	}
+	setbuf(vfile,NULL);
+	switch (work) {
+	case EXTRACT:
+	    doxtract(argv);
+	    break;
+	case COMPARE:
+	    docompare(argv);
+	    break;
+	case TABLE:
+	    dotable();
+	    break;
+	}
+    } else
+	usage();
+    done(0);
+}
+
+usage()
+{
+    fprintf(stderr,ediag("Usage: %s {cCrtxX}[abdfihlmnopsuvw/BDS0-9] [blocksize] [tapefile] f1...\n",
+			 "Вызов: %s {cCrtxX}[abdfihlmnopsuvw/BDS0-9] [блокфактор] [файл_ленты] ф1...\n"),ncom);
+    done(1);
+}
+
+chk_mtdev()
+{
+    struct stat stb;
+
+    fstat(mt, &stb);
+    switch (stb.st_mode & S_IFMT) {
+    case (S_IFCHR):
+	mtdev = CHRF;
+	break;
+    case (S_IFBLK):
+	mtdev = BLKF;
+	break;
+    default:
+	mtdev = REGF;
+	break;
+    }
+}
+
+char *fgetss();
+dorep(argv)
+char    *argv[];
+{
+    register char *namef;
+	     char  nmbuf[NAMSIZ];
+
+    if (!cflag) {
+	getdir();
+	do {
+	    passtape();
+	    if (term)
+		done(0);
+	    getdir();
+	} while (!endtape());
+	if (tfile != NULL) {
+	    char buf[200];
+
+	    sprintf(buf, "sort +0 -1 +1nr %s -o %s; awk '$1 != prev {print; prev=$1}' %s >%sX; mv %sX %s",tname, tname, tname, tname, tname, tname);
+	    fflush(tfile);
+	    system(buf);
+	    freopen(tname, "r", tfile);
+	    fstat(fileno(tfile), &stbuf);
+	    high = stbuf.st_size;
+	}
+    }
+    getwdir(wdir);
+    while( !term && ((namef = *argv++) || ((argv--,spfile) && (namef=fgetss(nmbuf,NAMSIZ,spfile)))) ){
+	if( !strcmp(namef, "-C") && *argv ){
+	    namef = *argv++;
+	    if( chdir(namef) < 0 )
+		pterr("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n",ncom,namef);
+	    else
+		getwdir(wdir);
+	    continue;
+	}
+	put1file(namef);
+    }
+
+    if( iflag && setjmp(rep_jmp) )
+	    nextape();
+    putempty();
+    flushtape();
+    if (linkerrok == 1)
+	for (; ihead != NULL; ihead = ihead->nextp)
+	    if (ihead->count != 0)
+		pterr("%s: missing links to %s\n","%s: нет связей для %s\n",ncom,ihead->pathname);
+}
+
+put1file(name)
+register char *name;
+{
+    register char *cp, *cp2;
+
+    cp2 = name;
+    for (cp = name; *cp; cp++)
+	if (*cp == '/')
+	    cp2 = cp;
+    if (cp2 != name) {
+	*cp2 = '\0';
+	if (chdir(name) < 0) {
+	    pterr("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n",ncom,name);
+	    return;
+	}
+	*cp2 = '/';
+	cp2++;
+    }
+    putfile(name, cp2);
+    if (chdir(wdir) < 0)
+	pterr("%s: cannot change back?: %s\n","%s: не могу вернуться назад !: %s\n",ncom,wdir);
+    return;
+}
+
+endtape()
+{
+    if (dblock.dbuf.name[0] == '\0') {
+	if (writing)
+	    backtape();
+	return(1);
+    } else
+	return(0);
+}
+
+getdir()
+{
+    register struct stat *sp;
+    static   short        nopflag = 0;
+	     int          i;
+
+nextblk:
+    while( !readtape( (char *) &dblock) )
+	pterr("%s: cannot read header block\n","%s: не могу прочитать заголовок файла\n",ncom);
+    sscanf(dblock.dbuf.chksum, "%o", &chksum);
+    crptflg = dblock.dbuf.cryptflag;
+    i = checksum();
+    if( dblock.dbuf.name[0] == '\0' && i == DUMMSUM )
+	return;
+    if( chksum != i ){
+	if( !nopflag )
+	    pterr("%s: header checksum error\n","%s: ошибка контрольной суммы заголовка\n",ncom);
+	if( !iflag )
+	    done(2);
+	nopflag++;
+	goto nextblk;
+    }
+    if( slflag && dblock.dbuf.name[0] == '/' )
+	strncpy(dblock.dbuf.name,&dblock.dbuf.name[1],NAMSIZ-1);
+    if( slflag && dblock.dbuf.linkflag != '\0' &&
+		  dblock.dbuf.name[0] == '/' )
+	strncpy(dblock.dbuf.linkname,&dblock.dbuf.linkname[1],NAMSIZ-1);
+    if( dflag ){
+	if( dblock.dbuf.code || dflag==2) {
+	    perflg = 1;
+	    npblock = 1;
+	    reco(dblock.dbuf.name,NAMSIZ);
+	    if( dblock.dbuf.linkflag != '\0' )
+		reco(dblock.dbuf.linkname,NAMSIZ);
+	} else
+	    perflg = 0;
+    }
+    sp = &stbuf;
+    sscanf(dblock.dbuf.mode, "%o", &i);
+    sp->st_mode = i;
+    sscanf(dblock.dbuf.uid, "%o", &i);
+    sp->st_uid = i;
+    sscanf(dblock.dbuf.gid, "%o", &i);
+    sp->st_gid = i;
+    sscanf(dblock.dbuf.size, "%lo", &sp->st_size);
+    sscanf(dblock.dbuf.mtime, "%lo", &sp->st_mtime);
+    if( nopflag ){
+	if( _ediag )
+	    fprintf( stderr,
+	    "%s: %d logical blocks skipped to find header\n",
+	    ncom, nopflag );
+	else fprintf( stderr,
+	    "%s: пропущен%s %d логически%s блок%s, чтобы найти заголовок\n",
+	    ncom,
+/*NOXSTR*/
+	    grammar( (long)nopflag, "о", "", "о" ),
+	    nopflag,
+	    grammar( (long)nopflag, "х", "й", "х" ),
+	    grammar( (long)nopflag, "ов", "", "а" )      );
+/*YESXSTR*/
+    }
+    if (tfile != NULL)
+	fprintf(tfile, "%s %s\n", dblock.dbuf.name, dblock.dbuf.mtime);
+    nopflag = 0;
+}
+
+passtape()
+{
+    long blocks;
+
+    if (dblock.dbuf.linkflag == '1')
+	return;
+    blocks = stbuf.st_size;
+    blocks += TBLOCK-1;
+    blocks /= TBLOCK;
+    while (blocks-- > 0)
+	readtape((char *)NULL);
+}
+
+putfile(longname, shortname)
+char *longname;
+char *shortname;
+{
+    register char         *cp, *cp2;
+    register int           i, j;
+	     long          blocks;
+	     char          buf[TBLOCK];
+	     struct direct dbuf;
+
+    if( iflag && norepflag == 0){
+	if( setjmp(rep_jmp) ){
+	    if( infile ){
+		close(infile);
+		infile = 0;
+	    }
+	    nextape();
+	    return;
+	}
+	repfile(longname);
+    }
+    if ( maxsize && maxsize < currsize) {
+		putempty();
+		putempty();
+		flushtape();
+		newtape(longname);
+		}
+    if (!hflag)
+	i = lstat(shortname, &stbuf);
+    else
+	i = stat(shortname, &stbuf);
+    if (i < 0) {
+	pterr("%s: not exist %s\n","%s: не существует файл %s\n",ncom,longname);
+	return;
+    }
+    if (tfile != NULL && checkupdate(longname) == 0) {
+	return;
+    }
+    if (checkw('r', longname) == 0) {
+	return;
+    }
+    i = stbuf.st_mode & S_IFMT;
+    if (i != S_IFREG && i != S_IFLNK && i != S_IFDIR){
+	pterr("%s: %s is not a file. Not dumped\n","%s: %s не файл. Не записан\n",ncom,longname);
+	return;
+    }
+    if ( i != S_IFLNK )
+	    infile = open(shortname, 0);
+    if (infile < 0) {
+	pterr("%s: cannot open file %s\n","%s: не могу открыть файл %s\n",ncom,longname);
+	return;
+    }
+    if (i == S_IFDIR) {
+	for (i = 0, cp = buf; *cp++ = longname[i++];);
+	*--cp = '/';
+	*++cp = 0  ;
+	i = 0;
+	if (!oflag) {
+	    if( (cp - buf) >= NAMSIZ) {
+		pterr("%s: %s: file name too long\n","%s: слишком длинное имя файла: %s\n",ncom,longname);
+		close(infile);
+		return;
+	    }
+	    stbuf.st_size = 0;
+	    tomodes(&stbuf);
+	    strcpy(dblock.dbuf.name,buf);
+	    sprintf(dblock.dbuf.chksum, "%6o", checksum());
+	    writetape( (char *) &dblock);
+	}
+	if ( norecursive){
+	    close(infile);
+	    return;
+	}
+	if (chdir(shortname) < 0) {
+	    pterr("%s: mesg: chdir to %s\n","%s: не могу перейти в %s\n",ncom,longname);
+	    close(infile);
+	    return;
+	}
+	while (read(infile, (char *)&dbuf, sizeof(dbuf)) > 0 && !term) {
+	    if (dbuf.d_ino == 0) {
+		i++;
+		continue;
+	    }
+	    if (strcmp(".", dbuf.d_name) == 0 || strcmp("..", dbuf.d_name) == 0) {
+		i++;
+		continue;
+	    }
+	    cp2 = cp;
+	    for (j=0; j < DIRSIZ; j++)
+		*cp2++ = dbuf.d_name[j];
+	    *cp2 = '\0';
+	    close(infile);
+	    putfile(buf, cp);
+	    infile = open(".", 0);
+	    i++;
+	    lseek(infile, (long) (sizeof(dbuf) * i), 0);
+	}
+	if( hflag ){
+	    chdir(wdir);
+	    shortname[-1] = '\0';
+	    chdir(longname);
+	    shortname[-1] = '/';
+	} else
+	    chdir("..");
+	close(infile);
+	return;
+    }
+    tomodes(&stbuf);
+    cp2 = longname;
+    for (cp = dblock.dbuf.name, i=0; (*cp++ = *cp2++) && i < NAMSIZ; i++)
+	;
+    if (i >= NAMSIZ) {
+	pterr("%s: %s: file name too long\n","%s: слишком длинное имя файла: %s\n",ncom,longname);
+	close(infile);
+	return;
+    }
+    if ((stbuf.st_mode & S_IFMT) == S_IFLNK) {
+	if (stbuf.st_size + 1 >= NAMSIZ) {
+	    pterr("%s: %s: symbolic link too long\n","%s: символическая ссылка слишком длинная: %s\n",ncom,longname);
+	    close(infile);
+	    return;
+	}
+	i = readlink(shortname,dblock.dbuf.linkname, NAMSIZ - 1);
+	if (i < 0) {
+	    pterr("%s: error readlink\n","%s: ошибка чтение символической ссылки\n",ncom);
+	    close(infile);
+	    return;
+	}
+	dblock.dbuf.linkname[i] = '\0';
+	dblock.dbuf.linkflag = '2';
+	if (vflag) {
+	    fprintf(vfile,ediag("a %s","%s"), longname);
+	    fprintf(vfile,ediag(" symbolic link to %s\n"," символическая ссылка на %s\n"),dblock.dbuf.linkname);
+	}
+	sprintf(dblock.dbuf.size, "%11o", 0);
+	sprintf(dblock.dbuf.chksum, "%6o", checksum());
+	writetape((char *)&dblock);
+	close(infile);
+	return;
+    }
+    if (stbuf.st_nlink > 1) {
+	register struct linkbuf *lp;
+
+	if( (lp = found()) ) {
+	    strcpy(dblock.dbuf.linkname, lp->pathname);
+	    dblock.dbuf.linkflag = '1';
+	    sprintf(dblock.dbuf.chksum, "%6o", checksum());
+	    writetape( (char *) &dblock);
+	    if (vflag)
+		fprintf(vfile,ediag("a %s link to %s\n","%s связан с %s\n"),longname,lp->pathname);
+	    lp->count--;
+	    close(infile);
+	    return;
+	} else {
+	    lp = (struct linkbuf *) malloc(sizeof(*lp));
+	    if (lp == NULL) {
+		if (freemem) {
+		    pterr("%s: out of memory. Link information lost\n","%s: нет памяти. Информация о связях будет неполной\n",ncom);
+		    freemem = 0;
+		}
+	    } else {
+		lp->nextp = ihead;
+		ihead = lp;
+		lp->inum = stbuf.st_ino;
+		lp->devnum = stbuf.st_dev;
+		lp->count = stbuf.st_nlink - 1;
+		strcpy(lp->pathname, longname);
+	    }
+	}
+    }
+    blocks = (stbuf.st_size + (TBLOCK-1)) / TBLOCK;
+    if (vflag){
+	if( _ediag )
+	   fprintf(vfile,"a %s %D blocks\n", longname,blocks);
+	else
+	   fprintf(vfile,"a %s %D блок%s\n", longname,blocks,
+/*NOXSTR*/
+			grammar( (long)blocks, "ов", "", "а" ));
+/*YESXSTR*/
+    }
+    sprintf(dblock.dbuf.chksum, "%6o", checksum());
+    writetape( (char *) &dblock);
+    while ((i = read(infile, buf, TBLOCK)) > 0 && blocks > 0) {
+	writetape(buf);
+	blocks--;
+    }
+    close(infile);
+    if ( i < 0 )
+	pterr("%s: %s: read error\n","%s: %s: ошибка чтения\n",ncom,longname);
+    else if (blocks != 0 || i != 0 )
+	pterr("%s: %s: file changed size\n","%s: %s: файл изменился\n",ncom,longname);
+    while( blocks-- > 0 )
+	putempty();
+}
+
+struct linkbuf *found()
+{
+    register struct linkbuf *lp;
+
+     for( lp = ihead ; lp != NULL ; lp = lp->nextp )
+	 if( lp->inum == stbuf.st_ino && lp->devnum == stbuf.st_dev )
+	     return(lp);
+     return(0);
+}
+
+nextape()
+{
+    register struct linkbuf *lp;
+    register int             i;
+	     char           *arg[NREPFILE+1];
+	     char            tdir[NAMSIZ];
+
+    norecursive++;
+    norepflag++;
+    if( setjmp(rep_jmp) == 0 ){
+	nrep -= replace(0);
+	if( nrep == 0 ){
+	    pterr("%s: nonsens\n","%s: нонсенс\n",ncom);
+	    done(2);
+	}
+	for( i = 0 ; i < nrep ; i++ )
+	    arg[i] = rep_arg[i];
+	arg[nrep] = 0;
+    }
+    getwdir(tdir);
+    if( chdir(wdir) < 0 )
+	pterr("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n",ncom,wdir);
+    for( i = nrep ; i > 0 ; i-- ){
+	if( !hflag )
+	    lstat(arg[i-1],&stbuf);
+	else
+	    stat(arg[i-1],&stbuf);
+	if( (lp = found()) ){
+	    if( lp == ihead ){
+		ihead = lp->nextp;
+		free(lp);
+	    } else
+		lp->count++;
+	}
+    }
+    newtape(arg[0]);
+    for( i = 0 ; !term && arg[i] ; i++ )
+	put1file(arg[i]);
+    if( chdir(tdir) < 0 )
+	pterr("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n",ncom,tdir);
+    norecursive--;
+    norepflag--;
+}
+
+/*
+ * Перепихиваем имена.
+ */
+repfile(name)
+{
+    if( nrep >= NREPFILE )
+	nrep -= replace(1);
+    strncpy(rep_arg[nrep],name,NAMSIZ);
+    rep_blk[nrep++] = nblk;
+}
+
+replace(k)
+register int k;
+{
+    register int i,n;
+
+    for( i = k ; i < nrep ; i++ )
+	if( nblk < rep_blk[i]+BLKSAVE )
+	    break;
+    for( n = 0 ; n < nrep-i ; n++ ){
+	strncpy(rep_arg[n],rep_arg[n+i],NAMSIZ);
+	rep_blk[n] = rep_blk[n+i];
+    }
+    return(i);
+}
+
+doxtract(argv)
+char    *argv[];
+{
+    register char *fcmpfile, **cp;
+    register int   same, ifile, ofile;
+	     long  blocks, bytes;
+	     char  buf[TBLOCK], cmpfile[200+NAMSIZ], tmpfile[200+NAMSIZ];
+
+    if (lnflag) {
+	strcpy (cmpfile, linkdir);
+	fcmpfile = &cmpfile[strlen(cmpfile)];
+	strcpy (fcmpfile, "/");
+	fcmpfile++;
+    }
+    for (;;) {
+	if( gtb() )
+	    break;
+	if (*argv == 0)
+	    goto gotit;
+	for (cp = argv; *cp; cp++)
+	    if( prefix(*cp,dblock.dbuf.name) || (nameyw[0] && prefix(nameyw,dblock.dbuf.name)) )
+		goto gotit;
+	passtape();
+	continue;
+gotit:
+	if (checkw('x', dblock.dbuf.name) == 0) {
+	    passtape();
+	    continue;
+	}
+	if(checkdir(dblock.dbuf.name))
+	    continue;
+	if (dblock.dbuf.linkflag == '2') {
+	    unlink(dblock.dbuf.name);
+	    if (symlink(dblock.dbuf.linkname, dblock.dbuf.name)<0) {
+		pterr("%s: %s: symbolic link failed\n","%s: не могу сделать символическую ссылку: %s\n",ncom,dblock.dbuf.name);
+		continue;
+	    }
+	    if (vflag)
+		fprintf(vfile,ediag("x %s symbolic link to %s\n","x %s символическая ссылка на %s\n"),dblock.dbuf.name, dblock.dbuf.linkname);
+		chown(dblock.dbuf.name, stbuf.st_uid, stbuf.st_gid);
+	    if (mflag == 0) {
+		time_t timep[2];
+
+		timep[0] = time(0);
+		timep[1] = stbuf.st_mtime;
+		utime(dblock.dbuf.name, timep);
+	    }
+	    if (pflag)
+		chmod(dblock.dbuf.name, stbuf.st_mode & 07777);
+	    continue;
+	}
+	if (dblock.dbuf.linkflag == '1') {
+	    unlink(dblock.dbuf.name);
+	    if (link(dblock.dbuf.linkname, dblock.dbuf.name) < 0) {
+		pterr("%s: %s: cannot link\n","%s: не могу связать %s\n",ncom,dblock.dbuf.name);
+		continue;
+	    }
+	    if (vflag)
+		fprintf(vfile,ediag("%s linked to %s\n","%s связан с %s\n"),dblock.dbuf.name, dblock.dbuf.linkname);
+	    continue;
+	}
+	ifile = -1;
+	same = NO;
+	if (lnflag) {
+/*NOXSTR*/
+	    static char tmpf[] = "TarXXXXXX";
+/*YESXSTR*/
+
+	    same = YES;
+	    if (dblock.dbuf.name[0] != '/') {
+		strcpy (fcmpfile, dblock.dbuf.name);
+		if ((ifile = open(cmpfile, 0)) >= 0) {
+		    tmpfile[0] = '\0';
+		    strncat (tmpfile, dblock.dbuf.name,dirpart (dblock.dbuf.name));
+		    strcat (tmpfile, tmpf);
+		    mktemp(tmpfile);
+		}
+	    }
+	}
+	if ((ofile = creat(ifile >= 0 ? tmpfile : dblock.dbuf.name,(int) stbuf.st_mode & 07777)) < 0) {
+	    pterr("%s: %s - cannot create\n","%s: не могу создать %s\n",ncom,dblock.dbuf.name);
+	    passtape();
+	    continue;
+	}
+	blocks = ((bytes = stbuf.st_size) + TBLOCK-1)/TBLOCK;
+	if (ifile >= 0) {
+	    struct stat stbuf33;
+
+	    if (fstat(ifile, &stbuf33) < 0 || bytes != stbuf33.st_size)
+		same = NO;
+	}
+	if (vflag){
+	    if( _ediag )
+	      fprintf(vfile,"x %s, %D bytes, %D tape blocks",
+			    dblock.dbuf.name, bytes, blocks);
+	    else
+	      fprintf(vfile,"x %s, %D байт%s, %D блок%s на ленте",
+			    dblock.dbuf.name,
+/*NOXSTR*/
+			    bytes,
+			    grammar( (long)bytes, "", "", "а" ),
+			    blocks,
+			    grammar( (long)blocks, "ов", "", "а")
+/*YESXSTR*/
+	      );
+	}
+	while (blocks-- > 0) {
+	    register int nw;
+
+	    nw = min(bytes, TBLOCK);
+	    if( crptflg )
+		crypt(buf,nw);
+	    dereadtape(buf,nw);
+	    if (write(ofile, buf, nw) < nw) {
+		pterr("%s: %s: HELP - extract write error\n","%s: %s: ВНИМАНИЕ - ошибка при записи файла\n",ncom,dblock.dbuf.name);
+		done(2);
+	    }
+	    if (ifile >= 0 && same)
+		same = cmprd (ifile, buf, nw);
+	    bytes -= TBLOCK;
+	}
+	close(ofile);
+	if (ifile >= 0) {
+	    close(ifile);
+	    unlink(dblock.dbuf.name);
+	    if (vflag)
+		fprintf(vfile," (%s)",same?ediag("same","такой же"):ediag("new","новый"));
+	    if (link(same? cmpfile : tmpfile, dblock.dbuf.name) < 0)
+		pterr("%s: %s - cannot link\n","%s: не могу связать %s\n",ncom,dblock.dbuf.name);
+		unlink (tmpfile);
+	}
+	if (vflag)
+	    fprintf(vfile, "\n");
+	if (ifile < 0 || !same) {
+	    if (mflag == 0) {
+		time_t timep[2];
+
+		timep[0] = time((time_t *) NULL);
+		timep[1] = stbuf.st_mtime;
+		utime(dblock.dbuf.name, timep);
+	    }
+	    chown(dblock.dbuf.name, stbuf.st_uid, stbuf.st_gid);
+	    if(pflag)
+		chmod(dblock.dbuf.name, (int)stbuf.st_mode & 07777);
+	}
+    }
+}
+
+docompare(argv)
+char    *argv[];
+{
+    register char      **cp;
+    register int         ifile, same;
+	     long        blocks, bytes;
+	     char        buf[TBLOCK];
+	     struct stat stbuf2;
+
+    for (;;) {
+	if( gtb() )
+	    break;
+	if (*argv == 0)
+	    goto gotit;
+	for (cp = argv; *cp; cp++)
+	    if( prefix(*cp,dblock.dbuf.name) || (nameyw[0] && prefix(nameyw,dblock.dbuf.name)) )
+		goto gotit;
+	passtape();
+	continue;
+gotit:
+	if (dblock.dbuf.linkflag == '1') {
+	    if (vflag) {
+		fprintf(vfile,"Link ");
+		longt(&stbuf);
+		fprintf(vfile,"%s", dblock.dbuf.name);
+		fprintf(vfile,ediag(" linked to %s\n"," связан с %s\n"), dblock.dbuf.linkname);
+	    }
+	    continue;
+	}
+	if (dblock.dbuf.linkflag == '2') {
+	    if (vflag) {
+		fprintf(vfile,"Symlink ");
+		longt(&stbuf);
+		fprintf(vfile,ediag("%s symbolic link to %s\n","%s символичская ссылка на %s\n"),dblock.dbuf.name,dblock.dbuf.linkname);
+	    }
+	    continue;
+	}
+	if ((ifile = open(dblock.dbuf.name, 0)) < 0) {
+	    fprintf(vfile,ediag("Err  ","Ошибка  "));
+	    if (vflag)
+		longt(&stbuf);
+	    pterr("%s: Cannot open disk file\n","Не могу открыть дисковый файл: %s\n",dblock.dbuf.name);
+	    passtape();
+	    continue;
+	}
+	same = YES;
+	blocks = ((bytes = stbuf.st_size) + TBLOCK-1)/TBLOCK;
+	if (fstat(ifile, &stbuf2) < 0 || bytes != stbuf.st_size)
+	    same = NO;
+	if (same){
+	    while (blocks-- > 0) {
+		register int nw;
+
+		nw = min(bytes, TBLOCK);
+		if( crptflg )
+		    crypt(buf,nw);
+		dereadtape(buf,nw);
+		if (same)
+		    same = cmprd (ifile, buf, nw);
+		bytes -= TBLOCK;
+	    }
+	} else
+	    passtape();
+	close(ifile);
+	if (!same)
+	    fprintf(vfile,ediag("diff ","не сравнился "));
+	else if (vflag)
+	    fprintf(vfile,ediag("same ","идентичный "));
+	if (vflag) {
+	    longt(&stbuf);
+	    fprintf(vfile,"%s\n", dblock.dbuf.name);
+	}
+    }
+}
+
+dotable()
+{
+    for (;;) {
+	if( gtb() )
+	    break;
+	if (vflag)
+	    longt(&stbuf);
+	fprintf(vfile,"%s ", dblock.dbuf.name);
+	if (dblock.dbuf.linkflag == '2')
+	    fprintf(vfile,ediag("symbolic link to %s","символическая ссылка на %s\n"),dblock.dbuf.linkname);
+	if (dblock.dbuf.linkflag == '1')
+	    fprintf(vfile,ediag("linked to %s","связан с %s\n"),dblock.dbuf.linkname);
+	fprintf(vfile,"\n");
+	passtape();
+    }
+}
+
+gtb()
+{
+    getdir();
+    if( endtape() ){
+	if( aflag ){
+	    static struct mtop mtop = { MTFSF, 1 };
+
+	    if( ioctl(mt,MTIOCTOP,&mtop) < 0 ){
+		pterr("%s: tape forward space file error\n","%s: ошибка операции 'переход к следующему файлу'\n",ncom);
+		done(3);
+	    }
+	    fprintf(vfile,ediag("%s: mesg: next of tape file\n","%s: внимание: следующий файл на ленте\n"),ncom);
+	    first = nblock = 0;
+	    getdir();
+	    if( !endtape() )
+		return(0);
+	}
+	return(1);
+    }
+    return(0);
+}
+
+putempty()
+{
+    register char *cp;
+	     char  buf[TBLOCK];
+
+    for (cp = buf; cp < &buf[TBLOCK]; )
+	*cp++ = '\0';
+    writetape(buf);
+}
+
+longt(st)
+register struct stat *st;
+{
+    register char *cp;
+
+    pmode(st);
+    fprintf(vfile,"%3d/%-2d", st->st_uid, st->st_gid);
+    fprintf(vfile,"%7D", st->st_size);
+    cp = ctime(&st->st_mtime);
+    fprintf(vfile," %-12.12s %-4.4s ", cp+4, cp+20);
+}
+
+#define SUID    04000
+#define SGID    02000
+#define ROWN    0400
+#define WOWN    0200
+#define XOWN    0100
+#define RGRP    040
+#define WGRP    020
+#define XGRP    010
+#define ROTH    04
+#define WOTH    02
+#define XOTH    01
+#define STXT    01000
+
+int     m1[] = { 1, ROWN, 'r', '-' };
+int     m2[] = { 1, WOWN, 'w', '-' };
+int     m3[] = { 2, SUID, 's', XOWN, 'x', '-' };
+int     m4[] = { 1, RGRP, 'r', '-' };
+int     m5[] = { 1, WGRP, 'w', '-' };
+int     m6[] = { 2, SGID, 's', XGRP, 'x', '-' };
+int     m7[] = { 1, ROTH, 'r', '-' };
+int     m8[] = { 1, WOTH, 'w', '-' };
+int     m9[] = { 2, STXT, 't', XOTH, 'x', '-' };
+
+int     *m[] = { m1, m2, m3, m4, m5, m6, m7, m8, m9};
+
+pmode(st)
+register struct stat *st;
+{
+    register int **mp;
+
+    for (mp = &m[0]; mp < &m[9];)
+	select(*mp++, st);
+}
+
+select(pairp, st)
+register struct stat *st;
+	 int         *pairp;
+{
+    register int n, *ap;
+
+    ap = pairp;
+    n = *ap++;
+    while (--n>=0 && (st->st_mode&*ap++)==0)
+	ap++;
+    fprintf(vfile,"%c", *ap);
+}
+
+checkdir(name)
+register char *name;
+{
+    register char *cp;
+	     int   i;
+
+    for (cp = name; *cp; cp++) {
+	if (*cp == '/') {
+	    *cp = '\0';
+	    if (access(name, 01) < 0) {
+		register int pid, rp;
+
+		if ((pid = fork()) == 0) {
+		    execl("/bin/mkdir", "mkdir", name, 0);
+		    execl("/usr/bin/mkdir", "mkdir", name, 0);
+		    pterr("%s: cannot find mkdir!\n","%s: не вызывается mkdir!\n",ncom);
+		    exit(1);
+		}
+		while ((rp = wait(&i)) >= 0 && rp != pid)
+		    ;
+		chown(name, stbuf.st_uid, stbuf.st_gid);
+		if (pflag && cp[1] == '\0')
+		    chmod(dblock.dbuf.name,(int) stbuf.st_mode & 01777);
+	    }
+	    *cp = '/';
+	}
+    }
+    return(cp[-1]=='/');
+}
+
+onintr()
+{
+    signal(SIGINT, SIG_IGN);
+    term++;
+}
+
+onquit()
+{
+    signal(SIGQUIT, SIG_IGN);
+    term++;
+}
+
+onhup()
+{
+    signal(SIGHUP, SIG_IGN);
+    term++;
+}
+
+/*
+onterm()
+{
+    signal(SIGTERM, SIG_IGN);
+    term++;
+}
+*/
+
+tomodes(sp)
+register struct stat *sp;
+{
+    register char *cp;
+
+    for (cp = dblock.dummy; cp < &dblock.dummy[TBLOCK]; cp++)
+	*cp = '\0';
+    sprintf(dblock.dbuf.mode, "%6o ", sp->st_mode & 07777);
+    sprintf(dblock.dbuf.uid, "%6o ", sp->st_uid);
+    sprintf(dblock.dbuf.gid, "%6o ", sp->st_gid);
+    sprintf(dblock.dbuf.size, "%11lo ", sp->st_size);
+    sprintf(dblock.dbuf.mtime, "%11lo ", sp->st_mtime);
+}
+
+checksum()
+{
+    register int   i;
+    register char *cp;
+
+    for (cp = dblock.dbuf.chksum; cp < &dblock.dbuf.chksum[sizeof(dblock.dbuf.chksum)]; cp++)
+	*cp = ' ';
+    i = 0;
+    for (cp = dblock.dummy; cp < &dblock.dummy[TBLOCK]; cp++)
+	i += *cp;
+    return(i);
+}
+
+checkw(c, name)
+register char *name;
+{
+    register int i;
+
+    if (wflag) {
+represp:
+	if( nameyw[0] && prefix(nameyw,name) )
+	    return(1);
+	if( namenw[0] && prefix(namenw,name) ){
+	    if( vflag ){
+		fprintf(vfile,ediag("(skip) ","(пропущен) "));
+		longt(&stbuf);
+		fprintf(vfile," %s\n",name);
+	    }
+	    return(0);
+	}
+	fprintf(vfile,"%c ", c);
+	if (vflag)
+	    longt(&stbuf);
+	fprintf(vfile,"%s: ", name);
+	if( (i = response()) == 'y' )
+	    return(1);
+	if( i == '=' || i == '#' )
+	    goto represp;
+	return(0);
+    }
+    return(1);
+}
+
+response()
+{
+    register c;
+    register char *s;
+
+    goto getchr;
+getcc:
+    fprintf(vfile,ediag("(y/n/=name/#name/!command): ","(y/n/=имя/#имя/!команда): "));
+getchr:
+    c = getchar()&0377;
+    if( c == '=' ){
+	s = nameyw;
+	goto rname;
+    }
+    if( c == '#' ){
+	s = namenw;
+	goto rname;
+    }
+    if( c == '!' ){
+	char cmdbuf[200];
+
+	gets(cmdbuf);
+	system(cmdbuf);
+	goto getcc;
+    }
+    if( c != '\n' )
+	while( getchar() != '\n' );
+    switch (c) {
+	case ('Y'):
+	case ('y'):
+	case ('Д'&0377):
+	case ('д'&0377):
+	    return('y');
+	case ('\n'):
+	case ('N'):
+	case ('n'):
+	case ('Н'&0377):
+	case ('н'&0377):
+	    return('n');
+	default:
+	    goto getcc;
+    }
+rname:
+    while( (*s = getchar()) != '\n' )
+	s++;
+    *s = '\0';
+    return(c);
+}
+
+checkupdate(arg)
+register char *arg;
+{
+    char    name[100];
+    long    mtime;
+    daddr_t seekp;
+
+    rewind(tfile);
+    for (;;) {
+	if ((seekp = lookup(arg)) < 0)
+	    return(1);
+	fseek(tfile, seekp, 0);
+	fscanf(tfile, "%s %lo", name, &mtime);
+	if (stbuf.st_mtime > mtime)
+	    return(1);
+	else
+	    return(0);
+    }
+}
+
+done(n)
+{
+    unlink(tname);
+    exit(n);
+}
+
+prefix(s1, s2)
+register char *s1, *s2;
+{
+    while (*s1)
+	if (*s1++ != *s2++)
+	    return(0);
+    if (*s2)
+	return(*s2 == '/');
+    return(1);
+}
+
+getwdir(s)
+register char *s;
+{
+    register int i,j;
+	     int pipdes[2],k;
+
+    pipe(pipdes);
+    if ((i = fork()) == 0) {
+	close(1);
+	dup(pipdes[1]);
+	execl("/bin/pwd", "pwd", 0);
+	execl("/usr/bin/pwd", "pwd", 0);
+	pterr("%s: pwd failed!\n","%s: не могу вызвать pwd !\n",ncom);
+	fprintf(vfile,"/\n");
+	exit(1);
+    }
+    while( (j=wait(&k))!=-1 && j!=i )
+	;
+    read(pipdes[0], s, 50);
+    while(*s != '\n')
+	s++;
+    *s = '\0';
+    close(pipdes[0]);
+    close(pipdes[1]);
+}
+
+#define N       200
+
+daddr_t lookup(s)
+register char *s;
+{
+    register int     i;
+
+    for(i=0; s[i]; i++)
+	if(s[i] == ' ')
+	    break;
+    return(bsrch(s,i,low,high));
+}
+
+daddr_t bsrch(s, n, l, h)
+register char    *s;
+	 daddr_t  l, h;
+{
+    register int     i, j;
+	     char    b[N];
+	     daddr_t mw, mw1;
+
+loop:
+    if(l >= h)
+	return(-1L);
+    mw = l + (h-l)/2 - N/2;
+    if(mw < l)
+	mw = l;
+    fseek(tfile, mw, 0);
+    fread(b, 1, N, tfile);
+    for(i=0; i<N; i++) {
+	if(b[i] == '\n')
+	    break;
+	mw++;
+    }
+    if(mw >= h)
+	return(-1L);
+    mw1 = mw;
+    j = i;
+    for(i++; i<N; i++) {
+	mw1++;
+	if(b[i] == '\n')
+	    break;
+    }
+    i = cmp(b+j, s, n);
+    if(i < 0) {
+	h = mw;
+	goto loop;
+    }
+    if(i > 0) {
+	l = mw1;
+	goto loop;
+    }
+    return(mw);
+}
+
+cmp(b, s, n)
+register char *b, *s;
+{
+    register i;
+
+    if(b[0] != '\n')
+	done(2);
+    for(i=0; i<n; i++) {
+	if(b[i+1] > s[i])
+	    return(-1);
+	if(b[i+1] < s[i])
+	    return(1);
+    }
+    return(b[i+1] == ' '? 0 : -1);
+}
+
+dereadtape(buf,nw)
+	 char *buf;
+register int   nw;
+{
+    readtape(buf);
+    if( perflg ){
+	if( npblock ){
+	    char bb1[TBLOCK];
+
+	    copy(bb1,buf);
+	    reco(bb1,nw);
+	    if( symv(bb1,nw) ){    /* если надо перекодировать */
+		copy(buf,bb1);
+	    } else {
+		perflg = 0;
+	    }
+	    npblock = 0;
+	} else
+	    reco(buf,nw);
+    }
+}
+
+readtape(buffer)
+register char *buffer;
+{
+    register int i, j;
+    static   int nerrors;
+
+    if (recno >= nblock || first == 0) {
+	if (first==0 && nblock==0) {
+	    switch (mtdev) {
+	    case (CHRF):
+		j = NBLOCK;
+		break;
+	    case (REGF):
+		j = FILEBLOCK;
+		break;
+	    default:
+		j = TAPEBLOCK;
+	    }
+	} else
+	    j = nblock;
+	if( Bflag && currflpsize + j > flpsize ) newfloppy();
+	currflpsize += j;
+	if ((i = read(mt, (char *) tbuf, TBLOCK*j)) < 0) {
+	    pterr("%s: tape read error\n","%s: ошибка чтения ленты\n",ncom);
+	    if( iflag )
+		goto rerr;
+	    done(3);
+	}
+	if( i == 0 ){
+	    pterr("%s: error: end of tape\n","%s: ошибка: конец файла на ленте\n",ncom);
+	    done(3);
+	}
+	if ((i % TBLOCK) != 0) {
+	    pterr("%s: tape blocksize error\n","%s: плохой размер блока на ленте\n",ncom);
+	    if( iflag )
+		goto rerr;
+	    done(3);
+	}
+	i /= TBLOCK;
+	if( i != nblock ){
+	    if (mtdev == CHRF)
+		fprintf(vfile,ediag("%s: blocksize = %d\n","%s: коэффициент блокировки = %d\n"),ncom,i);
+	    if( i > nblock || first == 0 )
+		nblock = i;
+	}
+	recno = 0;
+    }
+    first = 1;
+    nerrors = 0;
+    if (buffer)
+	copy(buffer, (char *) &tbuf[recno]);
+    recno++;
+    return(TBLOCK);
+rerr:
+    if( nerrors++ > MERRORS )
+	done(3);
+    first = 0;
+    recno = NBLOCK;
+    if( buffer )
+	for( i=0 ; i<TBLOCK ; i++ )
+	    buffer[i] = 0;
+    return(0);
+}
+
+writetape(buffer)
+register char *buffer;
+{
+    first = 1;
+    if (nblock == 0)
+	nblock = BLOCKDFLT;
+    write1();
+    copy((char *) &tbuf[recno++], buffer);
+    write1();
+    return(TBLOCK);
+}
+
+write1()
+{
+    if( recno >= nblock ){
+	currsize += nblock;
+	if( Bflag && currflpsize + nblock > flpsize ) newfloppy();
+	currflpsize += nblock;
+	if( write(mt,(char *)tbuf,TBLOCK*nblock) < 0 ){
+	    pterr("%s: tape write error\n","%s: ошибка записи на ленту\n",ncom);
+	    if( iflag ){
+		recno = 0;
+		longjmp(rep_jmp,1);
+	    }
+	    done(4);
+	}
+	nblk++;
+	recno = 0;
+    }
+}
+
+backtape()
+{
+    static struct mtop mtop = { MTBSR, 1 };
+
+    if( mtdev == CHRF ){
+	if( ioctl(mt,MTIOCTOP,&mtop) < 0 ){
+		mtdev = BLKF;
+		goto reply;
+	}
+	recno--;
+	return;
+    }
+reply:
+    if( lseek(mt,(long)(-TBLOCK*(nblock-recno+1)),1) < 0 )
+	goto err;
+	currflpsize -= (nblock-recno+1);
+    if( read(mt,tbuf,TBLOCK) != TBLOCK )
+	goto err;
+    lseek(mt,-(long)TBLOCK,1);
+    recno = 0;
+    nblock = 1;
+    return;
+err:  pterr("%s: tape backspace error\n","%s: ошибка операции 'блок назад'\n",ncom);
+      done(4);
+}
+
+flushtape()
+{
+    if( Bflag && currflpsize + nblock > flpsize ) newfloppy();
+    currflpsize += nblock;
+    if( write(mt,(char *)tbuf,TBLOCK*nblock) < 0 ){
+	pterr("%s: tape write error\n","%s: ошибка записи на ленту\n",ncom);
+	recno = 0;
+	if( iflag ){
+	    longjmp(rep_jmp,1);
+	}
+	done(4);
+    }
+}
+
+copy(to, from)
+register char *to, *from;
+{
+    register int i = 0;
+
+    while( ++i <= TBLOCK )
+	*to++ = *from++;
+}
+
+/*
+ *  Compare the next 'nw' characters of ifile with buf.
+ *   return 1 if same, else 0
+ */
+cmprd (ifile, buf, num)
+register int   ifile, num;
+register char *buf;
+{
+    char ibuf[TBLOCK];
+
+    if( read(ifile,ibuf,num) < num )
+	return(NO);
+    if( bufcmp(buf,ibuf,num) )
+	return(NO);
+    return(YES);
+}
+
+bufcmp (cp1, cp2, num)
+register char *cp1;
+register char *cp2;
+register int   num;
+{
+    if (num <= 0)
+	return(0);
+    do{
+	if( *cp1++ != *cp2++ )
+	    return(*--cp2 - *--cp1);
+    } while( --num );
+    return(0);
+}
+
+dirpart (str)
+register char *str;
+{
+    register char *cp;
+
+    if( (cp = rindex(str,'/')) )
+	return(cp-str+1);
+    else
+	return(0);
+}
+
+newtape(name)
+char    *name;
+{
+    char cmdbuf[256];
+    close(mt);
+    fprintf(vfile,ediag("Used %ld k-bytes on tape\n","Записано %ld к-байт\n"),currsize*(1024/TBLOCK));
+    nrep = 0;
+    nblk = 0;
+    recno = 0;
+    currsize = 0;
+repeat:
+    fprintf(vfile,ediag("Set up new tape! Write will continue from %s.\nEnter RETURN when ready or 'no' to exit: ",
+			"Установите новую ленту! Запись будет продолжена с %s.\nВведите ВК, когда установите новую ленту, или 'нет' чтобы окончить: "),
+	    name);
+    gets(cmdbuf);
+    if( cmdbuf[0] == 'n' || cmdbuf[0] == 'N' ||
+	cmdbuf[0] == 'н' || cmdbuf[0] == 'Н' || term )
+	done(2);
+    mt = open(usefile,1);
+    if ( mt < 0 ) {
+	fprintf(stderr, ediag("Can not open %s\n", "Не могу открыть %s\n"),
+		usefile);
+	goto repeat;
+    }
+}
+
+newfloppy()
+{
+    char cmdbuf[256];
+
+    fprintf(vfile,ediag("\nInsert next floppy and hit RETURN (or 'no' to exit): ",
+			"\nУстановите следующий флоппи и нажмите ВК (или 'нет' чтобы окончить): "));
+    gets(cmdbuf);
+    if( cmdbuf[0] == 'n' || cmdbuf[0] == 'N' ||
+	cmdbuf[0] == 'н' || cmdbuf[0] == 'Н' || term )
+	done(2);
+    lseek(mt, 0l, 0);
+    currflpsize = 0;
+}
+
+reco(buf,lnght)
+register char *buf;
+register int   lnght;
+{
+    while( --lnght >= 0 )
+	*buf++ = recode[(unsigned)*buf];
+}
+
+symv(buf,nw)
+register char *buf;
+register int   nw;
+{
+    register unsigned   i = 0,j;
+
+    while( ++i <= nw ){
+	j = (unsigned)*buf++;
+	if( ! (ttp[j/16] & (1<<(j%16))) )
+	    return(0);
+    }
+    return(1);
+}
+
+char *fgetss(buf,len,file)
+register char *buf;
+register int len;
+FILE *file;
+{
+	char *buf0 = buf;
+	register int i;
+	while( (i=getc(file)) > 0 && i != '\n' && len--) *buf++ = i;
+	if ( len--) *buf++ = '\0';
+	return(i<0?(char *)0:buf0);
+}
+
+/*ARGCNT2*/
+pterr(lat,rus,a,b,c,d,e,f)
+char *lat, *rus;
+{
+ fprintf(stderr, ediag(lat,rus),a,b,c,d,e,f);
+}
+
+crypt(b,n)
+register int *b;
+register int  n;
+{
+      n = (n+1)/2-1;
+      while( n-- >= 0 )
+	      *b++ ^= crptflg;
+}
+
+@
+
+
+1.19
+log
+@Теперь правильно (?) обрабатывает переход с ленты на лнту.
+Раньше он мог в этом месте работать рекурсивно и, соответственно,
+накладывал стек на данные.
+@
+text
+@d3 5
+d103 1
+a103 1
+static   char   rcsid[] = "$Header: tar.c,v 1.18 88/10/19 15:21:17 abs Exp $";
+d152 1
+d288 1
+d729 1
+d1183 2
+d1275 2
+d1988 10
+@
+
+
+1.18
+log
+@слегка поправлены грамматические ошибки.
+@
+text
+@d2 4
+a5 1
+ *      $Log:   tar.c,v $
+d98 1
+a98 1
+static   char   rcsid[] = "$Header: tar.c,v 1.17 88/10/19 10:59:18 abs Exp $";
+a173 2
+short   work;       /* one of: */
+
+d266 4
+d274 2
+a275 5
+short   aflag;          /* прочитывание многофайловой ленты */
+short   dflag, perflg, npblock;
+short   vflag, mt, cflag, mflag, fflag, oflag, pflag, hflag;
+short   term, chksum, wflag, recno, first, linkerrok, iflag, slflag;
+short   mtdev;
+d277 1
+a277 1
+int     nblock = 0;
+a278 1
+int     Bflag;
+a287 1
+short   norecursive; /* Специальный режим для системы архивирования */
+a290 1
+short   writing = 0;
+d321 1
+d800 1
+a800 1
+    if( iflag ){
+d999 1
+a999 1
+	     char           *arg[NREPFILE+1], mem[NREPFILE*(NAMSIZ+1)];
+d1003 10
+a1012 4
+    nrep -= replace(0);
+    if( nrep == 0 ){
+	pterr("%s: nonsens\n","%s: нонсенс\n",ncom);
+	done(2);
+a1013 5
+    for( i = 0 ; i < nrep ; i++ ){
+	arg[i] = &mem[i*(NAMSIZ+1)];
+	strncpy(arg[i],rep_arg[i],NAMSIZ);
+    }
+    arg[nrep] = 0;
+d1036 1
+d1901 1
+a1901 1
+    fprintf(vfile,ediag("Used %ld k-bytes on tape\n","Записано %ld к-байт\n"),currsize);
+d1908 2
+a1909 1
+			"Установите новую ленту! Запись будет продолжена с %s.\nВведите ВК, когда установите новую ленту, или 'нет' чтобы окончить: "),name);
+@
+
+
+1.17
+log
+@Научен склонять русские слова когда это надо.
+@
+text
+@d3 3
+d95 1
+a95 1
+static   char   rcsid[] = "$Header: tar.c,v 1.16 88/02/19 21:08:11 nms Exp $";
+d299 4
+d455 1
+a455 1
+		pterr("%s: invalid blocksize (max %d)\n","%s: ошибочный коэфициент блокировки (допустим: 1 - %d)\n",ncom,NBLOCK);
+d765 2
+a766 1
+	    grammar( nopflag, "о", "", "о" ),
+d768 3
+a770 2
+	    grammar( nopflag, "х", "й", "х" ),
+	    grammar( nopflag, "ов", "", "а" )      );
+d966 3
+a968 1
+			grammar( blocks, "ов", "", "а" ));
+d1161 1
+d1163 1
+a1163 1
+			    grammar( bytes, "", "", "а" ),
+d1165 2
+a1166 1
+			    grammar( blocks, "ов", "", "а")
+d1749 1
+a1749 1
+		fprintf(vfile,ediag("%s: blocksize = %d\n","%s: коэфициент блокировки = %d\n"),ncom,i);
+@
+
+
+1.16
+log
+@Исправлен язык сообщений. При MSG=r наш любимый tar изъяснялся на английском.
+@
+text
+@d2 4
+a5 1
+ *      $Log:	tar.c,v $
+d10 1
+a10 1
+ * 
+d92 1
+a92 1
+static   char   rcsid[] = "$Header: tar.c,v 1.15 87/06/12 13:52:15 avg Exp $";
+d295 14
+a310 1
+
+d750 13
+a762 2
+    if( nopflag )
+	pterr("%s: %d logical blocks skipped to find header\n","%s: пропущено %d логических блоков, чтобы найти заголовок\n",ncom,nopflag);
+d952 7
+a958 2
+    if (vflag)
+	fprintf(vfile,ediag("a %s %D blocks\n","%s %D блоков\n"),longname,blocks);
+d1143 13
+a1155 2
+	if (vflag)
+	    fprintf(vfile,ediag("x %s, %D bytes, %D tape blocks","x %s, %D байт, %D блоков на ленте"),dblock.dbuf.name, bytes, blocks);
+@
+
+
+1.15
+log
+@1. Правлена плюха с ключем / при чтении link-а.
+2. Немного исправлены диагностики.
+3. Теперь можно указывать цифрами магнитофоны 8 и 9.
+@
+text
+@d2 6
+a7 1
+ *      $Log:   tar.c,v $
+d89 1
+a89 1
+static   char   rcsid[] = "$Header: tar.c,v 1.14 87/03/13 21:55:05 avg Exp $";
+d537 1
+d542 1
+d1753 2
+a1754 2
+err:        pterr("%s: tape backspace error\n","%s: ошибка операции 'блок назад'\n",ncom);
+	    done(4);
+d1759 1
+d1762 1
+d1768 3
+d1915 1
+a1915 1
+ fprintf(stderr, ediag(rus,lat),a,b,c,d,e,f);
+@
+
+
+1.14
+log
+@Добавлен перевод строки в диагностике.
+@
+text
+@d2 4
+a5 1
+ *      $Log:	tar.c,v $
+d8 1
+a8 1
+ * 
+d84 1
+a84 1
+static   char   rcsid[] = "$Header: tar.c,v 1.13 87/03/13 21:26:36 avg Exp $";
+d395 2
+a396 7
+	case '0':
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '7':
+d576 2
+a577 2
+    fprintf(stderr,ediag("Usage:  %s -{cCrtxX}[abdfihlmnopsuvw/] [blocksize] [tapefile] f1 f2 ...\n",
+			 "Вызов:  %s -{cCrtxX}[abdfihlmnopsuvw/] [блокфактор] [файл_ленты] ф1 ф2 ...\n"),ncom);
+d705 3
+d1247 1
+a1247 1
+	    fprintf(vfile,ediag("%s: messg: next of tape file\n","%s: внимание: следующий файл на ленте\n"),ncom);
+a1904 1
+
+@
+
+
+1.13
+log
+@Заделан ключ B для записи/чтения на флоппи.
+@
+text
+@d2 4
+a5 1
+ *      $Log:   tar.c,v $
+d81 1
+a81 1
+static   char   rcsid[] = "$Header: tar.c,v 1.12 87/02/03 16:49:27 alex Exp $";
+d1854 2
+a1855 2
+    fprintf(vfile,ediag("Insert next floppy and hit RETURN (or 'no' to exit): ",
+			"Установите следующий флоппи и нажмите ВК (или 'нет' чтобы окончить): "));
+@
+
+
+1.12
+log
+@Исправлена ошибка в режиме "-S" (не сбрасывался последний блок).
+@
+text
+@d3 3
+d78 1
+a78 1
+static   char   rcsid[] = "$Header: tar.c,v 1.11 87/01/04 20:30:30 alex Exp $";
+d260 2
+a261 1
+long    maxsize, currsize;
+d411 10
+d1661 2
+d1721 2
+d1759 2
+d1837 1
+a1837 1
+	cmdbuf[0] == 'н' || cmdbuf[0] == 'H' || term )
+d1845 14
+@
+
+
+1.11
+log
+@1. Исправлены ошибки с ключом "-s".
+2. Исправлены попытки сделать fprintf(ediag(... .
+3. В "newtape" вставлено закрытие/открытие ленты.
+4. Введен ключ "S длина_ленты_килобайт".
+5. Для экономии места написали функцию "pterr".
+@
+text
+@d2 8
+a9 1
+ *      $Log:	tar.c,v $
+d12 1
+a12 1
+ * 
+d16 1
+a16 1
+ * 
+d21 1
+a21 1
+ * 4. Не исправлено то, что в режиме ci без v tar ничего не говорит при ошибке записи, 
+d24 1
+a24 1
+ * 
+d26 2
+a27 2
+ * Вставлен новый ключ `-d', который указывает перекодирование 
+ * файлов из КОИ-8 в UCODE или наоборот (зависит от внутренней кодировки 
+d29 1
+a29 1
+ * 
+d75 1
+a75 1
+static   char   rcsid[] = "$Header: tar.c,v 1.10 86/12/26 16:06:40 alex Exp $";
+d750 6
+a755 1
+    if ( maxsize && maxsize < currsize) newtape(longname);
+d826 7
+a832 1
+	chdir("..");
+a960 2
+    nrep = 0;
+    nblk = 0;
+d1743 1
+a1744 1
+	    recno = 0;
+d1807 4
+@
+
+
+1.10
+log
+@Исправлена очередная ошибка - не проверялся код ответа функции "lstat", "stat".
+@
+text
+@d3 3
+d68 1
+a68 1
+static   char   rcsid[] = "$Header: tar.c,v 1.9 86/12/21 17:31:34 alex Exp $";
+d139 1
+d250 1
+d320 1
+a320 1
+		fprintf(stderr,ediag("%s: cannot create temporary file (%s)\n","%s: не могу создать временный файл (%s)\n"),ncom,tname);
+d391 9
+d405 1
+a405 1
+		fprintf(stderr,ediag("%s: invalid blocksize (max %d)\n","%s: ошибочный коэфициент блокировки (допустим: 1 - %d)\n"),ncom,NBLOCK);
+d427 1
+a427 1
+		    fprintf(stderr,ediag("%s: cannot open spisok-file %s\n","%s: не могу открыть файл-список %s\n"),ncom,*argv);
+d459 1
+a459 1
+	    fprintf(stderr,ediag("%s: %c: unknown option\n","%s: неизвестный ключ (%c)\n"),ncom,*cp);
+d464 1
+a464 1
+	    fprintf(stderr,ediag("%s: options '-c' and '-u' uncompatible\n","%s: ключи '-c' и '-u' несовместимы\n"),ncom);
+d468 1
+a468 1
+	    fprintf(stderr,ediag("%s: option '-a' and write tape uncompatible\n","%s: ключ '-a' и режим записи на ленту несовместимы\n"),ncom);
+d483 1
+a483 1
+		fprintf(stderr,ediag("%s: options '-s' with '-' and '-i' uncompatible\n","%s: ключи '-s' с '-' и '-i' несовместимы\n"),ncom);
+d487 1
+a487 1
+		fprintf(stderr,ediag("%s: no memory. Retranslate NREPFILE less\n","%s: нет памяти. Уменьшите NREPFILE и перетранслируйте программу\n"),ncom);
+d495 1
+a495 1
+		fprintf(stderr,ediag("%s: can only create standard output archives\n","%s: стандартный вывод нельзя дозаписать\n"),ncom);
+d504 1
+a504 1
+		fprintf(stderr,ediag("%s: cannot open %s\n","%s: не могу открыть %s\n"),ncom,usefile);
+d511 1
+a511 1
+	    fprintf(stderr,ediag("%s: cannot update blocked tapes\n","%s: не могу дозаписать блочную ленту\n"),ncom);
+d518 1
+a518 1
+	    fprintf(stderr,ediag("%s: option '-s' and read tape uncompatible\n","%s: ключ '-s' и режим чтения ленты несовместимы\n"),ncom);
+d527 1
+a527 1
+	    fprintf(stderr,ediag("%s: cannot open %s\n","%s: не могу открыть %s\n"),ncom,usefile);
+d532 1
+a532 1
+	    fprintf(stderr,ediag("%s: cannot make options '-a' with blocked tapes\n","%s: не могу обслужить ключ '-a' с блочной лентой\n"),ncom);
+d577 1
+d604 1
+a604 1
+    while( !term && ((namef = *argv++) || (spfile && (namef=fgets(nmbuf,NAMSIZ,spfile)))) ){
+d608 1
+a608 1
+		fprintf(ediag("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n"),ncom,namef);
+d623 1
+a623 1
+		fprintf(stderr,ediag("%s: missing links to %s\n","%s: нет связей для %s\n"),ncom,ihead->pathname);
+d638 1
+a638 1
+	    fprintf(ediag("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n"),ncom,name);
+d646 1
+a646 1
+	fprintf(stderr,ediag("%s: cannot change back?: %s\n","%s: не могу вернуться назад !: %s\n"),ncom,wdir);
+d668 1
+a668 1
+	fprintf(stderr,ediag("%s: cannot read header block\n","%s: не могу прочитать заголовок файла\n"),ncom);
+d675 1
+a675 1
+	    fprintf(stderr,ediag("%s: header checksum error\n","%s: ошибка контрольной суммы заголовка\n"),ncom);
+d703 1
+a703 1
+	fprintf(stderr,ediag("%s: %d logical blocks skipped to find header\n","%s: пропущено %d логических блоков, чтобы найти заголовок\n"),ncom,nopflag);
+d743 1
+d749 1
+a749 1
+	fprintf(stderr,ediag("%s: not exist %s\n","%s: не существует файл %s\n"),ncom,longname);
+d760 1
+a760 1
+	fprintf(stderr,ediag("%s: %s is not a file. Not dumped\n","%s: %s не файл. Не записан\n"),ncom,longname);
+d766 1
+a766 1
+	fprintf(stderr,ediag("%s: cannot open file %s\n","%s: не могу открыть файл %s\n"),ncom,longname);
+d776 1
+a776 1
+		fprintf(stderr,ediag("%s: %s: file name too long\n","%s: слишком длинное имя файла: %s\n"),ncom,longname);
+d791 1
+a791 1
+	    fprintf(stderr,ediag("%s: mesg: chdir to %s\n","%s: не могу перейти в %s\n"),ncom,longname);
+d823 1
+a823 1
+	fprintf(stderr,ediag("%s: %s: file name too long\n","%s: слишком длинное имя файла: %s\n"),ncom,longname);
+d829 1
+a829 1
+	    fprintf(stderr,ediag("%s: %s: symbolic link too long\n","%s: символическая ссылка слишком длинная: %s\n"),ncom,longname);
+d835 1
+a835 1
+	    fprintf(stderr,ediag("%s: error readlink\n","%s: ошибка чтение символической ссылки\n"),ncom);
+d868 1
+a868 1
+		    fprintf(stderr,ediag("%s: out of memory. Link information lost\n","%s: нет памяти. Информация о связях будет неполной\n"),ncom);
+d892 1
+a892 1
+	fprintf(stderr,ediag("%s: %s: read error\n","%s: %s: ошибка чтения\n"),ncom,longname);
+d894 1
+a894 1
+	fprintf(stderr,ediag("%s: %s: file changed size\n","%s: %s: файл изменился\n"),ncom,longname);
+d919 1
+a919 1
+	fprintf(stderr,ediag("%s: nonsens\n","%s: нонсенс\n"),ncom);
+d929 1
+a929 1
+	fprintf(ediag("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n"),ncom,wdir);
+d949 1
+a949 1
+	fprintf(ediag("%s: cannot chdir %s\n","%s: не могу перейти в каталог %s\n"),ncom,tdir);
+d1013 1
+a1013 1
+		fprintf(stderr,ediag("%s: %s: symbolic link failed\n","%s: не могу сделать символическую ссылку: %s\n"),ncom,dblock.dbuf.name);
+d1033 1
+a1033 1
+		fprintf(stderr,ediag("%s: %s: cannot link\n","%s: не могу связать %s\n"),ncom,dblock.dbuf.name);
+d1059 1
+a1059 1
+	    fprintf(stderr,ediag("%s: %s - cannot create\n","%s: не могу создать %s\n"),ncom,dblock.dbuf.name);
+d1078 1
+a1078 1
+		fprintf(stderr,ediag("%s: %s: HELP - extract write error\n","%s: %s: ВНИМАНИЕ - ошибка при записи файла\n"),ncom,dblock.dbuf.name);
+d1092 1
+a1092 1
+		fprintf(stderr,ediag("%s: %s - cannot link\n","%s: не могу связать %s\n"),ncom,dblock.dbuf.name);
+d1153 1
+a1153 1
+	    fprintf(stderr,ediag("%s: Cannot open disk file\n","Не могу открыть дисковый файл: %s\n"),dblock.dbuf.name);
+d1210 1
+a1210 1
+		fprintf(stderr,ediag("%s: tape forward space file error\n","%s: ошибка операции 'переход к следующему файлу'\n"),ncom);
+d1308 1
+a1308 1
+		    fprintf(stderr,ediag("%s: cannot find mkdir!\n","%s: не вызывается mkdir!\n"),ncom);
+d1504 1
+a1504 1
+	fprintf(stderr,ediag("%s: pwd failed!\n","%s: не могу вызвать pwd !\n"),ncom);
+d1632 1
+a1632 1
+	    fprintf(stderr,ediag("%s: tape read error\n","%s: ошибка чтения ленты\n"),ncom);
+d1638 1
+a1638 1
+	    fprintf(stderr,ediag("%s: error: end of tape\n","%s: ошибка: конец файла на ленте\n"),ncom);
+d1642 1
+a1642 1
+	    fprintf(stderr,ediag("%s: tape blocksize error\n","%s: плохой размер блока на ленте\n"),ncom);
+d1688 1
+d1690 1
+a1690 1
+	    fprintf(stderr,ediag("%s: tape write error\n","%s: ошибка записи на ленту\n"),ncom);
+d1708 1
+a1708 1
+err:        fprintf(stderr,ediag("%s: tape backspace error\n","%s: ошибка операции 'блок назад'\n"),ncom);
+d1726 1
+a1726 1
+	fprintf(stderr,ediag("%s: tape write error\n","%s: ошибка записи на ленту\n"),ncom);
+d1790 3
+a1792 1
+
+d1795 1
+a1795 1
+    fgets(cmdbuf,256,stdin);
+d1799 6
+d1828 20
+@
+
+
+1.9
+log
+@Исправлена запись symlink в случае, если файла, на который
+сделана ссылка, нет.
+@
+text
+@d3 4
+d65 1
+a65 1
+static   char   rcsid[] = "$Header: tar.c,v 1.8 86/12/10 20:30:23 alex Exp $";
+d729 1
+a729 1
+	lstat(shortname, &stbuf);
+d731 5
+a735 1
+	stat(shortname, &stbuf);
+a736 1
+	close(infile);
+a739 1
+	close(infile);
+@
+
+
+1.8
+log
+@1. Исправлена ошибка в readlink (Какой ??? написал там longname).
+2. Исправлена диагностика read error вместо идиотского changed size.
+3. Не исправлена - ошибка в режиме "ci" -> "нарушение защиты памяти"
+4. Не исправлено то, что в режиме ci без v tar ничего не говорит при ошибке записи, 
+а просто тупо чегой то ждет. Также ничего не говорится о файле, на котором
+произошла ошибка чтения с ленты.
+@
+text
+@d3 8
+d61 1
+a61 1
+static   char   rcsid[] = "$Header: tar.c,v 1.7 86/11/28 15:59:13 mike Exp $";
+d433 1
+a433 1
+	    dflag++;
+d435 5
+d665 1
+a665 1
+	if( dblock.dbuf.code != codes ){
+a723 5
+    infile = open(shortname, 0);
+    if (infile < 0) {
+	fprintf(stderr,ediag("%s: cannot open file %s\n","%s: не могу открыть файл %s\n"),ncom,longname);
+	return;
+    }
+d736 12
+a747 1
+    if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+a792 6
+	close(infile);
+	return;
+    }
+    i = stbuf.st_mode & S_IFMT;
+    if (i != S_IFREG && i != S_IFLNK){
+	fprintf(stderr,ediag("%s: %s is not a file. Not dumped\n","%s: %s не файл. Не записан\n"),ncom,longname);
+@
+
+
+1.7
+log
+@Вставлен новый ключ `-d', который указывает перекодирование 
+файлов из КОИ-8 в UCODE или наоборот (зависит от внутренней кодировки 
+системы).
+@
+text
+@d2 6
+a7 1
+ *      $Log:   tar.c,v $
+d53 1
+a53 1
+static   char   rcsid[] = "$Header: tar.c,v 1.6 86/09/21 20:02:33 dmitry Exp $";
+d798 1
+a798 1
+	i = readlink(longname, dblock.dbuf.linkname, NAMSIZ - 1);
+d856 3
+a858 1
+    if (blocks != 0 || i != 0)
+@
+
+
+1.6
+log
+@В выдаче сообщения об ошибке readlink был пропущен перевод строки.
+@
+text
+@d2 4
+a5 1
+ *      $Log:	tar.c,v $
+d8 1
+a8 1
+ * 
+d13 1
+a13 1
+ * Исправлена работа с ключом '-a' (возмона работа тоже только 
+d15 1
+a15 1
+ * 
+d48 1
+a48 1
+static   char   rcsid[] = "$Header: tar.c,v 1.5 86/09/19 21:54:39 dmitry Exp $";
+d56 1
+d60 1
+d82 1
+d96 1
+d125 91
+d222 1
+a222 1
+
+d413 1
+a413 1
+	       /* обрезание певого слеша при считывании.
+d417 5
+d478 1
+d499 1
+d518 2
+a519 2
+    fprintf(stderr,ediag("Usage:  %s -{cCrtxX}[abfihlmnopsuvw/] [blocksize] [tapefile] f1 f2 ...\n",
+			 "Вызов:  %s -{cCrtxX}[abfihlmnopsuvw/] [блокфактор] [файл_ленты] ф1 ф2 ...\n"),ncom);
+d646 10
+a1032 1
+	    readtape(buf);
+d1034 1
+a1122 1
+		readtape(buf);
+d1124 1
+d1547 22
+d1695 1
+a1695 1
+    register int i;
+d1697 1
+a1697 1
+    for( i = TBLOCK ; i > 0 ; i-- )
+d1754 22
+@
+
+
+1.5
+log
+@Исправлена орф. ошибка.
+@
+text
+@d3 3
+d45 1
+a45 1
+static   char   rcsid[] = "$Header: tar.c,v 1.4 86/08/22 14:40:18 mike Exp $";
+d680 1
+a680 1
+	    fprintf(stderr,ediag("%s: error readlink","%s: ошибка чтение символической ссылки\n"),ncom);
+@
+
+
+1.4
+log
+@Исправлена работа с ключом '-i' (мнололенточная запись).
+Отлажены ключи '-u' и '-r' (возможно обновление и запись
+только с лентой /dev/*rmt?).
+Исправлена работа с ключом '-a' (возмона работа тоже только 
+с лентой /dev/*rmt?).
+@
+text
+@d2 8
+a9 1
+ *      $Log:   tar.c,v $
+d42 1
+a42 1
+static   char   rcsid[] = "$Header: tar.c,v 1.3 86/07/23 21:25:34 avg Exp $";
+d702 1
+a702 1
+		fprintf(vfile,ediag("a %s link to %s\n","%s связан с %s"),longname,lp->pathname);
+@
+
+
+1.3
+log
+@Извиняюсся, апшибочка вышла, ваше высокоблагородие !
+Небольшая правка в responce и все как новенькое!
+@
+text
+@d3 4
+d23 7
+d35 1
+a35 1
+static   char   rcsid[] = "$Header: tar.c,v 1.2 86/07/22 20:58:30 avg Exp $";
+d42 1
+d47 2
+a48 2
+#define YES 1
+#define NO  0
+d51 5
+a55 4
+#define BLOCKDFLT       20      /* default tape blocking */
+#define PIPEBLOCK       8       /* default pipe blocking; 4K */
+#define FILEBLOCK       2       /* default blocking for disk archives */
+#define NAMSIZ  100
+d57 5
+a61 6
+#define TABLE   1
+#define COMPARE 2
+#define EXTRACT 3
+#define REPLACE 4
+#define NENDTAPE        1       /* на существующий драйвер tm */
+#define NREPFILE        30      /* кол-во запомненных посл-их файлов */
+d63 4
+d83 2
+d114 1
+d117 1
+a117 1
+short   mtdev = 1;
+a148 1
+    char          *e;
+d154 2
+a155 1
+    usefile =  magtape;
+d289 1
+a289 1
+		    done(1);
+a302 1
+	    iflag++;
+a312 6
+    if( !fflag && (e = getenv( "TAPE" )) != NULL )
+	usefile = e;
+    if( strcmp(usefile, "-") == 0 && wflag ) {
+	fprintf(stderr,ediag("%s: options f whith '-' and w uncompatible\n","%s: ключи f с '-' и w несовместимы\n"),ncom);
+	done(1);
+    }
+d314 2
+a315 4
+	if( nblock == 0 )
+	    nblock = 1;
+	if( nblock != 1 && !cflag ){
+	    fprintf(stderr,ediag("%s: blocked tapes cannot be updated\n","%s: блочные ленты нельзя дозаписать\n"),ncom);
+d318 2
+a319 12
+	if( spfile == stdin ){
+	    if( iflag ){
+		fprintf(stderr,ediag("%s: options s whith '-' and i uncompatible\n","%s: ключи s с '-' и i несовместимы\n"),ncom);
+		done(1);
+	    }
+	    if( wflag ){
+		fprintf(stderr,ediag("%s: options s whith '-' and w uncompatible\n","%s: ключи f с '-' и w несовместимы\n"),ncom);
+		done(1);
+	    }
+	}
+	if( (cflag && tfile != NULL) || aflag || slflag ){
+	    usage();
+a321 8
+	if( iflag ){
+	    if( (rep_m = malloc(NREPFILE*(NAMSIZ+1)*sizeof(char))) == NULL ){
+		fprintf(stderr,ediag("%s: no memory. Retranslate NREPFILE less\n","%s: нет памяти. Уменьшите NREPFILE и перетранслируйте программу\n"),ncom);
+		done(2);
+	    }
+	    for( i = 0 ; i < NREPFILE ; i++ )
+		rep_arg[i] = &rep_m[i*(NAMSIZ+1)];
+	}
+d332 12
+d351 1
+d356 1
+a356 1
+		done(1);
+d361 4
+d368 1
+a368 1
+	    fprintf(stderr,ediag("%s: option s and read tape uncompatible\n","%s: ключ s и чтение ленты несовместимы\n"),ncom);
+d373 2
+d378 5
+a384 1
+	chk_mtdev();
+d413 11
+a423 4
+    if ((stb.st_mode & S_IFMT) == S_IFCHR)
+	mtdev = 0;
+    else
+	mtdev = -1;
+d463 3
+d517 3
+a519 1
+    if (dblock.dbuf.name[0] == '\0')
+d521 2
+a522 3
+    sscanf(dblock.dbuf.chksum, "%o", &chksum);
+    if (chksum != checksum()) {
+	if( !nopflag && !aflag )
+d530 1
+a530 1
+	strcpy(dblock.dbuf.name,&dblock.dbuf.name[1]);
+d540 1
+a540 1
+    if( nopflag && !aflag )
+d577 1
+d750 1
+a750 3
+    printf(" nblk=%D, nrep=%d\n",nblk,nrep);
+    nrep -= (replace(0)+1);
+    printf("after replace: nblk=%D, nrep=%d\n",nblk,nrep);
+a793 1
+    printf(" file: '%s', nblk=%D, nrep=%d\n",rep_arg[nrep],nblk,nrep);
+a1038 1
+	first = nblock = 0;
+d1040 8
+d1141 2
+a1142 2
+		    fprintf(stderr,ediag("%s: cannot find mkdir!\n","%s: не могу найти mkdir!\n"),ncom);
+		    done(0);
+d1248 1
+a1248 1
+    c = getchar();
+a1263 1
+    c &= 0377;
+d1266 15
+a1280 11
+    else
+	c = 'n';
+    if( c==('Д'&0377) || c=='Y' || c==('д'&0377) )
+	c = 'y';
+    else
+    if( c==('Н'&0377) || c=='N' || c==('н'&0377) )
+	c = 'n';
+    else
+    if( c != 'y' && c != 'n' )
+	goto getcc;
+    return(c);
+d1425 2
+a1426 1
+    register int i, j, oa;
+a1428 1
+	oa = 0;
+d1430 2
+a1431 1
+ntp:        if (mtdev == 0)
+d1433 2
+a1434 1
+	    else
+d1436 4
+d1444 3
+a1446 3
+	    if( !iflag )
+		done(3);
+	    goto rerr;
+a1448 7
+	    if( aflag ){
+		if( oa++ < NENDTAPE ){
+		    first = 0;
+		    goto ntp;
+		}
+		done(0);
+	    }
+d1452 3
+a1454 7
+	if( oa )
+	    fprintf(stderr,ediag("%s: messg: next of tape file\n","%s: внимание: следующий файл на ленте\n"),ncom);
+	if (first == 0) {
+	    if ((i % TBLOCK) != 0) {
+		fprintf(stderr,ediag("%s: tape blocksize error\n","%s: плохой размер блока на ленте\n"),ncom);
+		if( !iflag )
+		    done(3);
+d1456 7
+a1462 9
+	    }
+	    i /= TBLOCK;
+	    if (work == REPLACE && i != 1) {
+		fprintf(stderr,ediag("%s: cannot update blocked tapes\n","%s: не могу дозаписать блочную ленту\n"),ncom);
+		done(4);
+	    }
+	    if (i != nblock ) {
+		if (mtdev == 0)
+		    fprintf(vfile,ediag("%s: blocksize = %d\n","%s: коэфициент блокировки = %d\n"),ncom,i);
+a1463 1
+	    }
+d1468 1
+d1474 2
+d1505 1
+a1505 1
+	    done(2);
+d1514 5
+a1518 5
+    lseek(mt, (long) -TBLOCK, 1);
+    if( recno >= nblock ){
+	recno = nblock - 1;
+	if( read(mt, (char *) tbuf, TBLOCK*nblock) < 0 ){
+	    fprintf(stderr,ediag("%s: tape read error after back seek\n","%s: ошибка операции 'блок назад'\n"),ncom);
+d1521 2
+a1522 1
+	lseek(mt, (long) -TBLOCK, 1);
+d1524 7
+d1535 8
+a1542 1
+    write(mt, (char *) tbuf, TBLOCK*nblock);
+@
+
+
+1.2
+log
+@Если нет ключа f и в среде устанолена переменная TAPE,
+ее значение будет использовано в качестве имени ленты.
+@
+text
+@d3 4
+d24 1
+a24 1
+static   char   rcsid[] = "$Header: tar.c,v 1.1 86/07/02 11:08:51 mike Exp $";
+d1210 2
+a1211 1
+    register c,*s;
+a1212 1
+    fprintf(vfile," ? ");
+@
+
+
+1.1
+log
+@Вставлены новые ключи:
+  -n	- нерекурсивная запись ( для записи через find );
+  -s - список файлов для записи брать в указанном файле в
+	  аргументе вызова (для длинных списков имен файлов);
+  -i - при чтении игнорировать ошибки заголовков файлов,
+	  многоленточный tar при записи;
+  -a - при чтении просмотр всех файлов на ленте (ленточных
+	  файлов);
+  -/ - при чтении обрезание первого '/' (для считывания
+	  не абсолютных имен файлов а относительных).
+@
+text
+@d2 13
+a14 1
+ *      $Log$
+d20 1
+a20 1
+static   char   rcsid[] = "$Header$";
+d126 1
+d236 1
+d291 2
+d1206 1
+a1206 1
+    register char c,*s;
+d1229 1
+d1234 6
+d1554 1
+a1554 1
+			"Установите новую ленту! Запись будет продолжена с %s.\nВведите ВК, когда установите новую ленту, или 'no' чтобы окончить: "),name);
+d1556 2
+a1557 1
+    if( cmdbuf[0] == 'n' || term )
+@
+
+
+0.0
+log
+@Версия BSD 2.9
+@
+text
+@d1 10
+d16 2
+a18 6
+/* If you don't have the new magtape ioctl's, define OLDMAGTAPE */
+/* #define OLDMAGTAPE */
+#ifndef OLDMAGTAPE
+#include <sys/mtio.h>
+#endif
+
+d21 6
+d28 7
+a35 15
+off_t   lseek();
+time_t  time();
+char    *mktemp();
+char	*sprintf();
+char    *strcpy();
+char	*strcat();
+daddr_t	bsrch();
+#define TBLOCK		512
+
+#define NBLOCK		20	/* maximum tape blocking */
+#define BLOCKDFLT	20	/* default tape blocking */
+#define	PIPEBLOCK	8	/* default pipe blocking; 4K */
+#define	FILEBLOCK	2	/* default blocking for disk archives */
+
+#define NAMSIZ	100
+d37 12
+a48 12
+	char dummy[TBLOCK];
+	struct header {
+		char name[NAMSIZ];
+		char mode[8];
+		char uid[8];
+		char gid[8];
+		char size[12];
+		char mtime[12];
+		char chksum[8];
+		char linkflag;
+		char linkname[NAMSIZ];
+	} dbuf;
+d52 5
+a56 5
+	ino_t	inum;
+	dev_t	devnum;
+	int	count;
+	char	pathname[NAMSIZ];
+	struct	linkbuf *nextp;
+d59 10
+a68 1
+struct stat stbuf;
+d70 1
+a70 5
+int work;       /* one of: */
+#define TABLE   1
+#define COMPARE 2
+#define EXTRACT 3
+#define REPLACE 4
+d72 2
+d76 12
+a87 5
+int     vflag, mt, cflag, mflag, fflag, oflag, pflag, hflag;
+int	term, chksum, wflag, recno, first, linkerrok;
+int	freemem = 1;
+int	nblock = 0;
+FILE	*vfile = stdout;
+d89 2
+a90 2
+daddr_t	low;
+daddr_t	high;
+d92 3
+a94 2
+FILE	*tfile;
+char	tname[] = "/tmp/tarXXXXXX";
+d96 3
+d100 4
+a103 3
+char	*usefile;
+char	magtape[]	= "/dev/rmt1";
+int	writing = 0;
+d105 1
+a105 1
+char	*malloc();
+d107 1
+d109 2
+a110 2
+int	argc;
+char	*argv[];
+d112 2
+a113 2
+	char *cp;
+	int onintr(), onquit(), onhup(), onterm();
+d115 201
+a315 108
+	if (argc < 2)
+		usage();
+
+	tfile = NULL;
+	usefile =  magtape;
+	argv[argc] = 0;
+	argv++;
+	for (cp = *argv++; *cp; cp++) 
+		switch(*cp) {
+		case 'f':
+			usefile = *argv++;
+			fflag++;
+			break;
+		case 'c':
+			cflag++;
+			work = REPLACE;
+			break;
+		case 'o':
+			oflag++;
+			break;
+		case 'p':
+			pflag++;
+			break;
+		case 'u':
+			mktemp(tname);
+			if ((tfile = fopen(tname, "w")) == NULL) {
+				fprintf(stderr, "tar: cannot create temporary file (%s)\n", tname);
+				done(1);
+			}
+			fprintf(tfile, "!!!!!/!/!/!/!/!/!/! 000\n");
+			/* FALL THROUGH */
+		case 'r':
+			work = REPLACE;
+			break;
+		case 'v':
+			vflag++;
+			break;
+		case 'w':
+			wflag++;
+			break;
+		case 'C':
+			work = COMPARE;
+			break;
+		case 'X':
+			linkdir = *argv++;
+			lnflag++;
+			work = EXTRACT;
+			break;
+		case 'x':
+			work = EXTRACT;
+			break;
+		case 't':
+			work = TABLE;
+			break;
+		case 'm':
+			mflag++;
+			break;
+#ifdef	UCB_SYMLINKS
+		case 'h':
+			hflag++;
+			break;
+#endif
+		case '-':
+			break;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '7':
+			magtape[8] = *cp;
+			usefile = magtape;
+			break;
+		case 'b':
+			nblock = atoi(*argv++);
+			if (nblock > NBLOCK || nblock <= 0) {
+				fprintf(stderr, "tar: invalid blocksize (max %d)\n", NBLOCK);
+				done(1);
+			}
+			break;
+		case 'l':
+			linkerrok++;
+			break;
+		default:
+			fprintf(stderr, "tar: %c: unknown option\n", *cp);
+			usage();
+		}
+
+	if (work == REPLACE) {
+#ifdef OLDMAGTAPE
+		if (nblock == 0)
+			nblock = 1;
+		if (nblock != 1 && !cflag) {
+			fprintf(stderr, "tar: blocked tapes cannot be updated\n");
+			done(1);
+		}
+#endif
+		if (cflag && tfile != NULL) {
+			usage();
+			done(1);
+		}
+		if (signal(SIGINT, SIG_IGN) != SIG_IGN)
+			signal(SIGINT, onintr);
+		if (signal(SIGHUP, SIG_IGN) != SIG_IGN)
+			signal(SIGHUP, onhup);
+		if (signal(SIGQUIT, SIG_IGN) != SIG_IGN)
+			signal(SIGQUIT, onquit);
+d317 2
+a318 2
+		if (signal(SIGTERM, SIG_IGN) != SIG_IGN)
+			signal(SIGTERM, onterm);
+d320 13
+a332 17
+		if (strcmp(usefile, "-") == 0) {
+			if (cflag == 0) {
+				fprintf(stderr, "tar: can only create standard output archives\n");
+				done(1);
+			}
+			vfile = stderr;
+			mt = dup(1);
+			nblock = PIPEBLOCK;
+		}
+		else if ((mt = open(usefile, 2)) < 0) {
+			if (cflag == 0 || (mt =  creat(usefile, 0666)) < 0) {
+				fprintf(stderr, "tar: cannot open %s\n", usefile);
+				done(1);
+			}
+		}
+		writing = 1;
+		dorep(argv);
+d334 7
+a340 20
+	else if (work) {
+		if (strcmp(usefile, "-") == 0) {
+			mt = dup(0);
+			nblock = PIPEBLOCK;
+		}
+		else if ((mt = open(usefile, 0)) < 0) {
+			fprintf(stderr, "tar: cannot open %s\n", usefile);
+			done(1);
+		}
+		switch (work) {
+		case EXTRACT:
+			doxtract(argv);
+			break;
+		case COMPARE:
+			docompare(argv);
+			break;
+		case TABLE:
+			dotable();
+			break;
+		}
+d342 22
+a363 3
+	else
+		usage();
+	done(0);
+d368 3
+a370 6
+#ifdef	UCB_SYMLINKS
+	fprintf(stderr, "tar: usage  tar -{txruC}[cvfblmh] [tapefile] [blocksize] file1 file2...\n");
+#else
+	fprintf(stderr, "tar: usage  tar -{txruC}[cvfblm] [tapefile] [blocksize] file1 file2...\n");
+#endif
+	done(1);
+d373 11
+d385 1
+a385 1
+char	*argv[];
+d387 2
+a388 2
+	register char *cp, *cp2;
+	char wdir[60];
+d390 10
+a399 10
+	if (!cflag) {
+		getdir();
+		do {
+			passtape();
+			if (term)
+				done(0);
+			getdir();
+		} while (!endtape());
+		if (tfile != NULL) {
+			char buf[200];
+d401 6
+a406 8
+			sprintf(buf, "sort +0 -1 +1nr %s -o %s; awk '$1 != prev {print; prev=$1}' %s >%sX; mv %sX %s",
+				tname, tname, tname, tname, tname, tname);
+			fflush(tfile);
+			system(buf);
+			freopen(tname, "r", tfile);
+			fstat(fileno(tfile), &stbuf);
+			high = stbuf.st_size;
+		}
+d408 20
+d429 14
+a442 29
+	getwdir(wdir);
+	while (*argv && ! term) {
+		cp2 = *argv;
+		if (!strcmp(cp2, "-C") && argv[1]) {
+			argv++;
+			if (chdir(*argv) < 0)
+				perror(*argv);
+			else
+				getwdir(wdir);
+			argv++;
+			continue;
+		}
+		for (cp = *argv; *cp; cp++)
+			if (*cp == '/')
+				cp2 = cp;
+		if (cp2 != *argv) {
+			*cp2 = '\0';
+			if (chdir(*argv) < 0) {
+				perror(*argv);
+				continue;
+			}
+			*cp2 = '/';
+			cp2++;
+		}
+		putfile(*argv++, cp2);
+		if (chdir(wdir) < 0) {
+			fprintf(stderr, "tar: cannot change back?: ");
+			perror(wdir);
+		}
+d444 7
+a450 7
+	putempty();
+	putempty();
+	flushtape();
+	if (linkerrok == 1)
+		for (; ihead != NULL; ihead = ihead->nextp)
+			if (ihead->count != 0)
+				fprintf(stderr, "tar: missing links to %s\n", ihead->pathname);
+d455 6
+a460 7
+	if (dblock.dbuf.name[0] == '\0') {
+		if (writing)
+			backtape();
+		return(1);
+	}
+	else
+		return(0);
+d465 3
+a467 2
+	register struct stat *sp;
+	int i;
+d469 30
+a498 19
+	readtape( (char *) &dblock);
+	if (dblock.dbuf.name[0] == '\0')
+		return;
+	sp = &stbuf;
+	sscanf(dblock.dbuf.mode, "%o", &i);
+	sp->st_mode = i;
+	sscanf(dblock.dbuf.uid, "%o", &i);
+	sp->st_uid = i;
+	sscanf(dblock.dbuf.gid, "%o", &i);
+	sp->st_gid = i;
+	sscanf(dblock.dbuf.size, "%lo", &sp->st_size);
+	sscanf(dblock.dbuf.mtime, "%lo", &sp->st_mtime);
+	sscanf(dblock.dbuf.chksum, "%o", &chksum);
+	if (chksum != checksum()) {
+		fprintf(stderr, "tar: directory checksum error\n");
+		done(2);
+	}
+	if (tfile != NULL)
+		fprintf(tfile, "%s %s\n", dblock.dbuf.name, dblock.dbuf.mtime);
+d503 1
+a503 1
+	long blocks;
+d505 7
+a511 8
+	if (dblock.dbuf.linkflag == '1')
+		return;
+	blocks = stbuf.st_size;
+	blocks += TBLOCK-1;
+	blocks /= TBLOCK;
+
+	while (blocks-- > 0)
+		readtape((char *)NULL);
+d518 5
+a522 6
+	int infile;
+	long blocks;
+	char buf[TBLOCK];
+	register char *cp, *cp2;
+	struct direct dbuf;
+	int i, j;
+d524 3
+a526 16
+	infile = open(shortname, 0);
+	if (infile < 0) {
+		fprintf(stderr, "tar: %s: cannot open file\n", longname);
+		return;
+	}
+
+#ifdef	UCB_SYMLINKS
+	if (!hflag)
+		lstat(shortname, &stbuf);
+	else
+		stat(shortname, &stbuf);
+#else
+	fstat(infile, &stbuf);
+#endif
+
+	if (tfile != NULL && checkupdate(longname) == 0) {
+d528 3
+a530 1
+		return;
+d532 27
+a558 1
+	if (checkw('r', longname) == 0) {
+d561 6
+d568 3
+a570 44
+
+	if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+		for (i = 0, cp = buf; *cp++ = longname[i++];);
+		*--cp = '/';
+		*++cp = 0  ;
+		i = 0;
+		if (!oflag) {
+		    if( (cp - buf) >= NAMSIZ) {
+			fprintf(stderr, "tar: %s: file name too long\n", longname);
+			close(infile);
+			return;
+		    }
+		    stbuf.st_size = 0;
+		    tomodes(&stbuf);
+		    strcpy(dblock.dbuf.name,buf);
+		    sprintf(dblock.dbuf.chksum, "%6o", checksum());
+		    writetape( (char *) &dblock);
+		}
+		if (chdir(shortname) < 0) {
+			perror(shortname);
+			return;
+		}
+		while (read(infile, (char *)&dbuf, sizeof(dbuf)) > 0 && !term) {
+			if (dbuf.d_ino == 0) {
+				i++;
+				continue;
+			}
+			if (strcmp(".", dbuf.d_name) == 0 || strcmp("..", dbuf.d_name) == 0) {
+				i++;
+				continue;
+			}
+			cp2 = cp;
+			for (j=0; j < DIRSIZ; j++)
+				*cp2++ = dbuf.d_name[j];
+			*cp2 = '\0';
+			close(infile);
+			putfile(buf, cp);
+			infile = open(".", 0);
+			i++;
+			lseek(infile, (long) (sizeof(dbuf) * i), 0);
+		}
+		close(infile);
+		chdir("..");
+		return;
+d572 4
+a575 10
+	i = stbuf.st_mode & S_IFMT;
+#ifdef	UCB_SYMLINKS
+	if (i != S_IFREG && i != S_IFLNK)
+#else
+	if (i != S_IFREG)
+#endif
+	{
+		fprintf(stderr, "tar: %s is not a file. Not dumped\n", longname);
+		close(infile);
+		return;
+d577 18
+a594 9
+
+	tomodes(&stbuf);
+
+	cp2 = longname;
+	for (cp = dblock.dbuf.name, i=0; (*cp++ = *cp2++) && i < NAMSIZ; i++);
+	if (i >= NAMSIZ) {
+		fprintf(stderr, "tar: %s: file name too long\n", longname);
+		close(infile);
+		return;
+d596 24
+a619 27
+
+#ifdef	UCB_SYMLINKS
+	if ((stbuf.st_mode & S_IFMT) == S_IFLNK) {
+		if (stbuf.st_size + 1 >= NAMSIZ) {
+			fprintf(stderr, "tar: %s: symbolic link too long\n",
+				longname);
+			close(infile);
+			return;
+		}
+		i = readlink(longname, dblock.dbuf.linkname, NAMSIZ - 1);
+		if (i < 0) {
+			perror("readlink");
+			close(infile);
+			return;
+		}
+		dblock.dbuf.linkname[i] = '\0';
+		dblock.dbuf.linkflag = '2';
+		if (vflag) {
+			fprintf(vfile, "a %s ", longname);
+			fprintf(vfile, "symbolic link to %s\n",
+				dblock.dbuf.linkname);
+		}
+		sprintf(dblock.dbuf.size, "%11o", 0);
+		sprintf(dblock.dbuf.chksum, "%6o", checksum());
+		writetape((char *)&dblock);
+		close(infile);
+		return;
+d621 5
+a625 41
+#endif
+	if (stbuf.st_nlink > 1) {
+		struct linkbuf *lp;
+		int found = 0;
+
+		for (lp = ihead; lp != NULL; lp = lp->nextp) {
+			if (lp->inum == stbuf.st_ino && lp->devnum == stbuf.st_dev) {
+				found++;
+				break;
+			}
+		}
+		if (found) {
+			strcpy(dblock.dbuf.linkname, lp->pathname);
+			dblock.dbuf.linkflag = '1';
+			sprintf(dblock.dbuf.chksum, "%6o", checksum());
+			writetape( (char *) &dblock);
+			if (vflag) {
+				fprintf(vfile, "a %s ", longname);
+				fprintf(vfile, "link to %s\n", lp->pathname);
+			}
+			lp->count--;
+			close(infile);
+			return;
+		}
+		else {
+			lp = (struct linkbuf *) malloc(sizeof(*lp));
+			if (lp == NULL) {
+				if (freemem) {
+					fprintf(stderr, "tar: out of memory.  Link information lost\n");
+					freemem = 0;
+				}
+			}
+			else {
+				lp->nextp = ihead;
+				ihead = lp;
+				lp->inum = stbuf.st_ino;
+				lp->devnum = stbuf.st_dev;
+				lp->count = stbuf.st_nlink - 1;
+				strcpy(lp->pathname, longname);
+			}
+		}
+d627 2
+a628 2
+
+	blocks = (stbuf.st_size + (TBLOCK-1)) / TBLOCK;
+d630 2
+a631 2
+		fprintf(vfile, "a %s ", longname);
+		fprintf(vfile, "%ld blocks\n", blocks);
+d633 1
+d635 6
+a640 1
+	writetape( (char *) &dblock);
+d642 25
+a666 3
+	while ((i = read(infile, buf, TBLOCK)) > 0 && blocks > 0) {
+		writetape(buf);
+		blocks--;
+d668 15
+a682 5
+	close(infile);
+	if (blocks != 0 || i != 0)
+		fprintf(stderr, "tar: %s: file changed size\n", longname);
+	while (blocks-- >  0)
+		putempty();
+d685 3
+d689 5
+d695 1
+a695 2
+doxtract(argv)
+char	*argv[];
+d697 4
+a700 9
+	long blocks, bytes;
+	char buf[TBLOCK];
+	char **cp;
+	int ifile;
+	int ofile;
+	char cmpfile[200 + NAMSIZ];
+	char *fcmpfile;
+	char tmpfile[200 + NAMSIZ];
+	int same;
+d702 27
+a728 5
+	if (lnflag) {
+		strcpy (cmpfile, linkdir);
+		fcmpfile = &cmpfile[strlen(cmpfile)];
+		strcpy (fcmpfile, "/");
+		fcmpfile++;
+d730 10
+a739 4
+	for (;;) {
+		getdir();
+		if (endtape())
+			break;
+d741 11
+a751 2
+		if (*argv == 0)
+			goto gotit;
+d753 4
+a756 5
+		for (cp = argv; *cp; cp++)
+			if (prefix(*cp, dblock.dbuf.name))
+				goto gotit;
+		passtape();
+		continue;
+d758 9
+a766 5
+gotit:
+		if (checkw('x', dblock.dbuf.name) == 0) {
+			passtape();
+			continue;
+		}
+d768 7
+a774 2
+		if(checkdir(dblock.dbuf.name))
+			continue;
+d776 34
+a809 14
+#ifdef	UCB_SYMLINKS
+		if (dblock.dbuf.linkflag == '2') {
+			unlink(dblock.dbuf.name);
+			if (symlink(dblock.dbuf.linkname, dblock.dbuf.name)<0) {
+				fprintf(stderr, "tar: %s: symbolic link failed\n",
+					dblock.dbuf.name);
+				continue;
+			}
+			if (vflag)
+				fprintf(vfile, "x %s symbolic link to %s\n",
+				  dblock.dbuf.name, dblock.dbuf.linkname);
+			chown(dblock.dbuf.name, stbuf.st_uid, stbuf.st_gid);
+			if (mflag == 0) {
+				time_t timep[2];
+d811 24
+a834 47
+				timep[0] = time(0);
+				timep[1] = stbuf.st_mtime;
+				utime(dblock.dbuf.name, timep);
+			}
+			if (pflag)
+				chmod(dblock.dbuf.name, stbuf.st_mode & 07777);
+			continue;
+		}
+#else
+		if (dblock.dbuf.linkflag == '2') {
+			fprintf(stderr, "tar: %s: symbolic links not supported\n",
+				dblock.dbuf.name);
+		}
+#endif
+		if (dblock.dbuf.linkflag == '1') {
+			unlink(dblock.dbuf.name);
+			if (link(dblock.dbuf.linkname, dblock.dbuf.name) < 0) {
+				fprintf(stderr, "tar: %s: cannot link\n", dblock.dbuf.name);
+				continue;
+			}
+			if (vflag)
+				fprintf(vfile, "%s linked to %s\n",
+					dblock.dbuf.name, dblock.dbuf.linkname);
+			continue;
+		}
+		ifile = -1;
+		same = NO;
+		if (lnflag) {
+			static char tmpf[] = "TarXXXXXX";
+			same = YES;
+			if (dblock.dbuf.name[0] != '/') {
+			    strcpy (fcmpfile, dblock.dbuf.name);
+			    if ((ifile = open(cmpfile, 0)) >= 0) {
+				tmpfile[0] = '\0';
+				strncat (tmpfile, dblock.dbuf.name,
+					 dirpart (dblock.dbuf.name));
+				strcat (tmpfile, tmpf);
+				mktemp(tmpfile);
+			    }
+			}
+		}
+		if ((ofile = creat(ifile >= 0 ? tmpfile : dblock.dbuf.name,
+				   (int) stbuf.st_mode & 07777)) < 0) {
+			fprintf(stderr, "tar: %s - cannot create\n", dblock.dbuf.name);
+			passtape();
+			continue;
+		}
+d836 8
+a843 5
+		blocks = ((bytes = stbuf.st_size) + TBLOCK-1)/TBLOCK;
+		if (ifile >= 0) {
+			struct stat stbuf;
+			if (fstat(ifile, &stbuf) < 0 || bytes != stbuf.st_size)
+				same = NO;
+d845 10
+a854 28
+		if (vflag)
+			fprintf(vfile, "x %s, %ld bytes, %ld tape blocks",
+				dblock.dbuf.name, bytes, blocks);
+		while (blocks-- > 0) {
+			int nw;
+			readtape(buf);
+			nw = min(bytes, TBLOCK);
+			if (write(ofile, buf, nw) < nw) {
+					fprintf(stderr, "tar: %s: HELP - extract write error\n", dblock.dbuf.name);
+					done(2);
+				}
+			if (ifile >= 0 && same)
+				same = cmprd (ifile, buf, nw);
+			bytes -= TBLOCK;
+		}
+		close(ofile);
+		if (ifile >= 0) {
+			close(ifile);
+			unlink(dblock.dbuf.name);
+			if (vflag)
+				fprintf(vfile, " (%s)", same? "same" : "new");
+			if (link(same? cmpfile : tmpfile, dblock.dbuf.name) < 0)
+				fprintf(stderr, "tar: %s - cannot link\n",
+					dblock.dbuf.name);
+			unlink (tmpfile);
+		}
+		if (vflag)
+			fprintf(vfile, "\n");
+d856 7
+a862 3
+		if (ifile < 0 || !same) {
+			if (mflag == 0) {
+				time_t timep[2];
+d864 9
+a872 8
+				timep[0] = time((time_t *) NULL);
+				timep[1] = stbuf.st_mtime;
+				utime(dblock.dbuf.name, timep);
+			}
+			chown(dblock.dbuf.name, stbuf.st_uid, stbuf.st_gid);
+			if(pflag)
+			    chmod(dblock.dbuf.name, (int)stbuf.st_mode & 07777);
+		}
+d874 25
+a900 1
+
+d902 1
+a902 1
+char	*argv[];
+d904 5
+a908 6
+	long blocks, bytes;
+	char buf[TBLOCK];
+	char **cp;
+	struct stat stbuf2;
+	int ifile;
+	int same;
+d910 10
+a919 14
+	for (;;) {
+		getdir();
+		if (endtape())
+			break;
+
+		if (*argv == 0)
+			goto gotit;
+
+		for (cp = argv; *cp; cp++)
+			if (prefix(*cp, dblock.dbuf.name))
+				goto gotit;
+		passtape();
+		continue;
+
+d921 32
+a952 18
+		if (dblock.dbuf.linkflag == '1') {
+			if (vflag) {
+				printf("Link ");
+				longt(&stbuf);
+				printf("%s", dblock.dbuf.name);
+				printf(" linked to %s\n", dblock.dbuf.linkname);
+			}
+			continue;
+		}
+		if (dblock.dbuf.linkflag == '2') {
+			if (vflag) {
+				printf("Sym  ");
+				longt(&stbuf);
+				printf("%s", dblock.dbuf.name);
+				printf(" symbolic link to %s\n", dblock.dbuf.linkname);
+			}
+			continue;
+		}
+d954 2
+a955 14
+		if ((ifile = open(dblock.dbuf.name, 0)) < 0) {
+			printf("Err  ");
+			if (vflag)
+				longt(&stbuf);
+			printf("%s: Cannot open disk file\n", dblock.dbuf.name);
+			passtape();
+			continue;
+		}
+
+		same = YES;
+		blocks = ((bytes = stbuf.st_size) + TBLOCK-1)/TBLOCK;
+		if (fstat(ifile, &stbuf2) < 0 || bytes != stbuf.st_size)
+			same = NO;
+
+d957 13
+a969 20
+			while (blocks-- > 0) {
+				int nw;
+				readtape(buf);
+				nw = min(bytes, TBLOCK);
+				if (same)
+					same = cmprd (ifile, buf, nw);
+				bytes -= TBLOCK;
+			}
+		else
+			passtape();
+		close(ifile);
+
+		if (!same)
+			printf("diff ");
+		else if (vflag)
+			printf("same ");
+		if (vflag) {
+			longt(&stbuf);
+			printf("%s\n", dblock.dbuf.name);
+		}
+d971 1
+d976 24
+a999 13
+	for (;;) {
+		getdir();
+		if (endtape())
+			break;
+		if (vflag)
+			longt(&stbuf);
+		printf("%s", dblock.dbuf.name);
+		if (dblock.dbuf.linkflag == '2')
+			printf(" symbolic link to %s", dblock.dbuf.linkname);
+		if (dblock.dbuf.linkflag == '1')
+			printf(" linked to %s", dblock.dbuf.linkname);
+		printf("\n");
+		passtape();
+d1001 3
+d1008 2
+a1009 2
+	char buf[TBLOCK];
+	char *cp;
+d1011 3
+a1013 3
+	for (cp = buf; cp < &buf[TBLOCK]; )
+		*cp++ = '\0';
+	writetape(buf);
+d1019 1
+a1019 2
+	register char *cp;
+	char *ctime();
+d1021 5
+a1025 5
+	pmode(st);
+	printf("%3d/%-2d", st->st_uid, st->st_gid);
+	printf("%7D", st->st_size);
+	cp = ctime(&st->st_mtime);
+	printf(" %-12.12s %-4.4s ", cp+4, cp+20);
+d1028 12
+a1039 21
+#define	SUID	04000
+#define	SGID	02000
+#define	ROWN	0400
+#define	WOWN	0200
+#define	XOWN	0100
+#define	RGRP	040
+#define	WGRP	020
+#define	XGRP	010
+#define	ROTH	04
+#define	WOTH	02
+#define	XOTH	01
+#define	STXT	01000
+int	m1[] = { 1, ROWN, 'r', '-' };
+int	m2[] = { 1, WOWN, 'w', '-' };
+int	m3[] = { 2, SUID, 's', XOWN, 'x', '-' };
+int	m4[] = { 1, RGRP, 'r', '-' };
+int	m5[] = { 1, WGRP, 'w', '-' };
+int	m6[] = { 2, SGID, 's', XGRP, 'x', '-' };
+int	m7[] = { 1, ROTH, 'r', '-' };
+int	m8[] = { 1, WOTH, 'w', '-' };
+int	m9[] = { 2, STXT, 't', XOTH, 'x', '-' };
+d1041 9
+a1049 1
+int	*m[] = { m1, m2, m3, m4, m5, m6, m7, m8, m9};
+d1051 2
+d1056 1
+a1056 1
+	register int **mp;
+d1058 2
+a1059 2
+	for (mp = &m[0]; mp < &m[9];)
+		select(*mp++, st);
+d1063 2
+a1064 2
+int *pairp;
+struct stat *st;
+d1066 1
+a1066 1
+	register int n, *ap;
+d1068 5
+a1072 5
+	ap = pairp;
+	n = *ap++;
+	while (--n>=0 && (st->st_mode&*ap++)==0)
+		ap++;
+	printf("%c", *ap);
+d1078 2
+a1079 7
+	register char *cp;
+	int i;
+	for (cp = name; *cp; cp++) {
+		if (*cp == '/') {
+			*cp = '\0';
+			if (access(name, 01) < 0) {
+				register int pid, rp;
+d1081 11
+a1091 14
+				if ((pid = fork()) == 0) {
+					execl("/bin/mkdir", "mkdir", name, 0);
+					execl("/usr/bin/mkdir", "mkdir", name, 0);
+					fprintf(stderr, "tar: cannot find mkdir!\n");
+					done(0);
+				}
+				while ((rp = wait(&i)) >= 0 && rp != pid)
+					;
+				chown(name, stbuf.st_uid, stbuf.st_gid);
+				if (pflag && cp[1] == '\0')
+					chmod(dblock.dbuf.name,
+					  (int) stbuf.st_mode & 01777);
+			}
+			*cp = '/';
+d1093 7
+d1101 2
+a1102 1
+	return(cp[-1]=='/');
+d1107 2
+a1108 2
+	signal(SIGINT, SIG_IGN);
+	term++;
+d1113 2
+a1114 2
+	signal(SIGQUIT, SIG_IGN);
+	term++;
+d1119 2
+a1120 2
+	signal(SIGHUP, SIG_IGN);
+	term++;
+d1126 2
+a1127 2
+	signal(SIGTERM, SIG_IGN);
+	term++;
+d1134 1
+a1134 1
+	register char *cp;
+d1136 7
+a1142 7
+	for (cp = dblock.dummy; cp < &dblock.dummy[TBLOCK]; cp++)
+		*cp = '\0';
+	sprintf(dblock.dbuf.mode, "%6o ", sp->st_mode & 07777);
+	sprintf(dblock.dbuf.uid, "%6o ", sp->st_uid);
+	sprintf(dblock.dbuf.gid, "%6o ", sp->st_gid);
+	sprintf(dblock.dbuf.size, "%11lo ", sp->st_size);
+	sprintf(dblock.dbuf.mtime, "%11lo ", sp->st_mtime);
+d1147 2
+a1148 2
+	register i;
+	register char *cp;
+d1150 6
+a1155 6
+	for (cp = dblock.dbuf.chksum; cp < &dblock.dbuf.chksum[sizeof(dblock.dbuf.chksum)]; cp++)
+		*cp = ' ';
+	i = 0;
+	for (cp = dblock.dummy; cp < &dblock.dummy[TBLOCK]; cp++)
+		i += *cp;
+	return(i);
+d1159 1
+a1159 1
+char *name;
+d1161 13
+a1173 9
+	if (wflag) {
+		printf("%c ", c);
+		if (vflag)
+			longt(&stbuf);
+		printf("%s: ", name);
+		if (response() == 'y'){
+			return(1);
+		}
+		return(0);
+d1175 11
+a1185 1
+	return(1);
+d1190 1
+a1190 1
+	char c;
+d1192 33
+a1224 5
+	c = getchar();
+	if (c != '\n')
+		while (getchar() != '\n');
+	else c = 'n';
+	return(c);
+d1228 1
+a1228 1
+char	*arg;
+d1230 3
+a1232 4
+	char name[100];
+	long	mtime;
+	daddr_t seekp;
+	daddr_t	lookup();
+d1234 11
+a1244 11
+	rewind(tfile);
+	for (;;) {
+		if ((seekp = lookup(arg)) < 0)
+			return(1);
+		fseek(tfile, seekp, 0);
+		fscanf(tfile, "%s %lo", name, &mtime);
+		if (stbuf.st_mtime > mtime)
+			return(1);
+		else
+			return(0);
+	}
+d1249 2
+a1250 2
+	unlink(tname);
+	exit(n);
+d1256 6
+a1261 6
+	while (*s1)
+		if (*s1++ != *s2++)
+			return(0);
+	if (*s2)
+		return(*s2 == '/');
+	return(1);
+d1265 1
+a1265 1
+char *s;
+d1267 2
+a1268 2
+	int i;
+	int	pipdes[2];
+d1270 18
+a1287 18
+	pipe(pipdes);
+	if ((i = fork()) == 0) {
+		close(1);
+		dup(pipdes[1]);
+		execl("/bin/pwd", "pwd", 0);
+		execl("/usr/bin/pwd", "pwd", 0);
+		fprintf(stderr, "pwd failed!\n");
+		printf("/\n");
+		exit(1);
+	}
+	while (wait((int *)NULL) != -1)
+			;
+	read(pipdes[0], s, 50);
+	while(*s != '\n')
+		s++;
+	*s = '\0';
+	close(pipdes[0]);
+	close(pipdes[1]);
+d1290 4
+a1293 5
+#define	N	200
+int	njab;
+daddr_t
+lookup(s)
+char *s;
+d1295 1
+a1295 2
+	register i;
+	daddr_t a;
+d1297 4
+a1300 5
+	for(i=0; s[i]; i++)
+		if(s[i] == ' ')
+			break;
+	a = bsrch(s, i, low, high);
+	return(a);
+d1303 3
+a1305 4
+daddr_t
+bsrch(s, n, l, h)
+daddr_t l, h;
+char *s;
+d1307 3
+a1309 3
+	register i, j;
+	char b[N];
+	daddr_t m, m1;
+a1310 2
+	njab = 0;
+
+d1312 31
+a1342 32
+	if(l >= h)
+		return(-1L);
+	m = l + (h-l)/2 - N/2;
+	if(m < l)
+		m = l;
+	fseek(tfile, m, 0);
+	fread(b, 1, N, tfile);
+	njab++;
+	for(i=0; i<N; i++) {
+		if(b[i] == '\n')
+			break;
+		m++;
+	}
+	if(m >= h)
+		return(-1L);
+	m1 = m;
+	j = i;
+	for(i++; i<N; i++) {
+		m1++;
+		if(b[i] == '\n')
+			break;
+	}
+	i = cmp(b+j, s, n);
+	if(i < 0) {
+		h = m;
+		goto loop;
+	}
+	if(i > 0) {
+		l = m1;
+		goto loop;
+	}
+	return(m);
+d1346 1
+a1346 1
+char *b, *s;
+d1348 1
+a1348 1
+	register i;
+d1350 9
+a1358 9
+	if(b[0] != '\n')
+		exit(2);
+	for(i=0; i<n; i++) {
+		if(b[i+1] > s[i])
+			return(-1);
+		if(b[i+1] < s[i])
+			return(1);
+	}
+	return(b[i+1] == ' '? 0 : -1);
+a1360 7
+int mtdev = 1;
+#ifndef	OLDMAGTAPE
+struct mtget mtget;
+#else
+struct stat stb;
+#endif
+
+d1362 1
+a1362 1
+char *buffer;
+d1364 1
+a1364 2
+	register int i;
+	int j;
+d1366 20
+a1385 21
+	if (recno >= nblock || first == 0) {
+#ifndef	OLDMAGTAPE
+		if (mtdev == 1)
+			mtdev = ioctl(mt, MTIOCGET, &mtget);
+#else
+		fstat(mt, &stb);
+		if ((stb.st_mode & IFMT) == IFCHR)
+			mtdev = 0;
+		else
+			mtdev = -1;
+#endif
+		if (first==0 && nblock==0) {
+			if (mtdev == 0)
+			    j = NBLOCK;
+			else
+			    j = FILEBLOCK;
+		} else
+			j = nblock;
+		if ((i = read(mt, (char *) tbuf, TBLOCK*j)) < 0) {
+			fprintf(stderr, "tar: tape read error\n");
+			done(3);
+d1387 4
+a1390 19
+		if (first == 0) {
+			if ((i % TBLOCK) != 0) {
+				fprintf(stderr, "tar: tape blocksize error\n");
+				done(3);
+			}
+			i /= TBLOCK;
+#ifdef	OLDMAGTAPE
+			if (work == REPLACE && i != 1) {
+				fprintf(stderr, "tar: cannot update blocked tapes\n");
+				done(4);
+			}
+#endif
+			if (i != nblock ) {
+				if (mtdev == 0)
+				   fprintf(vfile, "tar: blocksize = %d\n", i);
+				nblock = i;
+			}
+		}
+		recno = 0;
+d1392 34
+a1425 5
+	first = 1;
+	if (buffer)
+		copy(buffer, (char *) &tbuf[recno]);
+	recno++;
+	return(TBLOCK);
+d1429 1
+a1429 1
+char *buffer;
+d1431 15
+a1445 8
+	first = 1;
+	if (nblock == 0)
+		nblock = BLOCKDFLT;
+	if (recno >= nblock) {
+		if (write(mt, (char *) tbuf, TBLOCK*nblock) < 0) {
+			fprintf(stderr, "tar: tape write error\n");
+			done(2);
+		}
+d1447 3
+d1451 3
+a1453 9
+	copy((char *) &tbuf[recno++], buffer);
+	if (recno >= nblock) {
+		if (write(mt, (char *) tbuf, TBLOCK*nblock) < 0) {
+			fprintf(stderr, "tar: tape write error\n");
+			done(2);
+		}
+		recno = 0;
+	}
+	return(TBLOCK);
+d1458 7
+a1464 14
+#ifndef OLDMAGTAPE
+	static struct mtop mtop = {MTBSR, 1};
+
+	if (mtdev == 1)
+		mtdev = ioctl(mt, MTIOCGET, &mtget);
+	if (mtdev == 0) {
+		if (ioctl(mt, MTIOCTOP, &mtop) < 0) {
+			fprintf(stderr, "tar: tape backspace error\n");
+			done(4);
+		}
+	} else
+		lseek(mt, (long) -TBLOCK*nblock, 1);
+	recno--;
+#else
+d1466 1
+a1466 9
+	if (recno >= nblock) {
+		recno = nblock - 1;
+		if (read(mt, (char *) tbuf, TBLOCK*nblock) < 0) {
+			fprintf(stderr, "tar: tape read error after seek\n");
+			done(4);
+		}
+		lseek(mt, (long) -TBLOCK, 1);
+	}
+#endif
+d1471 1
+a1471 1
+	write(mt, (char *) tbuf, TBLOCK*nblock);
+d1477 1
+a1477 1
+	register i;
+d1479 2
+a1480 4
+	i = TBLOCK;
+	do {
+		*to++ = *from++;
+	} while (--i);
+d1483 2
+a1484 1
+/*  Compare the next 'nw' characters of ifile with buf.
+d1488 2
+a1489 3
+int ifile;
+char *buf;
+int num;
+d1491 1
+a1491 2
+	register int nr;
+	char ibuf[TBLOCK];
+d1493 5
+a1497 5
+	if (read (ifile, ibuf, num) < num)
+		return NO;
+	if (bufcmp (buf, ibuf, num))
+		return NO;
+	return YES;
+a1499 1
+
+d1503 1
+a1503 1
+register int num;
+d1505 7
+a1511 7
+	if (num <= 0)
+		return 0;
+	do
+		if (*cp1++ != *cp2++)
+			return *--cp2 - *--cp1;
+	while (--num);
+	return 0;
+d1515 1
+a1515 1
+char *str;
+d1517 1
+a1517 2
+	register char *cp;
+	char *rindex();
+d1519 16
+a1534 4
+	if (cp = rindex (str, '/'))
+		return cp - str + 1;
+	else
+		return 0;
+@

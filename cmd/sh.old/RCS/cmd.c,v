@@ -1,0 +1,947 @@
+head     0.4;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.4
+date     86.09.29.18.25.28;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.49.42;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.37.41;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.16.24;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.4
+log
+@Версия, слитая из 2.9 и ДЕМОС без русских диагностик
+@
+text
+@#
+/*
+ * KIAE  shell
+ *
+ *
+ */
+
+#include        "defs.h"
+#include        "sym.h"
+
+PROC IOPTR      inout();
+PROC VOID       chkword();
+PROC VOID       chksym();
+PROC TREPTR     term();
+PROC TREPTR     makelist();
+PROC TREPTR     list();
+PROC REGPTR     syncase();
+PROC TREPTR     item();
+PROC VOID       skipnl();
+PROC VOID       prsym();
+PROC VOID       synbad();
+
+
+/* ========     command line decoding   ========*/
+
+
+
+
+TREPTR  makefork(flgs, i)
+	INT             flgs;
+	TREPTR          i;
+{
+	REG TREPTR      t;
+
+	t=getstak(FORKTYPE);
+	t->forktyp=flgs|TFORK; t->forktre=i; t->forkio=0;
+	return(t);
+}
+
+LOCAL TREPTR    makelist(type,i,r)
+	INT             type;
+	TREPTR          i, r;
+{
+	REG TREPTR      t;
+
+	IF i==0 ORF r==0
+	THEN    synbad();
+	ELSE    t = getstak(LSTTYPE);
+		t->lsttyp = type;
+		t->lstlef = i; t->lstrit = r;
+	FI
+	return(t);
+}
+
+/*
+ * cmd
+ *      empty
+ *      list
+ *      list & [ cmd ]
+ *      list [ ; cmd ]
+ */
+
+TREPTR  cmd(sym,flg)
+	REG INT         sym;
+	INT             flg;
+{
+	REG TREPTR      i, e;
+
+	i = list(flg);
+
+	IF wdval==NL
+	THEN    IF flg&NLFLG
+		THEN    wdval=';'; chkpr(NL);
+		FI
+	ELIF i==0 ANDF (flg&MTFLG)==0
+	THEN    synbad();
+	FI
+
+	SWITCH wdval IN
+
+	    case '&':
+		IF i
+		THEN    i = makefork(FINT|FPRS|FAMP, i);
+		ELSE    synbad();
+		FI
+
+	    case ';':
+		IF e=cmd(sym,flg|MTFLG)
+		THEN    i=makelist(TLST, i, e);
+		FI
+		break;
+
+	    case EOFSYM:
+		IF sym==NL
+		THEN    break;
+		FI
+
+	    default:
+		IF sym
+		THEN    chksym(sym);
+		FI
+
+	ENDSW
+	return(i);
+}
+
+/*
+ * list
+ *      term
+ *      list && term
+ *      list || term
+ */
+
+LOCAL TREPTR    list(flg)
+{
+	REG TREPTR      r;
+	REG INT         b;
+
+	r = term(flg);
+	WHILE r ANDF ((b=(wdval==ANDFSYM)) ORF wdval==ORFSYM)
+	DO      r = makelist((b ? TAND : TORF), r, term(NLFLG));
+	OD
+	return(r);
+}
+
+/*
+ * term
+ *      item
+ *      item |^ term
+ */
+
+LOCAL TREPTR    term(flg)
+{
+	REG TREPTR      t;
+
+	reserv++;
+	IF flg&NLFLG
+	THEN    skipnl();
+	ELSE    word();
+	FI
+
+	IF (t=item(TRUE)) ANDF (wdval=='^' ORF wdval=='|')
+	THEN    return(makelist(TFIL, makefork(FPOU,t), makefork(FPIN|FPCL,term(NLFLG))));
+	ELSE    return(t);
+	FI
+}
+
+LOCAL REGPTR    syncase(esym)
+	REG INT esym;
+{
+	skipnl();
+	IF wdval==esym
+	THEN    return(0);
+	ELSE    REG REGPTR      r=getstak(REGTYPE);
+		r->regptr=0;
+		LOOP wdarg->argnxt=r->regptr;
+		     r->regptr=wdarg;
+		     IF wdval ORF ( word()!=')' ANDF wdval!='|' )
+		     THEN synbad();
+		     FI
+		     IF wdval=='|'
+		     THEN word();
+		     ELSE break;
+		     FI
+		POOL
+		r->regcom=cmd(0,NLFLG|MTFLG);
+		IF wdval==ECSYM
+		THEN    r->regnxt=syncase(esym);
+		ELSE    chksym(esym);
+			r->regnxt=0;
+		FI
+		return(r);
+	FI
+}
+
+/*
+ * item
+ *
+ *      ( cmd ) [ < in  ] [ > out ]
+ *      word word* [ < in ] [ > out ]
+ *      if ... then ... else ... fi
+ *      for ... while ... do ... done
+ *      case ... in ... esac
+ *      begin ... end
+ */
+
+LOCAL TREPTR    item(flag)
+	BOOL            flag;
+{
+	REG TREPTR      t;
+	REG IOPTR       io;
+
+	IF flag
+	THEN    io=inout((IOPTR)0);
+	ELSE    io=0;
+	FI
+
+	SWITCH wdval IN
+
+	    case CASYM:
+		BEGIN
+		   t=getstak(SWTYPE);
+		   chkword();
+		   t->swarg=wdarg->argval;
+		   skipnl(); chksym(INSYM|BRSYM);
+		   t->swlst=syncase(wdval==INSYM?ESSYM:KTSYM);
+		   t->swtyp=TSW;
+		   break;
+		END
+
+	    case IFSYM:
+		BEGIN
+		   REG INT      w;
+		   t=getstak(IFTYPE);
+		   t->iftyp=TIF;
+		   t->iftre=cmd(THSYM,NLFLG);
+		   t->thtre=cmd(ELSYM|FISYM|EFSYM,NLFLG);
+		   t->eltre=((w=wdval)==ELSYM ? cmd(FISYM,NLFLG) : (w==EFSYM ? (wdval=IFSYM, item(0)) : 0));
+		   IF w==EFSYM THEN return(t) FI
+		   break;
+		END
+
+	    case FORSYM:
+		BEGIN
+		   t=getstak(FORTYPE);
+		   t->fortyp=TFOR;
+		   t->forlst=0;
+		   chkword();
+		   t->fornam=wdarg->argval;
+		   IF skipnl()==INSYM
+		   THEN chkword();
+			t->forlst=item(0);
+			IF wdval!=NL ANDF wdval!=';'
+			THEN    synbad();
+			FI
+			chkpr(wdval); skipnl();
+		   FI
+		   chksym(DOSYM|BRSYM);
+		   t->fortre=cmd(wdval==DOSYM?ODSYM:KTSYM,NLFLG);
+		   break;
+		END
+
+	    case WHSYM:
+	    case UNSYM:
+		BEGIN
+		   t=getstak(WHTYPE);
+		   t->whtyp=(wdval==WHSYM ? TWH : TUN);
+		   t->whtre = cmd(DOSYM,NLFLG);
+		   t->dotre = cmd(ODSYM,NLFLG);
+		   break;
+		END
+
+	    case BRSYM:
+		t=cmd(KTSYM,NLFLG);
+		break;
+
+	    case '(':
+		BEGIN
+		   REG PARPTR    p;
+		   p=getstak(PARTYPE);
+		   p->partre=cmd(')',NLFLG);
+		   p->partyp=TPAR;
+		   t=makefork(0,p);
+		   break;
+		END
+
+	    default:
+		IF io==0
+		THEN    return(0);
+		FI
+
+	    case 0:
+		BEGIN
+		   REG ARGPTR   argp;
+		   REG ARGPTR   *argtail;
+		   REG ARGPTR   *argset=0;
+		   INT          keywd=1;
+		   t=getstak(COMTYPE);
+		   t->comio=io; /*initial io chain*/
+		   argtail = &(t->comarg);
+		   WHILE wdval==0
+		   DO   argp = wdarg;
+			IF wdset ANDF keywd
+			THEN    argp->argnxt=argset; argset=argp;
+			ELSE    *argtail=argp; argtail = &(argp->argnxt); keywd=flags&keyflg;
+			FI
+			word();
+			IF flag
+			THEN t->comio=inout(t->comio);
+			FI
+		   OD
+
+		   t->comtyp=TCOM; t->comset=argset; *argtail=0;
+		   return(t);
+		END
+
+	ENDSW
+	reserv++; word();
+	IF io=inout(io)
+	THEN    t=makefork(0,t); t->treio=io;
+	FI
+	return(t);
+}
+
+
+LOCAL VOID      skipnl()
+{
+	WHILE (reserv++, word()==NL) DO chkpr(NL) OD
+	return(wdval);
+}
+
+LOCAL IOPTR     inout(lastio)
+	IOPTR           lastio;
+{
+	REG INT         iof;
+	REG IOPTR       iop;
+	REG CHAR        c;
+
+	iof=wdnum;
+
+	SWITCH wdval IN
+
+	    case DOCSYM:
+		iof |= IODOC; break;
+
+	    case APPSYM:
+	    case '>':
+		IF wdnum==0 THEN iof |= 1 FI
+		iof |= IOPUT;
+		IF wdval==APPSYM
+		THEN    iof |= IOAPP; break;
+		FI
+
+	    case '<':
+		IF (c=nextc(0))=='&'
+		THEN    iof |= IOMOV;
+		ELIF c=='>'
+		THEN    iof |= IORDW;
+		ELSE    peekc = c|MARK;
+		FI
+		break;
+
+	    default:
+		return(lastio);
+	ENDSW
+
+	chkword();
+	iop=getstak(IOTYPE); iop->ioname=wdarg->argval; iop->iofile=iof;
+	IF iof&IODOC
+	THEN iop->iolst=iopend; iopend=iop;
+	FI
+	word(); iop->ionxt=inout(lastio);
+	return(iop);
+}
+
+LOCAL VOID      chkword()
+{
+	IF word()
+	THEN    synbad();
+	FI
+}
+
+LOCAL VOID      chksym(sym)
+{
+	REG INT         x = sym&wdval;
+	IF ((x&SYMFLG) ? x : sym) != wdval
+	THEN    synbad();
+	FI
+}
+
+LOCAL VOID      prsym(sym)
+{
+	IF sym&SYMFLG
+	THEN    REG SYSPTR      sp=reserved;
+		WHILE sp->sysval
+			ANDF sp->sysval!=sym
+		DO sp++ OD
+		prs(sp->sysnam);
+	ELIF sym==EOFSYM
+	THEN    prs(endoffile);
+	ELSE    IF sym&SYMREP THEN prc(sym) FI
+		IF sym==NL
+		THEN    prs(
+#ifndef RL
+				"newline"
+#else
+				"конец строки"
+#endif  RL
+			);
+		ELSE    prc(sym);
+		FI
+	FI
+}
+
+LOCAL VOID	synbad()
+{
+	prp(); prs(synmsg);
+	IF (flags&ttyflg)==0
+	THEN	prs(atline); prn(standin->flin);
+	FI
+	prs(colon);
+	prc(LQ);
+	IF wdval
+	THEN	prsym(wdval);
+	ELSE	prs(wdarg->argval);
+	FI
+	prc(RQ); prs(unexpected);
+	newline();
+	exitsh(SYNBAD);
+}
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d3 1
+a3 1
+ * МНОС РЛ 1.2 shell
+d383 7
+a389 1
+		THEN    prs( Newline );
+d395 1
+a395 1
+LOCAL VOID      synbad()
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d3 1
+a3 1
+ * UNIX shell
+a4 2
+ * S. R. Bourne
+ * Bell Telephone Laboratories
+d8 2
+a9 2
+#include	"defs.h"
+#include	"sym.h"
+d11 11
+a21 11
+PROC IOPTR	inout();
+PROC VOID	chkword();
+PROC VOID	chksym();
+PROC TREPTR	term();
+PROC TREPTR	makelist();
+PROC TREPTR	list();
+PROC REGPTR	syncase();
+PROC TREPTR	item();
+PROC VOID	skipnl();
+PROC VOID	prsym();
+PROC VOID	synbad();
+d24 1
+a24 1
+/* ========	command line decoding	========*/
+d29 3
+a31 3
+TREPTR	makefork(flgs, i)
+	INT		flgs;
+	TREPTR		i;
+d33 1
+a33 1
+	REG TREPTR	t;
+d40 3
+a42 3
+LOCAL TREPTR	makelist(type,i,r)
+	INT		type;
+	TREPTR		i, r;
+d44 1
+a44 1
+	REG TREPTR	t;
+d47 2
+a48 2
+	THEN	synbad();
+	ELSE	t = getstak(LSTTYPE);
+d57 4
+a60 4
+ *	empty
+ *	list
+ *	list & [ cmd ]
+ *	list [ ; cmd ]
+d63 3
+a65 3
+TREPTR	cmd(sym,flg)
+	REG INT		sym;
+	INT		flg;
+d67 1
+a67 1
+	REG TREPTR	i, e;
+d72 2
+a73 2
+	THEN	IF flg&NLFLG
+		THEN	wdval=';'; chkpr(NL);
+d76 1
+a76 1
+	THEN	synbad();
+d83 2
+a84 2
+		THEN	i = makefork(FINT|FPRS|FAMP, i);
+		ELSE	synbad();
+d89 1
+a89 1
+		THEN	i=makelist(TLST, i, e);
+d95 1
+a95 1
+		THEN	break;
+d100 1
+a100 1
+		THEN	chksym(sym);
+d109 3
+a111 3
+ *	term
+ *	list && term
+ *	list || term
+d114 1
+a114 1
+LOCAL TREPTR	list(flg)
+d116 2
+a117 2
+	REG TREPTR	r;
+	REG INT		b;
+d121 1
+a121 1
+	DO	r = makelist((b ? TAND : TORF), r, term(NLFLG));
+d128 2
+a129 2
+ *	item
+ *	item |^ term
+d132 1
+a132 1
+LOCAL TREPTR	term(flg)
+d134 1
+a134 1
+	REG TREPTR	t;
+d138 2
+a139 2
+	THEN	skipnl();
+	ELSE	word();
+d143 2
+a144 2
+	THEN	return(makelist(TFIL, makefork(FPOU,t), makefork(FPIN|FPCL,term(NLFLG))));
+	ELSE	return(t);
+d148 2
+a149 2
+LOCAL REGPTR	syncase(esym)
+	REG INT	esym;
+d153 2
+a154 2
+	THEN	return(0);
+	ELSE	REG REGPTR	r=getstak(REGTYPE);
+d168 2
+a169 2
+		THEN	r->regnxt=syncase(esym);
+		ELSE	chksym(esym);
+d179 6
+a184 6
+ *	( cmd ) [ < in  ] [ > out ]
+ *	word word* [ < in ] [ > out ]
+ *	if ... then ... else ... fi
+ *	for ... while ... do ... done
+ *	case ... in ... esac
+ *	begin ... end
+d187 2
+a188 2
+LOCAL TREPTR	item(flag)
+	BOOL		flag;
+d190 2
+a191 2
+	REG TREPTR	t;
+	REG IOPTR	io;
+d194 2
+a195 2
+	THEN	io=inout((IOPTR)0);
+	ELSE	io=0;
+d213 1
+a213 1
+		   REG INT	w;
+d231 1
+a231 1
+		   THEN	chkword();
+d234 1
+a234 1
+			THEN	synbad();
+d259 1
+a259 1
+		   REG PARPTR	 p;
+d269 1
+a269 1
+		THEN	return(0);
+d274 4
+a277 4
+		   REG ARGPTR	argp;
+		   REG ARGPTR	*argtail;
+		   REG ARGPTR	*argset=0;
+		   INT		keywd=1;
+d282 1
+a282 1
+		   DO	argp = wdarg;
+d284 2
+a285 2
+			THEN	argp->argnxt=argset; argset=argp;
+			ELSE	*argtail=argp; argtail = &(argp->argnxt); keywd=flags&keyflg;
+d300 1
+a300 1
+	THEN	t=makefork(0,t); t->treio=io;
+d306 1
+a306 1
+LOCAL VOID	skipnl()
+d312 2
+a313 2
+LOCAL IOPTR	inout(lastio)
+	IOPTR		lastio;
+d315 3
+a317 3
+	REG INT		iof;
+	REG IOPTR	iop;
+	REG CHAR	c;
+d331 1
+a331 1
+		THEN	iof |= IOAPP; break;
+d336 1
+a336 1
+		THEN	iof |= IOMOV;
+d338 2
+a339 2
+		THEN	iof |= IORDW;
+		ELSE	peekc=c|MARK;
+d356 1
+a356 1
+LOCAL VOID	chkword()
+d359 1
+a359 1
+	THEN	synbad();
+d363 1
+a363 1
+LOCAL VOID	chksym(sym)
+d365 1
+a365 1
+	REG INT		x = sym&wdval;
+d367 1
+a367 1
+	THEN	synbad();
+d371 1
+a371 1
+LOCAL VOID	prsym(sym)
+d374 1
+a374 1
+	THEN	REG SYSPTR	sp=reserved;
+d380 2
+a381 2
+	THEN	prs(endoffile);
+	ELSE	IF sym&SYMREP THEN prc(sym) FI
+d383 2
+a384 2
+		THEN	prs("newline");
+		ELSE	prc(sym);
+d389 1
+a389 1
+LOCAL VOID	synbad()
+d405 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 1
+ * KIAE  shell
+d5 2
+d10 2
+a11 2
+#include        "defs.h"
+#include        "sym.h"
+d13 11
+a23 11
+PROC IOPTR      inout();
+PROC VOID       chkword();
+PROC VOID       chksym();
+PROC TREPTR     term();
+PROC TREPTR     makelist();
+PROC TREPTR     list();
+PROC REGPTR     syncase();
+PROC TREPTR     item();
+PROC VOID       skipnl();
+PROC VOID       prsym();
+PROC VOID       synbad();
+d26 1
+a26 1
+/* ========     command line decoding   ========*/
+d31 3
+a33 3
+TREPTR  makefork(flgs, i)
+	INT             flgs;
+	TREPTR          i;
+d35 1
+a35 1
+	REG TREPTR      t;
+d42 3
+a44 3
+LOCAL TREPTR    makelist(type,i,r)
+	INT             type;
+	TREPTR          i, r;
+d46 1
+a46 1
+	REG TREPTR      t;
+d49 2
+a50 2
+	THEN    synbad();
+	ELSE    t = getstak(LSTTYPE);
+d59 4
+a62 4
+ *      empty
+ *      list
+ *      list & [ cmd ]
+ *      list [ ; cmd ]
+d65 3
+a67 3
+TREPTR  cmd(sym,flg)
+	REG INT         sym;
+	INT             flg;
+d69 1
+a69 1
+	REG TREPTR      i, e;
+d74 2
+a75 2
+	THEN    IF flg&NLFLG
+		THEN    wdval=';'; chkpr(NL);
+d78 1
+a78 1
+	THEN    synbad();
+d85 2
+a86 2
+		THEN    i = makefork(FINT|FPRS|FAMP, i);
+		ELSE    synbad();
+d91 1
+a91 1
+		THEN    i=makelist(TLST, i, e);
+d97 1
+a97 1
+		THEN    break;
+d102 1
+a102 1
+		THEN    chksym(sym);
+d111 3
+a113 3
+ *      term
+ *      list && term
+ *      list || term
+d116 1
+a116 1
+LOCAL TREPTR    list(flg)
+d118 2
+a119 2
+	REG TREPTR      r;
+	REG INT         b;
+d123 1
+a123 1
+	DO      r = makelist((b ? TAND : TORF), r, term(NLFLG));
+d130 2
+a131 2
+ *      item
+ *      item |^ term
+d134 1
+a134 1
+LOCAL TREPTR    term(flg)
+d136 1
+a136 1
+	REG TREPTR      t;
+d140 2
+a141 2
+	THEN    skipnl();
+	ELSE    word();
+d145 2
+a146 2
+	THEN    return(makelist(TFIL, makefork(FPOU,t), makefork(FPIN|FPCL,term(NLFLG))));
+	ELSE    return(t);
+d150 2
+a151 2
+LOCAL REGPTR    syncase(esym)
+	REG INT esym;
+d155 2
+a156 2
+	THEN    return(0);
+	ELSE    REG REGPTR      r=getstak(REGTYPE);
+d170 2
+a171 2
+		THEN    r->regnxt=syncase(esym);
+		ELSE    chksym(esym);
+d181 6
+a186 6
+ *      ( cmd ) [ < in  ] [ > out ]
+ *      word word* [ < in ] [ > out ]
+ *      if ... then ... else ... fi
+ *      for ... while ... do ... done
+ *      case ... in ... esac
+ *      begin ... end
+d189 2
+a190 2
+LOCAL TREPTR    item(flag)
+	BOOL            flag;
+d192 2
+a193 2
+	REG TREPTR      t;
+	REG IOPTR       io;
+d196 2
+a197 2
+	THEN    io=inout((IOPTR)0);
+	ELSE    io=0;
+d215 1
+a215 1
+		   REG INT      w;
+d233 1
+a233 1
+		   THEN chkword();
+d236 1
+a236 1
+			THEN    synbad();
+d261 1
+a261 1
+		   REG PARPTR    p;
+d271 1
+a271 1
+		THEN    return(0);
+d276 4
+a279 4
+		   REG ARGPTR   argp;
+		   REG ARGPTR   *argtail;
+		   REG ARGPTR   *argset=0;
+		   INT          keywd=1;
+d284 1
+a284 1
+		   DO   argp = wdarg;
+d286 2
+a287 2
+			THEN    argp->argnxt=argset; argset=argp;
+			ELSE    *argtail=argp; argtail = &(argp->argnxt); keywd=flags&keyflg;
+d302 1
+a302 1
+	THEN    t=makefork(0,t); t->treio=io;
+d308 1
+a308 1
+LOCAL VOID      skipnl()
+d314 2
+a315 2
+LOCAL IOPTR     inout(lastio)
+	IOPTR           lastio;
+d317 3
+a319 3
+	REG INT         iof;
+	REG IOPTR       iop;
+	REG CHAR        c;
+d333 1
+a333 1
+		THEN    iof |= IOAPP; break;
+d338 1
+a338 1
+		THEN    iof |= IOMOV;
+d340 2
+a341 2
+		THEN    iof |= IORDW;
+		ELSE    peekc = c|MARK;
+d358 1
+a358 1
+LOCAL VOID      chkword()
+d361 1
+a361 1
+	THEN    synbad();
+d365 1
+a365 1
+LOCAL VOID      chksym(sym)
+d367 1
+a367 1
+	REG INT         x = sym&wdval;
+d369 1
+a369 1
+	THEN    synbad();
+d373 1
+a373 1
+LOCAL VOID      prsym(sym)
+d376 1
+a376 1
+	THEN    REG SYSPTR      sp=reserved;
+d382 2
+a383 2
+	THEN    prs(endoffile);
+	ELSE    IF sym&SYMREP THEN prc(sym) FI
+d385 2
+a386 8
+		THEN    prs(
+#ifndef RL
+				"newline"
+#else
+				"конец строки"
+#endif  RL
+			);
+		ELSE    prc(sym);
+a406 1
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@

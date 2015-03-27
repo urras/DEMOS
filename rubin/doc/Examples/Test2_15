@@ -1,0 +1,80 @@
+print ""
+print ""
+print ""
+print "*****  *    * ****** *    * *    *          ****       *  ******  "
+print "*    * *    * *      *    * *    *         *    *     **  *       "
+print "*    * *    * *      *   ** *    *              *    * *  *****   "
+print "*****   ***** *****  *  * * ******             *       *       *  "
+print "*           * *    * * *  * *    *           *         *       *  "
+print "*           * *    * **   * *    *          *     **   *  *    *  "
+print "*       ****  *****  *    * *    *         ****** **  ***  ****   "
+print ""
+print "Компдексная проверка новых возможностей СУБД Рубин 2.15"
+print " Дата / Время / Переменные"
+print ""
+print "1. Создаем отношение уч - ащиеся"
+destroy уч
+create уч(ном=i2, фио=c16, деньр=date, класс=c2, тел=c16)
+ls уч
+print ""
+print "Теперь заполняем несколько записей"
+print "Сначала создадим макро"
+{define;add $f,$i,$d,$k,$t;append to уч (фио="$f $i", деньр='$d', класс="$k", тел="$t")}
+add Соловьев,Миша,`21-Сен-1962',3а,`472-33-62'
+add Петров,Коля,`01-Ноя-1963',2б,`172-70-15'
+add Иванов,Вася,`10-Мая-1960',4г,`472-10-20'
+add Соломатин,Петя,`21-Сен-1962',3а,`182-90-10'
+print ""
+print "Теперь напечатам результат по умолчанию"
+print уч
+print ""
+print "А теперь напечатаем дни рождения"
+retrieve (_=уч.фио,_=from_date(уч.деньр,"'родился 'DD МЕСЯЦА YYYY 'года',ДЕНЬНЕД"))
+print "А теперь напечатаем возраст"
+retrieve (уч.фио,Возраст=from_date(sysdate-уч.деньр,"YY 'лет '"))
+print "А теперь напечатаем текущую дату и время"
+retrieve (_=from_date(sysdate,"'Сегодня' DD МЕСЯЦА YYYY 'года', ДЕНЬНЕД"),
+_=from_time(systime,"HH 'часов' MI 'минут'"))
+print ""
+print "А теперь переведем старый формат - целое вида YYMMDD в новый"
+destroy a
+create a(d=i4)
+append to a(d=890407)
+retrieve (Старое=a.d,Новое=to_date(ascii(a.d),"YYMMDD"))
+print ""
+print "А теперь проверим работу с переменными"
+print "Сначала нужно создать переменную"
+destroy ном_шк
+define ном_шк=10
+help ном_шк
+print "Теперь уствновим ее значение заново функцией ser_set:"
+retrieve (s=ser_set("ном_шк", 0))
+print "Теперь перенумеруем всех школьников"
+replace уч(ном=ser_next("ном_шк"))
+print уч
+print "А теперь посмотрим последнее полученное значение"
+retrieve (Последнее=ser_last("ном_шк"))
+print "А теперь осталось проверить работу механизма выталкивания"
+print "Самых старых переменных при исчерпании места в таблице"
+destroy a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12
+define a1=101
+define a2=201
+define a3=301
+define a4=401
+define a5=501
+define a6=601
+define a7=701
+define a8=801
+define a9=901
+define a10=1001
+define a11=1101
+define a12=1201
+retrieve (a1=ser_next("a1"),a2=ser_next("a2"), a3=ser_next("a3"),
+a4=ser_next("a4"), a5=ser_next("a5"),a6=ser_next("a6"), a7=ser_next("a7"),
+aa1=ser_next("a1"),
+a8=ser_next("a8"), a9=ser_next("a9"),a10=ser_next("a10"), a11=ser_next("a11"),
+a12=ser_next("a12"))
+retrieve (l1=ser_last("a1"))
+retrieve (l3=ser_last("a5"))
+print "В С Е ! ! ! "
+

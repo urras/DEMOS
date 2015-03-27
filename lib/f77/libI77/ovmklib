@@ -1,0 +1,29 @@
+ar r libovI77.a \
+backspace.o \
+cdfe.o \
+close.o \
+dolio.o \
+due.o \
+endfile.o \
+err.o \
+fmt.o \
+fmtlib.o \
+iio.o \
+inquire.o \
+lib.o \
+lio.o \
+lread.o \
+open.o \
+rdfe.o \
+rdfmt.o \
+rewind.o \
+rsfe.o \
+sfe.o \
+sue.o \
+uio.o \
+util.o \
+util1.o \
+wdfe.o \
+wrtfmt.o \
+wsfe.o
+ranlib libovI77.a

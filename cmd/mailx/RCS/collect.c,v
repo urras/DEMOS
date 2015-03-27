@@ -1,0 +1,1272 @@
+head     1.7;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     88.08.23.16.37.18;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.07.23.22.11.23;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.07.23.20.31.45;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.07.04.21.23.33;  author ache;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.07.04.21.02.12;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.11.12.31.34;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.12.25.15.58.47;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.7
+log
+@Сделан двуязычный help и правлены русские диагностики.
+@
+text
+@#
+
+/*
+ * Mail -- a mail program
+ *
+ * Collect input from standard input, handling
+ * ~ escapes.
+ *
+ * $Log:        collect.c,v $
+ * Revision 1.6  88/07/23  22:11:23  ache
+ * Ошибка ф формате
+ *
+ * Revision 1.5  88/07/23  20:31:45  ache
+ * Русские диагностики
+ *
+ * Revision 1.4  88/07/04  21:23:33  ache
+ * Перед ~q (collrub) поставлен sighold
+ *
+ * Revision 1.3  88/07/04  21:02:12  ache
+ * Обработка SIGQUIT и снятие/восстановление hold перед
+ * grabh если не TIOCSTI
+ *
+ * Revision 1.2  88/01/11  12:31:34  avg
+ * Теперь tilde escapes не работают только тогда, когда ввод происходит не
+ * с терминала (а не при наличии ключа -r, как было).
+ *
+ * Revision 1.1  87/12/25  15:58:47  avg
+ * Initial revision
+ *
+ */
+
+/*NOXSTR*/
+static char rcsid[] = "$Header: collect.c,v 1.6 88/07/23 22:11:23 ache Exp $";
+/*YESXSTR*/
+
+#include "rcv.h"
+#include <sys/stat.h>
+
+#ifdef TIOCSETA /* Demos2 Only */
+#undef TIOCSTI
+#endif
+
+/*
+ * Read a message from standard output and return a read file to it
+ * or NULL on error.
+ */
+
+/*
+ * The following hokiness with global variables is so that on
+ * receipt of an interrupt signal, the partial message can be salted
+ * away on dead.letter.  The output file must be available to flush,
+ * and the input to read.  Several open files could be saved all through
+ * Mail if stdio allowed simultaneous read/write access.
+ */
+
+static  int     (*savesig)();           /* Previous SIGINT value */
+static  int     (*savehup)();           /* Previous SIGHUP value */
+static  int     (*savequit)();          /* Previous SIGQUIT value */
+# ifdef VMUNIX
+static  int     (*savecont)();          /* Previous SIGCONT value */
+# endif VMUNIX
+static  FILE    *newi;                  /* File for saving away */
+static  FILE    *newo;                  /* Output side of same */
+static  int     hf;                     /* Ignore interrups */
+static  int     hadintr;                /* Have seen one SIGINT so far */
+
+static  jmp_buf coljmp;                 /* To get back to work */
+
+FILE *
+collect(hp)
+	struct header *hp;
+{
+	FILE *ibuf, *fbuf, *obuf;
+	long lc, cc;
+	int escape, collrub(), intack(), collhup, collcont(), eof;
+	register int c, t;
+	char linebuf[LINESIZE], *cp;
+	extern char tempMail[];
+	int notify();
+#ifndef VMUNIX
+	extern collintsig(), collhupsig(), collquitsig();
+#endif
+
+	noreset++;
+	ibuf = obuf = NULL;
+	if (value("ignore") != NOSTR)
+		hf = 1;
+	else
+		hf = 0;
+	hadintr = 0;
+# ifdef VMUNIX
+	if ((savesig = sigset(SIGINT, SIG_IGN)) != SIG_IGN)
+		sigset(SIGINT, hf ? intack : collrub), sighold(SIGINT);
+	if ((savehup = sigset(SIGHUP, SIG_IGN)) != SIG_IGN)
+		sigset(SIGHUP, collrub), sighold(SIGHUP);
+	if ((savequit = sigset(SIGQUIT, SIG_IGN)) != SIG_IGN)
+		sigset(SIGQUIT, collrub), sighold(SIGQUIT);
+	savecont = sigset(SIGCONT, collcont);
+# else VMUNIX
+	savesig = signal(SIGINT, SIG_IGN);
+	savehup = signal(SIGHUP, SIG_IGN);
+	savequit = signal(SIGQUIT, SIG_IGN);
+# endif VMUNIX
+	newi = NULL;
+	newo = NULL;
+	if ((obuf = fopen(tempMail, "w")) == NULL) {
+		perror(tempMail);
+		goto err;
+	}
+	newo = obuf;
+	if ((ibuf = fopen(tempMail, "r")) == NULL) {
+		perror(tempMail);
+		newo = NULL;
+		fclose(obuf);
+		goto err;
+	}
+	newi = ibuf;
+	remove(tempMail);
+
+	/*
+	 * If we are going to prompt for a subject,
+	 * refrain from printing a newline after
+	 * the headers (since some people mind).
+	 */
+
+	t = GTO|GSUBJECT|GCC|GNL;
+	c = 0;
+	if (intty && sflag == NOSTR && hp->h_subject == NOSTR && value("ask"))
+		t &= ~GNL, c++;
+	if (hp->h_seq != 0) {
+		puthead(hp, stdout, t);
+		fflush(stdout);
+	}
+	if (c) {
+#ifndef TIOCSTI
+		sigrelse (SIGINT);
+		sigrelse (SIGQUIT);
+#endif
+		grabh(hp, GSUBJECT);
+#ifndef TIOCSTI
+		sighold (SIGINT);
+		sighold (SIGQUIT);
+#endif
+	}
+	escape = ESCAPE;
+	if ((cp = value("escape")) != NOSTR)
+		escape = *cp;
+	eof = 0;
+	for (;;) {
+		setjmp(coljmp);
+# ifdef VMUNIX
+		sigrelse(SIGINT);
+		sigrelse(SIGHUP);
+		sigrelse(SIGQUIT);
+# else VMUNIX
+		if (savesig != SIG_IGN)
+			signal(SIGINT, hf ? intack : collintsig);
+		if (savehup != SIG_IGN)
+			signal(SIGHUP, collhupsig);
+		if (savequit != SIG_IGN)
+			signal(SIGQUIT, collquitsig);
+# endif VMUNIX
+		flush();
+		if (readline(stdin, linebuf) <= 0) {
+			if (intty && value("ignoreeof") != NOSTR) {
+				if (++eof > 35)
+					break;
+				printf(ediag(
+"Use \".\" to terminate letter\n",
+"Используйте \".\" чтобы окончить письмо\n"));
+				continue;
+			}
+			break;
+		}
+		eof = 0;
+		hadintr = 0;
+		if (intty && equal(".", linebuf) &&
+		    (value("dot") != NOSTR || value("ignoreeof") != NOSTR))
+			break;
+		/*
+		if (linebuf[0] != escape || rflag != NOSTR) {
+		*/
+		if (linebuf[0] != escape || !isatty(fileno(stdin))) {
+			if ((t = putline(obuf, linebuf)) < 0)
+				goto err;
+			continue;
+		}
+		c = linebuf[1];
+		switch (c) {
+		default:
+			/*
+			 * On double escape, just send the single one.
+			 * Otherwise, it's an error.
+			 */
+
+			if (c == escape) {
+				if (putline(obuf, &linebuf[1]) < 0)
+					goto err;
+				else
+					break;
+			}
+			printf(ediag(
+"Unknown tilde escape.\n",
+"Неизвестная управляющая последовательность.\n"));
+			break;
+
+		case 'C':
+			/*
+			 * Dump core.
+			 */
+
+			core();
+			break;
+
+		case '!':
+			/*
+			 * Shell escape, send the balance of the
+			 * line to sh -c.
+			 */
+
+			shell(&linebuf[2]);
+			break;
+
+		case ':':
+		case '_':
+			/*
+			 * Escape to command mode, but be nice!
+			 */
+
+			execute(&linebuf[2], 1);
+			printf(ediag("(continue)\n","(продолжайте)\n"));
+			break;
+
+		case '.':
+			/*
+			 * Simulate end of file on input.
+			 */
+			goto eofl;
+
+		case 'q':
+		case 'Q':
+			/*
+			 * Force a quit of sending mail.
+			 * Act like an interrupt happened.
+			 */
+
+			hadintr++;
+#ifdef  VMUNIX
+			sighold (SIGINT);
+#endif  VMUNIX
+			collrub(SIGINT);
+			exit(1);
+
+		case 'h':
+			/*
+			 * Grab a bunch of headers.
+			 */
+			if (!intty || !outtty) {
+				printf(ediag(
+"~h: no can do!?\n",
+"~h: нельзя сделать!\n"));
+				break;
+			}
+			grabh(hp, GTO|GSUBJECT|GCC|GBCC);
+			printf(ediag("(continue)\n","(продолжайте)\n"));
+			break;
+
+		case 't':
+			/*
+			 * Add to the To list.
+			 */
+
+			hp->h_to = addto(hp->h_to, &linebuf[2]);
+			hp->h_seq++;
+			break;
+
+		case 's':
+			/*
+			 * Set the Subject list.
+			 */
+
+			cp = &linebuf[2];
+			while (any(*cp, " \t"))
+				cp++;
+			hp->h_subject = savestr(cp);
+			hp->h_seq++;
+			break;
+
+		case 'c':
+			/*
+			 * Add to the CC list.
+			 */
+
+			hp->h_cc = addto(hp->h_cc, &linebuf[2]);
+			hp->h_seq++;
+			break;
+
+		case 'b':
+			/*
+			 * Add stuff to blind carbon copies list.
+			 */
+			hp->h_bcc = addto(hp->h_bcc, &linebuf[2]);
+			hp->h_seq++;
+			break;
+
+		case 'd':
+			copy(deadletter, &linebuf[2]);
+			/* fall into . . . */
+
+		case 'r':
+			/*
+			 * Invoke a file:
+			 * Search for the file name,
+			 * then open it and copy the contents to obuf.
+			 */
+
+			cp = &linebuf[2];
+			while (any(*cp, " \t"))
+				cp++;
+			if (*cp == '\0') {
+				printf(ediag(
+"Interpolate what file?\n",
+"Какой файл вставлять?\n"));
+				break;
+			}
+			cp = expand(cp);
+			if (cp == NOSTR)
+				break;
+			if (isdir(cp)) {
+				printf(ediag(
+"%s: directory\n",
+"%s: каталог\n"), cp);
+				break;
+			}
+			if ((fbuf = fopen(cp, "r")) == NULL) {
+				perror(cp);
+				break;
+			}
+			printf("\"%s\" ", cp);
+			flush();
+			lc = 0;
+			cc = 0;
+			while (readline(fbuf, linebuf) > 0) {
+				lc++;
+				if ((t = putline(obuf, linebuf)) < 0) {
+					fclose(fbuf);
+					goto err;
+				}
+				cc += t;
+			}
+			fclose(fbuf);
+			printf("%ld/%ld\n", lc, cc);
+			break;
+
+		case 'w':
+			/*
+			 * Write the message on a file.
+			 */
+
+			cp = &linebuf[2];
+			while (any(*cp, " \t"))
+				cp++;
+			if (*cp == '\0') {
+				fprintf(stderr, ediag(
+"Write what file!?\n",
+"В какой файл писать?\n"));
+				break;
+			}
+			if ((cp = expand(cp)) == NOSTR)
+				break;
+			fflush(obuf);
+			rewind(ibuf);
+			exwrite(cp, ibuf, 1);
+			break;
+
+		case 'm':
+		case 'f':
+			/*
+			 * Interpolate the named messages, if we
+			 * are in receiving mail mode.  Does the
+			 * standard list processing garbage.
+			 * If ~f is given, we don't shift over.
+			 */
+
+			if (!rcvmode) {
+				printf(ediag(
+"No messages to send from!?!\n",
+"Отсюда посылать сообщение?!\n"));
+				break;
+			}
+			cp = &linebuf[2];
+			while (any(*cp, " \t"))
+				cp++;
+			if (forward(cp, obuf, c) < 0)
+				goto err;
+			printf(ediag("(continue)\n","(продолжайте)\n"));
+			break;
+
+		case '?':
+			if ((fbuf = fopen(ediag(THELPFILE,RTHELPFILE), "r")) == NULL) {
+				perror(ediag(THELPFILE,RTHELPFILE));
+				break;
+			}
+			t = getc(fbuf);
+			while (t != -1) {
+				putchar(t);
+				t = getc(fbuf);
+			}
+			fclose(fbuf);
+			break;
+
+		case 'p':
+			/*
+			 * Print out the current state of the
+			 * message without altering anything.
+			 */
+
+			fflush(obuf);
+			rewind(ibuf);
+			printf(ediag(
+"-------\nMessage contains:\n",
+"-------\nСообщение содержит:\n"));
+			puthead(hp, stdout, GTO|GSUBJECT|GCC|GBCC|GNL);
+			t = getc(ibuf);
+			while (t != EOF) {
+				putchar(t);
+				t = getc(ibuf);
+			}
+			printf(ediag("(continue)\n","(продолжайте)\n"));
+			break;
+
+		case '^':
+		case '|':
+			/*
+			 * Pipe message through command.
+			 * Collect output as new message.
+			 */
+
+			obuf = mespipe(ibuf, obuf, &linebuf[2]);
+			newo = obuf;
+			ibuf = newi;
+			newi = ibuf;
+			printf(ediag("(continue)\n","(продолжайте)\n"));
+			break;
+
+		case 'v':
+		case 'e':
+			/*
+			 * Edit the current message.
+			 * 'e' means to use EDITOR
+			 * 'v' means to use VISUAL
+			 */
+
+			if ((obuf = mesedit(ibuf, obuf, c)) == NULL)
+				goto err;
+			newo = obuf;
+			ibuf = newi;
+			printf(ediag("(continue)\n","(продолжайте)\n"));
+			break;
+		}
+	}
+eofl:
+	fclose(obuf);
+	rewind(ibuf);
+	sigset(SIGINT, savesig);
+	sigset(SIGHUP, savehup);
+	sigset(SIGQUIT, savequit);
+# ifdef VMUNIX
+	sigset(SIGCONT, savecont);
+# endif VMUNIX
+	noreset = 0;
+	return(ibuf);
+
+err:
+	if (ibuf != NULL)
+		fclose(ibuf);
+	if (obuf != NULL)
+		fclose(obuf);
+	sigset(SIGINT, savesig);
+	sigset(SIGHUP, savehup);
+	sigset(SIGQUIT, savequit);
+# ifdef VMUNIX
+	sigset(SIGCONT, savecont);
+# endif VMUNIX
+	noreset = 0;
+	return(NULL);
+}
+
+/*
+ * Non destructively interrogate the value of the given signal.
+ */
+
+psig(n)
+{
+	register (*wassig)();
+
+	wassig = sigset(n, SIG_IGN);
+	sigset(n, wassig);
+	return((int) wassig);
+}
+
+/*
+ * Write a file, ex-like if f set.
+ */
+
+exwrite(name, ibuf, f)
+	char name[];
+	FILE *ibuf;
+{
+	register FILE *of;
+	register int c;
+	long cc;
+	int lc;
+	struct stat junk;
+
+	if (f) {
+		printf("\"%s\" ", name);
+		fflush(stdout);
+	}
+	if (stat(name, &junk) >= 0 && (junk.st_mode & S_IFMT) == S_IFREG) {
+		if (!f)
+			fprintf(stderr, "%s: ", name);
+		fprintf(stderr, ediag("File exists\n", "Файл уже существует\n"),
+				name);
+		return(-1);
+	}
+	if ((of = fopen(name, "w")) == NULL) {
+		perror(NOSTR);
+		return(-1);
+	}
+	lc = 0;
+	cc = 0;
+	while ((c = getc(ibuf)) != EOF) {
+		cc++;
+		if (c == '\n')
+			lc++;
+		putc(c, of);
+		if (ferror(of)) {
+			perror(name);
+			fclose(of);
+			return(-1);
+		}
+	}
+	fclose(of);
+	printf("%d/%ld\n", lc, cc);
+	fflush(stdout);
+	return(0);
+}
+
+/*
+ * Edit the message being collected on ibuf and obuf.
+ * Write the message out onto some poorly-named temp file
+ * and point an editor at it.
+ *
+ * On return, make the edit file the new temp file.
+ */
+
+FILE *
+mesedit(ibuf, obuf, c)
+	FILE *ibuf, *obuf;
+{
+	int pid, s;
+	FILE *fbuf;
+	register int t;
+	int (*sig)(), (*scont)(), signull(), (*qsig)();
+	struct stat sbuf;
+	extern char tempMail[], tempEdit[];
+	register char *edit;
+
+	sig = sigset(SIGINT, SIG_IGN);
+	qsig = sigset(SIGQUIT, SIG_IGN);
+# ifdef VMUNIX
+	scont = sigset(SIGCONT, signull);
+# endif VMUNIX
+	if (stat(tempEdit, &sbuf) >= 0) {
+		printf(ediag("%s: file exists\n",
+"%s: файл уже существует\n"),
+tempEdit);
+		goto out;
+	}
+	close(creat(tempEdit, 0600));
+	if ((fbuf = fopen(tempEdit, "w")) == NULL) {
+		perror(tempEdit);
+		goto out;
+	}
+	fflush(obuf);
+	rewind(ibuf);
+	t = getc(ibuf);
+	while (t != EOF) {
+		putc(t, fbuf);
+		t = getc(ibuf);
+	}
+	fflush(fbuf);
+	if (ferror(fbuf)) {
+		perror(tempEdit);
+		remove(tempEdit);
+		goto fix;
+	}
+	fclose(fbuf);
+	if ((edit = value(c == 'e' ? "EDITOR" : "VISUAL")) == NOSTR)
+		edit = c == 'e' ? EDITOR : VISUAL;
+	pid = vfork();
+	if (pid == 0) {
+		sigchild();
+		if (sig != SIG_IGN)
+			sigsys(SIGINT, SIG_DFL);
+		if (qsig != SIG_IGN)
+			sigsys(SIGQUIT, SIG_DFL);
+		execl(edit, edit, tempEdit, 0);
+		perror(edit);
+		_exit(1);
+	}
+	if (pid == -1) {
+		perror("fork");
+		remove(tempEdit);
+		goto out;
+	}
+	while (wait(&s) != pid)
+		;
+	if ((s & 0377) != 0) {
+		printf(ediag(
+"Fatal error in \"%s\"\n",
+"Фатальная ошибка в \"%s\"\n"),
+edit);
+		remove(tempEdit);
+		goto out;
+	}
+
+	/*
+	 * Now switch to new file.
+	 */
+
+	if ((fbuf = fopen(tempEdit, "a")) == NULL) {
+		perror(tempEdit);
+		remove(tempEdit);
+		goto out;
+	}
+	if ((ibuf = fopen(tempEdit, "r")) == NULL) {
+		perror(tempEdit);
+		fclose(fbuf);
+		remove(tempEdit);
+		goto out;
+	}
+	remove(tempEdit);
+	fclose(obuf);
+	fclose(newi);
+	obuf = fbuf;
+	goto out;
+fix:
+	perror(tempEdit);
+out:
+# ifdef VMUNIX
+	sigset(SIGCONT, scont);
+# endif VMUNIX
+	sigset(SIGINT, sig);
+	sigset(SIGQUIT, qsig);
+	newi = ibuf;
+	return(obuf);
+}
+
+/*
+ * Pipe the message through the command.
+ * Old message is on stdin of command;
+ * New message collected from stdout.
+ * Sh -c must return 0 to accept the new message.
+ */
+
+FILE *
+mespipe(ibuf, obuf, cmd)
+	FILE *ibuf, *obuf;
+	char cmd[];
+{
+	register FILE *ni, *no;
+	int pid, s;
+	int (*savesig)(), (*saveqsig)();
+	char *Shell;
+
+	newi = ibuf;
+	if ((no = fopen(tempEdit, "w")) == NULL) {
+		perror(tempEdit);
+		return(obuf);
+	}
+	if ((ni = fopen(tempEdit, "r")) == NULL) {
+		perror(tempEdit);
+		fclose(no);
+		remove(tempEdit);
+		return(obuf);
+	}
+	remove(tempEdit);
+	savesig = sigset(SIGINT, SIG_IGN);
+	saveqsig = sigset(SIGQUIT, SIG_IGN);
+	fflush(obuf);
+	rewind(ibuf);
+	if ((Shell = value("SHELL")) == NULL)
+		Shell = "/bin/sh";
+	if ((pid = vfork()) == -1) {
+		perror("fork");
+		goto err;
+	}
+	if (pid == 0) {
+		/*
+		 * stdin = current message.
+		 * stdout = new message.
+		 */
+
+		sigchild();
+		close(0);
+		dup(fileno(ibuf));
+		close(1);
+		dup(fileno(no));
+		for (s = 4; s < 15; s++)
+			close(s);
+		execl(Shell, Shell, "-c", cmd, 0);
+		perror(Shell);
+		_exit(1);
+	}
+	while (wait(&s) != pid)
+		;
+	if (s != 0 || pid == -1) {
+		fprintf(stderr, ediag(
+"\"%s\" failed!?\n",
+"\"%s\" завершился неудачей?\n"), cmd);
+		goto err;
+	}
+	if (fsize(ni) == 0) {
+		fprintf(stderr, ediag(
+"No bytes from \"%s\" !?\n",
+"Ничего нет из \"%s\" !?\n"), cmd);
+		goto err;
+	}
+
+	/*
+	 * Take new files.
+	 */
+
+	newi = ni;
+	fclose(ibuf);
+	fclose(obuf);
+	sigset(SIGINT, savesig);
+	sigset(SIGQUIT, saveqsig);
+	return(no);
+
+err:
+	fclose(no);
+	fclose(ni);
+	sigset(SIGINT, savesig);
+	sigset(SIGQUIT, saveqsig);
+	return(obuf);
+}
+
+/*
+ * Interpolate the named messages into the current
+ * message, preceding each line with a tab.
+ * Return a count of the number of characters now in
+ * the message, or -1 if an error is encountered writing
+ * the message temporary.  The flag argument is 'm' if we
+ * should shift over and 'f' if not.
+ */
+forward(ms, obuf, f)
+	char ms[];
+	FILE *obuf;
+{
+	register int *msgvec, *ip;
+	extern char tempMail[];
+
+	msgvec = (int *) salloc((msgCount+1) * sizeof *msgvec);
+	if (msgvec == (int *) NOSTR)
+		return(0);
+	if (getmsglist(ms, msgvec, 0) < 0)
+		return(0);
+	if (*msgvec == NULL) {
+		*msgvec = first(0, MMNORM);
+		if (*msgvec == NULL) {
+			printf(ediag(
+"No appropriate messages\n",
+"Нет подходящих сообщений\n"));
+			return(0);
+		}
+		msgvec[1] = NULL;
+	}
+	printf(ediag("Interpolating:","Вставка сообщений:"));
+	for (ip = msgvec; *ip != NULL; ip++) {
+		touch(*ip);
+		printf(" %d", *ip);
+		if (f == 'm') {
+			if (transmit(&message[*ip-1], obuf) < 0L) {
+				perror(tempMail);
+				return(-1);
+			}
+		} else
+			if (send(&message[*ip-1], obuf, 0) < 0) {
+				perror(tempMail);
+				return(-1);
+			}
+	}
+	printf("\n");
+	return(0);
+}
+
+/*
+ * Send message described by the passed pointer to the
+ * passed output buffer.  Insert a tab in front of each
+ * line.  Return a count of the characters sent, or -1
+ * on error.
+ */
+
+long
+transmit(mailp, obuf)
+	struct message *mailp;
+	FILE *obuf;
+{
+	register struct message *mp;
+	register int ch;
+	long c, n;
+	int bol;
+	FILE *ibuf;
+
+	mp = mailp;
+	ibuf = setinput(mp);
+	c = mp->m_size;
+	n = c;
+	bol = 1;
+	while (c-- > 0L) {
+		if (bol) {
+			bol = 0;
+			putc('\t', obuf);
+			n++;
+			if (ferror(obuf)) {
+				perror("/tmp");
+				return(-1L);
+			}
+		}
+		ch = getc(ibuf);
+		if (ch == '\n')
+			bol++;
+		putc(ch, obuf);
+		if (ferror(obuf)) {
+			perror("/tmp");
+			return(-1L);
+		}
+	}
+	return(n);
+}
+
+/*
+ * Print (continue) when continued after ^Z.
+ */
+collcont(s)
+{
+
+	printf(ediag("(continue)\n","(продолжайте)\n"));
+	fflush(stdout);
+}
+
+/*
+ * On interrupt, go here to save the partial
+ * message on ~/dead.letter.
+ * Then restore signals and execute the normal
+ * signal routine.  We only come here if signals
+ * were previously set anyway.
+ */
+
+# ifndef VMUNIX
+collintsig()
+{
+	signal(SIGINT, SIG_IGN);
+	collrub(SIGINT);
+}
+
+collhupsig()
+{
+	signal(SIGHUP, SIG_IGN);
+	collrub(SIGHUP);
+}
+
+collquitsig()
+{
+	signal(SIGQUIT, SIG_IGN);
+	collrub(SIGQUIT);
+}
+# endif VMUNIX
+
+collrub(s)
+{
+	register FILE *dbuf;
+	register int c;
+
+	if (s == SIGINT && hadintr == 0) {
+		hadintr++;
+		clrbuf(stdout);
+		printf(ediag(
+"\n(Interrupt -- one more to kill letter)\n",
+"\n(Прерывание -- чтобы уничтожить письмо нужно еще одно)\n"));
+# ifdef VMUNIX
+		sigrelse(s);
+# endif VMUNIX
+		longjmp(coljmp, 1);
+	}
+	fclose(newo);
+	rewind(newi);
+	if (s == SIGINT && value("nosave") != NOSTR || fsize(newi) == 0)
+		goto done;
+	if ((dbuf = fopen(deadletter, "w")) == NULL)
+		goto done;
+	chmod(deadletter, 0600);
+	while ((c = getc(newi)) != EOF)
+		putc(c, dbuf);
+	fclose(dbuf);
+
+done:
+	fclose(newi);
+# ifdef VMUNIX
+	sigset(SIGCONT, savecont);
+# endif VMUNIX
+	if (rcvmode) {
+		if (s == SIGHUP)
+			hangup();
+		else
+			stop(s);
+	}
+	else
+		exit(1);
+}
+
+/*
+ * Acknowledge an interrupt signal from the tty by typing an @@
+ */
+
+intack(s)
+{
+
+	puts("@@");
+	fflush(stdout);
+	clearerr(stdin);
+}
+
+/*
+ * Add a string to the end of a header entry field.
+ */
+
+char *
+addto(hf, news)
+	char hf[], news[];
+{
+	register char *cp, *cp2, *linebuf;
+
+	if (hf == NOSTR)
+		hf = "";
+	if (*news == '\0')
+		return(hf);
+	linebuf = salloc(strlen(hf) + strlen(news) + 2);
+	for (cp = hf; any(*cp, " \t"); cp++)
+		;
+	for (cp2 = linebuf; *cp;)
+		*cp2++ = *cp++;
+	*cp2++ = ' ';
+	for (cp = news; any(*cp, " \t"); cp++)
+		;
+	while (*cp != '\0')
+		*cp2++ = *cp++;
+	*cp2 = '\0';
+	return(linebuf);
+}
+@
+
+
+1.6
+log
+@Ошибка ф формате
+@
+text
+@d9 4
+a12 1
+ * $Log:	collect.c,v $
+d15 1
+a15 1
+ * 
+d18 1
+a18 1
+ * 
+d20 1
+a20 1
+ * Обработка SIGQUIT и снятие/восстановление hold перед 
+d22 1
+a22 1
+ * 
+d24 1
+a24 1
+ * Теперь tilde escapes не работают только тогда, когда ввод происходит не 
+d26 1
+a26 1
+ * 
+d33 1
+a33 1
+static char rcsid[] = "$Header: collect.c,v 1.5 88/07/23 20:31:45 ache Exp $";
+d231 1
+a231 1
+			printf(ediag("(continue)\n","(продолжение)\n"));
+d265 1
+a265 1
+			printf(ediag("(continue)\n","(прдолжение)\n"));
+d323 1
+a323 1
+"Какой файл обрабатывать?\n"));
+d396 1
+a396 1
+			printf(ediag("(continue)\n","(продолжение)\n"));
+d400 2
+a401 2
+			if ((fbuf = fopen(THELPFILE, "r")) == NULL) {
+				perror(THELPFILE);
+d429 1
+a429 1
+			printf(ediag("(continue)\n","(продолжение)\n"));
+d443 1
+a443 1
+			printf(ediag("(continue)\n","(продолжение)\n"));
+d458 1
+a458 1
+			printf(ediag("(continue)\n","(продолжение)\n"));
+d523 1
+a523 1
+		fprintf(stderr, ediag("File exists\n", "Файл существует\n"),
+d577 1
+a577 1
+"%s: файл существует\n"),
+d722 1
+a722 2
+"\"%s\" завершился неудачей?\n"),
+cmd);
+d728 1
+a728 2
+"Нет байт из \"%s\" !?\n"),
+cmd);
+d781 1
+a781 1
+	printf(ediag("Interpolating:","Обработка:"));
+d851 1
+a851 1
+	printf(ediag("(continue)\n","(продолжение)\n"));
+@
+
+
+1.5
+log
+@Русские диагностики
+@
+text
+@d10 3
+d30 1
+a30 1
+static char rcsid[] = "$Header: collect.c,v 1.4 88/07/04 21:23:33 ache Exp $";
+d329 1
+a329 1
+"%s: каталог\n"));
+@
+
+
+1.4
+log
+@Перед ~q (collrub) поставлен sighold
+@
+text
+@d10 3
+d27 1
+a27 1
+static char rcsid[] = "$Header: collect.c,v 1.3 88/07/04 21:02:12 ache Exp $";
+d162 3
+a164 2
+				printf("Use \".\" to terminate letter\n",
+				    escape);
+d196 3
+a198 1
+			printf("Unknown tilde escape.\n");
+d225 1
+a225 1
+			printf("(continue)\n");
+d253 3
+a255 1
+				printf("~h: no can do!?\n");
+d259 1
+a259 1
+			printf("(continue)\n");
+d315 3
+a317 1
+				printf("Interpolate what file?\n");
+d324 3
+a326 1
+				printf("%s: directory\n");
+d358 3
+a360 1
+				fprintf(stderr, "Write what file!?\n");
+d380 3
+a382 1
+				printf("No messages to send from!?!\n");
+d390 1
+a390 1
+			printf("(continue)\n");
+d414 3
+a416 1
+			printf("-------\nMessage contains:\n");
+d423 1
+a423 1
+			printf("(continue)\n");
+d437 1
+a437 1
+			printf("(continue)\n");
+d452 1
+a452 1
+			printf("(continue)\n");
+d517 2
+a518 1
+		fprintf(stderr, "File exists\n", name);
+d570 3
+a572 1
+		printf("%s: file exists\n", tempEdit);
+d615 4
+a618 1
+		printf("Fatal error in \"%s\"\n", edit);
+d714 4
+a717 1
+		fprintf(stderr, "\"%s\" failed!?\n", cmd);
+d721 4
+a724 1
+		fprintf(stderr, "No bytes from \"%s\" !?\n", cmd);
+d770 3
+a772 1
+			printf("No appropriate messages\n");
+d777 1
+a777 1
+	printf("Interpolating:");
+d847 1
+a847 1
+	printf("(continue)\n");
+d887 3
+a889 1
+		printf("\n(Interrupt -- one more to kill letter)\n");
+@
+
+
+1.3
+log
+@Обработка SIGQUIT и снятие/восстановление hold перед 
+grabh если не TIOCSTI
+@
+text
+@d10 4
+d24 1
+a24 1
+static char rcsid[] = "$Header: collect.c,v 1.3 88/07/04 20:04:47 ache Exp $";
+d236 3
+@
+
+
+1.2
+log
+@Теперь tilde escapes не работают только тогда, когда ввод происходит не 
+с терминала (а не при наличии ключа -r, как было).
+@
+text
+@d9 5
+a13 1
+ * $Log:        collect.c,v $
+d20 1
+a20 1
+static char rcsid[] = "$Header: collect.c,v 1.1 87/12/25 15:58:47 avg Exp $";
+d26 4
+d45 1
+d67 3
+a69 1
+	extern collintsig(), collhupsig();
+d83 2
+d89 1
+d121 5
+a125 1
+	if (c)
+d127 5
+d141 1
+d147 2
+d436 1
+d450 1
+d533 1
+a533 1
+	int (*sig)(), (*scont)(), signull();
+d539 1
+d573 2
+d619 1
+d638 1
+a638 1
+	int (*savesig)();
+d654 1
+d699 1
+d706 1
+d832 6
+a866 2
+	sigset(SIGINT, savesig);
+	sigset(SIGHUP, savehup);
+d872 1
+a872 1
+			hangup(SIGHUP);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d9 4
+a12 1
+ * $Log$
+d15 3
+a17 1
+static char rcsid[] = "$Header$";
+d140 1
+d142 2
+a401 1
+			break;
+@

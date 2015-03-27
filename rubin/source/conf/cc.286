@@ -1,0 +1,2 @@
+/bin/echo -n "cc -M2s: "
+/bin/cc -M2s -LARGE $*

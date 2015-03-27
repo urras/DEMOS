@@ -1,0 +1,6 @@
+Для работы с -me нужно вставить в /usr/lib/me
+файлы me/*.me, а в /usr/lib/tmac - me/tmac.e
+
+Для работы с -mkpd нужно вставить в /usr/lib/mkpd
+файлы mkpd/MAC.* (см. последние 4 строки файла MAC),
+а в /usr/lib/tmac - mkpd/MAC

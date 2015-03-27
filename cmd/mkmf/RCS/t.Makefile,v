@@ -1,0 +1,41 @@
+head     1.1;
+access   ;
+symbols  DEMOS:1.1;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.05.14.15.28.06;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@# $Header$
+# $Log$
+#
+
+LDFLAGS       =
+
+LIBS          =
+
+LINKER        = cc
+
+OBJS          =
+
+PROGRAM       =
+
+$(PROGRAM):     $(OBJS) $(LIBS)
+		@@$(LINKER) $(LDFLAGS) $(OBJS) $(LIBS) -o $(PROGRAM)
+@

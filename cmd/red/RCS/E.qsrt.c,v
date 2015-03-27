@@ -1,0 +1,795 @@
+head     3.4;
+access   ;
+symbols  RED_4:3.1.2 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+3.4
+date     86.09.19.19.58.37;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.54.28;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.19.15.34;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.06.16.21.59.38;  author alex;  state Stab;
+branches 3.1.1.1;
+next     ;
+
+3.1.1.1
+date     86.06.16.22.02.16;  author alex;  state Stab;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.19.00.12.01;  author alex;  state Stab;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.07.15.23.51.25;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Модифиццированные программы из quick screen для работы с 7920.
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@
+
+/*
+ *  Runtime routines for Quickscreen.
+ */
+#include <stdio.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/tty.h>
+#undef RAW
+#undef NULL
+
+#define NOWAIT  04000000
+
+#define MAXCOL  qscols
+#define MAXROW  qsrows
+#define MAXOFF  (MAXCOL * MAXROW)
+
+
+#define MAXINF  400
+#define BUFSIZE 5000
+#define NULL    0
+#define ANY     0
+/*
+ * AID chars
+ */
+#define ENTER 0x7d
+#define TSTRQ 0xf0
+#define PF1   0xf1
+#define PF2   0xf2
+#define PF3   0xf3
+#define PF4   0xf4
+#define PF5   0xf5
+#define PF6   0xf6
+#define PF7   0xf7
+#define PF8   0xf8
+#define PF9   0xf9
+#define PF10  0x7a
+#define PF11  0x7b
+#define PF12  0x7c
+#define PF13  0xc1
+#define PF14  0xc2
+#define PF15  0xc3
+#define PF16  0xc4
+#define PF17  0xc5
+#define PF18  0xc6
+#define PF19  0xc7
+#define PF20  0xc8
+#define PF21  0xc9
+#define PF22  0x4a
+#define PF23  0x4b
+#define PF24  0x4c
+#define PA1   0x6c
+#define PA2   0x6e
+#define PA3   0x6b
+#define CLEAR 0x6d
+/*
+ * hex constants for 3270 control chars
+ */
+#define RDB 0x02
+#define WRB 0x01
+#define ERW 0x05
+#define EAU 0x0f
+#define RDM 0x06
+#define SF  0x1d
+#define IC  0x13
+#define SBA 0x11
+#define RA  0x3c
+#define SOH 0x01
+#define STX 0x02
+#define RAW 040
+/*
+ * indices into tubecc array for attribute chars
+ */
+#define OUT    48
+#define OUTN   32
+#define BRIGHT  8
+#define OFF    12
+/*
+ * global declarations that users have access to
+ */
+int qskp = -1;
+int qscrow = 1, qsccol = 1;
+int qstrim = 1;
+int qsidbl = -1;
+int qsodbl = -1;
+int qsmodf = 0;
+int qsalarm = 0;
+int qscols = 0, qsrows = 0;
+/*
+ * static (local) global declarations
+ */
+static int qsoflg = 0,      /* tube open flag */
+           qsrow = 1,
+           qsslm = 1,
+           qsso = 0,
+           qsplm = 1,
+	   qstbinit = 0;   /* 1==> the structure mod is initialized */
+static int lasticmd, lastocmd, lastwcmd;
+static int qsfsfd;
+
+static char qstiobf[BUFSIZE], *qstiop;
+ 
+static struct ift {        /* input fields table */
+        char *vp;
+        char sba[2];
+        char modflg;
+} qsift[MAXINF], *qsiftp;
+/*
+ * character translation tables from tubecc.s
+ */
+extern char tubecc[];
+extern char tubitab[/*256*/], tubotab[/*256*/];
+struct xlate idbl_tab[20];
+struct xlate odbl_tab[20];
+
+static char *cpytrexin();
+static char *cpytrinex();
+char *ttyname();
+
+struct tubiocb mod = {TUB32772,24,80,12,0,0};
+
+
+qsbfic()
+{
+        *qstiop++ = IC;
+}
+
+qsbfinit(eau, erase, bell, lock, resetmdt)
+int eau, erase, bell, lock, resetmdt;
+{
+	char wcc;
+	register int ocmd;
+	register struct wcc {
+		unsigned          : 5;
+		unsigned bell     : 1;
+		unsigned unlock   : 1;
+		unsigned resetmdt : 1;
+	} *wccp;
+
+	if (!qsoflg)
+		if (qsopen() < 0)
+			error("cannot open tube\n");
+	ocmd =   (eau)? EAU:
+               (erase)? ERW:
+                        WRB;
+        if (ocmd == ERW) {
+                qsiftp = qsift;
+                qsso = 0;
+        }
+	if (lastocmd != ocmd) {
+		ioctl(qsfsfd, TUBOCMD, ocmd);
+		lastocmd = ocmd;
+	}
+	wcc = 0;
+	wccp = (struct wcc *) &wcc;
+	wccp->bell = (bell)? 1: 0;      /* bell can be an expression */
+	wccp->unlock = (lock)? 0: 1;
+	wccp->resetmdt = (resetmdt)? 1: 0;
+        qstiop = qstiobf;
+	*qstiop++ = tubecc[wcc]&0177; /* для 7970 */
+	if ( erase || eau || resetmdt ) qsmodf = 0;
+}
+
+qsbfsba(row, col)
+int row, col;
+{
+
+	
+        if (row < 1)
+		row = 1;
+	if (col < 1)
+		col=1;
+        qsrow = (row-1)%MAXROW+1;
+        col = (col-1)%MAXCOL+1;
+        qsso = ((qsrow-1)*MAXCOL + col)%MAXOFF;
+	qsso = (qsso == 0)? MAXOFF-1 : qsso-1;
+        *qstiop++ = SBA;
+        *qstiop++ = tubecc[qsso >> 6];
+        *qstiop++ = tubecc[qsso & 077];
+}
+
+
+/*
+qsbfra()
+{
+	
+		
+        qsbflinit(0, qsplm);
+        *qstiop++ = RA;
+        qsso = (qsso+MAXCOL-(qsso%MAXCOL))%MAXOFF;
+        *qstiop++ = tubecc[qsso>>6];
+        *qstiop++ = tubecc[qsso & 077];
+        *qstiop++ = NULL;
+}
+*/
+
+qsbuffld(attr, fp, fl)
+register int attr, fl;
+register char *fp;
+{
+	int type;
+        char *p;
+	int out = OUT;
+	register struct ift *ip;
+	if (attr < 0 || 18 < attr)
+                error("illegal attribute: %d\n", attr);
+	if ( attr > 9 ) {
+	      attr -= 9; out = OUTN; }
+	if (attr != 0) {
+	        *qstiop++ = SF;
+	        type = 0;
+	        if (1 <= attr && attr <= 3)
+			type += out;
+	        if (attr%3 == 2)
+		        type += BRIGHT;
+	        else if (attr%3 == 0)
+		        type = OFF;
+	        *qstiop++ = tubecc[type];
+	        qsso = ++qsso%MAXOFF;
+                if (attr > 3) {
+			for ( ip = qsift; ip < qsiftp; ++ip)
+			if ( ip->vp == fp ) goto findip;
+			ip = qsiftp++ ;
+                        if (qsiftp >= &qsift[MAXINF]) {
+                                error("maximum input fields exceeded\n");
+			}
+		findip:
+			ip->sba[0] = tubecc[qsso>>6];
+			ip->sba[1] = tubecc[qsso & 077];
+			ip->vp = fp;
+                        if (attr > 6)
+                                *qstiop++ = IC;
+                }
+        }
+        if (fl <= 0) {
+                fl = 0;
+                p = fp;
+                while (*p++)
+			++fl;
+        }
+	qstiop = cpytrinex(qstiop, fp, qstiop+fl);
+        qsso = (qsso+fl)%MAXOFF;
+}
+
+copyscreen(bp)
+register char *bp;
+{
+	register char *p;
+        int n;
+
+	if (!qsoflg)
+		if (qsopen() < 0)
+			error("cannot open tube\n");
+	if (lasticmd != RDB) {
+		ioctl(qsfsfd, TUBICMD, RDB);
+		lasticmd = RDB;
+	}
+	if (lastwcmd != TUBNATTN) {
+		ioctl(qsfsfd, TUBNATTN, 0);
+		lastwcmd = TUBNATTN;
+	}
+        n = read(qsfsfd, qstiobf, BUFSIZE);
+        p = qstiobf+3;
+        while (p < qstiobf+n)
+                if (!*p) {
+			*bp++ = ' ';
+			++p;
+                } else if (*p == SF) {
+                        *bp++ = ' ';
+                        p += 2;
+		} else
+	                *bp++ = tubitab[*p++];
+	*bp = 0;
+}
+ 
+qswrite()
+{
+        struct ift *ip;
+
+        for (ip = qsift; ip < qsiftp; ip++)
+                ip->modflg = 0;
+        write(qsfsfd, qstiobf, qstiop-qstiobf);
+}
+
+qsread(waitforaid,nosetf)
+int waitforaid, nosetf; /* nosetf = 1 - не засылать сами переменные */
+{
+        int wcmd, n, tmp;
+        struct ift *ip;
+	
+
+
+	if (lasticmd != RDM) {
+		ioctl(qsfsfd, TUBICMD, RDM);
+		lasticmd = RDM;
+	}
+	wcmd = (waitforaid)? TUBWATTN: TUBNATTN;
+	if (lastwcmd != wcmd) {
+		ioctl(qsfsfd, wcmd, 0);
+		lastwcmd = wcmd;
+	}
+        n = read(qsfsfd, qstiobf, BUFSIZE);
+        if (n == 0)
+		return(0);
+        switch(qstiobf[0]) {      /* AID char */
+        case ENTER:
+                qskp = 0;
+                break;
+        case TSTRQ:
+                /*
+                 * this only happens during copyscreen
+                 */
+                qskp = 29;
+                break;
+        case PF1:  case PF2:  case PF3:  case PF4:  case PF5:
+        case PF6:  case PF7:  case PF8:  case PF9:  case PF10:
+        case PF11: case PF12:
+                qskp = qstiobf[0] & 017;
+                break;
+        case PF13: case PF14: case PF15: case PF16: case PF17:
+        case PF18: case PF19: case PF20: case PF21: case PF22:
+        case PF23: case PF24:
+                qskp = (qstiobf[0] & 017) + 12;
+                break;
+        case PA1:
+                qskp = 25;
+                return(n);
+        case PA2:
+                qskp = 26;
+                return(n);
+        case PA3:
+                qskp = 27;
+                return(n);
+        case CLEAR:
+                qskp = 28;
+                qsrow = 1;
+                qsso = 0;
+                qsiftp = qsift;
+                return(n);
+        case SOH:  /* TEST REQ */
+                if (qstiobf[1]==tubotab['%'] &&
+                    qstiobf[2]==tubotab['/'] &&
+                    qstiobf[3]==STX) {
+                        qskp = 29;
+                        break;
+                }
+        default:
+                qskp = 100;
+                return(n);
+        }
+	/*
+         * we have a valid key with data
+	 */
+        if (qskp != 29 || qstiobf[0] == TSTRQ) {
+                qstiop = &qstiobf[3];
+                tmp = ((qstiobf[1] & 077)<<6) +
+                        (qstiobf[2] & 077);
+                qscrow = tmp/MAXCOL + 1;
+                qsccol = tmp%MAXCOL + 1;
+        } else
+                qstiop = &qstiobf[4];
+	/*
+         * now we move data out of the buffer into the variables
+	 */
+        while (qstiop < qstiobf + n) {
+                while (qstiop < qstiobf+n && *qstiop++ != SBA)
+			;
+                if (qstiop == qstiobf+n)
+                        break;
+                ip = qsift;
+		/*
+                 * search ift table for variable with same SBA
+                 */
+                while (ip < qsiftp) {
+                        if (ip->sba[0] == *qstiop &&
+                            ip->sba[1] == *(qstiop+1))
+                                break;
+                        ip++;
+                }
+                if (ip == qsiftp)
+			/*
+                         * no corresponding entry found so we
+                         * skip to next input field
+			 */
+                        continue;
+                else {
+			/*
+                         * copy input field to variable
+			 */
+                        qstiop += 2;        /* skip SBA bytes */
+			if ( !nosetf)
+			      qstiop = cpytrexin(ip->vp, qstiop, qstiobf+n);
+                        ip->modflg = 1;
+			qsmodf = 1;
+                }
+        }
+        return(n);
+}
+
+/*
+ * "copy and translate internal to external"
+ * Copy t to s until you see a null byte in t or until s >= last.
+ * t is in ASCII and s should be in EBCDIC.
+ * If qsodbl is true then
+ * certain chars from t should become 2 char sequences in s.
+ * Fill up s with null bytes until s >= last.
+ * Return where s finally ended up.
+ */
+
+static
+char *
+cpytrinex(s, t, last)
+register char *s, *t, *last;
+{
+	int i;
+	int length;
+	
+	length = last - s;
+/*      start = s;      */
+	
+        while (*t && s < last) {
+		*s++ = tubotab[*t++];
+	}
+	if ((last - s) < 4) {
+                while (s < last)
+                        *s++ = NULL;
+	} else {
+		i = (qsso+length)%MAXOFF;
+		*s++ = RA;
+		*s++ = tubecc[i >> 6];
+		*s++ = tubecc[i &  077];
+		*s++ = NULL;
+	}
+	return(s);
+}
+
+/*
+ * "copy and translate external to internal"
+ * Copy t to s until you see an SBA byte in t or until
+ * t >= last.
+ * t is in EBCDIC and s should be in ASCII.
+ * Certain sequences of 2 chars should become 1 in s.
+ * After copying, translating, and collapsing, if 'qstrim' is non-zero
+ * trim trailing blanks from s.
+ * Put a null byte at the end of s and return where t finally ended up.
+ */
+
+static
+char *
+cpytrexin(s, t, last)
+char *s, *t, *last;
+{
+	char c, next;
+	int i;
+	char *os;
+
+	os = s;
+	while (t < last && *t != SBA) {
+		c = tubitab[*t];
+		if (t+1 < last)
+			next = tubitab[*(t+1)];
+		else
+			next = 0;
+		i = 0;
+		if (i >= 0)
+			*s++ = c;
+		t++;
+	}
+	*s = NULL;
+	return(t);
+}
+
+int
+qsmod(s)
+char *s;
+{
+        struct ift *ip;
+
+	if (s != ANY) {
+		/* check named field */
+		for (ip = qsift; ip < qsiftp; ++ip)
+			if (ip->vp == s)
+				return(ip->modflg);
+		return(0);
+	}
+	else {  /* check to see if any field was modified */
+		for (ip = qsift; ip < qsiftp; ++ip)
+			if (ip->modflg)
+				return(ip->modflg);
+		return(0);
+	}
+}
+
+#if 0
+/*
+ * qssleep is needed in case the sleep expression
+ * evaluates to 0.  A regular sleep would cause an interrupt
+ * and make the screen blink between the qswrite and the qsread.
+ */
+
+qssleep(nsecs)
+int nsecs;
+{
+	if (nsecs > 0)
+		sleep(nsecs);
+}
+
+qscatchalarm()
+{
+	signal(SIGALRM, SIG_IGN);
+	qsalarm = 1;
+}
+#endif
+
+qsopen()
+{
+	char *p;
+	struct ttiocb buf;
+	struct {
+		char *itable;
+		char *otable;
+		struct xlate *idbltab;
+		struct xlate *odbltab;
+	} table;
+
+	if (qsoflg)
+		return(0);
+        if ((p = ttyname(2)) == 0 &&
+            (p = ttyname(1)) == 0 &&
+            (p = ttyname(0)) == 0   )
+		return(-1);
+	/*
+	 *  01234567890
+	 *  /dev/ttynnn -> /dev/tubnnn
+	 */
+        p[5] = 't';
+        p[6] = 'u';
+        p[7] = 'b';
+        if ((qsfsfd = open(p, 2)) < 0)
+                return(-1);
+        if (qsodbl == -1) {
+	        if (gtty(2, &buf) < 0 &&
+	            gtty(1, &buf) < 0 &&
+	            gtty(0, &buf) < 0   )
+                        error("cannot do gtty\n");
+                qsodbl = (buf.ioc_flags & ODBL);
+                qsidbl = (buf.ioc_flags & IDBL);
+	}
+	lasticmd = RDM;
+	lastocmd = ERW;
+	lastwcmd = TUBWATTN;
+        qsoflg = 1;
+	if (qstbinit == 0) {
+                qstbinit = 1;
+                ioctl(qsfsfd, TUBGETMOD, &mod);
+		qscols = mod.col_cnt;
+		qsrows = mod.line_cnt;
+
+		table.itable = tubitab;
+		table.otable = tubotab;
+		table.idbltab = idbl_tab;
+		table.odbltab = odbl_tab;
+		ioctl(qsfsfd, TIOCGETT, &table);
+	}
+}
+
+qsclose()
+{
+	if (qsoflg)
+	        close(qsfsfd);
+	qsoflg = 0;
+}
+
+static
+error(args)
+char *args;
+{
+	if (qsoflg)
+	        close(qsfsfd);
+#ifdef DEBUG
+	fprintf(stderr, "qs: %r", &args);
+#else
+	printf1("Oшибкa пpи paбoтe c тepминaлoм\n");printf1(args);
+#endif
+	exit(1);
+}
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@@
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@d87 1
+d133 2
+a134 2
+        int ocmd;
+	struct wcc {
+d161 2
+a162 1
+	*qstiop++ = tubecc[wcc];
+a203 1
+	char buf[20];
+d247 1
+a247 1
+char *bp;
+d249 1
+a249 1
+        char *p;
+d286 2
+a287 2
+qsread(waitforaid)
+int waitforaid;
+d392 2
+a393 1
+                        qstiop = cpytrexin(ip->vp, qstiop, qstiobf+n);
+d395 1
+a416 1
+	char *start;
+d420 1
+a420 1
+	start = s;
+d423 1
+a423 15
+		i = 0;
+		if (qsodbl) {
+			while (odbl_tab[i].c1) {
+				if (odbl_tab[i].out == *t) {
+					*s++ = odbl_tab[i].c1;
+					*s++ = odbl_tab[i].c2;
+					i = -1;
+					break;
+				} else
+					i++;
+			}
+		}
+		if (i >= 0)
+			*s++ = *t;
+		++t;
+a424 4
+	while (start < s) {
+		*start = tubotab[*start];
+		start++;
+	}
+a465 11
+		if (qsidbl) {
+			while (idbl_tab[i].c1) {
+				if (idbl_tab[i].c1 == c && idbl_tab[i].c2 == next) {
+					*s++ = idbl_tab[i].out;
+					t++;
+					i = -1;
+					break;
+				} else
+					i++;
+			}
+		}
+a468 5
+	}
+	if (qstrim) {
+		while (--s >= os && *s == ' ')
+			;
+		++s;
+@
+
+
+3.1.1.1
+log
+@Отлажен на ЕС без восстановления сеанса.
+@
+text
+@@
+
+
+3.1.1.2
+log
+@Отлажен на модели повтор сеанса
+@
+text
+@d132 2
+a133 2
+	register int ocmd;
+	register struct wcc {
+d202 1
+d246 1
+a246 1
+register char *bp;
+d248 1
+a248 1
+	register char *p;
+d285 2
+a286 2
+qsread(waitforaid,nosetf)
+int waitforaid, nosetf; /* nosetf = 1 - не засылать сами переменные */
+d391 1
+a391 2
+			if ( !nosetf)
+			      qstiop = cpytrexin(ip->vp, qstiop, qstiobf+n);
+d414 1
+d421 15
+a435 1
+		*s++ = tubotab[*t++];
+d437 4
+d482 11
+d496 5
+@
+
+
+3.1.1.3
+log
+@*** empty log message ***
+@
+text
+@a86 1
+int qsmodf = 0;
+d160 1
+a160 2
+	*qstiop++ = tubecc[wcc]&0177; /* для 7970 */
+	if ( erase || eau || resetmdt ) qsmodf = 0;
+a392 1
+			qsmodf = 1;
+d417 1
+a417 1
+/*      start = s;      */
+@

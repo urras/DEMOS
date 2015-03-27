@@ -1,0 +1,6 @@
+#!/bin/csh
+foreach i (*.f)
+echo -n $i begin-
+f77 -O -o $i:r $i
+echo " end"
+end

@@ -1,0 +1,259 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.05.14.21.15.55;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.09.22.21.00.16;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.09.09.21.29.59;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.05.17.21.36.19;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Поместить файл в спулинг.
+@
+
+
+1.4
+log
+@Теперь АЦПУ по умолчанию выбирается из environ-переменной PRINTER.
+@
+text
+@/*
+ * Поместить файлы в спулинг печати
+ * Автор: Антонов В.Г.
+ *
+ * $Log:	lpr.c,v $
+ * Revision 1.3  86/09/22  21:00:16  avg
+ * Убран setuid(daemon) и добавлена проверка на возможность доступа
+ * к файлу на чтение.
+ * Теперь lpr работает с setuid root.
+ * 
+ * Revision 1.2  86/09/09  21:29:59  avg
+ * Неправильно считались строки в вых. файле.
+ *
+ * Revision 1.1  86/05/17  21:36:19  avg
+ * Initial revision
+ *
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: lpr.c,v 1.3 86/09/22 21:00:16 avg Exp $";
+#endif
+
+#include <stdio.h>
+#include <ediag.h>
+#include "getlp.h"
+#include "lpspool.h"
+
+char    LP[40], *l;
+int     f = 0, nc = 1;
+extern struct getlp *LP_PARMS;
+int     pl;
+char   *hdr;
+
+main( ac, v )
+char **v;
+{
+	FILE *IF;
+	int     nfils = 0;
+
+	l = getenv("PRINTER");
+	v++;
+	while( *v != NULL ) {
+		if( **v == '-' ) {
+		    Parse:
+			switch( (*v)[1] ) {
+
+			    case '\0':
+				break;
+
+			    case 'L':
+			    case 'l':
+				if( (*v)[2] == '\0' ) {
+					l = NULL;
+					break;
+				}
+				strcpy( LP, &((*v)[2]) );
+				l = LP;
+				break;
+
+			    case 'M':
+			    case 'm':
+				f |= XF_MAIL;
+				++*v;
+				goto Parse;
+
+			    case 'W':
+			    case 'w':
+				f |= XF_WRITE;
+				++*v;
+				goto Parse;
+
+			    case 'C':
+			    case 'c':
+				nc = atoi( &((*v)[2]) );
+				if( nc < 1 )
+					nc = 1;
+				break;
+
+			    case 'H':
+			    case 'h':
+				hdr = &((*v)[2]);
+				break;
+
+			    case 'O':
+			    case 'o':
+				f |= XF_NOSPOOL;
+				++*v;
+				goto Parse;
+
+			    default:
+				error( "Usage: lpr [-MWo] [-Llp] [-cN] [-hName] [file...]",
+				       "Вызов: lpr [-MWo] [-Llp] [-cN] [-hИмя] [файл...]", 1 );
+			}
+		} else {
+			if( !(f & XF_NOSPOOL) ) {
+				if( chacc( *v ) ||
+				    (IF = fopen( *v, "r" )) == NULL ) {
+					error( "can't open file ",
+					       "не могу открыть файл ", *v );
+				}
+				copy( IF, *v );
+				fclose( IF );
+			} else
+				copy( NULL, *v );
+			nfils++;
+		}
+		v++;
+	}
+	if( nfils == 0 ) {
+		if( f & XF_NOSPOOL )
+			error( "can't use option -o with pipe",
+			       "ключ -o не работает с трубой", NULL );
+		copy( stdin, "<<pipe>>" );
+	}
+	exit(0);
+}
+
+/*
+ * Выдача сообщений об ошибках
+ */
+error( e, r, a )
+{
+	if( a != 1 )
+		fprintf( stderr, "lpr: " );
+	fprintf( stderr, ediag(e, r) );
+	if( a != NULL && a != 1 )
+		fprintf( stderr, "%s\n", a );
+	else
+		fprintf( stderr, "\n" );
+	exit(1);
+}
+
+/*
+ * Собственно копирование файла
+ */
+copy( IF, nm )
+register FILE *IF;
+char          *nm;
+{
+	register c;
+	register unsigned i;
+	FILE *OF;
+
+	if( hdr == NULL )
+		hdr = nm;
+	OF = tospool( hdr, f, nc, l );
+
+	pl = LP_PARMS->lp_length;
+	if( pl <= 0 )
+		pl = 66;
+	i = 0;
+	if( OF != NULL ) {
+		while( (c = getc(IF)) != EOF ) {
+			putc( c, OF );
+			if( c == '\n' )
+				i++;
+			else if( c == '\f' )
+				i += pl-(i%pl);
+		}
+	}
+
+	spclose((i+pl-1)/pl);
+	hdr = NULL;
+}
+@
+
+
+1.3
+log
+@Убран setuid(daemon) и добавлена проверка на возможность доступа
+к файлу на чтение.
+Теперь lpr работает с setuid root.
+@
+text
+@d5 6
+a10 1
+ * $Log:        lpr.c,v $
+d20 1
+a20 1
+static char rcsid[] = "$Header: lpr.c,v 1.2 86/09/09 21:29:59 avg Exp $";
+d40 1
+a40 1
+	l = NULL;
+@
+
+
+1.2
+log
+@Неправильно считались строки в вых. файле.
+@
+text
+@d6 3
+d15 1
+a15 1
+static char rcsid[] = "$Header: lpr.c,v 1.1 86/05/17 21:36:19 avg Exp $";
+a34 1
+	setuid(1);      /* The devil himself */
+d91 2
+a92 1
+				if( (IF = fopen( *v, "r" )) == NULL ) {
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d12 1
+a12 1
+static char rcsid[] = "$Header$";
+d143 1
+d152 1
+a152 2
+	} else
+		i = 0;
+@

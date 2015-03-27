@@ -1,0 +1,580 @@
+head     1.3;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:1.1.0.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     86.07.21.20.42.24;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.07.21.20.07.22;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.11.23;  author dmitry;  state Exp;
+branches 1.1.0.0 1.1.2.9;
+next     ;
+
+1.1.0.0
+date     86.07.20.19.40.13;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.40.20;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.3
+log
+@Выкинут ifdef U42 в описаниях times0 и timesdol.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.time.c,v 1.2 86/07/21 20:07:22 avg Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.time.c,v $
+ * Revision 1.2  86/07/21  20:07:22  avg
+ * Слито с версией alex-а из 4.2.
+ *
+ * Revision 1.1  86/06/01  20:11:23  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+
+/*
+ * C Shell - routines handling process timing and niceing
+ */
+
+struct  tms times0;
+struct  tms timesdol;
+
+settimes()
+{
+#ifndef U42
+	time(&time0);
+#else
+	struct rusage ruch;
+
+	gettimeofday(&time0, (struct timezone *)0);
+	getrusage(RUSAGE_SELF, &ru0);
+	getrusage(RUSAGE_CHILDREN, &ruch);
+	ruadd(&ru0, &ruch);
+#endif U42
+}
+
+/*
+ * dotime is only called if it is truly a builtin function and not a
+ * prefix to another command
+ */
+dotime()
+{
+#ifndef U42
+	time_t timedol;
+	time_t utime, stime;
+
+	time(&timedol);
+	times(&timesdol);
+	utime = (timesdol.tms_utime + timesdol.tms_cutime) -
+		(times0.tms_utime + times0.tms_cutime);
+	stime = (timesdol.tms_stime + timesdol.tms_cstime) -
+		(times0.tms_stime + times0.tms_cstime);
+	ptimes(utime, stime, timedol - time0);
+#else
+	struct timeval timedol;
+	struct rusage ru1, ruch;
+
+	getrusage(RUSAGE_SELF, &ru1);
+	getrusage(RUSAGE_CHILDREN, &ruch);
+	ruadd(&ru1, &ruch);
+	gettimeofday(&timedol, (struct timezone *)0);
+	prusage(&ru0, &ru1, &timedol, &time0);
+#endif U42
+}
+
+/*
+ * donice is only called when it on the line by itself or with a +- value
+ */
+donice(v)
+	register char **v;
+{
+	register char *cp;
+
+	v++, cp = *v++;
+	if (cp == 0) {
+#ifndef V6
+		nice(20);
+		nice(-10);
+#endif
+		nice(4);
+	} else if (*v == 0 && any(cp[0], "+-")) {
+#ifndef V6
+		nice(20);
+		nice(-10);
+#endif
+		nice(getn(cp));
+	}
+}
+
+#ifndef U42
+ptimes(utime, stime, etime)
+	register time_t utime, stime, etime;
+{
+	p60ths(utime);
+	printf("u ");
+	p60ths(stime);
+	printf("s ");
+	psecs(etime);
+	printf(" %d%%\n", (int) (100 * (utime+stime) /
+		(60 * (etime ? etime : 1))));
+}
+
+#else U42
+ruadd(ru, ru2)
+	register struct rusage *ru, *ru2;
+{
+	register long *lp, *lp2;
+	register int cnt;
+	tvadd(&ru->ru_utime, &ru2->ru_utime);
+	tvadd(&ru->ru_stime, &ru2->ru_stime);
+	if (ru2->ru_maxrss > ru->ru_maxrss)
+		ru->ru_maxrss = ru2->ru_maxrss;
+	cnt = &ru->ru_last - &ru->ru_first + 1;
+	lp = &ru->ru_first; lp2 = &ru2->ru_first;
+	do
+		*lp++ += *lp2++;
+	while (--cnt > 0);
+}
+
+prusage(r0, r1, e, b)
+	register struct rusage *r0, *r1;
+	struct timeval *e, *b;
+{
+	register time_t t =
+	    (r1->ru_utime.tv_sec-r0->ru_utime.tv_sec)*100+
+	    (r1->ru_utime.tv_usec-r0->ru_utime.tv_usec)/10000+
+	    (r1->ru_stime.tv_sec-r0->ru_stime.tv_sec)*100+
+	    (r1->ru_stime.tv_usec-r0->ru_stime.tv_usec)/10000;
+	register char *cp;
+	register int i;
+	register struct varent *vp = adrof("time");
+	int ms =
+	    (e->tv_sec-b->tv_sec)*100 + (e->tv_usec-b->tv_usec)/10000;
+
+	cp = "%Uu %Ss %E %P %X+%Dk %I+%Oio %Fpf+%Ww";
+	if (vp && vp->vec[0] && vp->vec[1])
+		cp = vp->vec[1];
+	for (; *cp; cp++)
+	if (*cp != '%')
+		putchar(*cp);
+	else if (cp[1]) switch(*++cp) {
+
+	case 'U':
+		pdeltat(&r1->ru_utime, &r0->ru_utime);
+		break;
+
+	case 'S':
+		pdeltat(&r1->ru_stime, &r0->ru_stime);
+		break;
+
+	case 'E':
+		psecs(ms / 100);
+		break;
+
+	case 'P':
+		printf("%d%%", (int) (t*100 / ((ms ? ms : 1))));
+		break;
+
+	case 'W':
+		i = r1->ru_nswap - r0->ru_nswap;
+		printf("%d", i);
+		break;
+
+	case 'X':
+		printf("%d", t == 0 ? 0 : (r1->ru_ixrss-r0->ru_ixrss)/t);
+		break;
+
+	case 'D':
+		printf("%d", t == 0 ? 0 :
+		    (r1->ru_idrss+r1->ru_isrss-(r0->ru_idrss+r0->ru_isrss))/t);
+		break;
+
+	case 'K':
+		printf("%d", t == 0 ? 0 :
+		    ((r1->ru_ixrss+r1->ru_isrss+r1->ru_idrss) -
+		    (r0->ru_ixrss+r0->ru_idrss+r0->ru_isrss))/t);
+		break;
+
+	case 'M':
+		printf("%d", r1->ru_maxrss/2);
+		break;
+
+	case 'F':
+		printf("%d", r1->ru_majflt-r0->ru_majflt);
+		break;
+
+	case 'R':
+		printf("%d", r1->ru_minflt-r0->ru_minflt);
+		break;
+
+	case 'I':
+		printf("%d", r1->ru_inblock-r0->ru_inblock);
+		break;
+
+	case 'O':
+		printf("%d", r1->ru_oublock-r0->ru_oublock);
+		break;
+	}
+	putchar('\n');
+}
+
+pdeltat(t1, t0)
+	struct timeval *t1, *t0;
+{
+	struct timeval td;
+
+	tvsub(&td, t1, t0);
+	printf("%d.%01d", td.tv_sec, td.tv_usec/100000);
+}
+
+tvadd(tsum, t0)
+	struct timeval *tsum, *t0;
+{
+
+	tsum->tv_sec += t0->tv_sec;
+	tsum->tv_usec += t0->tv_usec;
+	if (tsum->tv_usec > 1000000)
+		tsum->tv_sec++, tsum->tv_usec -= 1000000;
+}
+
+tvsub(tdiff, t1, t0)
+	struct timeval *tdiff, *t1, *t0;
+{
+
+	tdiff->tv_sec = t1->tv_sec - t0->tv_sec;
+	tdiff->tv_usec = t1->tv_usec - t0->tv_usec;
+	if (tdiff->tv_usec < 0)
+		tdiff->tv_sec--, tdiff->tv_usec += 1000000;
+}
+#endif U42
+@
+
+
+1.2
+log
+@Слито с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.time.c,v 1.1 86/06/01 20:11:23 dmitry Exp $";
+d9 3
+a22 1
+#ifdef U42
+a24 1
+#endif
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.time.c,v 0.0 86/04/20 21:25:26 root Exp $";
+
+d8 4
+a11 1
+ * $Log$
+d19 2
+a20 3
+#ifdef VMUNIX
+struct  vtimes vm0;
+#else
+d27 1
+a27 1
+
+a28 2
+#ifdef VMUNIX
+	vtimes(&vm0, 0);
+d30 7
+a36 2
+	times(&times0);
+#endif
+d45 1
+a46 6
+#ifdef VMUNIX
+	struct vtimes vm1, vmch;
+
+	vtimes(&vm1, &vmch);
+	vmsadd(&vm1, &vmch);
+#else
+a47 1
+#endif
+a49 3
+#ifdef VMUNIX
+	pvtimes(&vm0, &vm1, timedol - time0);
+#else
+d56 10
+a65 1
+#endif
+d92 1
+a92 1
+#ifndef VMUNIX
+a95 1
+
+d105 3
+a107 3
+#else
+vmsadd(vp, wp)
+	register struct vtimes *vp, *wp;
+d109 11
+a119 12
+
+	vp->vm_utime += wp->vm_utime;
+	vp->vm_stime += wp->vm_stime;
+	vp->vm_nswap += wp->vm_nswap;
+	vp->vm_idsrss += wp->vm_idsrss;
+	vp->vm_ixrss += wp->vm_ixrss;
+	if (vp->vm_maxrss < wp->vm_maxrss)
+		vp->vm_maxrss = wp->vm_maxrss;
+	vp->vm_majflt += wp->vm_majflt;
+	vp->vm_minflt += wp->vm_minflt;
+	vp->vm_inblk += wp->vm_inblk;
+	vp->vm_oublk += wp->vm_oublk;
+d122 3
+a124 3
+pvtimes(v0, v1, sec)
+	register struct vtimes *v0, *v1;
+	time_t sec;
+d127 4
+a130 1
+	    (v1->vm_utime-v0->vm_utime)+(v1->vm_stime-v0->vm_stime);
+d134 2
+d146 1
+a146 1
+		p60ths(v1->vm_utime - v0->vm_utime);
+d150 1
+a150 1
+		p60ths(v1->vm_stime - v0->vm_stime);
+d154 1
+a154 1
+		psecs(sec);
+d158 1
+a158 1
+		printf("%d%%", (int) ((100 * t) / (60 * (sec ? sec : 1))));
+d162 1
+a162 1
+		i = v1->vm_nswap - v0->vm_nswap;
+d167 1
+a167 1
+		printf("%d", t == 0 ? 0 : (v1->vm_ixrss-v0->vm_ixrss)/(2*t));
+d171 2
+a172 1
+		printf("%d", t == 0 ? 0 : (v1->vm_idsrss-v0->vm_idsrss)/(2*t));
+d176 3
+a178 2
+		printf("%d", t == 0 ? 0 : ((v1->vm_ixrss+v1->vm_idsrss) -
+		   (v0->vm_ixrss+v0->vm_idsrss))/(2*t));
+d182 1
+a182 1
+		printf("%d", v1->vm_maxrss/2);
+d186 1
+a186 1
+		printf("%d", v1->vm_majflt-v0->vm_majflt);
+d190 1
+a190 1
+		printf("%d", v1->vm_minflt-v0->vm_minflt);
+d194 1
+a194 1
+		printf("%d", v1->vm_inblk-v0->vm_inblk);
+d198 1
+a198 1
+		printf("%d", v1->vm_oublk-v0->vm_oublk);
+a199 1
+
+d203 30
+a232 1
+#endif
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.time.c 4.1 10/9/80";
+d4 9
+d19 1
+a19 1
+struct	vtimes vm0;
+d21 2
+a22 2
+struct	tms times0;
+struct	tms timesdol;
+@
+
+
+1.1.0.0
+log
+@VAX BSD4.2 version by alex (8-bits)
+@
+text
+@d2 1
+a2 2
+/* static char sccsid[] = "@@(#)$Header: sh.time.c,v 1.2 86/07/20 19:28:05 avg Exp $";  */
+#endif
+d4 9
+d18 6
+a23 2
+struct	tms times0;
+struct	tms timesdol;
+a26 1
+	struct rusage ruch;
+d28 6
+a33 4
+	gettimeofday(&time0, (struct timezone *)0);
+	getrusage(RUSAGE_SELF, &ru0);
+	getrusage(RUSAGE_CHILDREN, &ruch);
+	ruadd(&ru0, &ruch);
+d42 3
+a44 2
+	struct timeval timedol;
+	struct rusage ru1, ruch;
+d46 17
+a62 5
+	getrusage(RUSAGE_SELF, &ru1);
+	getrusage(RUSAGE_CHILDREN, &ruch);
+	ruadd(&ru1, &ruch);
+	gettimeofday(&timedol, (struct timezone *)0);
+	prusage(&ru0, &ru1, &timedol, &time0);
+d89 3
+a91 2
+ruadd(ru, ru2)
+	register struct rusage *ru, *ru2;
+a92 2
+	register long *lp, *lp2;
+	register int cnt;
+d94 7
+a100 9
+	tvadd(&ru->ru_utime, &ru2->ru_utime);
+	tvadd(&ru->ru_stime, &ru2->ru_stime);
+	if (ru2->ru_maxrss > ru->ru_maxrss)
+		ru->ru_maxrss = ru2->ru_maxrss;
+	cnt = &ru->ru_last - &ru->ru_first + 1;
+	lp = &ru->ru_first; lp2 = &ru2->ru_first;
+	do
+		*lp++ += *lp2++;
+	while (--cnt > 0);
+d103 3
+a105 3
+prusage(r0, r1, e, b)
+	register struct rusage *r0, *r1;
+	struct timeval *e, *b;
+d107 18
+d126 1
+a126 4
+	    (r1->ru_utime.tv_sec-r0->ru_utime.tv_sec)*100+
+	    (r1->ru_utime.tv_usec-r0->ru_utime.tv_usec)/10000+
+	    (r1->ru_stime.tv_sec-r0->ru_stime.tv_sec)*100+
+	    (r1->ru_stime.tv_usec-r0->ru_stime.tv_usec)/10000;
+a129 2
+	int ms =
+	    (e->tv_sec-b->tv_sec)*100 + (e->tv_usec-b->tv_usec)/10000;
+d140 1
+a140 1
+		pdeltat(&r1->ru_utime, &r0->ru_utime);
+d144 1
+a144 1
+		pdeltat(&r1->ru_stime, &r0->ru_stime);
+d148 1
+a148 1
+		psecs(ms / 100);
+d152 1
+a152 1
+		printf("%d%%", (int) (t*100 / ((ms ? ms : 1))));
+d156 1
+a156 1
+		i = r1->ru_nswap - r0->ru_nswap;
+d161 1
+a161 1
+		printf("%d", t == 0 ? 0 : (r1->ru_ixrss-r0->ru_ixrss)/t);
+d165 1
+a165 2
+		printf("%d", t == 0 ? 0 :
+		    (r1->ru_idrss+r1->ru_isrss-(r0->ru_idrss+r0->ru_isrss))/t);
+d169 2
+a170 3
+		printf("%d", t == 0 ? 0 :
+		    ((r1->ru_ixrss+r1->ru_isrss+r1->ru_idrss) -
+		    (r0->ru_ixrss+r0->ru_idrss+r0->ru_isrss))/t);
+d174 1
+a174 1
+		printf("%d", r1->ru_maxrss/2);
+d178 1
+a178 1
+		printf("%d", r1->ru_majflt-r0->ru_majflt);
+d182 1
+a182 1
+		printf("%d", r1->ru_minflt-r0->ru_minflt);
+d186 1
+a186 1
+		printf("%d", r1->ru_inblock-r0->ru_inblock);
+d190 1
+a190 1
+		printf("%d", r1->ru_oublock-r0->ru_oublock);
+d192 1
+d196 1
+a196 29
+
+pdeltat(t1, t0)
+	struct timeval *t1, *t0;
+{
+	struct timeval td;
+
+	tvsub(&td, t1, t0);
+	printf("%d.%01d", td.tv_sec, td.tv_usec/100000);
+}
+
+tvadd(tsum, t0)
+	struct timeval *tsum, *t0;
+{
+
+	tsum->tv_sec += t0->tv_sec;
+	tsum->tv_usec += t0->tv_usec;
+	if (tsum->tv_usec > 1000000)
+		tsum->tv_sec++, tsum->tv_usec -= 1000000;
+}
+
+tvsub(tdiff, t1, t0)
+	struct timeval *tdiff, *t1, *t0;
+{
+
+	tdiff->tv_sec = t1->tv_sec - t0->tv_sec;
+	tdiff->tv_usec = t1->tv_usec - t0->tv_usec;
+	if (tdiff->tv_usec < 0)
+		tdiff->tv_sec--, tdiff->tv_usec += 1000000;
+}
+@

@@ -1,0 +1,14 @@
+cat /dev/null > rodata.c
+foreach  i ( $* )
+ed - y.tab.c <<endedprog
+/^\(.*\)${i}[     ]*\[]/s//extern \1 ${i}[];\\
+\1 $i []/
+.ka
+/}/kb
+'a-r rodata.c
+'a,'bw rodata.c
+'a,'bd
+w
+q
+endedprog
+end

@@ -1,0 +1,679 @@
+head     1.3;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     86.07.21.14.26.48;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.19.36.21;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.22.54;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.19.18;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.45.03;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.13.39;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.37.57;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.3
+log
+@Слита с версией alex-а из 4.2.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.misc.c,v 1.2 86/06/02 19:36:21 dmitry Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ *      $Log:   sh.misc.c,v $
+ * Revision 1.2  86/06/02  19:36:21  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские буквы и диагностики.
+ *
+ * Revision 1.1  86/06/01  20:22:54  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+
+letter(c)
+	register unsigned c;
+{
+	c &= 0377;
+	return(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' ||
+	       c == '_' || c>=0300
+#ifdef KOI8
+		&& c != 0377
+#endif
+				     );
+}
+
+digit(c)
+	register unsigned c;
+{
+
+	return (c >= '0' && c <= '9');
+}
+
+alnum(c)
+	register unsigned c;
+{
+	return (letter(c) || digit(c));
+}
+
+any(c, s)
+	register int c;
+	register char *s;
+{
+
+	while (*s)
+		if (*s++ == c)
+			return(1);
+	return(0);
+}
+
+char *
+calloc(i, j)
+	register unsigned i;
+	unsigned j;
+{
+	register char *cp, *dp;
+#ifdef debug
+	static char *av[2] = {0, 0};
+#endif
+
+	i *= j;
+	cp = (char *) malloc(i);
+	if (cp == 0) {
+		child++;
+#ifndef debug
+		error(ediag("Out of memory",
+			    "Нет памяти"));
+#else
+		showall(av);
+		printf("i=%d, j=%d: ", i/j, j);
+		error(ediag("Out of memory",
+			    "Нет памяти"));
+		chdir("/usr/src/cmd/csh/cshcore");
+		abort();
+#endif
+	}
+	dp = cp;
+	if (i != 0)
+		do
+			*dp++ = 0;
+		while (--i);
+	return (cp);
+}
+
+cfree(p)
+	char *p;
+{
+
+	free(p);
+}
+
+char **
+blkend(up)
+	register char **up;
+{
+
+	while (*up)
+		up++;
+	return (up);
+}
+
+blkpr(av)
+	register char **av;
+{
+
+	for (; *av; av++) {
+		printf("%s", *av);
+		if (av[1])
+			printf(" ");
+	}
+}
+
+blklen(av)
+	register char **av;
+{
+	register int i = 0;
+
+	while (*av++)
+		i++;
+	return (i);
+}
+
+char **
+blkcpy(oav, bv)
+	char **oav;
+	register char **bv;
+{
+	register char **av = oav;
+
+	while (*av++ = *bv++)
+		continue;
+	return (oav);
+}
+
+char **
+blkcat(up, vp)
+	char **up, **vp;
+{
+
+	blkcpy(blkend(up), vp);
+	return (up);
+}
+
+blkfree(av0)
+	char **av0;
+{
+	register char **av = av0;
+
+	while (*av)
+		xfree(*av++);
+	xfree((char *)av0);
+}
+
+char **
+saveblk(v)
+	register char **v;
+{
+	register int len = blklen(v) + 1;
+	register char **newv = (char **) calloc(len, sizeof (char **));
+	char **onewv = newv;
+
+	while (*v)
+		*newv++ = savestr(*v++);
+	return (onewv);
+}
+
+char *
+strspl(cp, dp)
+	register char *cp, *dp;
+{
+	register char *ep = calloc(1, strlen(cp) + strlen(dp) + 1);
+
+	strcpy(ep, cp);
+	strcat(ep, dp);
+	return (ep);
+}
+
+char **
+blkspl(up, vp)
+	register char **up, **vp;
+{
+	register char **wp = (char **) calloc(blklen(up) + blklen(vp) + 1, sizeof (char **));
+
+	blkcpy(wp, up);
+	return (blkcat(wp, vp));
+}
+
+lastchr(cp)
+	register char *cp;
+{
+
+	if (!*cp)
+		return (0);
+	while (cp[1])
+		cp++;
+	return (*cp);
+}
+
+/*
+ * This routine is called after an error to close up
+ * any units which may have been left open accidentally.
+ */
+closem()
+{
+	register int f;
+
+	for (f = 0; f < NOFILE; f++)
+		if (f != SHIN && f != SHOUT && f != SHDIAG && f != OLDSTD &&
+		    f != FSHTTY)
+			close(f);
+}
+
+/*
+ * Close files before executing a file.
+ * We could be MUCH more intelligent, since (on a version 7 system)
+ * we need only close files here during a source, the other
+ * shell fd's being in units 16-19 which are closed automatically!
+ */
+closech()
+{
+	register int f;
+
+	if (didcch)
+		return;
+	didcch = 1;
+	SHIN = 0; SHOUT = 1; SHDIAG = 2; OLDSTD = 0;
+	for (f = 3; f < NOFILE; f++)
+		close(f);
+}
+
+donefds()
+{
+
+	close(0), close(1), close(2);
+	didfds = 0;
+}
+
+/*
+ * Move descriptor i to j.
+ * If j is -1 then we just want to get i to a safe place,
+ * i.e. to a unit > 2.  This also happens in dcopy.
+ */
+dmove(i, j)
+	register int i, j;
+{
+
+	if (i == j || i < 0)
+		return (i);
+#ifdef V7
+	if (j >= 0) {
+		dup2(i, j);
+		return (j);
+	} else
+#endif
+		j = dcopy(i, j);
+	if (j != i)
+		close(i);
+	return (j);
+}
+
+dcopy(i, j)
+	register int i, j;
+{
+
+	if (i == j || i < 0 || j < 0 && i > 2)
+		return (i);
+#ifdef V7
+	if (j >= 0) {
+		dup2(i, j);
+		return (j);
+	}
+#endif
+	close(j);
+	return (renum(i, j));
+}
+
+renum(i, j)
+	register int i, j;
+{
+	register int k = dup(i);
+
+	if (k < 0)
+		return (-1);
+	if (j == -1 && k > 2)
+		return (k);
+	if (k != j) {
+		j = renum(k, j);
+		close(k);
+		return (j);
+	}
+	return (k);
+}
+
+copy(to, from, size)
+	register char *to, *from;
+	register int size;
+{
+
+	if (size)
+		do
+			*to++ = *from++;
+		while (--size != 0);
+}
+
+/*
+ * Left shift a command argument list, discarding
+ * the first c arguments.  Used in "shift" commands
+ * as well as by commands like "repeat".
+ */
+lshift(v, c)
+	register char **v;
+	register int c;
+{
+	register char **u = v;
+
+	while (*u && --c >= 0)
+		xfree(*u++);
+	blkcpy(v, u);
+}
+
+number(cp)
+	char *cp;
+{
+
+	if (*cp == '-') {
+		cp++;
+		if (!digit(*cp++))
+			return (0);
+	}
+	while (*cp && digit(*cp))
+		cp++;
+	return (*cp == 0);
+}
+
+char **
+copyblk(v)
+	register char **v;
+{
+	register char **nv = (char **) calloc(blklen(v) + 1, sizeof (char **));
+
+	return (blkcpy(nv, v));
+}
+
+char *
+strend(cp)
+	register char *cp;
+{
+
+	while (*cp)
+		cp++;
+	return (cp);
+}
+
+char *
+strip(cp)
+	char *cp;
+{
+	register char *dp = cp;
+
+	while (*dp = TRIMED(*dp), *dp++)
+		continue;
+	return (cp);
+}
+
+udvar(name)
+	char *name;
+{
+
+	setname(name);
+	bferr(ediag("Undefined variable",
+		    "Неопределенная переменная"));
+}
+
+prefix(sub, str)
+	register char *sub, *str;
+{
+
+	for (;;) {
+		if (*sub == 0)
+			return (1);
+		if (*str == 0)
+			return (0);
+		if (*sub++ != *str++)
+			return (0);
+	}
+}
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские буквы и диагностики.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.misc.c,v 1.1 86/06/01 20:22:54 dmitry Exp $";
+
+d9 3
+a18 12
+/*
+ * C Shell
+ *
+ * $Log:        sh.misc.c,v $
+ * Revision 0.0.1.0  86/06/01  19:45:03  dmitry
+ * MNOS 1.2 version
+ *
+ * Revision 1.1  86/02/24  20:23:38  sys
+ * Initial revision
+ *
+ */
+
+d24 5
+a28 1
+	       c == '_' || c>=0300 );
+d61 3
+d69 1
+d72 8
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.misc.c,v 0.0 86/04/20 21:24:53 root Exp $";
+d11 3
+d20 8
+d31 1
+a31 1
+	register char c;
+d33 3
+a35 2
+
+	return (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_');
+d39 1
+a39 1
+	register char c;
+d46 1
+a46 1
+	register char c;
+a67 3
+#ifdef debug
+	static char *av[2] = {0, 0};
+#endif
+d73 2
+a74 9
+#ifndef debug
+		error("Out of memory");
+#else
+		showall(av);
+		printf("i=%d, j=%d: ", i/j, j);
+		printf("Out of memory\n");
+		chdir("/usr/bill/cshcore");
+		abort();
+#endif
+d359 1
+a359 1
+	while (*dp++ &= TRIM)
+d369 2
+a370 1
+	bferr("Undefined variable");
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.misc.c 4.1 10/9/80";
+d4 9
+d98 1
+a98 1
+ 
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.misc.c   2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+d52 2
+a53 2
+	register int i;
+	int j;
+d75 1
+a75 1
+	if (i > 0)
+d98 1
+a98 1
+ 
+d100 1
+a100 1
+	register int *av;
+d148 1
+a148 1
+	xfree(av0);
+d171 2
+a172 1
+	return (strcat(ep, dp));
+d205 2
+a206 1
+		if (f != SHIN && f != SHOUT && f != SHDIAG && f != OLDSTD)
+d368 14
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* $Header: sh.misc.c,v 2.1 86/03/12 23:47:46 alex Exp $ */
+
+d10 1
+a10 1
+	register unsigned c;
+d12 2
+a13 2
+	c &= 0377;
+	return (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_' ||  (c&0300)==0300 && c != 0377 );
+d42 2
+a43 2
+	register unsigned i;
+	unsigned j;
+d65 1
+a65 1
+	if (i != 0)
+d90 1
+a90 1
+	register char **av;
+d138 1
+a138 1
+	xfree((char *)av0);
+d161 1
+a161 2
+	strcat(ep, dp);
+	return (ep);
+d194 1
+a194 2
+		if (f != SHIN && f != SHOUT && f != SHDIAG && f != OLDSTD &&
+		    f != FSHTTY)
+d345 1
+a345 1
+	while (*dp = TRIMED(*dp), *dp++)
+a355 14
+}
+
+prefix(sub, str)
+	register char *sub, *str;
+{
+
+	for (;;) {
+		if (*sub == 0)
+			return (1);
+		if (*str == 0)
+			return (0);
+		if (*sub++ != *str++)
+			return (0);
+	}
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.misc.c,v $
+ * Revision 1.1  86/02/24  20:23:38  sys
+ * Initial revision
+ * 
+d10 1
+a10 1
+	register unsigned c;
+d12 2
+a13 3
+	c &= 0377;
+	return(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' ||
+	       c == '_' || (c&0300)==0300 );
+d17 1
+a17 1
+	register unsigned c;
+d24 1
+a24 1
+	register unsigned c;
+d55 1
+a55 2
+		error(ediag("Out of memory",
+			    "Нет памяти"));
+d59 2
+a60 3
+		printf(ediag("Out of memory\n",
+			     "Нет памяти\n"));
+		chdir("/rp2/mnos/cmd/csh");
+d88 1
+a88 1
+
+d345 1
+a345 1
+	while (*dp = TRIMED(*dp), *dp++)
+d355 1
+a355 2
+	bferr(ediag("Undefined variable",
+		    "Неопределенная переменная"));
+@

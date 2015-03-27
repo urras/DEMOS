@@ -1,0 +1,37 @@
+#  Файл описания конфигурации
+#  Формат:
+#       имя     значение        # комментарий
+#
+#  Поля значений не должны содержать пробелов
+#  Пустые строки не допускаются
+#
+#  Файл описаний для обобщенной системы на hk
+#
+#       General parameters
+cpu             23              # тип процессора
+ident           IPK_85
+maxusers        2
+bootdev         rw
+timezone        (-3)            # Moscow "Decret"
+dst             1
+#
+#       Filesystem configuration
+rootdev         makedev(10,7)    # rw0h
+swapdev         makedev(10,7)    # rw0h
+dumpdev         NODEV            #
+pipedev         makedev(10,7)    # rw0h
+swplo           9344
+nswap           512
+dumplo          0000
+dumproutine     nodev
+#
+#       Device configuration
+NKL             0       # терминалы на ОШ (или АДС-М).
+NKX             1
+NKY             1
+NLP             0       # печатающие устройства
+NRUBIN          0       # Драйвер устройства синхронизации для СУБД РУБИН.
+NRW             2       # Винчестер Электроники-85
+NVI             1       # Видеоконтроллер Электроники-85
+NFD             2
+NPTY            6

@@ -1,0 +1,19 @@
+s:"/usr/bin/mail":U_MAIL:g
+s:"/usr/bin/more":M_MORE:g
+s:"/usr/bin/red":M_VISUAL:g
+s:"/usr/lib/aliases":M_ALIASES:g
+s:"/usr/lib/relcom":R_SERVDIR:g
+s:"/usr/lib/relcom/Mail.help":M_HELPFILE:g
+s:"/usr/lib/relcom/Mail.help.~":M_THELPFILE:g
+s:"/usr/lib/relcom/Mail.rc":M_MASTER:g
+s:"/usr/lib/relcom/Mail.rhelp":M_RHELPFILE:g
+s:"/usr/lib/relcom/Mail.rhelp.~":M_RTHELPFILE:g
+s:"/usr/lib/relcom/Services":R_SERVLIST:g
+s:"/usr/lib/relcom/Systems":R_SYSTEMFILE:g
+s:"/usr/lib/relcom/localmail":XX_LOCALMAIL:g
+s:"/usr/lib/sendmail -i":R_SMAILER:g
+s:"/usr/lib/sendmail.cf":S_SMCF:g
+s:"/usr/lib/sendmail.fc":S_SMFC:g
+s:"/usr/lib/relcom/uucp.routes":R_ROUTES:g
+s:"/usr/lib/uumail":M_UUMAIL:g
+s:"/usr/lib/sendmail":M_SENDMAIL:g

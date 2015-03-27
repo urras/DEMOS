@@ -1,0 +1,66 @@
+
+
+
+
+
+
+
+                         CHAPTER  1
+
+
+                         FRANZ LISP
+
+
+
+
+
+
+
+   _1._1.  FRANZ LISP[] was  created  as  a  tool  to  further
+      research  in  Symbolic Algebraic Manipulation, Artifi-
+      cial Intelligence, and programming  languages  at  the
+      University of California at Berkeley.  Its  roots  are
+      in  the  PDP-11 Lisp system which originally came from
+      Harvard.  As it grew it adopted  features  of  Maclisp
+      and  Lisp  Machine  Lisp  which enables our work.
+#once #create Ref
+1001
+1000
+999
+101
+100
+1
+#once #create Ref1
+огромное
+большое
+большое
+большое
+маленькое
+маленькое
+#user
+a.out <Ref >test
+#cmp Ref1 test
+#succeed
+Один из способов:
+
+main() {
+	int n;
+
+	while ((n = getnum()) >= 0)
+		if (n > 0 && n <= 100)
+			printf("маленькое \n");
+		else if (n > 100 && n <= 1000)
+			printf("большое\n");
+		else if (n > 1000)
+			printf("огромное\n");
+}
+
+	Отметим, что n в принципе может быть и
+	отрицательным. Поэтому в программу включена
+	проверка
+
+		else if (n > 1000)
+	а не прities for
+      arrays and user defined structures, has  a  user  con-
+      trolled reader with character and word macro  capabil-
+      ities, and can interact directly with  compiled  L

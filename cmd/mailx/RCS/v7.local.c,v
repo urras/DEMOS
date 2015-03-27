@@ -1,0 +1,111 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.01.11.12.46.10;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.12.25.16.01.05;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.2
+log
+@Добавлен NOXSTR у rcsid.
+@
+text
+@#
+
+/*
+ * Mail -- a mail program
+ *
+ * Version 7
+ *
+ * Local routines that are installation dependent.
+ *
+ * $Log:	v7.local.c,v $
+ * Revision 1.1  87/12/25  16:01:05  avg
+ * Initial revision
+ * 
+ */
+
+#include "rcv.h"
+
+/*NOXSTR*/
+static char rcsid[] = "$Header: v7.local.c,v 1.1 87/12/25 16:01:05 avg Exp $";
+/*YESXSTR*/
+
+/*
+ * Locate the user's mailbox file (ie, the place where new, unread
+ * mail is queued).  In Version 7, it is in /usr/spool/mail/name.
+ */
+
+findmail()
+{
+	register char *cp;
+
+	cp = copy("/usr/spool/mail/", mailname);
+	copy(myname, cp);
+	if (isdir(mailname)) {
+		stradd(mailname, '/');
+		strcat(mailname, myname);
+	}
+}
+
+/*
+ * Get rid of the queued mail.
+ */
+
+demail()
+{
+
+	if (value("keep") != NOSTR)
+		close(creat(mailname, 0666));
+	else {
+		if (remove(mailname) < 0)
+			close(creat(mailname, 0666));
+	}
+}
+
+/*
+ * Discover user login name.
+ */
+
+username(uid, namebuf)
+	char namebuf[];
+{
+	register char *np;
+
+	if (uid == getuid() && (np = getenv("USER")) != NOSTR) {
+		strncpy(namebuf, np, PATHSIZE);
+		return(0);
+	}
+	return(getname(uid, namebuf));
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d10 4
+a13 1
+ * $Log$
+d18 3
+a20 1
+static char rcsid[] = "$Header$";
+@

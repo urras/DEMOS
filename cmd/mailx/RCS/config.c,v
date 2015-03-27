@@ -1,0 +1,146 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.01.11.12.36.47;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.12.25.15.58.57;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.2
+log
+@Изменена таблица общеизвестных сетевых имен, добавлен NOXSTR у rcsid.
+@
+text
+@#
+
+/*
+ * This file contains definitions of network data used by Mail
+ * when replying.  See also:  configdefs.h and optim.c
+ *
+ * $Log:        config.c,v $
+ * Revision 1.1  87/12/25  15:58:57  avg
+ * Initial revision
+ *
+ */
+
+/*NOXSTR*/
+static char rcsid[] = "$Header: config.c,v 1.1 87/12/25 15:58:57 avg Exp $";
+/*YESXSTR*/
+
+/*
+ * The subterfuge with CONFIGFILE is to keep cc from seeing the
+ * external defintions in configdefs.h.
+ */
+#define CONFIGFILE
+#include "configdefs.h"
+
+/*
+ * Set of network separator characters.
+ */
+char    *metanet = "!^:%@@.";
+
+/*
+ * Host table of "known" hosts.  See the comment in configdefs.h;
+ * not all accessible hosts need be here (fortunately).
+ */
+struct netmach netmach[] = {
+	"ipk2",         'a',            BN,
+	"e85avg",       'b',            BN,
+	EMPTY,          EMPTYID,        BN,     /* Filled in dynamically */
+	0,              0,              0
+};
+
+/*
+ * Table of ordered of preferred networks.  You probably won't need
+ * to fuss with this unless you add a new network character (foolishly).
+ */
+struct netorder netorder[] = {
+	AN,     '@@',
+	AN,     '%',
+	SN,     ':',
+	BN,     '!',
+	-1,     0
+};
+
+/*
+ * Table to convert from network separator code in address to network
+ * bit map kind.  With this transformation, we can deal with more than
+ * one character having the same meaning easily.
+ */
+struct ntypetab ntypetab[] = {
+	'%',    AN,
+	'@@',    AN,
+	':',    SN,
+	'!',    BN,
+	'^',    BN,
+	0,      0
+};
+
+struct nkindtab nkindtab[] = {
+	AN,     IMPLICIT,
+	BN,     EXPLICIT,
+	SN,     IMPLICIT,
+	0,      0
+};
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d7 4
+a10 1
+ * $Log$
+d13 3
+a15 1
+static char rcsid[] = "$Header$";
+d34 3
+a36 30
+	"virus",        'V',            BN,
+	"berkeley",     '7',            AN|SN,
+	"a",            'a',            SN,
+	"b",            'b',            SN,
+	"c",            'c',            SN,
+	"d",            'd',            SN,
+	"e",            'e',            SN,
+	"f",            'f',            SN,
+	"g",            'g',            SN,
+	"ingres",       'i',            SN,
+	"ing70",        'i',            SN,
+	"ingvax",       'j',            SN|BN,
+	"vlsi",         'l',            SN,
+	"image",        'm',            SN,
+	"esvax",        'o',            SN,
+	"sesm",         'o',            SN,
+	"ucbcad",       'p',            SN|BN,
+	"q",            'q',            SN,
+	"kim",          'n',            SN,
+	"research",     'R',            BN,
+	"arpavax",      'r',            SN|BN,
+	"src",          's',            SN,
+	"mathstat",     't',            SN,
+	"vax",          'v',            BN|SN,
+	"ucb",          'v',            BN|SN,
+	"ucbvax",       'v',            BN|SN,
+	"onyx",         'x',            SN,
+	"cory",         'y',            SN,
+	"eecs40",       'z',            SN,
+	EMPTY,          EMPTYID,        SN,     /* Filled in dynamically */
+@

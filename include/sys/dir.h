@@ -13,31 +13,26 @@
 #define D_NAME DIRSIZ
 #define dir direct
 
-/* Пользователи имеют тенденцию хапать не ту структуру, которую нужно. */
-/** #if !defined(IPK_DIRECTORY) && !defined(KERNEL) **/
-/* стандартная структура каталога */
-/*
- * struct  direct
- * {
- *         ino_t   d_ino;
- *         char    d_name[DIRSIZ];
- * };
+/* стандартная структура каталога
+ *
+ *struct  direct
+ *{
+ *       ino_t   d_ino;
+ *       char    d_name[DIRSIZ];
+ *};
  */
-/** #else **/
 
 /* расширенная структура каталога */
-struct direct
+struct  direct
 {
-        ino_t    d_ino   : 14;     /* i-number */
-        unsigned d_class : 2;      /* class of file */
-        char     d_name[DIRSIZ];   /* base name     */
+	ino_t    d_ino   : 14;     /* i-number */
+	unsigned d_class : 2;      /* class of file */
+	char     d_name[DIRSIZ];   /* base name     */
 };
 
 # define DIR_OLD    00
 # define DIR_IFDIR  01
 # define DIR_IFLNK  02
 # define DIR_IFREG  03
-
-/** #endif IPK_DIRECTORY **/
 
 #endif _dir_h_ _sys_dir_h_

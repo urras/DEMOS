@@ -1,0 +1,63 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.14.16.24.43;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#include <stdio.h>
+
+main()
+{
+	register c, nl = 1, cpos = 0;
+	int      ppos = 0;
+
+	while( (c = getchar()) != EOF ) {
+		switch( c ) {
+		    case ' ':
+			cpos++;
+			break;
+		    case '\t':
+			cpos += 8;
+			cpos &= ~07;
+			break;
+		    case '\n':
+			putchar( '\n' );
+			nl = 1;
+			cpos = ppos = 0;
+			break;
+		    default:
+			ppos = cpos - ppos;
+			if( ppos > 0 ) {
+				if( nl ) {
+					while( ppos >= 8 ) {
+						putchar( '\t' );
+						ppos -= 8;
+					}
+				}
+				while( ppos-- > 0 )
+					putchar( ' ' );
+			}
+			nl = 0;
+			ppos = ++cpos;
+			putchar( c );
+		}
+	}
+}
+@

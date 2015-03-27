@@ -1,0 +1,1171 @@
+head     1.7;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     89.11.22.14.26.46;  author abs;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.11.22.14.05.03;  author abs;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.05.04.17.10.07;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.03.16.12.14.37;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.21.19.49.34;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.20.23.13;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.24.08;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.20.21;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.47.12;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.15.04;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.40.02;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.7
+log
+@добавил картиночку.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.set.c,v 1.6 89/11/22 14:05:03 abs Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.set.c,v $
+ * Revision 1.6  89/11/22  14:05:03  abs
+ * добавлен меьанизм функций в выражениях
+ *
+ * Revision 1.5  89/05/04  17:10:07  avg
+ * Сделана подстановка переменных в prompt.
+ *
+ * Revision 1.4  89/03/16  12:14:37  avg
+ * Внесены изменения для экранной версии csh.
+ *
+ * Revision 1.3  86/07/21  19:49:34  avg
+ * Слита с версией alex-а из 4.2.
+ *
+ * Revision 1.2  86/06/02  20:23:13  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+ *
+ * Revision 1.1  86/06/01  20:24:08  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+#ifndef NULL
+# define NULL ((char *)0)
+#endif
+
+doset(v)
+	register char **v;
+{
+	register char *p;               /* value of the variable */
+	char *vp, op;                   /* vp - name of the variable */
+	char **vecp;
+	bool hadsub;
+	int subscr;
+
+	v++;
+	p = *v++;
+	if (p == NULL) {
+		prvars();
+		return;
+	}
+	do {
+		hadsub = 0;
+		for (vp = p; alnum(*p); p++)
+			continue;
+		if (vp == p)
+			goto setsyn;
+		if (*p == '[') {
+			hadsub++;
+			p = getinx(p, &subscr);
+		}
+		if (op = *p) {
+			*p++ = 0;
+			if (*p == 0 && *v && **v == '(')
+				p = *v++;
+		} else if (*v && eq(*v, "=")) {
+			op = '=', v++;
+			if (*v)
+				p = *v++;
+		}
+		if (op && op != '=')
+setsyn:
+			bferr(ediag("Syntax error",
+				    "Синтаксическая ошибка"));
+		if (eq(p, "(")) {
+			register char **e = v;
+
+			if (hadsub)
+				goto setsyn;
+			for (;;) {
+				if (!*e)
+					bferr(ediag("Missing )",
+						    "Нет )"));
+				if (**e == ')')
+					break;
+				e++;
+			}
+			p = *e;
+			*e = NULL;
+			vecp = saveblk(v);
+			set1(vp, vecp, &shvhed);
+			*e = p;
+			v = e + 1;
+		} else if (hadsub)
+			asx(vp, subscr, savestr(p));
+		else
+			set(vp, savestr(p));
+
+		/* evaluate side effects */
+		if (eq(vp, "path")) {
+			exportpath(adrof("path")->vec);
+			dohash();
+		} else if (eq(vp, "histchars")) {
+			register char *p = value("histchars");
+
+			HIST = *p++;
+			HISTSUB = *p;
+		} else if (eq(vp, "user"))
+			setenv("USER", value(vp));
+		else if (eq(vp, "term"))
+			setenv("TERM", value(vp));
+		else if (eq(vp, "home"))
+			setenv("HOME", value(vp));
+	} while (p = *v++);
+}
+
+char *
+getinx(cp, ip)
+	register char *cp;
+	register int *ip;
+{
+
+	*ip = 0;
+	*cp++ = 0;
+	while (*cp && digit(*cp))
+		*ip = *ip * 10 + *cp++ - '0';
+	if (*cp++ != ']')
+		bferr(ediag("Subscript error",
+			    "Ошибка в индексе"));
+	return (cp);
+}
+
+asx(vp, subscr, p)
+	char *vp;
+	int subscr;
+	char *p;
+{
+	register struct varent *v = getvx(vp, subscr);
+
+	xfree(v->vec[subscr - 1]);
+	v->vec[subscr - 1] = globone(p);
+}
+
+struct varent *
+getvx(vp, subscr) char *vp;
+{
+	register struct varent *v = adrof(vp);
+
+	if (v == (struct varent *)NULL)
+		udvar(vp);
+	if (subscr < 1 || subscr > blklen(v->vec))
+		bferr(ediag("Subscript out of range",
+			    "Индекс вне диапазона"));
+	return (v);
+}
+
+char    plusplus[2] = { '1', 0 };
+
+
+dolet(v)
+	char **v;
+{
+	register char *p;
+	char *vp, c, op;
+	bool hadsub;
+	int subscr;
+
+	v++;
+	p = *v++;
+	if (p == NULL) {
+		prvars();
+		return;
+	}
+	do {
+		hadsub = 0;
+		for (vp = p; letter(*p); p++)
+			continue;
+		if (vp == p)
+			goto letsyn;
+		if (*p == '[') {
+			hadsub++;
+			p = getinx(p, &subscr);
+		}
+		if (*p == 0 && *v)
+			p = *v++;
+		if (op = *p)
+			*p++ = 0;
+		else
+			goto letsyn;
+		vp = savestr(vp);
+		if (op == '=') {
+			c = '=';
+			p = xset(p, &v);
+		} else {
+			c = *p++;
+			if (any(c, "+-")) {
+				if (c != op || *p)
+					goto letsyn;
+				p = plusplus;
+			} else {
+				if (any(op, "<>")) {
+					if (c != op)
+						goto letsyn;
+					c = *p++;
+letsyn:
+					bferr(ediag("Syntax error",
+						    "Синтаксическая ошибка"));
+				}
+				if (c != '=')
+					goto letsyn;
+				p = xset(p, &v);
+			}
+		}
+		if (op == '=')
+			if (hadsub)
+				asx(vp, subscr, p);
+			else
+				set(vp, p);
+		else
+			if (hadsub)
+#ifndef V6
+				/* avoid bug in vax CC */
+				{
+					struct varent *gv = getvx(vp, subscr);
+
+					asx(vp, subscr, operate(op, gv->vec[subscr - 1], p));
+				}
+#else
+				asx(vp, subscr, operate(op, getvx(vp, subscr)->vec[subscr - 1], p));
+#endif  V6
+			else
+				set(vp, operate(op, value(vp), p));
+		if (strcmp(vp, "path") == 0)
+			dohash();
+		xfree(vp);
+		if (c != '=')
+			xfree(p);
+	} while (p = *v++);
+}
+
+char *
+xset(cp, vp)
+	char *cp, ***vp;
+{
+	register char *dp;
+
+	if (*cp) {
+		dp = savestr(cp);
+		--(*vp);
+		xfree(**vp);
+		**vp = dp;
+	}
+	return exp(vp);
+}
+
+char *
+operate(op, vp, p)
+	char op, *vp, *p;
+{
+	char opr[2];
+	char *vec[5];
+	register char **v = vec;
+	char **vecp = v;
+	register char *i;
+
+	if (op != '=') {
+		if (*vp)
+			*v++ = vp;
+		opr[0] = op;
+		opr[1] = 0;
+		*v++ = opr;
+		if (op == '<' || op == '>')
+			*v++ = opr;
+	}
+	*v++ = p;
+	*v++ = NULL;
+	i = exp(&vecp);
+	if (*vecp)
+		bferr(ediag("Expression syntax",
+			    "Синтаксическая ошибка в выражении"));
+	return i;
+}
+
+onlyread(cp)
+	char *cp;
+{
+	extern char end[];
+
+	return (cp < end);
+}
+
+xfree(cp)
+	char *cp;
+{
+	extern char end[];
+
+	if (cp >= end && cp < (char *) &cp)
+		cfree(cp);
+}
+
+char *
+savestr(s)
+	register char *s;
+{
+	register char *n;
+
+	if (s == NULL)
+		s = "";
+	strcpy(n = calloc(1, strlen(s) + 1), s);
+	return (n);
+}
+
+static  char *putp;
+
+char *
+putn(n)
+	register int n;
+{
+	static char number[15];
+
+	putp = number;
+	if (n < 0) {
+		n = -n;
+		*putp++ = '-';
+	}
+	if (sizeof (int) == 2 && n == -32768) {
+		*putp++ = '3';
+		n = 2768;
+#ifdef pdp11
+	}
+#else
+	} else if (sizeof (int) == 4 && n == -2147483648) {
+		*putp++ = '2';
+		n = 147483648;
+	}
+#endif
+	putn1(n);
+	*putp = 0;
+	return (savestr(number));
+}
+
+putn1(n)
+	register int n;
+{
+	if (n > 9)
+		putn1(n / 10);
+	*putp++ = n % 10 + '0';
+}
+
+getn(cp)
+	register char *cp;
+{
+	register int n;
+	int sign;
+
+	sign = 0;
+	if (cp[0] == '+' && cp[1])
+		cp++;
+	if (*cp == '-') {
+		sign++;
+		cp++;
+		if (!digit(*cp))
+			goto badnum;
+	}
+	n = 0;
+	while (digit(*cp))
+		n = n * 10 + *cp++ - '0';
+	if (*cp)
+		goto badnum;
+	return (sign ? -n : n);
+badnum:
+	bferr(ediag("Badly formed number",
+		    "Плохое число"));
+	return (0);
+}
+
+char *
+value(var)
+	char *var;
+{
+
+	return (value1(var, &shvhed));
+}
+
+char *
+value1(var, head)
+	char *var;
+	struct varent *head;
+{
+	register struct varent *vp;
+
+	vp = adrof1(var, head);
+	return (vp == (struct varent *)NULL || vp->vec[0] == NULL ? "" : vp->vec[0]);
+}
+
+static  struct varent *shprev;
+
+struct varent *
+adrof(var)
+	char *var;
+{
+
+	return (adrof1(var, &shvhed));
+}
+
+struct varent *
+madrof(pat, head)
+	char *pat;
+	struct varent *head;
+{
+	register struct varent *vp;
+
+	shprev = head;
+	for (vp = shprev->link; vp != (struct varent *)NULL; vp = vp->link) {
+		if (Gmatch(vp->name, pat))
+			return (vp);
+		shprev = vp;
+	}
+	return (NULL);
+}
+
+/*        struct varname
+	-----------------------
+	| name -> "varname"   |
+	-----------------------
+   ---->| link ----------------------->   in alphabetic order
+	-----------------------
+	| vec---\             |
+	|-------|-------------|
+		|
+		\----> "word1"
+		\----> "word2"
+		...
+		\----> NULL
+*/
+
+struct varent *
+adrof1(var, head)
+	char *var;
+	struct varent *head;
+{
+	register struct varent *vp;
+	int cmp;
+
+	shprev = head;
+	for (vp = shprev->link; vp != (struct varent *)NULL; vp = vp->link) {
+		cmp = strcmp(vp->name, var);
+		if (cmp == 0)
+			return (vp);
+		else if (cmp > 0)
+			return (NULL);
+		shprev = vp;
+	}
+	return (NULL);
+}
+
+/*
+ * The caller is responsible for putting value in a safe place
+ */
+set(var, value)
+	char *var, *value;
+{
+	register char **vec = (char **) calloc(2, sizeof (char **));
+
+	vec[0] = onlyread(value) ? savestr(value) : value;
+	set1(var, vec, &shvhed);
+}
+
+/*
+ * Like set, but not perform globbing for name
+ */
+setquoted(var, value)
+	char *var, *value;
+{
+	register char **vec = (char **) calloc(2, sizeof (char **));
+
+	vec[0] = onlyread(value) ? savestr(value) : value;
+	setq(var, vec, &shvhed);
+}
+
+set1(var, vec, head)
+	char *var, **vec;
+	struct varent *head;
+{
+
+	register char **oldv = vec;
+
+	gflag = 0; rscan(oldv, tglob);
+	if (gflag) {
+		vec = glob(oldv);
+		if (vec == (char **)NULL) {
+			bferr(ediag("No match",
+				    "Не найдено"));
+			blkfree(oldv);
+			return;
+		}
+		blkfree(oldv);
+		gargv = (char **)NULL;
+	}
+	setq(var, vec, head);
+}
+
+setq(var, vec, head)
+	char *var, **vec;
+	struct varent *head;
+{
+	register struct varent *vp;
+
+	vp = adrof1(var, head);
+	if (vp == (struct varent *)NULL) {
+		vp = (struct varent *) calloc(1, sizeof *vp);
+		vp->name = savestr(var);
+		vp->link = shprev->link;
+		shprev->link = vp;
+	}
+	if (vp->vec)
+		blkfree(vp->vec);
+	scan(vec, trim);
+	vp->vec = vec;
+}
+
+unset(v)
+	register char *v[];
+{
+
+	unset1(v, &shvhed);
+	if (adrof("histchars") == (struct varent *)NULL) {
+		HIST = '!';
+		HISTSUB = '^';
+	}
+#ifdef COMMANDEDIT
+	if (adrof("shistory") == (struct varent *)NULL)
+		deinihist();
+#endif
+}
+
+unset1(v, head)
+	register char *v[];
+	struct varent *head;
+{
+	register char *var;
+	register struct varent *vp;
+	register int cnt;
+
+	v++;
+	while (var = *v++) {
+		cnt = 0;
+		while (vp = madrof(var, head))
+			unsetv1(vp->name, head, 0), cnt++;
+		if (cnt == 0)
+			setname(var);
+	}
+}
+
+unsetv(var)
+	char *var;
+{
+	unsetv1(var, &shvhed, 0);
+}
+
+/** Quiet version of unset variable **/
+unsetvq(var)
+	char *var;
+{
+	unsetv1(var, &shvhed, 1);
+}
+
+unsetv1(var, head, noerrf)
+	char *var;
+	struct varent *head;
+{
+	register struct varent *vp;
+
+	vp = adrof1(var, head);
+	if (vp == (struct varent *)NULL) {
+		if( noerrf )
+			return;
+		udvar(var);
+	}
+	vp = shprev->link;
+	shprev->link = vp->link;
+	blkfree(vp->vec);
+	xfree(vp->name);
+	xfree((char *)vp);
+}
+
+setNS(cp)
+	char *cp;
+{
+
+	set(cp, "");
+}
+
+shift(v)
+	register char **v;
+{
+	register struct varent *argv;
+	register char *name;
+
+	v++;
+	name = *v;
+	if (name == NULL)
+		name = "argv";
+	else
+		strip(name);
+	argv = adrof(name);
+	if (argv == (struct varent *)NULL)
+		udvar(name);
+	if (argv->vec[0] == NULL)
+		bferr(ediag("No more words",
+			    "Больше нет слов"));
+	lshift(argv->vec, 1);
+}
+
+exportpath(val)
+char **val;
+{
+	char exppath[BUFSIZ];
+	register char *dir;
+
+	exppath[0] = 0;
+	if (val)
+		while (*val) {
+			if (strlen(*val) + strlen(exppath) + 2 > BUFSIZ) {
+				printf(ediag("Warning: ridiculously long PATH truncated\n",
+					     "Внимание: подозрительно длинный PATH обрезан\n"));
+				break;
+			}
+			strcat(exppath, *val++);
+			if (*val == 0 || eq(*val, ")"))
+				break;
+			strcat(exppath, ":");
+		}
+	setenv("PATH", exppath);
+}
+@
+
+
+1.6
+log
+@добавлен меьанизм функций в выражениях
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.set.c,v 1.5 89/05/04 17:10:07 avg Exp $";
+d9 3
+d95 2
+d418 15
+@
+
+
+1.5
+log
+@Сделана подстановка переменных в prompt.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.set.c,v 1.4 89/03/16 12:14:37 avg Exp $";
+d9 3
+d27 3
+d34 2
+a35 2
+	register char *p;
+	char *vp, op;
+d42 1
+a42 1
+	if (p == 0) {
+d83 1
+a83 1
+			*e = 0;
+d137 1
+a137 1
+getvx(vp, subscr)
+d141 1
+a141 1
+	if (v == 0)
+d162 1
+a162 1
+	if (p == 0) {
+d245 1
+a245 1
+	return (putn(exp(vp)));
+d256 1
+a256 1
+	register int i;
+d268 1
+a268 1
+	*v++ = 0;
+d273 1
+a273 1
+	return (putn(i));
+d299 1
+a299 1
+	if (s == 0)
+d385 1
+a385 1
+	return (vp == 0 || vp->vec[0] == 0 ? "" : vp->vec[0]);
+d406 1
+a406 1
+	for (vp = shprev->link; vp != 0; vp = vp->link) {
+d411 1
+a411 1
+	return (0);
+d423 1
+a423 1
+	for (vp = shprev->link; vp != 0; vp = vp->link) {
+d428 1
+a428 1
+			return (0);
+d431 1
+a431 1
+	return (0);
+d468 1
+a468 1
+		if (vec == 0) {
+d475 1
+a475 1
+		gargv = 0;
+d487 1
+a487 1
+	if (vp == 0) {
+d504 1
+a504 1
+	if (adrof("histchars") == 0) {
+d509 1
+a509 1
+	if (adrof("shistory") == 0)
+d552 1
+a552 1
+	if (vp == 0) {
+d579 1
+a579 1
+	if (name == 0)
+d584 1
+a584 1
+	if (argv == 0)
+d586 1
+a586 1
+	if (argv->vec[0] == 0)
+@
+
+
+1.4
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.set.c,v 1.3 86/07/21 19:49:34 avg Exp $";
+d9 3
+d438 12
+@
+
+
+1.3
+log
+@Слита с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.set.c,v 1.2 86/06/02 20:23:13 dmitry Exp $";
+d9 3
+d59 1
+a59 1
+				    "Синтаксичская ошибка"));
+d487 4
+d505 1
+a505 1
+			unsetv1(vp->name, head), cnt++;
+d514 2
+d517 5
+a521 1
+	unsetv1(var, &shvhed);
+d524 1
+a524 1
+unsetv1(var, head)
+d531 3
+a533 1
+	if (vp == 0)
+d535 1
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.set.c,v 1.1 86/06/01 20:24:08 dmitry Exp $";
+
+d9 3
+a17 4
+
+/*
+ * C Shell
+ */
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.set.c,v 0.0 86/04/20 21:25:22 root Exp $";
+d10 4
+a13 1
+ * $Log$
+d58 2
+a59 1
+			bferr("Syntax error");
+d67 2
+a68 1
+					bferr("Missing )");
+d111 2
+a112 1
+		bferr("Subscript error");
+d135 2
+a136 1
+		bferr("Subscript out of range");
+d189 2
+a190 1
+					bferr("Syntax error");
+d213 1
+a213 1
+#endif
+d262 2
+a263 1
+		bferr("Expression syntax");
+d355 2
+a356 1
+	bferr("Badly formed number");
+d448 2
+a449 1
+			bferr("No match");
+d553 2
+a554 1
+		bferr("No more words");
+d568 2
+a569 1
+				printf("Warning: ridiculously long PATH truncated\n");
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.set.c 4.1 10/9/80";
+d4 9
+d133 1
+a133 1
+char	plusplus[2] = { '1', 0 };
+d287 2
+a288 2
+static	char *putp;
+ 
+d369 1
+a369 1
+static	struct varent *shprev;
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.set.c    2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+a71 4
+#ifndef V6
+			if (eq(vp, "path"))
+				exportpath(vecp);
+#endif
+d78 2
+a79 1
+		if (eq(vp, "path"))
+d81 1
+a81 1
+		else if (eq(vp, "histchars")) {
+d86 6
+a91 1
+		}
+d279 1
+d283 2
+a284 1
+	return (strcpy(calloc(1, strlen(s) + 1), s));
+d288 1
+a288 1
+ 
+a490 1
+/*
+d492 1
+a492 2
+			setname(var), bferr("No match");
+*/
+d516 1
+a516 1
+	xfree(vp);
+a545 9
+deletev(cp)
+	register char *cp;
+{
+
+	if (adrof(cp))
+		unsetv(cp);
+}
+
+#ifndef V6
+d549 2
+a550 2
+	char exppath[128];
+	register char *p, *dir;
+d553 9
+a561 5
+	for(;;) {
+		dir = *val;
+		if (!eq(dir, "."))
+			strcat(exppath, dir);
+		if ((dir = *++val) && !eq(dir, ")"))
+d563 1
+a563 3
+		else
+			break;
+	}
+a565 1
+#endif
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* $Header: sh.set.c,v 2.1 86/03/12 23:47:55 alex Exp $ */
+
+d62 4
+d72 1
+a72 2
+		if (eq(vp, "path")) {
+			exportpath(adrof("path")->vec);
+d74 1
+a74 1
+		} else if (eq(vp, "histchars")) {
+d79 1
+a79 6
+		} else if (eq(vp, "user"))
+			setenv("USER", value(vp));
+		else if (eq(vp, "term"))
+			setenv("TERM", value(vp));
+		else if (eq(vp, "home"))
+			setenv("HOME", value(vp));
+d121 1
+a121 1
+char	plusplus[2] = { '1', 0 };
+a266 1
+	register char *n;
+d270 1
+a270 2
+	strcpy(n = calloc(1, strlen(s) + 1), s);
+	return (n);
+d273 1
+a273 1
+static	char *putp;
+d355 1
+a355 1
+static	struct varent *shprev;
+d477 1
+d479 2
+a480 1
+			setname(var);
+d504 1
+a504 1
+	xfree((char *)vp);
+d534 9
+d546 2
+a547 2
+	char exppath[BUFSIZ];
+	register char *dir;
+d550 5
+a554 9
+	if (val)
+		while (*val) {
+			if (strlen(*val) + strlen(exppath) + 2 > BUFSIZ) {
+				printf("Warning: ridiculously long PATH truncated\n");
+				break;
+			}
+			strcat(exppath, *val++);
+			if (*val == 0 || eq(*val, ")"))
+				break;
+d556 3
+a558 1
+		}
+d561 1
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.set.c,v $
+ * Revision 1.1  86/02/24  20:23:51  sys
+ * Initial revision
+ * 
+d26 1
+a26 1
+		for (vp = p; alnum(*p); p++)  /* @@VG */
+d45 1
+a45 2
+			bferr(ediag("Syntax error",
+				    "Синтаксичская ошибка"));
+d53 1
+a53 2
+					bferr(ediag("Missing )",
+						    "Нет )"));
+d62 1
+d65 1
+d94 1
+a94 2
+		bferr(ediag("Subscript error",
+			    "Ошибка в индексе"));
+d117 1
+a117 2
+		bferr(ediag("Subscript out of range",
+			    "Индекс вне диапазона"));
+d170 1
+a170 2
+					bferr(ediag("Syntax error",
+						    "Синтаксическая ошибка"));
+a184 1
+#        ifndef МНОС
+a190 3
+#        else
+				asx(vp, subscr, operate(op, getvx(vp, subscr)->vec[subscr - 1], p));
+#        endif  МНОС
+d193 1
+a193 1
+#endif  V6
+d242 1
+a242 2
+		bferr(ediag("Expression syntax",
+			    "Синтаксическая ошибка в выражении"));
+d274 1
+a274 1
+
+d332 1
+a332 2
+	bferr(ediag("Badly formed number",
+		    "Плохое число"));
+d424 1
+a424 2
+			bferr(ediag("No match",
+				    "Не найдено"));
+d479 1
+a479 2
+			setname(var), bferr(ediag("No match",
+						  "Не найдено"));
+d530 1
+a530 2
+		bferr(ediag("No more words",
+			    "Больше нет слов"));
+d542 1
+d546 2
+a547 2
+	register char *p, *dir ;
+	static char exppath[512] ;
+d549 9
+a557 9
+	exppath[0] = (char)0 ;
+	if( *val )
+		goto L ;
+	while( *val ) {
+		strcat( exppath, ":" ) ;
+L:
+		dir = globone( *val++ ) ;
+		if( !eq( dir, "." )) strcat( exppath, dir ) ;
+		xfree( dir ) ;
+d561 1
+@

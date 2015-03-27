@@ -1,0 +1,32 @@
+INSTALLDIR = ${DESTDIR}/usr/bin
+CC =	cc -V -O -I${INCLUDES} ${DEFS}
+DEFS=	-DSMALL
+INCLUDES =
+
+all: eyacc
+
+cp: eyacc
+	cp eyacc ${INSTALLDIR}/eyacc
+
+cmp: eyacc
+	cmp eyacc ${INSTALLDIR}/eyacc
+
+eyacc: ey0.o ey1.o ey2.o ey3.o ey4.o ey5.o
+	ld -X -n -s -o eyacc /lib/crt0.o ey0.o -Z ey1.o ey3.o \
+	-Z ey2.o ey4.o -L ey5.o -lovc
+
+.c.o:
+	${CC} -c $*.c
+
+clean:
+	-rm -f *.o eyacc
+
+print:
+	@ls -l | pr
+	@pr READ_ME makefile
+	@pr ey.h ey0.c ey1.c ey2.c ey3.c ey4.c ey5.c
+
+ey1.o:	ey.h
+ey2.o:	ey.h
+ey3.o:	ey.h
+ey4.o:	ey.h

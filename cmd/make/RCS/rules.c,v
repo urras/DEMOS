@@ -1,0 +1,308 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.04.01.17.39.24;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header: rules.c,v 1.1 89/03/31 23:47:57 ache Exp $
+ * $Log:	rules.c,v $
+ */
+#include "defs"
+/* DEFAULT RULES FOR UNIX */
+
+/*
+ *      These are the internal rules that "make" trucks around with it at
+ *      all times. One could completely delete this entire list and just
+ *      conventionally define a global "include" makefile which had these
+ *      rules in it. That would make the rules dynamically changeable
+ *      without recompiling make. This file may be modified to local
+ *      needs. There are currently two versions of this file with the
+ *      source; namely, rules.c (which is the version running in Columbus)
+ *      and pwbrules.c which is my attempt at satisfying the requirements
+ *      of PWB systems.
+ *      The makefile for make (make.mk) is parameterized for a different
+ *      rules file. The macro $(RULES) defined in "make.mk" can be set
+ *      to another file and when "make" is "made" the procedure will
+ *      use the new file. The recommended way to do this is on the
+ *      command line as follows:
+ *              "make -f make.mk RULES=pwbrules"
+ */
+
+CHARSTAR builtin[] =
+	{
+#ifndef  EXTRULES
+/*".SUFFIXES: .o .y .y~ .ye .ye~ .yr .yr~ .l .l~ .c .c~ .cm .cm~ .f .f~ .e .r .p .p~ .s .s~ .sh .sh~ .csh .csh~ .h .h~",*/
+".SUFFIXES: .o .c .c~ .y .y~ .l .l~ .f .f~ .p .p~ .s .s~ .sh .sh~ \
+.csh .csh~ .h .h~ .me .lp",
+
+/* PRESET VARIABLES */
+"MAKE=make",
+"YACC=yacc",
+/*"YACCR=yacc -r",*/
+/*"YACCE=yacc -e",*/
+"YFLAGS=",
+"LEX=lex",
+"LFLAGS=",
+"LD=ld",
+"LDFLAGS=-n",
+"LOADLIBS=",
+"CC=cc",
+"CFLAGS=-O",
+"FC=f77",
+"FFLAGS=",
+/*"RFLAGS=",*/
+/*"EFLAGS=",*/
+"PC=pc",
+"PFLAGS=",
+"AS=as -",
+"ASFLAGS=-V",
+/*"GET=co",*/
+"GFLAGS=",
+"RM=rm -f",
+
+/* RCS (SCCS) RULES */
+/*".c~.c .cm~.cm .p~.p .f~.f .s~.s .y~.y .l~.l .yr~.yr .ye~.ye .h~.h:",*/
+".c~.c .p~.p .f~.f .s~.s .y~.y .l~.l .h~.h:",
+	"\t$(GET) $(GFLAGS) -p $< > $@@",
+".sh~.sh .csh~.csh .sh~ .csh~:",
+	"\t$(GET) $(GFLAGS) -p $< > $@@",
+	"\tchmod 0777 $@@",
+
+/* SINGLE SUFFIX RULES */
+".o:",
+	"\t$(CC) $(LDFLAGS) $< $(LOADLIBS) -o $@@",
+".s:",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) $< $(LOADLIBS) -o $@@",
+".s~:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.s",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) $*.s $(LOADLIBS) -o $@@",
+	"\t-$(RM) $*.s",
+".c:",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) $< $(LOADLIBS) -o $@@",
+".c~:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.c",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) $*.c $(LOADLIBS) -o $*",
+	"\t-$(RM) $*.c",
+/*".cm:",*/
+	/*"\t$(CC) $(CFLAGS) $(LDFLAGS) $< $(LOADLIBS) -o $@@",*/
+/*".cm~:",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.cm",*/
+	/*"\t$(CC) $(CFLAGS) $(LDFLAGS) $*.cm $(LOADLIBS) -o $*",*/
+	/*"\t-$(RM) $*.cm",*/
+/*".e:",*/
+	/*"\t$(FC) $(EFLAGS) $(LDFLAGS) $< $(LOADLIBS) -o $@@",*/
+/*".r:",*/
+	/*"\t$(FC) $(RFLAGS) $(LDFLAGS) $< $(LOADLIBS) -o $@@",*/
+".f:",
+	"\t$(FC) $(FFLAGS) $(LDFLAGS) $< $(LOADLIBS) -o $@@",
+".f~:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.f",
+	"\t$(FC) $(FFLAGS) $(LDFLAGS) $*.f $(LOADLIBS) -o $*",
+	"\t-$(RM) $*.f",
+/*".ye:",*/
+	/*"\t$(YACCE) $(YFLAGS) $<",*/
+	/*"\tmv y.tab.e $*.e",*/
+	/*"\t$(FC) $(EFLAGS) $(LDFLAGS) $*.e $(LOADLIBS) -o $@@",*/
+	/*"\t-$(RM) $*.e",*/
+/*".ye~:",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.ye",*/
+	/*"\t$(YACCE) $(YFLAGS) $*.ye",*/
+	/*"\tmv y.tab.e $*.e",*/
+	/*"\t$(FC) $(EFLAGS) $(LDFLAGS) $*.e $(LOADLIBS) -o $@@",*/
+	/*"\t-$(RM) $*.e $*.ye",*/
+/*".yr:",*/
+	/*"\t$(YACCR) $(YFLAGS) $<",*/
+	/*"\tmv y.tab.r $*.r",*/
+	/*"\t$(FC) $(RFLAGS) $(LDFLAGS) $*.r $(LOADLIBS) -o $@@",*/
+	/*"\t-$(RM) $*.r",*/
+/*".yr~:",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.yr",*/
+	/*"\t$(YACCR) $(YFLAGS) $*.yr",*/
+	/*"\tmv y.tab.r $*.r",*/
+	/*"\t$(FC) $(EFLAGS) $(LDFLAGS) $*.r $(LOADLIBS) -o $@@",*/
+	/*"\t-$(RM) $*.r $*.yr",*/
+".p:",
+	"\t$(PC) $(PFLAGS) $(LDFLAGS) $< $(LOADLIBS) -o $@@",
+".p~:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.p",
+	"\t$(PC) $(PFLAGS) $(LDFLAGS) $*.p $(LOADLIBS) -o $*",
+	"\t-$(RM) $*.p",
+".l:",
+	"\t$(LEX) $(LFLAGS) $<",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) lex.yy.c $(LOADLIBS) -ll -o $@@",
+	"\t-$(RM) lex.yy.c",
+".l~:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.l",
+	"\t$(LEX) $(LFLAGS) $*.l",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) lex.yy.c $(LOADLIBS) -ll -o $@@",
+	"\t-$(RM) lex.yy.c $*.l",
+".y:",
+	"\t$(YACC) $(YFLAGS) $<",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) y.tab.c $(LOADLIBS) -ly -o $@@",
+	"\t-$(RM) y.tab.c",
+".y~:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.y",
+	"\t$(YACC) $(YFLAGS) $*.y",
+	"\t$(CC) $(CFLAGS) $(LDFLAGS) y.tab.c $(LOADLIBS) -ly -o $@@",
+	"\t-$(RM) y.tab.c $*.y",
+".sh .csh:",
+	"\tcp $< $@@; chmod 0777 $@@",
+
+/* DOUBLE SUFFIX RULES */
+".c.o:",
+	"\t$(CC) $(CFLAGS) -c $<",
+".c~.o:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.c",
+	"\t$(CC) $(CFLAGS) -c $*.c",
+	"\t-$(RM) $*.c",
+/*".cm.o:",*/
+	/*"\t$(CC) $(CFLAGS) -c $<",*/
+/*".cm~.o:",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.cm",*/
+	/*"\t$(CC) $(CFLAGS) -c $*.cm",*/
+	/*"\t-$(RM) $*.cm",*/
+".p.o:",
+	"\t$(PC) $(PFLAGS) -c $<",
+".p~.o:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.p",
+	"\t$(PC) $(PFLAGS) -c $*.p",
+	"\t-$(RM) $*.p",
+".f.o:",
+	"\t$(FC) $(FFLAGS) -c $<",
+".f~.o:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.f",
+	"\t$(FC) $(FFLAGS) -c $*.f",
+	"\t-$(RM) $*.f",
+".s.o:",
+	"\t$(AS) $(ASFLAGS) -o $@@ $<",
+".s~.o:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.s",
+	"\t$(AS) $(ASFLAGS) -o $*.o $*.s",
+	"\t-$(RM) $*.s",
+".y.o:",
+	"\t$(YACC) $(YFLAGS) $<",
+	"\t$(CC) $(CFLAGS) -c y.tab.c",
+	"\tmv y.tab.o $@@",
+	"\t-$(RM) y.tab.c",
+".y~.o:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.y",
+	"\t$(YACC) $(YFLAGS) $*.y",
+	"\t$(CC) $(CFLAGS) -c y.tab.c",
+	"\tmv y.tab.o $*.o",
+	"\t-$(RM) y.tab.c $*.y",
+".l.o:",
+	"\t$(LEX) $(LFLAGS) $<",
+	"\t$(CC) $(CFLAGS) -c lex.yy.c",
+	"\tmv lex.yy.o $@@",
+	"\t-$(RM) lex.yy.c",
+".l~.o:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.l",
+	"\t$(LEX) $(LFLAGS) $*.l",
+	"\t$(CC) $(CFLAGS) -c lex.yy.c",
+	"\tmv lex.yy.o $*.o",
+	"\t-$(RM) lex.yy.c $*.l",
+/*".ye.o:",*/
+	/*"\t$(YACCE) $(YFLAGS) $<",*/
+	/*"\tmv y.tab.e $*.e",*/
+	/*"\t$(FC) $(EFLAGS) -c $*.e",*/
+	/*"\t-$(RM) $*.e",*/
+/*".ye~.o:",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.ye",*/
+	/*"\t$(YACCE) $(YFLAGS) $*.ye",*/
+	/*"\tmv y.tab.e $*.e",*/
+	/*"\t$(FC) $(EFLAGS) -c $*.e",*/
+	/*"\t-$(RM) $*.ye $*.e",*/
+/*".yr.o:",*/
+	/*"\t$(YACCR) $(YFLAGS) $<",*/
+	/*"\tmv y.tab.r $*.r",*/
+	/*"\t$(FC) $(EFLAGS) -c $*.r",*/
+	/*"\t-$(RM) $*.r",*/
+/*".yr~.o:",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.yr",*/
+	/*"\t$(YACCR) $(YFLAGS) $*.yr",*/
+	/*"\tmv y.tab.r $*.r",*/
+	/*"\t$(FC) $(EFLAGS) -c $*.r",*/
+	/*"\t-$(RM) $*.yr $*.r",*/
+".y.c:",
+	"\t$(YACC) $(YFLAGS) $<",
+	"\tmv y.tab.c $@@",
+".y~.c:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.y",
+	"\t$(YACC) $(YFLAGS) $*.y",
+	"\tmv y.tab.c $*.c",
+	"\t-$(RM) $*.y",
+".l.c:",
+	"\t$(LEX) $(LFLAGS) $<",
+	"\tmv lex.yy.c $@@",
+".l~.c:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.l",
+	"\t$(LEX) $(LFLAGS) $*.l",
+	"\tmv lex.yy.c $@@",
+	"\t-$(RM) $*.l",
+/*".yr~.r:",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.yr",*/
+	/*"\t$(YACCR) $(YFLAGS) $*.yr",*/
+	/*"\tmv y.tab.r $*.r",*/
+	/*"\t-$(RM) $*.yr",*/
+/*".yr.r :",*/
+	/*"\t$(YACCR) $(YFLAGS) $<",*/
+	/*"\tmv y.tab.r $@@",*/
+/*".ye~.e :",*/
+	/*"\t$(GET) $(GFLAGS) -p $< > $*.ye",*/
+	/*"\t$(YACCE) $(YFLAGS) $*.ye",*/
+	/*"\tmv y.tab.e $*.e",*/
+	/*"\t-$(RM) $*.ye",*/
+/*".ye.e :",*/
+	/*"\t$(YACCE) $(YFLAGS) $<",*/
+	/*"\tmv y.tab.e $@@",*/
+/*".e.o:",*/
+	/*"\t$(FC) $(EFLAGS) -c $<",*/
+/*".r.o:",*/
+	/*"\t$(FC) $(RFLAGS) -c $<",*/
+".o.a:",
+	"\tar rv $@@ $<",
+".c.a:",
+	"\t$(CC) -c $(CFLAGS) $<",
+	"\tar rv $@@ $*.o",
+	"\t-$(RM) $*.o",
+".c~.a:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.c",
+	"\t$(CC) -c $(CFLAGS) $*.c",
+	"\tar rv $@@ $*.o",
+	"\t-$(RM) $*.[co]",
+".s.a:",
+	"\t$(AS) $(ASFLAGS) -o $*.o $<",
+	"\tar rv $@@ $*.o",
+	"\t-$(RM) $*.o",
+".s~.a:",
+	"\t$(GET) $(GFLAGS) -p $< > $*.s",
+	"\t$(AS) $(ASFLAGS) -o $*.o $*.s",
+	"\tar rv $@@ $*.o",
+	"\t-$(RM) $*.[so]",
+".me.lp:",
+	"\tnroff -me $< > $@@",
+	/*"markfile.o:    markfile",*/
+		/*"\tA=@@;echo \"static char _sccsid[] = \\042`grep $$A'(#)' markfile`\\042;\" > markfile.c",*/
+		/*"\tcc -c markfile.c",*/
+		/*"\trm -f markfile.c",*/
+#endif  /*EXTRULES*/
+	0 };
+@

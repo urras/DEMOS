@@ -1,0 +1,173 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.03.21.18.33.11;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+сбор статистики по дисковой памяти
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Собрать статистику занимаемого дискового пространства
+ *  Автор: Антонов В.Г. 01.10.1984
+ *   Последнее изменение: 11.09.1985
+ *
+ *         25.11.86
+ */
+
+#include <sys/types.h>
+#include <sys/param.h>
+#include <stdio.h>
+#include <bud.h>
+#include <sys/ino.h>
+#include <sys/inode.h>
+#include <sys/filsys.h>
+#include <ediag.h>
+#include <mtab.h>
+
+#define MTAB    "/etc/mtab"
+#define BUDF            "/usr/adm/budget"
+#define ARCLIST "/etc/archives"
+#define NARC    32
+#define YSIZE    1024      /* Для демос-2, в мнос 512 yst*/
+/* #define ROOT "/dev/rrk0" */
+
+int     budf;
+char    devs[]  = "/dev/r";
+char    devsx[] = "/dev/";
+long    ublocks[10000];           /* Начальное значение - 0 */
+char    BLOCK[YSIZE];
+char    B1[40];
+char    archives[NARC][32];
+main()
+{
+	struct  mtab MSTR;
+	int     ymtab;
+	register int i;
+	static struct USER user;
+	FILE   *af;
+	char   *ind;
+
+	if( (af = fopen( ARCLIST, "r" )) == NULL )
+		fatal( ediag( "No ", "Нет " ), ARCLIST );
+	i = 0;
+	while( fgets( archives[i], 31, af ) != NULL ) {
+#ifdef otlad
+		printf("архив: %s\n",archives[i]);
+#endif
+		if( (ind = index( archives[i], '\n' )) != NULL )
+			*ind = 0;
+		if( ++i >= NARC )
+			break;
+	}
+	fclose( af );
+	*archives[i] = '\0';
+
+	if( (budf = open( BUDF, 2 )) == -1 )
+		exit( 1 );
+	if( (ymtab = open( MTAB, 0 )) != -1 ) {
+		while( read( ymtab, &MSTR, sizeof(MSTR )) == sizeof(MSTR) ) {
+#ifdef otlad
+			printf("считали из мтав %s\n",MSTR.m_name);
+#endif
+			for( i = 0 ; *archives[i] != '\0' ; i++ ) {
+				if( !strcmp( archives[i],     MSTR.m_name )) {
+					if( !scan(
+					       strcat(strcpy(B1,devs ),MSTR.m_dname),
+					       1 ) )
+						break;
+					     scan(
+					       strcat(strcpy(B1,devsx),MSTR.m_dname),
+					       0 );
+					break;
+				}
+			}
+		}
+	}
+#ifdef ROOT
+	scan( ROOT, 0 );
+#endif
+	while( read( budf, &user, sizeof user ) == (sizeof user)) {
+		if( user.B_uid >= 0 ) {
+			if( user.B_uid > 255 )
+				fatal( ediag( "Bad uid in account file",
+				       "Плохой uid в файле бюджетов"), 0 );
+			lseek( budf,  (long)((char *)(&user.B_diskused)-
+					     (char *)(&user) ) -
+				      (long)(sizeof user), 1 );
+			user.B_diskused = ublocks[user.B_uid];
+			write( budf, &user.B_diskused, sizeof( long ) );
+			lseek( budf, (long)(sizeof user) -
+				     (long)(sizeof( long ) ) -
+				     (long)((char *)(&user.B_diskused)-
+					    (char *)(&user)), 1 );
+		}
+	}
+	exit( 0 );
+}
+
+/*
+ * Собрать статистику по носителю
+ */
+scan( fname, errf )
+char    *fname;
+{
+	int     fd;
+	int     nbl;
+	register struct dinode *nino;
+#ifdef otlad
+	printf("собираем статистику по %s\n",fname);
+#endif
+	if( (fd = open( fname, 0 )) < 0 ) {
+		if( errf )
+			return( 1 );
+		fatal( ediag( "Can't open", "Нельзя открыть " ), fname );
+	}
+	lseek( fd, 1024l, 0 );  /* Для демос-2*/
+	if( read( fd, BLOCK, YSIZE ) != YSIZE )
+		goto DISKERR;
+	for( nbl = ((struct filsys *)BLOCK)->s_isize ; nbl > 1 ; nbl-- ) {
+		if( read( fd, BLOCK, YSIZE ) != YSIZE )
+			goto DISKERR;
+		for( nino = (struct dinode *)BLOCK ;
+		       nino < ((struct dinode *)BLOCK) + INOPB ; nino++ ) {    /* демос-2 yst*/
+			if( ((nino->di_mode&IFMT)==0  || (nino->di_mode&IFMT)==IFREG
+				    || (nino->di_mode&IFMT)==IFDIR) )        {
+			       ublocks[((int)nino->di_uid)&0377]+=((nino->di_size + 1023) >>10);
+			}
+		}
+	}
+	return( 0 );
+DISKERR:
+	fatal( ediag( "Error reading ","Ошибка чтения на "), fname );
+}
+
+/*
+ * Выдача диагностики и завершение выполнения
+ */
+fatal( msg, nn )
+char    *msg, *nn;
+{
+	fputs( msg , stderr );
+	if( nn )
+		fputs( nn, stderr );
+	fputs( ".\n", stderr );
+	exit( 1 );
+}
+@

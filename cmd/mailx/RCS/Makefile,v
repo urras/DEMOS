@@ -1,0 +1,454 @@
+head     1.8;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.8
+date     88.08.23.16.42.23;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.08.20.17.57.21;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.07.04.12.05.58;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.06.23.17.56.57;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.02.19.15.40.19;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.02.19.15.37.37;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.11.18.25.04;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.11.12.54.50;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile для Mail и mail.
+@
+
+
+1.8
+log
+@Убрано удаление head.o
+@
+text
+@#
+# Почтовая служба ДЕМОС 2
+#
+#  DEMOS 2 makefile
+#
+# $Header: Makefile,v 1.7 88/08/20 17:57:21 avg Exp $
+# $Log: Makefile,v $
+# Revision 1.7  88/08/20  17:57:21  avg
+# Для пущего соответствия с System V Mail переименован в mailx.
+#
+# Revision 1.6  88/07/04  12:05:58  ache
+# Сборка с автооверлеями.
+#
+# Revision 1.5  88/06/23  17:56:57  ache
+# Добавлен -n при сборке mail и fmt
+#
+# Revision 1.4  88/02/19  15:40:19  avg
+# Для экономии памяти в оверлейные сегменты вынесено несколько
+# библиотечных модулей.
+#
+# Revision 1.2  88/01/11  18:25:04  avg
+# Поправлено вытаскивание модулей из библиотеки.
+#
+# Revision 1.1  88/01/11  12:54:50  avg
+# Initial revision
+#
+#
+
+#
+# На машинах PDP-11 без раздельных полей I/D установите M=O
+# - / -             с sep I/D                 - / -     M=S
+# на VAX-11                                   - / -     M=V
+#
+M=O
+
+#
+# Для работы с системами без механизма управления заданиями
+# надо изменить определения OPTIONS, SIGRETROSRC и SIGRETROOBJ
+#
+OPTIONS=        -DV7 -DVMUNIX                   # есть vfork и job control
+#OPTIONS=       -DV7                            # нет ---
+SIGRETROSRC=
+#SIGRETROSRC=   sigretro.c
+SIGRETROOBJ=
+#SIGRETROOBJ=   sigretro.o
+
+#
+# Для версии исх. текстов без архива RCS установите R=X
+#
+R=
+RCS=RCS
+COFLAGS=-q
+
+#
+# Каталоги
+#
+BIN=/bin
+ULIB=/usr/lib
+UCB=/usr/bin
+
+CC =            cc
+CFLAGS=         -O ${OPTIONS} ${INCLUDES}
+LIBC=           /usr/lib/libovbasec.a
+LIBES=          -lovjobs
+
+
+XSTR=               xstr
+ED=             -ed
+AS=             -as
+RM=             -rm -f
+OBJS=aux.o cmd1.o cmd2.o cmd3.o cmdtab.o collect.o config.o edit.o fio.o \
+     getname.o head.o v7.local.o lock.o lex.o list.o main.o \
+     names.o optim.o popen.o quit.o send.o strings.o temp.o tty.o \
+     vars.o str.o
+
+SRCS=aux.c cmd1.c cmd2.c cmd3.c cmdtab.c collect.c config.c edit.c fio.c \
+     getname.c head.c v7.local.c lock.c lex.c list.c main.c \
+     names.c optim.c popen.c quit.c send.c strings.c temp.c tty.c vars.c
+
+OSRCS=fmt.c mail.c
+
+HDRS=rcv.h configdefs.h def.h glob.h v7.local.h local.h
+
+S = $(SRCS) $(HDRS) $(SIGRETROSRC)
+
+.c.o:
+	${CC} -C -E ${CFLAGS} $*.c | ${XSTR} -c -
+	${CC} -a -c ${CFLAGS} x.c
+	mv x.o $*.o
+	@@$(RM) x.c
+
+
+all:    mail mailx fmt
+
+install: i_mailx i_fmt i_mail
+
+i_fmt:  fmt
+	-strip fmt
+	cp fmt ${UCB}
+
+i_mailx: mailx
+	cp mailx ${UCB}
+	-strip $(UCB)/mailx
+	cp misc/mailx.help* ${ULIB}
+
+i_mail: mail
+	@@echo WARNING! You must be a superuser to perform this!
+	cp mail ${BIN}
+	-strip $(BIN)/mail
+	chmod 4555 ${BIN}/mail
+
+mailx:   ${M}mail
+	ln ${M}mail mailx
+
+Omail:  $S $(OBJS) $(SIGRETROOBJ)
+	@@$(RM) mailx Omail
+	cc -n -o Omail $(SIGRETROOBJ) -Q $(OBJS) -L $(LIBES) -Q
+	@@size Omail
+	@@checkobj -40 Omail
+
+Smail:  $S $(OBJS) $(SIGRETROOBJ)
+	$(RM) -f mailx Smail
+	@@echo Loading ...
+	@@${CC} -i ${OBJS} $(SIGRETROOBJ) -o Smail
+	@@size Smail
+
+
+Vmail:  $S $(OBJS) $(SIGRETROOBJ)
+	$(RM) -f mailx Vmail
+	@@echo Loading ...
+	@@${CC} -n ${OBJS} $(SIGRETROOBJ) -o Vmail
+	@@size Vmail
+
+
+clean clear:
+	$(RM) -f *.o
+	rm -f a.out fmt x.c xs.c core strings ${M}mail mailx
+
+fmt:    fmt.c head.c
+	$(CC) fmt.c head.c -O -n -o fmt
+	size fmt
+
+mail:   mail.c
+	${CC} -O -n mail.c -o mail
+
+$(OBJS):        $(HDRS)
+
+str.o: strings
+	$(XSTR)
+	$(CC) -c $(CFLAGS) xs.c
+	mv xs.o str.o
+	$(RM) xs.c
+
+config.o:       config.c
+	$(CC) -c $(CFLAGS) config.c
+
+cmdtab.o: cmdtab.c
+	$(CC) -c $(CFLAGS) cmdtab.c
+
+
+CLRSRC: clean
+	${RM} $S
+
+source: $S Makefile ${OSRC}
+
+#### EXTRACT FROM RCS ####
+$(R)aux.c:          $(RCS)/aux.c,v ;            co $(COFLAGS) aux.c
+$(R)cmd1.c:         $(RCS)/cmd1.c,v ;           co $(COFLAGS) cmd1.c
+$(R)cmd2.c:         $(RCS)/cmd2.c,v ;           co $(COFLAGS) cmd2.c
+$(R)cmd3.c:         $(RCS)/cmd3.c,v ;           co $(COFLAGS) cmd3.c
+$(R)cmdtab.c:       $(RCS)/cmdtab.c,v ;         co $(COFLAGS) cmdtab.c
+$(R)collect.c:      $(RCS)/collect.c,v ;        co $(COFLAGS) collect.c
+$(R)config.c:       $(RCS)/config.c,v ;         co $(COFLAGS) config.c
+$(R)configdefs.h:   $(RCS)/configdefs.h,v ;     co $(COFLAGS) configdefs.h
+$(R)def.h:          $(RCS)/def.h,v ;            co $(COFLAGS) def.h
+$(R)edit.c:         $(RCS)/edit.c,v ;           co $(COFLAGS) edit.c
+$(R)fio.c:          $(RCS)/fio.c,v ;            co $(COFLAGS) fio.c
+$(R)fmt.c:          $(RCS)/fmt.c,v ;            co $(COFLAGS) fmt.c
+$(R)getname.c:      $(RCS)/getname.c,v ;        co $(COFLAGS) getname.c
+$(R)glob.h:         $(RCS)/glob.h,v ;           co $(COFLAGS) glob.h
+$(R)head.c:         $(RCS)/head.c,v ;           co $(COFLAGS) head.c
+$(R)lex.c:          $(RCS)/lex.c,v ;            co $(COFLAGS) lex.c
+$(R)list.c:         $(RCS)/list.c,v ;           co $(COFLAGS) list.c
+$(R)local.h:        $(RCS)/local.h,v ;          co $(COFLAGS) local.h
+$(R)lock.c:         $(RCS)/lock.c,v ;           co $(COFLAGS) lock.c
+$(R)main.c:         $(RCS)/main.c,v ;           co $(COFLAGS) main.c
+$(R)mail.c:         $(RCS)/mail.c,v ;           co $(COFLAGS) mail.c
+$(R)names.c:        $(RCS)/names.c,v ;          co $(COFLAGS) names.c
+$(R)optim.c:        $(RCS)/optim.c,v ;          co $(COFLAGS) optim.c
+$(R)popen.c:        $(RCS)/popen.c,v ;          co $(COFLAGS) popen.c
+$(R)quit.c:         $(RCS)/quit.c,v ;           co $(COFLAGS) quit.c
+$(R)rcv.h:          $(RCS)/rcv.h,v ;            co $(COFLAGS) rcv.h
+$(R)send.c:         $(RCS)/send.c,v ;           co $(COFLAGS) send.c
+$(R)sigretro.c:     $(RCS)/sigretro.c,v ;       co $(COFLAGS) sigretro.c
+$(R)sigretro.h:     $(RCS)/sigretro.h,v ;       co $(COFLAGS) sigretro.h
+$(R)strings.c:      $(RCS)/strings.c,v ;        co $(COFLAGS) strings.c
+$(R)temp.c:         $(RCS)/temp.c,v ;           co $(COFLAGS) temp.c
+$(R)tty.c:          $(RCS)/tty.c,v ;            co $(COFLAGS) tty.c
+$(R)v7.local.c:     $(RCS)/v7.local.c,v ;       co $(COFLAGS) v7.local.c
+$(R)v7.local.h:     $(RCS)/v7.local.h,v ;       co $(COFLAGS) v7.local.h
+$(R)vars.c:         $(RCS)/vars.c,v ;           co $(COFLAGS) vars.c
+$(R)Makefile:       $(RCS)/Makefile,v ;         co $(COFLAGS) Makefile
+@
+
+
+1.7
+log
+@Для пущего соответствия с System V Mail переименован в mailx.
+@
+text
+@d6 1
+a6 1
+# $Header: Makefile,v 1.6 88/07/04 12:05:58 ache Exp $
+d8 3
+a140 1
+	$(RM) fmt.o head.o
+@
+
+
+1.6
+log
+@Сборка с автооверлеями.
+@
+text
+@d6 5
+a10 2
+# $Header: Makefile,v 1.6 88/07/01 19:37:46 ache Exp $
+# $Log:	Makefile,v $
+d13 1
+a13 1
+# 
+d17 1
+a17 1
+# 
+d56 1
+a56 1
+UCB=/usr/ucb
+d90 1
+a90 1
+all:    mail Mail fmt
+d92 1
+a92 1
+install: i_Mail i_fmt i_mail
+d98 4
+a101 4
+i_Mail: Mail
+	cp Mail ${UCB}
+	-strip $(UCB)/Mail
+	cp misc/Mail.help* ${ULIB}
+d109 2
+a110 2
+Mail:   ${M}mail
+	ln ${M}mail Mail
+d113 1
+a113 1
+	@@$(RM) Mail Omail
+d119 1
+a119 1
+	$(RM) -f Mail Smail
+d126 1
+a126 1
+	$(RM) -f Mail Vmail
+d134 1
+a134 1
+	rm -f a.out fmt x.c xs.c core strings ${M}mail Mail
+@
+
+
+1.5
+log
+@Добавлен -n при сборке mail и fmt
+@
+text
+@d6 1
+a6 1
+# $Header: Makefile,v 1.4 88/02/19 15:40:19 avg Exp $
+d8 3
+d57 2
+a58 2
+LIBC=           /usr/lib/libovc.a
+LIBES=          -lovjobs -lovc
+d68 1
+a68 1
+     vars.o ${SIGRETROOBJ} str.o
+d72 1
+a72 2
+     names.c optim.c popen.c quit.c send.c strings.c temp.c tty.c vars.c \
+     ${SIGRETROSRC}
+d78 1
+a78 1
+S = $(SRCS) $(HDRS)
+a95 1
+	-strip Mail
+d97 1
+a101 1
+	-strip mail
+d103 1
+d109 3
+a111 16
+EXOBJS=ctime.o mktemp.o qsort.o perror.o fseek.o malloc.o \
+       fdopen.o calloc.o atoi.o getenv.o stty.o ungetc.o
+
+Omail:  $S $(OBJS) ${EXOBJS}
+	$(RM) -f Mail Omail
+	@@echo Loading ...
+	@@ld -X /lib/crt0.o -n -o Omail \
+	-Z      fio.o ${EXOBJS} \
+	-Z      names.o aux.o quit.o \
+	-Z      getname.o cmd2.o cmd3.o edit.o \
+	-Z      optim.o popen.o send.o strings.o temp.o \
+		v7.local.o vars.o \
+	-Z      lex.o list.o lock.o main.o tty.o \
+	-Z      head.o cmd1.o collect.o ${SIGRETROOBJ} \
+	-L      cmdtab.o config.o \
+		str.o  ${LIBES}
+d113 1
+d115 1
+a115 4
+${EXOBJS}: ${LIBC}
+	ar x $(LIBC) ${EXOBJS}
+
+Smail:  $S $(OBJS)
+d118 1
+a118 1
+	@@${CC} -i ${OBJS} -o Smail
+d122 1
+a122 1
+Vmail:  $S $(OBJS)
+d125 1
+a125 1
+	@@${CC} -n ${OBJS} -o Vmail
+@
+
+
+1.4
+log
+@Для экономии памяти в оверлейные сегменты вынесено несколько
+библиотечных модулей.
+@
+text
+@d6 6
+a11 2
+# $Header: Makefile,v 1.2 88/01/11 18:25:04 avg Exp $
+# $Log: Makefile,v $
+d147 1
+a147 1
+	$(CC) fmt.c head.c -O -o fmt
+d152 1
+a152 1
+	${CC} -O mail.c -o mail
+@
+
+
+1.3
+log
+@Для экономии памяти в оверлейный сегмент вынесены несколько
+библиотечных модулей.
+@
+text
+@@
+
+
+1.2
+log
+@Поправлено вытаскивание модулей из библиотеки.
+@
+text
+@d6 1
+a6 1
+# $Header: Makefile,v 1.1 88/01/11 12:54:50 avg Exp $
+d8 3
+d104 1
+a104 1
+       fdopen.o calloc.o atoi.o
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 4
+a9 2
+# $Header$
+# $Log$
+d11 1
+d47 1
+d103 1
+a103 1
+Omail:  $S $(OBJS)
+d119 1
+a119 1
+	ar x $(LIBC) $?
+@

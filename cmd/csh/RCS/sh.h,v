@@ -1,0 +1,1758 @@
+head     1.15;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.5 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.15
+date     90.10.21.16.31.11;  author root;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     89.11.22.14.00.07;  author abs;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     89.03.16.12.01.29;  author avg;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.11.15.23.46.05;  author ache;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.11.15.23.43.13;  author ache;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     86.09.28.18.53.50;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     86.09.28.17.42.10;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     86.09.24.22.11.49;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     86.09.24.12.16.13;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.07.21.22.35.25;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.07.20.22.24.32;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.06.03.14.59.02;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.06.02.19.29.12;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.18.39.27;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.21.15;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.18.10;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.42.03;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.11.06;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.35.44;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.15
+log
+@Исправлен include
+@
+text
+@/*
+ *      $Log:	sh.h,v $
+ * Revision 1.14  89/11/22  14:00:07  abs
+ * добавлен меьанизм функций в выражениях
+ * 
+ * Revision 1.13  89/03/16  12:01:29  avg
+ * Внесены изменения для экранной версии csh.
+ * 
+ * Revision 1.12  88/11/15  23:46:05  ache
+ * В libjobs.a добавлены из 4.2: sigsetmask, sigblock
+ * изменен в соотв. с 4.2 формат sigpause
+ * 
+ * Revision 1.10  86/09/28  18:53:50  avg
+ * Увеличен размер labuf - для того, чтобы влазил TERMCAP.
+ * 
+ * Revision 1.9  86/09/28  17:42:10  avg
+ * Неправильно обрабатывался sigint в неинтерактивном режиме.
+ *
+ * Revision 1.8  86/09/24  22:11:49  avg
+ * Уменьшен NCARGS для PDP11.
+ *
+ * Revision 1.7  86/09/24  12:16:13  avg
+ * Fixed dmitry bug: новый макрос ISQUOTED.
+ *
+ * Revision 1.6  86/07/21  22:35:25  avg
+ * #ifndef U42 заменено на ifdef для функций работы с сигналами из
+ * 4.2.
+ *
+ * Revision 1.5  86/07/20  22:24:32  avg
+ * Слито с версией alex-а из 4.2.
+ *
+ * Revision 1.4  86/06/03  14:59:02  dmitry
+ * Вылазила ошибочка с буквой "я". Изменен макрос ISQUOTED.
+ *
+ * Revision 1.3  86/06/02  19:29:12  dmitry
+ * В прошлый раз забыли вставить #include <sys/code.h>
+ *
+ * Revision 1.2  86/06/02  18:39:27  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские буквы.
+ *
+ * Revision 1.1  86/06/01  20:21:15  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+/* $Header: sh.h,v 1.14 89/11/22 14:00:07 abs Exp $ */
+
+#ifdef U42
+# include <sys/vtimes.h>
+# include <sys/time.h>
+# include <sys/resource.h>
+# include <sys/param.h>
+#else
+# include <sys/types.h>
+# include <sys/dir.h>
+#endif
+
+#include "sh.local.h"
+#include <sys/stat.h>
+
+#define isdir(d)        ((d.st_mode & S_IFMT) == S_IFDIR)
+
+#include <errno.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <sys/times.h>
+
+#include <ediag.h>
+
+typedef char    bool;
+
+#define eq(a, b)        (strcmp(a, b) == 0)
+
+# define mask(s)         (1L << ((s)-1))
+#ifdef U42
+/*
+ * For 4.2bsd signals.
+ */
+# define sigsys(s, a)    signal(s, a)
+# define sighold(s)      sigblock(mask(s))
+#endif U42
+
+/*
+ * Global flags
+ */
+bool    chkstop;                /* Warned of stopped jobs... allow exit */
+bool    didcch;                 /* Have closed unused fd's for child */
+bool    didfds;                 /* Have setup i/o fd's for child */
+bool    doneinp;                /* EOF indicator after reset from readc */
+bool    exiterr;                /* Exit if error or non-zero exit status */
+bool    child;                  /* Child shell ... errors cause exit */
+bool    haderr;                 /* Reset was because of an error */
+bool    intty;                  /* Input is a tty */
+bool    intact;                 /* We are interactive... therefore prompt */
+bool    justpr;                 /* Just print because of :p hist mod */
+bool    loginsh;                /* We are a loginsh -> .login/.logout */
+bool    neednote;               /* Need to pnotify() */
+bool    noexec;                 /* Don't execute, just syntax check */
+bool    pjobs;                  /* want to print jobs if interrupted */
+bool    setintr;                /* Set interrupts on/off -> Wait intr... */
+bool    setstop;                /* Set stops on/off, if allowing tty stops */
+bool    timflg;                 /* Time the next waited for command */
+
+/*
+ * Global i/o info
+ */
+char    *arginp;                /* Argument input for sh -c and internal `xx` */
+int     onelflg;                /* 2 -> need line for -t, 1 -> exit on read */
+char    *file;                  /* Name of shell file for $0 */
+
+char    *err;                   /* Error message from scanner/parser */
+int     errno;                  /* Error from C library routines */
+char    *shtemp;                /* Temp name for << shell files in /tmp */
+
+#ifndef U42
+time_t  time0;                  /* Time at which the shell started */
+#else
+struct  timeval time0;          /* Time at which the shell started */
+struct  rusage ru0;
+#endif U42
+
+/*
+ * Miscellany
+ */
+char    *doldol;                /* Character pid for $$ */
+int     uid;                    /* Invokers uid */
+time_t  chktim;                 /* Time mail last checked */
+int     shpgrp;                 /* Pgrp of shell */
+int     tpgrp;                  /* Terminal process group */
+/* If tpgrp is -1, leave tty alone! */
+int     opgrp;                  /* Initial pgrp and tty pgrp */
+int     oldisc;                 /* Initial line discipline or -1 */
+struct  tms shtimes;            /* shell and child times for process timing */
+
+/*
+ * These are declared here because they want to be
+ * initialized in sh.init.c (to allow them to be made readonly)
+ */
+
+struct  biltins {
+	char    *bname;
+	int     (*bfunct)();
+	short   minargs, maxargs;
+} bfunc[];
+
+#define INF     1000
+
+struct srch {
+	char    *s_name;
+	short   s_value;
+} srchn[];
+
+/*
+ * To be able to redirect i/o for builtins easily, the shell moves the i/o
+ * descriptors it uses away from 0,1,2.
+ * Ideally these should be in units which are closed across exec's
+ * (this saves work) but for version 6, this is not usually possible.
+ * The desired initial values for these descriptors are defined in
+ * sh.local.h.
+ */
+short   SHIN;                   /* Current shell input (script) */
+short   SHOUT;                  /* Shell output */
+short   SHDIAG;                 /* Diagnostic output... shell errs go here */
+short   OLDSTD;                 /* Old standard input (def for cmds) */
+
+/*
+ * Error control
+ *
+ * Errors in scanning and parsing set up an error message to be printed
+ * at the end and complete.  Other errors always cause a reset.
+ * Because of source commands and .cshrc we need nested error catches.
+ */
+
+jmp_buf reslab;
+
+#define setexit()       setjmp(reslab)
+#define reset()         longjmp(reslab)
+	/* Should use structure assignment here */
+#define getexit(a)      copy((char *)(a), (char *)reslab, sizeof reslab)
+#define resexit(a)      copy((char *)reslab, ((char *)(a)), sizeof reslab)
+
+char    *gointr;                /* Label for an onintr transfer */
+int     (*parintr)();           /* Parents interrupt catch */
+int     (*parterm)();           /* Parents terminate catch */
+
+/*
+ * Lexical definitions.
+ *
+ * Маскирование / размаскирование символов.
+ * Два последних макро служат для константного преодразования специальных
+ * символов.  В зависимости от того, установлен или нет режим "set cyrillic",
+ * используются разные варианты таблиц "toquot" и "totrim".
+ * Пока признаком маскирования будет бит 8, точнее было бы
+ * ((unsigned)(c)!=TRIMED(c)
+ */
+extern char *toquot, *totrim;
+#define QUOTED(c) (unsigned)toquot[0377&(c)]
+#define TRIMED(c) (unsigned)totrim[0377&(c)]
+#define ISQUOTED(c) (((c)&0377)!=TRIMED(c)) /** fail on side-effecting c **/
+#define QUOTEDS(c) ((c)|0200)
+
+/*
+ * Each level of input has a buffered input structure.
+ * There are one or more blocks of buffered input for each level,
+ * exactly one if the input is seekable and tell is available.
+ * In other cases, the shell buffers enough blocks to keep all loops
+ * in the buffer.
+ */
+struct  Bin {
+	off_t   Bfseekp;                /* Seek pointer */
+	off_t   Bfbobp;                 /* Seekp of beginning of buffers */
+	off_t   Bfeobp;                 /* Seekp of end of buffers */
+	short   Bfblocks;               /* Number of buffer blocks */
+	char    **Bfbuf;                /* The array of buffer blocks */
+} B;
+
+#define fseekp  B.Bfseekp
+#define fbobp   B.Bfbobp
+#define feobp   B.Bfeobp
+#define fblocks B.Bfblocks
+#define fbuf    B.Bfbuf
+
+off_t   btell();
+
+/*
+ * The shell finds commands in loops by reseeking the input
+ * For whiles, in particular, it reseeks to the beginning of the
+ * line the while was on; hence the while placement restrictions.
+ */
+off_t   lineloc;
+
+#ifdef  TELL
+off_t   tell();
+bool    cantell;                        /* Is current source tellable ? */
+#endif
+
+/*
+ * Input lines are parsed into doubly linked circular
+ * lists of words of the following form.
+ */
+struct  wordent {
+	char    *word;
+	struct  wordent *prev;
+	struct  wordent *next;
+};
+
+/*
+ * During word building, both in the initial lexical phase and
+ * when expanding $ variable substitutions, expansion by `!' and `$'
+ * must be inhibited when reading ahead in routines which are themselves
+ * processing `!' and `$' expansion or after characters such as `\' or in
+ * quotations.  The following flags are passed to the getC routines
+ * telling them which of these substitutions are appropriate for the
+ * next character to be returned.
+ */
+#define DODOL   1
+#define DOEXCL  2
+#define DOALL   DODOL|DOEXCL
+
+/*
+ * Labuf implements a general buffer for lookahead during lexical operations.
+ * Text which is to be placed in the input stream can be stuck here.
+ * We stick parsed ahead $ constructs during initial input,
+ * process id's from `$$', and modified variable values (from qualifiers
+ * during expansion in sh.dol.c) here.
+ */
+char    labuf[BUFSIZ];  /* Нужно не менее 500, for the sake of TERMCAP */
+
+char    *lap;
+
+/*
+ * Parser structure
+ *
+ * Each command is parsed to a tree of command structures and
+ * flags are set bottom up during this process, to be propagated down
+ * as needed during the semantics/exeuction pass (sh.sem.c).
+ */
+struct  command {
+	short   t_dtyp;                         /* Type of node */
+	short   t_dflg;                         /* Flags, e.g. FAND|... */
+	union {
+		char    *T_dlef;                /* Input redirect word */
+		struct  command *T_dcar;        /* Left part of list/pipe */
+	} L;
+	union {
+		char    *T_drit;                /* Output redirect word */
+		struct  command *T_dcdr;        /* Right part of list/pipe */
+	} R;
+#define t_dlef  L.T_dlef
+#define t_dcar  L.T_dcar
+#define t_drit  R.T_drit
+#define t_dcdr  R.T_dcdr
+	char    **t_dcom;                       /* Command/argument vector */
+	struct  command *t_dspr;                /* Pointer to ()'d subtree */
+	short   t_nice;
+};
+
+#define TCOM    1               /* t_dcom <t_dlef >t_drit       */
+#define TPAR    2               /* ( t_dspr ) <t_dlef >t_drit   */
+#define TFIL    3               /* t_dlef | t_drit              */
+#define TLST    4               /* t_dlef ; t_drit              */
+#define TOR     5               /* t_dlef || t_drit             */
+#define TAND    6               /* t_dlef && t_drit             */
+
+#define FSAVE   (FNICE|FTIME|FNOHUP)    /* save these when re-doing */
+
+#define FAND    (1<<0)          /* executes in background       */
+#define FCAT    (1<<1)          /* output is redirected >>      */
+#define FPIN    (1<<2)          /* input is a pipe              */
+#define FPOU    (1<<3)          /* output is a pipe             */
+#define FPAR    (1<<4)          /* don't fork, last ()ized cmd  */
+#define FINT    (1<<5)          /* should be immune from intr's */
+/* spare */
+#define FDIAG   (1<<7)          /* redirect unit 2 with unit 1  */
+#define FANY    (1<<8)          /* output was !                 */
+#define FHERE   (1<<9)          /* input redirection is <<      */
+#define FREDO   (1<<10)         /* reexec aft if, repeat,...    */
+#define FNICE   (1<<11)         /* t_nice is meaningful */
+#define FNOHUP  (1<<12)         /* nohup this command */
+#define FTIME   (1<<13)         /* time this command */
+
+/*
+ * The keywords for the parser
+ */
+#define ZBREAK          0
+#define ZBRKSW          1
+#define ZCASE           2
+#define ZDEFAULT        3
+#define ZELSE           4
+#define ZEND            5
+#define ZENDIF          6
+#define ZENDSW          7
+#define ZEXIT           8
+#define ZFOREACH        9
+#define ZGOTO           10
+#define ZIF             11
+#define ZLABEL          12
+#define ZLET            13
+#define ZSET            14
+#define ZSWITCH         15
+#define ZTEST           16
+#define ZTHEN           17
+#define ZWHILE          18
+
+/*
+ * Structure defining the existing while/foreach loops at this
+ * source level.  Loops are implemented by seeking back in the
+ * input.  For foreach (fe), the word list is attached here.
+ */
+struct  whyle {
+	off_t   w_start;                /* Point to restart loop */
+	off_t   w_end;                  /* End of loop (0 if unknown) */
+	char    **w_fe, **w_fe0;        /* Current/initial wordlist for fe */
+	char    *w_fename;              /* Name for fe */
+	struct  whyle *w_next;          /* Next (more outer) loop */
+} *whyles;
+
+/*
+ * Variable structure
+ *
+ * Lists of aliases and variables are sorted alphabetically by name
+ */
+struct  varent {
+	char    **vec;          /* Array of words which is the value */
+	char    *name;          /* Name of variable/alias */
+	struct  varent *link;
+} shvhed, aliases;
+
+/*
+ * The following are for interfacing redo substitution in
+ * aliases to the lexical routines.
+ */
+struct  wordent *alhistp;               /* Argument list (first) */
+struct  wordent *alhistt;               /* Node after last in arg list */
+char    **alvec;                        /* The (remnants of) alias vector */
+
+/*
+ * Filename/command name expansion variables
+ */
+short   gflag;                          /* After tglob -> is globbing needed? */
+
+/*
+ * A reasonable limit on number of arguments would seem to be
+ * the maximum number of characters in an arg list / 6.
+ */
+#ifdef  U42
+#define GAVSIZ  NCARGS / 6
+#else
+/*
+ * Even at NCARGS/10, the total number of characters will be limiting
+ * unless the average argument length is 6 characters or less.
+ */
+#define GAVSIZ  NCARGS / 10
+#endif
+
+/*
+ * Variables for filename expansion
+ */
+char    **gargv;                        /* Pointer to the (stack) arglist */
+short   gargc;                          /* Number args in gargv */
+short   gnleft;
+
+/*
+ * Variables for command expansion.
+ */
+char    **pargv;                        /* Pointer to the argv list space */
+char    *pargs;                         /* Pointer to start current word */
+short   pargc;                          /* Count of arguments in pargv */
+short   pnleft;                         /* Number of chars left in pargs */
+char    *pargcp;                        /* Current index into pargs */
+
+/*
+ * History list
+ *
+ * Each history list entry contains an embedded wordlist
+ * from the scanner, a number for the event, and a reference count
+ * to aid in discarding old entries.
+ *
+ * Essentially "invisible" entries are put on the history list
+ * when history substitution includes modifiers, and thrown away
+ * at the next discarding since their event numbers are very negative.
+ */
+struct  Hist {
+	struct  wordent Hlex;
+	int     Hnum;
+	int     Href;
+	struct  Hist *Hnext;
+} Histlist;
+
+struct  wordent paraml;                 /* Current lexical word list */
+int     eventno;                        /* Next events number */
+int     lastev;                         /* Last event reference (default) */
+
+char    HIST;                           /* history invocation character */
+char    HISTSUB;                        /* auto-substitute character */
+
+char    *Dfix1();
+struct  varent *adrof(), *adrof1();
+char    **blkcat();
+char    **blkcpy();
+char    **blkend();
+char    **blkspl();
+char    *calloc();
+char    *cname();
+char    **copyblk();
+char    **dobackp();
+char    *domod();
+struct  wordent *dosub();
+char    *exp();
+char    *exp0();
+char    *exp1();
+char    *exp2();
+char    *exp2a();
+char    *exp2b();
+char    *exp2c();
+char    *exp3();
+char    *exp3a();
+char    *exp4();
+char    *exp5();
+char    *exp6();
+struct  Hist *enthist();
+struct  Hist *findev();
+struct  wordent *freenod();
+char    *getenv();
+char    *getinx();
+struct  varent *getvx();
+struct  passwd *getpwnam();
+struct  wordent *gethent();
+struct  wordent *getsub();
+char    *getwd();
+char    *globone();
+struct  biltins *isbfunc();
+char    **glob();
+char    *operate();
+int     phup();
+int     pintr();
+int     pchild();
+char    *putn();
+char    **saveblk();
+char    *savestr();
+char    *strcat();
+char    *strcpy();
+char    *strend();
+char    *strings();
+char    *strip();
+char    *strspl();
+char    *subword();
+struct  command *syntax();
+struct  command *syn0();
+struct  command *syn1();
+struct  command *syn1a();
+struct  command *syn1b();
+struct  command *syn2();
+struct  command *syn3();
+int     tglob();
+int     trim();
+char    *value(), *value1();
+char    *xhome();
+char    *xname();
+char    *xset();
+
+#define NOSTR   ((char *) 0)
+
+/*
+ * setname is a macro to save space (see sh.err.c)
+ */
+char    *bname;
+#define setname(a)      bname = (a);
+
+#ifdef VFORK
+char    *Vsav;
+char    **Vav;
+char    *Vdp;
+#endif
+
+#ifdef U42
+struct  vtimes zvms;
+#endif
+
+char    **evalvec;
+char    *evalp;
+
+struct  mesg {
+	char    *iname;         /* name from /usr/include */
+	char    *pname;         /* print name */
+} mesg[];
+
+struct  mesg    Rmesg[];
+
+#ifdef COMMANDEDIT
+
+int ttysaved;
+int MaxHist;
+int ScrFlag;
+
+#    ifdef TERMIO
+#       include <termio.h>
+	struct termio tsave;
+#    else
+#       include <sgtty.h>
+	struct sgttya tsave;
+#   endif
+#endif
+@
+
+
+1.14
+log
+@добавлен меьанизм функций в выражениях
+@
+text
+@d3 3
+d45 1
+a45 1
+/* $Header: sh.h,v 1.13 89/03/16 12:01:29 avg Exp $ */
+a66 1
+#include <sys/code.h>
+@
+
+
+1.13
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d3 3
+d42 1
+a42 1
+/* $Header: sh.h,v 1.12 88/11/15 23:46:05 ache Exp $ */
+d446 7
+@
+
+
+1.12
+log
+@В libjobs.a добавлены из 4.2: sigsetmask, sigblock
+изменен в соотв. с 4.2 формат sigpause
+@
+text
+@d3 4
+d39 1
+a39 1
+/* $Header: sh.h,v 1.10 86/09/28 18:53:50 avg Exp $ */
+d516 15
+@
+
+
+1.11
+log
+@В ДЕМОС добавлены функции из 4.2: sigsetmask, sigblock
+формат sigpause приведен в соответствие с 4.2
+@
+text
+@@
+
+
+1.10
+log
+@Увеличен размер labuf - для того, чтобы влазил TERMCAP.
+@
+text
+@d2 4
+a5 1
+ *      $Log:   sh.h,v $
+d35 1
+a35 1
+/* $Header: sh.h,v 1.9 86/09/28 17:42:10 avg Exp $ */
+d64 1
+a68 1
+# define mask(s)         (1 << ((s)-1))
+@
+
+
+1.9
+log
+@Неправильно обрабатывался sigint в неинтерактивном режиме.
+@
+text
+@d3 3
+d32 1
+a32 1
+/* $Header: sh.h,v 1.8 86/09/24 22:11:49 avg Exp $ */
+d254 1
+a254 5
+#ifdef U42
+char    labuf[BUFSIZ];
+#else
+char    labuf[256];
+#endif
+@
+
+
+1.8
+log
+@Уменьшен NCARGS для PDP11.
+@
+text
+@d3 3
+d29 1
+a29 1
+/* $Header: sh.h,v 1.7 86/09/24 12:16:13 avg Exp $ */
+d62 3
+a64 3
+#define mask(s)         (1 << ((s)-1))
+#define sigsys(s, a)    signal(s, a)
+#define sighold(s)      sigblock(mask(s))
+@
+
+
+1.7
+log
+@Fixed dmitry bug: новый макрос ISQUOTED.
+@
+text
+@d3 3
+d26 1
+a26 1
+/* $Header: sh.h,v 1.6 86/07/21 22:35:25 avg Exp $ */
+d375 2
+a376 2
+ * Even at NCARGS/8, the total number of characters will be limiting
+ * unless the average argument length is 5 characters or less.
+d378 1
+a378 1
+#define GAVSIZ  NCARGS / 8
+@
+
+
+1.6
+log
+@#ifndef U42 заменено на ifdef для функций работы с сигналами из
+4.2.
+@
+text
+@d3 4
+d23 1
+a23 1
+/* $Header: sh.h,v 1.1 86/07/21 21:43:31 avg Exp $ */
+d177 1
+a177 1
+#define ISQUOTED(c) ((c)==QUOTED(c)) /** fail on side-effecting c **/
+@
+
+
+1.5
+log
+@Слито с версией alex-а из 4.2.
+@
+text
+@d3 3
+d19 1
+a19 1
+/* $Header: sh.h,v 0.0.2.0 86/07/20 19:11:06 avg Exp $ */
+d48 1
+a48 1
+#ifndef U42
+a54 1
+
+@
+
+
+1.4
+log
+@Вылазила ошибочка с буквой "я". Изменен макрос ISQUOTED.
+@
+text
+@d3 3
+d16 1
+d18 8
+a25 4
+int erf;        /* error file descriptor */
+#define er(s)   write(erf,s,sizeof(s))
+#ifdef VMUNIX
+#include <sys/vtimes.h>
+d27 1
+a28 12
+
+/*
+ * C shell
+ *
+ * Bill Joy, UC Berkeley
+ * October, 1978; May 1980
+ *
+ * Jim Kulp, IIASA, Laxenburg Austria
+ * April, 1980
+ */
+
+#include <sys/types.h>
+a29 1
+#include <sys/dir.h>
+d45 1
+d47 9
+d86 2
+d89 4
+d100 2
+a101 2
+short   shpgrp;                 /* Pgrp of shell */
+short   tpgrp;                  /* Terminal process group */
+d103 1
+a103 1
+short   opgrp;                  /* Initial pgrp and tty pgrp */
+d239 1
+a239 1
+#ifdef VMUNIX
+d362 1
+a362 1
+#ifdef  VMUNIX
+d444 1
+d485 1
+a485 1
+#ifdef VMUNIX
+@
+
+
+1.3
+log
+@В прошлый раз забыли вставить #include <sys/code.h>
+@
+text
+@d3 3
+d159 1
+a159 1
+#define ISQUOTED(c) ((c)&0200)
+d483 2
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские буквы.
+@
+text
+@d3 3
+d39 1
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d3 3
+d24 1
+d36 2
+d142 6
+a147 3
+ * All lexical space is allocated dynamically.
+ * The eighth bit of characters is used to prevent recognition,
+ * and eventually stripped.
+d149 5
+a153 2
+#define QUOTE   0200            /* Eighth char bit used internally for 'ing */
+#define TRIM    0177            /* Mask to strip quote bit */
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 6
+a6 3
+/* sh.h 4.1 10/9/80 */
+int erf;	/* error file descriptor */
+#define er(s)	write(erf,s,sizeof(s))
+d25 1
+a25 1
+#define	isdir(d)	((d.st_mode & S_IFMT) == S_IFDIR)
+d32 1
+a32 1
+typedef	char	bool;
+d34 1
+a34 1
+#define	eq(a, b)	(strcmp(a, b) == 0)
+d39 17
+a55 17
+bool	chkstop;		/* Warned of stopped jobs... allow exit */
+bool	didcch;			/* Have closed unused fd's for child */
+bool	didfds;			/* Have setup i/o fd's for child */
+bool	doneinp;		/* EOF indicator after reset from readc */
+bool	exiterr;		/* Exit if error or non-zero exit status */
+bool	child;			/* Child shell ... errors cause exit */
+bool	haderr;			/* Reset was because of an error */
+bool	intty;			/* Input is a tty */
+bool	intact;			/* We are interactive... therefore prompt */
+bool	justpr;			/* Just print because of :p hist mod */
+bool	loginsh;		/* We are a loginsh -> .login/.logout */
+bool	neednote;		/* Need to pnotify() */
+bool	noexec;			/* Don't execute, just syntax check */
+bool	pjobs;			/* want to print jobs if interrupted */
+bool	setintr;		/* Set interrupts on/off -> Wait intr... */
+bool	setstop;		/* Set stops on/off, if allowing tty stops */
+bool	timflg;			/* Time the next waited for command */
+d60 3
+a62 3
+char	*arginp;		/* Argument input for sh -c and internal `xx` */
+int	onelflg;		/* 2 -> need line for -t, 1 -> exit on read */
+char	*file;			/* Name of shell file for $0 */
+d64 4
+a67 4
+char	*err;			/* Error message from scanner/parser */
+int	errno;			/* Error from C library routines */
+char	*shtemp;		/* Temp name for << shell files in /tmp */
+time_t	time0;			/* Time at which the shell started */
+d72 5
+a76 5
+char	*doldol;		/* Character pid for $$ */
+int	uid;			/* Invokers uid */
+time_t	chktim;			/* Time mail last checked */
+short	shpgrp;			/* Pgrp of shell */
+short	tpgrp;			/* Terminal process group */
+d78 3
+a80 3
+short	opgrp;			/* Initial pgrp and tty pgrp */
+int	oldisc;			/* Initial line discipline or -1 */
+struct	tms shtimes;		/* shell and child times for process timing */
+d87 4
+a90 4
+struct	biltins {
+	char	*bname;
+	int	(*bfunct)();
+	short	minargs, maxargs;
+d93 1
+a93 1
+#define	INF	1000
+d96 2
+a97 2
+	char	*s_name;
+	short	s_value;
+d108 4
+a111 4
+short	SHIN;			/* Current shell input (script) */
+short	SHOUT;			/* Shell output */
+short	SHDIAG;			/* Diagnostic output... shell errs go here */
+short	OLDSTD;			/* Old standard input (def for cmds) */
+d121 1
+a121 1
+jmp_buf	reslab;
+d123 2
+a124 2
+#define	setexit()	setjmp(reslab)
+#define	reset()		longjmp(reslab)
+d126 2
+a127 2
+#define	getexit(a)	copy((char *)(a), (char *)reslab, sizeof reslab)
+#define	resexit(a)	copy((char *)reslab, ((char *)(a)), sizeof reslab)
+d129 3
+a131 3
+char	*gointr;		/* Label for an onintr transfer */
+int	(*parintr)();		/* Parents interrupt catch */
+int	(*parterm)();		/* Parents terminate catch */
+d140 2
+a141 2
+#define	QUOTE 	0200		/* Eighth char bit used internally for 'ing */
+#define	TRIM	0177		/* Mask to strip quote bit */
+d150 6
+a155 6
+struct	Bin {
+	off_t	Bfseekp;		/* Seek pointer */
+	off_t	Bfbobp;			/* Seekp of beginning of buffers */
+	off_t	Bfeobp;			/* Seekp of end of buffers */
+	short	Bfblocks;		/* Number of buffer blocks */
+	char	**Bfbuf;		/* The array of buffer blocks */
+d158 5
+a162 5
+#define	fseekp	B.Bfseekp
+#define	fbobp	B.Bfbobp
+#define	feobp	B.Bfeobp
+#define	fblocks	B.Bfblocks
+#define	fbuf	B.Bfbuf
+d164 1
+a164 1
+off_t	btell();
+d171 1
+a171 1
+off_t	lineloc;
+d173 3
+a175 3
+#ifdef	TELL
+off_t	tell();
+bool	cantell;			/* Is current source tellable ? */
+d182 4
+a185 4
+struct	wordent {
+	char	*word;
+	struct	wordent *prev;
+	struct	wordent *next;
+d197 3
+a199 3
+#define	DODOL	1
+#define	DOEXCL	2
+#define	DOALL	DODOL|DOEXCL
+d209 1
+a209 1
+char	labuf[BUFSIZ];
+d211 1
+a211 1
+char	labuf[256];
+d214 1
+a214 1
+char	*lap;
+d223 3
+a225 3
+struct	command {
+	short	t_dtyp;				/* Type of node */
+	short	t_dflg;				/* Flags, e.g. FAND|... */
+d227 2
+a228 2
+		char	*T_dlef;		/* Input redirect word */
+		struct	command *T_dcar;	/* Left part of list/pipe */
+d231 2
+a232 2
+		char	*T_drit;		/* Output redirect word */
+		struct	command *T_dcdr;	/* Right part of list/pipe */
+d234 7
+a240 7
+#define	t_dlef	L.T_dlef
+#define	t_dcar	L.T_dcar
+#define	t_drit	R.T_drit
+#define	t_dcdr	R.T_dcdr
+	char	**t_dcom;			/* Command/argument vector */
+	struct	command *t_dspr;		/* Pointer to ()'d subtree */
+	short	t_nice;
+d243 6
+a248 6
+#define	TCOM	1		/* t_dcom <t_dlef >t_drit	*/
+#define	TPAR	2		/* ( t_dspr ) <t_dlef >t_drit	*/
+#define	TFIL	3		/* t_dlef | t_drit		*/
+#define	TLST	4		/* t_dlef ; t_drit		*/
+#define	TOR	5		/* t_dlef || t_drit		*/
+#define	TAND	6		/* t_dlef && t_drit		*/
+d250 1
+a250 1
+#define	FSAVE	(FNICE|FTIME|FNOHUP)	/* save these when re-doing */
+d252 6
+a257 6
+#define	FAND	(1<<0)		/* executes in background	*/
+#define	FCAT	(1<<1)		/* output is redirected >>	*/
+#define	FPIN	(1<<2)		/* input is a pipe		*/
+#define	FPOU	(1<<3)		/* output is a pipe		*/
+#define	FPAR	(1<<4)		/* don't fork, last ()ized cmd	*/
+#define	FINT	(1<<5)		/* should be immune from intr's */
+d259 7
+a265 7
+#define	FDIAG	(1<<7)		/* redirect unit 2 with unit 1	*/
+#define	FANY	(1<<8)		/* output was !			*/
+#define	FHERE	(1<<9)		/* input redirection is <<	*/
+#define	FREDO	(1<<10)		/* reexec aft if, repeat,...	*/
+#define	FNICE	(1<<11)		/* t_nice is meaningful */
+#define	FNOHUP	(1<<12)		/* nohup this command */
+#define	FTIME	(1<<13)		/* time this command */
+d270 19
+a288 19
+#define	ZBREAK		0
+#define	ZBRKSW		1
+#define	ZCASE		2
+#define	ZDEFAULT 	3
+#define	ZELSE		4
+#define	ZEND		5
+#define	ZENDIF		6
+#define	ZENDSW		7
+#define	ZEXIT		8
+#define	ZFOREACH	9
+#define	ZGOTO		10
+#define	ZIF		11
+#define	ZLABEL		12
+#define	ZLET		13
+#define	ZSET		14
+#define	ZSWITCH		15
+#define	ZTEST		16
+#define	ZTHEN		17
+#define	ZWHILE		18
+d295 6
+a300 6
+struct	whyle {
+	off_t	w_start;		/* Point to restart loop */
+	off_t	w_end;			/* End of loop (0 if unknown) */
+	char	**w_fe, **w_fe0;	/* Current/initial wordlist for fe */
+	char	*w_fename;		/* Name for fe */
+	struct	whyle *w_next;		/* Next (more outer) loop */
+d308 4
+a311 4
+struct	varent {
+	char	**vec;		/* Array of words which is the value */
+	char	*name;		/* Name of variable/alias */
+	struct	varent *link;
+d318 3
+a320 3
+struct	wordent *alhistp;		/* Argument list (first) */
+struct	wordent *alhistt;		/* Node after last in arg list */
+char	**alvec;			/* The (remnants of) alias vector */
+d325 1
+a325 1
+short	gflag;				/* After tglob -> is globbing needed? */
+d331 2
+a332 2
+#ifdef	VMUNIX
+#define	GAVSIZ	NCARGS / 6
+d338 1
+a338 1
+#define	GAVSIZ	NCARGS / 8
+d344 3
+a346 3
+char	**gargv;			/* Pointer to the (stack) arglist */
+short	gargc;				/* Number args in gargv */
+short	gnleft;
+d351 5
+a355 5
+char	**pargv;			/* Pointer to the argv list space */
+char	*pargs;				/* Pointer to start current word */
+short	pargc;				/* Count of arguments in pargv */
+short	pnleft;				/* Number of chars left in pargs */
+char	*pargcp;			/* Current index into pargs */
+d368 5
+a372 5
+struct	Hist {
+	struct	wordent Hlex;
+	int	Hnum;
+	int	Href;
+	struct	Hist *Hnext;
+d375 3
+a377 3
+struct	wordent	paraml;			/* Current lexical word list */
+int	eventno;			/* Next events number */
+int	lastev;				/* Last event reference (default) */
+d379 2
+a380 2
+char	HIST;				/* history invocation character */
+char	HISTSUB;			/* auto-substitute character */
+d382 56
+a437 56
+char	*Dfix1();
+struct	varent *adrof(), *adrof1();
+char	**blkcat();
+char	**blkcpy();
+char	**blkend();
+char	**blkspl();
+char	*calloc();
+char	*cname();
+char	**copyblk();
+char	**dobackp();
+char	*domod();
+struct	wordent *dosub();
+char	*exp3();
+char	*exp3a();
+char	*exp4();
+char	*exp5();
+char	*exp6();
+struct	Hist *enthist();
+struct	Hist *findev();
+struct	wordent *freenod();
+char	*getenv();
+char	*getinx();
+struct	varent *getvx();
+struct	passwd *getpwnam();
+struct	wordent *gethent();
+struct	wordent *getsub();
+char	*getwd();
+char	*globone();
+struct	biltins *isbfunc();
+char	**glob();
+char	*operate();
+int	pintr();
+int	pchild();
+char	*putn();
+char	**saveblk();
+char	*savestr();
+char	*strcat();
+char	*strcpy();
+char	*strend();
+char	*strings();
+char	*strip();
+char	*strspl();
+char	*subword();
+struct	command *syntax();
+struct	command *syn0();
+struct	command *syn1();
+struct	command *syn1a();
+struct	command *syn1b();
+struct	command *syn2();
+struct	command *syn3();
+int	tglob();
+int	trim();
+char	*value(), *value1();
+char	*xhome();
+char	*xname();
+char	*xset();
+d439 1
+a439 1
+#define	NOSTR	((char *) 0)
+d444 2
+a445 2
+char	*bname;
+#define	setname(a)	bname = (a);
+d448 3
+a450 3
+char	*Vsav;
+char	**Vav;
+char	*Vdp;
+d454 1
+a454 1
+struct	vtimes zvms;
+d457 2
+a458 2
+char	**evalvec;
+char	*evalp;
+d460 3
+a462 3
+struct	mesg {
+	char	*iname;		/* name from /usr/include */
+	char	*pname;		/* print name */
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 8
+a8 4
+/*      @@(#)sh.h        2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+#ifdef  pdp11
+#include <whoami.h>
+d11 1
+d16 4
+a19 1
+ * October, 1978
+d30 1
+d39 1
+d50 1
+d52 1
+d54 1
+d75 6
+a85 1
+char    *mesg[];
+d93 2
+d126 2
+a127 2
+#define getexit(a)      copy(a, reslab, sizeof reslab)
+#define resexit(a)      copy(reslab, a, sizeof reslab)
+d208 1
+d210 4
+d240 1
+d250 2
+d257 2
+a258 2
+#define FINT    (1<<5)          /* don't make interruptible     */
+#define FPRS    (1<<6)          /* print number when forked     */
+d263 3
+d334 4
+d408 1
+d414 1
+d452 12
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 5
+a5 2
+/* $Header: sh.h,v 2.1 86/03/12 23:47:10 alex Exp $ */
+
+a6 3
+#include <sys/time.h>
+#include <sys/resource.h>
+
+d10 2
+a11 10
+ * $Log:	sh.h,v $
+ * Revision 2.1  86/03/12  23:47:10  alex
+ * *** empty log message ***
+ * 
+ * Revision 1.1  86/03/12  23:46:28  alex
+ * Initial revision
+ * 
+ * Revision 1.1  86/01/04  20:05:44  alex
+ * Initial revision
+ *
+d13 1
+a13 2
+
+#include <sys/param.h>
+d15 1
+d17 1
+a17 1
+#define	isdir(d)	((d.st_mode & S_IFMT) == S_IFDIR)
+a21 1
+#include <sys/times.h>
+d23 1
+a23 1
+typedef	char	bool;
+d25 1
+a25 1
+#define	eq(a, b)	(strcmp(a, b) == 0)
+a27 7
+ * For 4.2bsd signals.
+ */
+#define	mask(s)		(1 << ((s)-1))
+#define	sigsys(s, a)	signal(s, a)
+#define	sighold(s)	sigblock(mask(s))
+
+/*
+d30 13
+a42 16
+bool	chkstop;		/* Warned of stopped jobs... allow exit */
+bool	didcch;			/* Have closed unused fd's for child */
+bool	didfds;			/* Have setup i/o fd's for child */
+bool	doneinp;		/* EOF indicator after reset from readc */
+bool	exiterr;		/* Exit if error or non-zero exit status */
+bool	child;			/* Child shell ... errors cause exit */
+bool	haderr;			/* Reset was because of an error */
+bool	intty;			/* Input is a tty */
+bool	intact;			/* We are interactive... therefore prompt */
+bool	justpr;			/* Just print because of :p hist mod */
+bool	loginsh;		/* We are a loginsh -> .login/.logout */
+bool	neednote;		/* Need to pnotify() */
+bool	noexec;			/* Don't execute, just syntax check */
+bool	pjobs;			/* want to print jobs if interrupted */
+bool	setintr;		/* Set interrupts on/off -> Wait intr... */
+bool	timflg;			/* Time the next waited for command */
+d47 3
+a49 3
+char	*arginp;		/* Argument input for sh -c and internal `xx` */
+int	onelflg;		/* 2 -> need line for -t, 1 -> exit on read */
+char	*file;			/* Name of shell file for $0 */
+d51 4
+a54 5
+char	*err;			/* Error message from scanner/parser */
+int	errno;			/* Error from C library routines */
+char	*shtemp;		/* Temp name for << shell files in /tmp */
+struct	timeval time0;		/* Time at which the shell started */
+struct	rusage ru0;
+d59 3
+a61 9
+char	*doldol;		/* Character pid for $$ */
+int	uid;			/* Invokers uid */
+time_t	chktim;			/* Time mail last checked */
+int	shpgrp;			/* Pgrp of shell */
+int	tpgrp;			/* Terminal process group */
+/* If tpgrp is -1, leave tty alone! */
+int	opgrp;			/* Initial pgrp and tty pgrp */
+int	oldisc;			/* Initial line discipline or -1 */
+struct	tms shtimes;		/* shell and child times for process timing */
+d67 1
+d69 4
+a72 4
+struct	biltins {
+	char	*bname;
+	int	(*bfunct)();
+	short	minargs, maxargs;
+a74 2
+#define	INF	1000
+
+d76 2
+a77 2
+	char	*s_name;
+	short	s_value;
+d88 4
+a91 4
+short	SHIN;			/* Current shell input (script) */
+short	SHOUT;			/* Shell output */
+short	SHDIAG;			/* Diagnostic output... shell errs go here */
+short	OLDSTD;			/* Old standard input (def for cmds) */
+d101 1
+a101 1
+jmp_buf	reslab;
+d103 2
+a104 2
+#define	setexit()	setjmp(reslab)
+#define	reset()		longjmp(reslab)
+d106 2
+a107 2
+#define	getexit(a)	copy((char *)(a), (char *)reslab, sizeof reslab)
+#define	resexit(a)	copy((char *)reslab, ((char *)(a)), sizeof reslab)
+d109 3
+a111 3
+char	*gointr;		/* Label for an onintr transfer */
+int	(*parintr)();		/* Parents interrupt catch */
+int	(*parterm)();		/* Parents terminate catch */
+d116 3
+a118 6
+ * Маскирование / размаскирование символов.
+ * Два последних макро служат для константного преодразования специальных
+ * символов.  В зависимости от того, установлен или нет режим "set cyrillic",
+ * используются разные варианты таблиц "toquot" и "totrim".
+ * Пока признаком маскирования будет бит 8, точнее было бы
+ * ((unsigned)(c)!=TRIMED(c)
+d120 2
+a121 5
+extern char *toquot, *totrim;
+#define QUOTED(c) (unsigned)toquot[0377&(c)]
+#define TRIMED(c) (unsigned)totrim[0377&(c)]
+#define ISQUOTED(c) ((c)&0200)
+#define QUOTEDS(c) ((c)|0200)
+a122 1
+
+d130 6
+a135 6
+struct	Bin {
+	off_t	Bfseekp;		/* Seek pointer */
+	off_t	Bfbobp;			/* Seekp of beginning of buffers */
+	off_t	Bfeobp;			/* Seekp of end of buffers */
+	short	Bfblocks;		/* Number of buffer blocks */
+	char	**Bfbuf;		/* The array of buffer blocks */
+d138 5
+a142 5
+#define	fseekp	B.Bfseekp
+#define	fbobp	B.Bfbobp
+#define	feobp	B.Bfeobp
+#define	fblocks	B.Bfblocks
+#define	fbuf	B.Bfbuf
+d144 1
+a144 1
+off_t	btell();
+d151 1
+a151 1
+off_t	lineloc;
+d153 3
+a155 3
+#ifdef	TELL
+off_t	tell();
+bool	cantell;			/* Is current source tellable ? */
+d162 4
+a165 4
+struct	wordent {
+	char	*word;
+	struct	wordent *prev;
+	struct	wordent *next;
+d177 3
+a179 3
+#define	DODOL	1
+#define	DOEXCL	2
+#define	DOALL	DODOL|DOEXCL
+d188 2
+a189 1
+char	labuf[BUFSIZ];
+a190 2
+char	*lap;
+
+d198 3
+a200 3
+struct	command {
+	short	t_dtyp;				/* Type of node */
+	short	t_dflg;				/* Flags, e.g. FAND|... */
+d202 2
+a203 2
+		char	*T_dlef;		/* Input redirect word */
+		struct	command *T_dcar;	/* Left part of list/pipe */
+d206 2
+a207 2
+		char	*T_drit;		/* Output redirect word */
+		struct	command *T_dcdr;	/* Right part of list/pipe */
+d209 6
+a214 7
+#define	t_dlef	L.T_dlef
+#define	t_dcar	L.T_dcar
+#define	t_drit	R.T_drit
+#define	t_dcdr	R.T_dcdr
+	char	**t_dcom;			/* Command/argument vector */
+	struct	command *t_dspr;		/* Pointer to ()'d subtree */
+	short	t_nice;
+d217 6
+a222 6
+#define	TCOM	1		/* t_dcom <t_dlef >t_drit	*/
+#define	TPAR	2		/* ( t_dspr ) <t_dlef >t_drit	*/
+#define	TFIL	3		/* t_dlef | t_drit		*/
+#define	TLST	4		/* t_dlef ; t_drit		*/
+#define	TOR	5		/* t_dlef || t_drit		*/
+#define	TAND	6		/* t_dlef && t_drit		*/
+d224 11
+a234 1
+#define	FSAVE	(FNICE|FTIME|FNOHUP)	/* save these when re-doing */
+a235 15
+#define	FAND	(1<<0)		/* executes in background	*/
+#define	FCAT	(1<<1)		/* output is redirected >>	*/
+#define	FPIN	(1<<2)		/* input is a pipe		*/
+#define	FPOU	(1<<3)		/* output is a pipe		*/
+#define	FPAR	(1<<4)		/* don't fork, last ()ized cmd	*/
+#define	FINT	(1<<5)		/* should be immune from intr's */
+/* spare */
+#define	FDIAG	(1<<7)		/* redirect unit 2 with unit 1	*/
+#define	FANY	(1<<8)		/* output was !			*/
+#define	FHERE	(1<<9)		/* input redirection is <<	*/
+#define	FREDO	(1<<10)		/* reexec aft if, repeat,...	*/
+#define	FNICE	(1<<11)		/* t_nice is meaningful */
+#define	FNOHUP	(1<<12)		/* nohup this command */
+#define	FTIME	(1<<13)		/* time this command */
+
+d239 19
+a257 19
+#define	ZBREAK		0
+#define	ZBRKSW		1
+#define	ZCASE		2
+#define	ZDEFAULT 	3
+#define	ZELSE		4
+#define	ZEND		5
+#define	ZENDIF		6
+#define	ZENDSW		7
+#define	ZEXIT		8
+#define	ZFOREACH	9
+#define	ZGOTO		10
+#define	ZIF		11
+#define	ZLABEL		12
+#define	ZLET		13
+#define	ZSET		14
+#define	ZSWITCH		15
+#define	ZTEST		16
+#define	ZTHEN		17
+#define	ZWHILE		18
+d264 6
+a269 6
+struct	whyle {
+	off_t	w_start;		/* Point to restart loop */
+	off_t	w_end;			/* End of loop (0 if unknown) */
+	char	**w_fe, **w_fe0;	/* Current/initial wordlist for fe */
+	char	*w_fename;		/* Name for fe */
+	struct	whyle *w_next;		/* Next (more outer) loop */
+d277 4
+a280 4
+struct	varent {
+	char	**vec;		/* Array of words which is the value */
+	char	*name;		/* Name of variable/alias */
+	struct	varent *link;
+d287 3
+a289 3
+struct	wordent *alhistp;		/* Argument list (first) */
+struct	wordent *alhistt;		/* Node after last in arg list */
+char	**alvec;			/* The (remnants of) alias vector */
+d294 1
+a294 1
+short	gflag;				/* After tglob -> is globbing needed? */
+d300 5
+a304 1
+#define	GAVSIZ	NCARGS / 6
+d309 3
+a311 3
+char	**gargv;			/* Pointer to the (stack) arglist */
+short	gargc;				/* Number args in gargv */
+short	gnleft;
+d316 5
+a320 5
+char	**pargv;			/* Pointer to the argv list space */
+char	*pargs;				/* Pointer to start current word */
+short	pargc;				/* Count of arguments in pargv */
+short	pnleft;				/* Number of chars left in pargs */
+char	*pargcp;			/* Current index into pargs */
+d333 5
+a337 5
+struct	Hist {
+	struct	wordent Hlex;
+	int	Hnum;
+	int	Href;
+	struct	Hist *Hnext;
+d340 3
+a342 3
+struct	wordent	paraml;			/* Current lexical word list */
+int	eventno;			/* Next events number */
+int	lastev;				/* Last event reference (default) */
+d344 2
+a345 2
+char	HIST;				/* history invocation character */
+char	HISTSUB;			/* auto-substitute character */
+d347 54
+a400 57
+char	*Dfix1();
+struct	varent *adrof(), *adrof1();
+char	**blkcat();
+char	**blkcpy();
+char	**blkend();
+char	**blkspl();
+char	*calloc();
+char	*cname();
+char	**copyblk();
+char	**dobackp();
+char	*domod();
+struct	wordent *dosub();
+char	*exp3();
+char	*exp3a();
+char	*exp4();
+char	*exp5();
+char	*exp6();
+struct	Hist *enthist();
+struct	Hist *findev();
+struct	wordent *freenod();
+char	*getenv();
+char	*getinx();
+struct	varent *getvx();
+struct	passwd *getpwnam();
+struct	wordent *gethent();
+struct	wordent *getsub();
+char	*getwd();
+char	*globone();
+struct	biltins *isbfunc();
+char	**glob();
+char	*operate();
+int	phup();
+int	pintr();
+int	pchild();
+char	*putn();
+char	**saveblk();
+char	*savestr();
+char	*strcat();
+char	*strcpy();
+char	*strend();
+char	*strings();
+char	*strip();
+char	*strspl();
+char	*subword();
+struct	command *syntax();
+struct	command *syn0();
+struct	command *syn1();
+struct	command *syn1a();
+struct	command *syn1b();
+struct	command *syn2();
+struct	command *syn3();
+int	tglob();
+int	trim();
+char	*value(), *value1();
+char	*xhome();
+char	*xname();
+char	*xset();
+d402 1
+a402 1
+#define	NOSTR	((char *) 0)
+d407 2
+a408 2
+char	*bname;
+#define	setname(a)	bname = (a);
+d411 3
+a413 3
+char	*Vsav;
+char	**Vav;
+char	*Vdp;
+a414 8
+
+char	**evalvec;
+char	*evalp;
+
+struct	mesg {
+	char	*iname;		/* name from /usr/include */
+	char	*pname;		/* print name */
+} mesg[];
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 5
+d10 2
+a11 10
+ * $Log:	sh.h,v $
+ * Revision 1.1  86/02/24  20:23:16  sys
+ * Initial revision
+ * 
+ *
+ * Правка для СМ ЭВМ(куча ошибок) Володин Дима, 1985.
+ * Правки на русские буквы - @@АР, 12.12.1985, ИАЭ
+ * Версия с русскими буквами и русскими диагностиками для МНОС:
+ *                                      @@VG 15.12.85
+ * Команда eval - @@АР, 18.12.85 по BSD 4.1
+a12 1
+
+a22 6
+#ifdef EDIAG
+# include <ediag.h>
+#else
+# define ediag(e,r) (e)
+#endif EDIAG
+
+d116 3
+a118 6
+ * Маскирование / размаскирование символов.
+ * Два последних макро служат для константного преодразования специальных
+ * символов.  В зависимости от того, установлен или нет режим "set cyrillic",
+ * используются разные варианты таблиц "toquot" и "totrim".
+ * Пока признаком маскирования будет бит 8, точнее было бы
+ * ((unsigned)(c)!=TRIMED(c)
+d120 2
+a121 5
+extern char *toquot, *totrim;
+#define QUOTED(c) (unsigned)toquot[0377&(c)]
+#define TRIMED(c) (unsigned)totrim[0377&(c)]
+#define ISQUOTED(c) ((c)&0200)
+#define QUOTEDS(c) ((c)|0200)
+a187 1
+#ifdef VMUNIX
+a188 4
+#else
+char    labuf[256];
+#endif
+
+d300 1
+d302 3
+a414 2
+
+char **evalvec, *evalp;
+@

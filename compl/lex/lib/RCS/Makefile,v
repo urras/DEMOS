@@ -1,0 +1,107 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     88.10.19.22.54.12;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.30.17.23.18;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile для библиотеки lex.
+@
+
+
+1.2
+log
+@Правлены: способ сборки, размещение, трансляция.
+@
+text
+@#
+# $Log:	Makefile,v $
+# Revision 1.1  86/12/30  17:23:18  avg
+# Initial revision
+#
+# Для версии без архивов RCS R=X
+R=X
+RCS=RCS
+COFLAGS=
+
+CFLAGS=-O
+
+LIB=/usr/lib/lex
+DEST=/usr/lib
+
+OBJ=allprint.o main.o reject.o yyless.o yywrap.o
+SRC=allprint.c main.c reject.c yyless.c yywrap.c
+
+.c.o:
+	cc ${CFLAGS} -c $*.c
+	ld -r -x $*.o -o a.lib
+	mv a.lib $*.o
+
+libl.a: $(OBJ)
+	-rm -f libl.a
+	ar rcv libl.a `lorder $(OBJ) | tsort`
+	ranlib libl.a
+
+install:        i_lib
+
+i_lib:        libl.a
+	-rm -f $(DEST)/libl.a
+	cp  libl.a $(LIB)/libl.a
+	ranlib     $(LIB)/libl.a
+	ln $(LIB)/libl.a $(DEST)/libl.a
+
+clear clean:
+	-rm -f  *.[bo] *.bak
+	-rm -f  libl.a
+
+CLRSRC: clear
+	-rm -f $(SRC)
+
+source: $(SRC) Makefile
+
+allprint.c:     $(RCS)/allprint.c,v     ; co $(COFLAGS) allprint.c
+main.c:         $(RCS)/main.c,v         ; co $(COFLAGS) main.c
+reject.c:       $(RCS)/reject.c,v       ; co $(COFLAGS) reject.c
+yyless.c:       $(RCS)/yyless.c,v       ; co $(COFLAGS) yyless.c
+yywrap.c:       $(RCS)/yywrap.c,v       ; co $(COFLAGS) yywrap.c
+Makefile:       $(RCS)/Makefile,v       ; co $(COFLAGS) Makefile
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 3
+a4 1
+# $Log$
+d8 1
+a8 1
+RCS=
+d14 1
+d21 2
+a22 2
+#        ld -r -x $*.o
+#        mv a.out $*.o
+d25 3
+a27 1
+	ar rc libl.a $(OBJ)
+d32 1
+a32 1
+	-rm
+d35 1
+@

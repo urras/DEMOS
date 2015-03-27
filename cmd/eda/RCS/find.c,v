@@ -1,0 +1,299 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.09.20.16.36.12;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.28;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Добавлен второй шаблон поиска.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: find.c,v 1.1 86/11/11 17:51:28 avg Exp $";
+#endif
+
+/*
+ * $Log:        find.c,v $
+ * Revision 1.1  86/11/11  17:51:28  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 30.08.1986
+ */
+
+#include NAME
+#include "glob.h"
+
+char fstr1[SWID];        /* Шаблон для поиска */
+char fstr2[SWID];
+char *fstr = fstr1;
+
+int  fsdef1  = 0;       /* Флаг - шаблон задан */
+int  fsdef2  = 0;
+#define fsdef ( * ( fstr==fstr1 ? &fsdef1: &fsdef2 ))
+
+int  fsdflg  = 0;       /* Внутренний флаг - происходит определение шаблона */
+int  fsdflg1 = 0;       /* Устанавливается execute при  bfill == 0 */
+
+/*
+ * Определение шаблона
+ */
+fsd( arg)
+{
+	int  i,ccold1,clold1;
+	extern int  mlevel,mdp,mdf;
+	extern char mtext[3][256];
+	char sym;
+
+	if( fsdflg1 )
+		return;
+	fsdflg++;
+
+	fstr = (arg == PLUS ? fstr1 : fstr2 );
+	if( !mlevel ) {          /* Eсли определение происходит при   */
+		ccold1 = cc;     /* выполнении макро,на экране ничего */
+		clold1 = cl;     /* не индицируется                   */
+		qpos(0, csh);
+		clrl();
+#ifdef VS
+		printx( VS );
+#endif VS
+		if( arg==PLUS)printx(ediag( "Find what ? ",
+			      "Что поищем? "));
+		else          printx(ediag( "What find ? ",
+			      "Поищем что? "));
+		cc = csh+12;
+	}
+	i = 0;
+	for(;;) {
+		readchar(&sym);
+		if( mdf && mlevel == 0 ) {
+			if( mdp < 254 )
+				mtext[mdf-1][mdp++] = sym;
+#ifdef S_bell
+			else
+				printx(S_bell);
+#endif S_bell
+		}
+		if( (sym>037 || sym&0100) && sym != 0177 ) {
+			if( i < SWID-13 ) {
+				if( !mlevel ) {
+					cc++;
+					writex(&sym, 1);
+				}
+				fstr[i++] = sym;
+			}
+			continue;
+		}
+		if( sym != *(F_del) )   /* F_del - один символ */
+			goto out;
+		if( i > 0 ) {
+			i--;
+			if( !mlevel ) {
+				printx(S_left);
+				writex(" ", 1);
+				printx(S_left);
+				cc--;
+			}
+		}
+	}
+out:
+	fstr[i] = 0;
+	fsdef = ( i != 0 );
+	if( !mlevel ) {
+#ifdef VE
+		printx( VE );
+#endif VE
+		typestr(0);
+		qpos(clold1, ccold1 );
+	}
+	if(
+#ifdef F_cr
+		sym != *(F_cr) &&
+#endif F_cr
+#ifdef F_lf
+		sym != *(F_lf) &&
+#endif F_lf
+#ifdef Q_cr
+		sym != *(Q_cr) &&
+#endif Q_cr
+#ifdef Q_lf
+		sym != *(Q_lf) &&
+#endif Q_lf
+	   1 )
+		execute(sym,1);
+	fsdflg = 0;
+}
+
+/*
+ * Поиск
+ */
+find(arg, narg)
+{
+	extern char eof;
+	extern int  ffault;
+	register char *p;
+	register int  i;
+	int  flg,j,cck,linecnt,k,skip,strlen;
+
+	if( ffault )
+		return;
+	ffault = 1;
+	fstr = (arg==PLUS? fstr1:fstr2 );
+
+	if( !fsdef )
+		return;
+	flg = 0;
+	skip = narg;
+	clold = cl;
+	cck = cc;
+	linecnt = 0;
+
+/* Цикл поиска по строкам */
+	for(;;) {
+		p = line(clold);
+		k = cck;
+		cck = 0;
+		strlen = llen(clold);
+		while( k<=strlen ) {
+			if( p[k] == *fstr ) {   /* Быстрая проверка на */
+				i = 1;          /* первый символ       */
+				while((i+k)<=strlen && fstr[i]==p[i+k])
+					i++;
+				if( fstr[i] == 0 && (--skip) == 0 ) {
+					ffault = 0;
+					j = k+i;
+					goto displ;
+				}
+			}
+			k++;
+		}
+
+/* Взять следующую строку */
+		if( testinput() ) {
+			j = 0;
+			goto displ;
+		}
+		if(clold<NLIN-3 || (eof && bstack.lines==0 && clold<NLIN-1))
+			clold++;
+		else {
+			if( !eof || bstack.lines ) {
+				flg = 1;
+				linecnt++;
+				if( linecnt == 27 )
+					minutes();
+				putus(0);
+				scr.roll = (scr.roll+1) % NLIN;
+				if( getds(NLIN-1) )
+					linecnt = 30;
+			} else {                /* Строк больше нет */
+				p = line(NLIN-1);
+				for(j = llen(NLIN-1) ; j>=0 && p[j]==' ' ; j--);
+				j++;
+				goto displ;
+			}
+		}
+	}
+
+/* Подгон курсора под найденную подстроку */
+displ:
+	if( j >= width )
+		j = width1;
+	if( flg ) {     /* Если запрашивались строки 'снизу' */
+		if( linecnt<=NLIN-4 && j>=csh && j<csh+SWID ) {
+			cck = scr.roll;
+			for( k = 0 ; k<linecnt ; k++ ) {
+#ifdef S_ru
+				printx(S_ru);
+#ifdef BROLL
+				cl = 0;
+				cc = csh;
+				pos( cl, cc );
+#endif BROLL
+#else
+#ifndef SCNTRL
+#ifdef ROLL
+				pos(NLIN-1, cc);
+				printx(S_cr);
+				cc = csh;
+#else
+				qpos(0, csh);
+				printx(S_dl);
+#endif ROLL
+#else
+				qpos(0, csh);
+				printx(S_dl);
+#endif SCNTRL
+#endif S_ru
+				scr.roll = (cck+NLIN-linecnt+k+1) % NLIN;
+				typestr(NLIN-1);
+			}
+			scr.roll = cck;
+			pos(clold, j);
+			return;
+		}
+		cc = j;
+		cl = clold;
+		if( cc > csh+(SWID-9)  ) {
+			csh = cc-(SWID-9);
+			if( csh > width1-SWID )
+				csh = width1-SWID;
+		} else if( cc < csh+8 ) {
+			csh = cc-8;
+		}
+		if( csh < 0 )
+			csh = 0;
+		rew();
+	} else                  /* Только на экране */
+		pos(clold, j);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d21 8
+a28 2
+char fstr[SWID];        /* Шаблон для поиска */
+int  fsdef   = 0;       /* Флаг - шаблон задан */
+d35 1
+a35 1
+fsd()
+d45 2
+d55 1
+a55 1
+		printx(ediag( "Find what ? ",
+d57 2
+d136 1
+@

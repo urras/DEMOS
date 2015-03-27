@@ -1,0 +1,2366 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.10.06.15.21.30;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+dired - экранная работа с каталогом
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * DIRED
+ *
+ * $Header: dired.c,v 1.1 88/10/05 21:07:54 ache Exp $
+ * $Log:	dired.c,v $
+ * things to consider
+ * -    perhaps should be able to edit protection field and
+ *              be able to change protection instantly at the
+ *              touch of a key (or queue the change for later exit)
+ *
+ * --   Would be nice if there were cmds (e.g. 'c') which would update
+ *              1) the file-info & re-display it, & 2) update whole
+ *              display's info.
+ */
+
+#ifndef lint
+char RCS_id[] = "$Header: dired.c,v 1.1 88/10/05 21:07:54 ache Exp $";
+#endif lint
+
+#include <ediag.h>
+#include <stdio.h>
+#include <signal.h>
+#include <sgtty.h>
+#include <a.out.h>
+#include <ctype.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/dir.h>
+#include <whoami.h>
+
+#if defined(vax) || defined(VIRUS_VFORK)        /* this does for now */
+# define VFORK
+#endif
+
+#ifndef VFORK
+# define vfork fork
+#endif
+
+#define	FALSE		0
+#define	TRUE		1
+#define	NOTDELETED	0
+#define	DELETED		1
+
+/*	Sort Orders */
+#define NAME		0
+#define	SIZE		1
+#define	WRITE		2
+#define	READ		3
+char sortstr[] = "nswr";	/* must be in order by above */
+
+#define ESC         '\033'
+#define CURSOR          57      /* X-coord of cursor, just b4 file */
+#define NCROSS          10      /* Через сколько файлов выдавать '.' */
+#define CTRL(c)		('c' & 037)
+#define	eq(a, b)	(strcmp(a, b) == 0)
+
+#ifdef	DEBUG
+char   *dirednam = "dired2 ";    /* Where dired lives - need blnk */
+char   *e_helpfile = "dired.hlp"; /* Where helpfile lives */
+#else
+char   *dirednam = DIREDNAM;    /* Where dired lives - need blnk */
+char   *e_helpfile = EHELP;    /* Where helpfile lives */
+char   *r_helpfile = RHELP;    /* Where helpfile lives */
+#endif
+
+char   divider[132], newdivider[132];	/* divides the windows */
+int    LW;         /* the last pos of the linear window */
+#define DIVCHAR	'-'	/* makes up the divider */
+
+#ifndef MAXFILES /* This way can override on the cmd line for a huge version */
+	
+#ifndef vax
+#define MAXFILES        500     /* Max number of files we can handle */
+#else
+#define MAXFILES	1000	/* Probably should be even bigger */
+#endif
+
+#endif
+	
+
+#define ISDIGIT(C)	(C <= '9') && (C >= '0')
+#define ABORTSTAT	69
+int diredstat;
+
+
+struct lbuf
+{
+    union
+    {
+	char    lname[DIRSIZ];
+	char   *namep;
+    } ln;
+    char    deleted;
+    char    ltype;
+    ino_t   lnum;
+    u_short lflags;
+    short   lnl;
+    short   luid;
+    short   lgid;
+    off_t   lsize;
+    time_t  latime;
+    time_t  lmtime;
+};
+
+struct lbuf file[MAXFILES];
+
+struct stat	statbuf;
+struct sgttyb   ioctlb;
+
+#define	ISARG	0100000
+
+#define FNAME(N)	(arglist ? file[N].ln.namep : file[N].ln.lname)
+int     iflg,
+        lflg,
+        sflg;			/* Random flags */
+int	splitflg;		/* Split screen? */
+int     sortyp;			/* Key to sort on */
+int     errcode;		/* Error variable used by rm */
+int     rflg = 1;		/* Reverse sort flag */
+int     totfiles = 0;		/* Total files */
+int     flags;			/* Gets flags */
+int     blurb;			/* 1=>thing in echo area,0 otherwise  */
+int     numdeleted;		/* Number of files marked deleted */
+time_t  ttime;                  /* Temp time variable */
+time_t  year;                   /* Six months ago */
+off_t   totblocks = 0;          /* Total blocks */
+int     lastuid = -1;           /* Last uid we handled */
+int     lastgid = -1;           /* Last gid we handled */
+	char    tempbuf[256];		/* Random temporary buffer */
+	char    tmpbuf2[256];
+char    *cp;
+char    userbuf[35];		/* Temporary buffer for user name */
+char    grpbuf[35];             /* Temporary buffer for group name */
+FILE    *pwdf, *grpf, *dirf;    /* Password, group file and directory files */
+
+int     curfile = 0;		/* Current file */
+int     topfile;        	/* File at top of screen */
+int     curline = 0;		/* Line that we're on */
+	int     scrlen = 999;	/* Default length of dired index part of screen: */
+	/* 999 ==> 2 windows (half size), 0 ==> 1 window (full size) */
+int	Worklen = 0;		/* Length of 'working window', the other part*/
+int	Worktop = 0;		/* Top of    " " */
+int     Tscrlen;		/*Total length of screen,minus 1 for cmd line*/
+int     scrwid = 79;		/* Width of screen */
+char   *CL,
+       *UP,			/* Termcap strings we'll use */
+       *HO,
+       *DO,
+       *CM,
+       *CD,			/* clear to end of display */
+       *CE,
+       *AL;			/* insert line */
+char    PC;
+char   tcapbuf[256];
+char   *tgetstr (), *tgoto ();
+char   *getenv ();
+int     compar ();
+time_t time();
+char   *ctime ();
+char   *index();
+char   *makename ();
+char   *catargs();
+char   *bldnam();
+off_t   nblock ();
+int	catchint();
+int	sigint;
+int     command;                /* Holds last command */
+int	intype=0;
+int     onctlz ();
+
+int asswin = -1;
+int arglist=0;
+char *rindex(), *re_comp();
+char fullpath[256];
+char *getfullpath();
+char startfile[256], startarg[256];
+int  wasstartfile = 0;
+int quitok = 1;
+int countarg;
+int camedown = 0;
+int     wasspecial;
+int     specialcc;
+int	numarg;
+char    nambuf[256];
+extern  char _sobuf[BUFSIZ];
+
+main (argc, argv)
+int     argc;
+char   *argv[];
+{
+    register	int     i,
+    	    		cc;
+    int     
+	    special,		/* flag says had % or # in cmd */
+            status;
+	    char    combuf[256];	/* Holds last ! command */
+    char   **oldargv;
+    register char   *t,
+    	   	    *tt;
+
+ /* Get terminal type */
+
+    setbuf (stdout, _sobuf);
+    getcap ();
+
+ /* Process arg flags. They must be first! */
+    for (i=1; i<argc; i++) {
+	if (argv[i][0] != '-')
+	    break;
+	switch (cc = argv[i][1]) {
+	  case 'w':			/* Window size */
+	    if (argv[i][2] == 'h')
+		scrlen = 999;		/* Half */
+	    else if (argv[i][2] == 'f')
+		scrlen = 0;		/* Full */
+	    else {
+		scrlen = atoi(&argv[i][2]);
+		asswin = scrlen;
+	    }
+	    break;
+	  case 's':			/* Initial sort order */
+	  case 'r':
+	    sortyp = index(sortstr, argv[i][2]) - sortstr;
+	    rflg = (cc == 's') ? 1 : -1;
+	    break;
+
+	  case 'd': camedown = TRUE;
+		    break;
+	  case 'F':
+	  case 'f':   /* get the start file */
+		    strcpy(startfile,&argv[i][2]);
+		    wasstartfile=TRUE;
+		    if (cc == 'F') quitok=FALSE;
+		    break;
+	  default:
+	    fprintf(stderr, ediag(
+"Unknown option %s, ignored.\n",
+"Неизвестный флаг %s пропущен.\n"),
+argv[i]);
+	    break;
+	 }
+    }
+    argc -= (i - 1);
+    oldargv = argv;
+    argv += (i - 1);
+
+    windsize ();                 /* replaced by proc call 8/82 crh */
+
+    tt = divider + scrwid + 1;
+    LW = scrwid;   /* last position in the linear window */
+    for (t = divider; t < tt;)	/* arbitrary length */
+    	*t++ = DIVCHAR;
+    *t = '\0';
+
+    signal (SIGINT, SIG_IGN);
+    signal (SIGQUIT, SIG_IGN);
+
+    printf (ediag("Reading","Чтение"));
+
+    (void) time (&ttime);
+    year = ttime - 6L * 30L * 24L * 60L * 60L;/* 6 months ago */
+
+    sflg = lflg = 1;
+    iflg = 0;
+    if (lflg)
+    {
+	pwdf = fopen ("/etc/passwd", "r");
+	grpf = fopen ("/etc/group", "r");
+    }
+    
+    
+    numarg = argc;
+
+    getdpy ();
+    getfiles (argc,argv);
+
+    /* extract the full path name */
+    if (!arglist) {
+      if (argc==1) cp=getfullpath(".");
+      else if (argv[1][0] != '/')  cp=getfullpath(argv[1]);
+      else cp=argv[1];
+      dcanon(cp);
+      strcpy(fullpath,cp);
+    }
+
+    qsort (file, totfiles, sizeof (struct lbuf), compar);
+
+    setdpy ();
+
+    if (wasstartfile) locstart(startfile); 
+    else  displaywindow(0);
+
+restart:
+
+    signal (SIGTSTP, onctlz);
+    if (!arglist) printpath(fullpath,TRUE);
+    countarg = 0;
+startup: 
+    while (fflush (stdout), (command = getchar ()) != 'q')
+    {
+	if (blurb)
+	{
+	    telluser ("");
+	    blurb = 0;
+	}
+	if (ISDIGIT(command)) getcountarg();
+	switch (command)
+	{
+	    case ESC: break;
+	    case ' ': 
+		       if (splitflg) prtsplitstr(""); /* clear lower screen */
+                       if (!arglist) printpath(fullpath,TRUE);
+		       break;
+
+	    case 'a': 		/* Abort completely */
+		curxy(0,Tscrlen); 
+		ceol (0,Tscrlen);
+		unsetdpy ();
+		exit (1);
+		break;
+	    case 'Q':    /* abort all the direds and pushd to the
+			    dir of the current file */
+	       {   char bldbuf[256];
+
+	           bldbuf[0]='\0';
+	           bldnam(bldbuf, numarg,curfile,argv);
+	           cp=rindex(bldbuf,'/');
+		   curxy(0,Tscrlen); 
+		   ceol (0,Tscrlen);
+		   unsetdpy ();
+		   if (cp) {
+		      *cp='\0';
+		      typein("pushd ");
+		      typein(bldbuf);
+		      typein("\n");
+	           }
+		   exit(ABORTSTAT);
+	       }
+	    case 'A':           /* Abort the chain of direds  ***crh */
+		curxy(0,Tscrlen); 
+		ceol (0,Tscrlen);
+		unsetdpy ();
+		exit(ABORTSTAT);
+		break;
+	    case 'P': 		/* Print a file */
+		if (file[curfile].ltype == 'd')
+		{
+		    telluser (ediag("?Can only print files",
+				"?Можно печатать только файлы"));
+		    break;
+		}
+		tempbuf[0] = '\0';
+		bldnam(tempbuf, numarg, curfile, argv);
+		telluser (ediag("Printing...","Печать..."));
+		fflush (stdout);
+		while ((i = vfork ()) == -1)
+		    sleep (3);
+		if (i == 0) {
+		    	execlp ("print", "print", tempbuf, 0);
+		    telluser (ediag("?Can't find program to list file.\n",
+				    "?Не найдена программа печати.\n"));
+		    fflush (stdout);
+		    _exit(1);
+		}
+		wait (&status);
+		break;
+
+	    case 'p': 
+	       { char bldbuf[256];
+	       strcpy(bldbuf,FNAME(curfile));
+	       expandpath(bldbuf);
+	       printpath(bldbuf,FALSE);
+	       }
+	       break;
+
+
+	    case '/':
+	       {  char *s;
+		  char buff[256];
+
+		  telluser(" ");
+		  curxy(0,Tscrlen);
+		  putchar('/');
+		  if (!getline(buff)){
+		    telluser(ediag("?pattern too long",
+			"?слишком длинный образец"));
+		    break;
+		  }
+		  if ((s=re_comp(buff)) != 0) telluser("%s",s);
+		  else findfile(1);
+		  break;
+	       }
+
+	    case '\\' :  /* toggle split screen */
+
+		     if (splitflg) scrlen = Tscrlen;
+		     else {
+		       if (asswin != -1) scrlen = asswin;
+		       else scrlen = 999;
+		     }
+		     windsize();
+		     topfile = curfile/(scrlen - 1) * (scrlen - 1);
+		     blank();
+		     showscreen();
+		     curline= curfile - topfile;
+		     curxy(CURSOR,curline);
+		     break;
+
+
+	    case 'n': findfile(1);
+		      break;
+
+	    case 'N': findfile(0);
+		      break;
+
+
+	    case '!': 		/* Execute a system command */
+	    case '.':           /* repeat the previous ! command */
+		telluser ("");
+		curxy (0, Tscrlen);
+		unsetdpy ();
+		printf (ediag("Command: ","Команда: "));
+		tempbuf[0] = 'x';	/* dummy kludge */
+		fflush (stdout);
+		if ((command == '!' ? gets(tempbuf) : strcpy(tempbuf, combuf))
+					      != NULL && tempbuf[0] != '\0') {
+		    extern   char *skipto();
+		    register char *op,		/* old ptr */
+				  *np;		/* new ptr */
+			    char     bldbuf[256];
+
+			    strcpy(combuf, tempbuf);	/* remember the command */
+		    bldbuf[0] = '\0';	
+		    op = tempbuf;
+		    special = 0;
+		    while (cc = *(np = skipto(op, "%#"))) {
+			special++;		/* set flag */
+			*np++ = '\0';	     /* zap the %/# and bump past it */
+			strcat(bldbuf, op);	/* 1st part */
+			if (cc == '%')	/* complete file name */
+			    bldnam(bldbuf, numarg, curfile, argv);
+			else {		/* Had # sign, trailing comp only */
+			    if (numarg <= 2)
+				strcat (bldbuf, file[curfile].ln.lname);
+			    else
+			        strcat (bldbuf, file[curfile].ln.namep);
+			}
+			    
+			op = np;
+		    }
+		    strcat(bldbuf, op);
+
+		    /*blank ();*/
+		    if (special || command == '.') {
+			printf( "%s\n", bldbuf);
+		    }	/* "system" takes long enuf for him to see it */
+		    signal(SIGINT, SIG_DFL);	/* temp kludge here... */
+		    signal(SIGQUIT, SIG_DFL);	/* should not use 'system' */
+		    signal(SIGTSTP, SIG_DFL);
+		    fflush (stdout);
+		    system (bldbuf);
+		    signal(SIGTSTP, onctlz);
+		    signal (SIGINT, SIG_IGN);
+		    signal (SIGQUIT, SIG_IGN);
+		    putchar('\n');
+		    presscr(TRUE);
+		    setdpy ();
+		    getchar ();
+		    blank ();
+		    showscreen ();
+		    telluser ("");
+		}
+		else {			/* CR only, or EOF, or error */
+	       /* 
+	        * He changed his mind, skip it.  Since we were in
+	        * cooked mode, the CR ending the gets is echoed and
+	        * we lost the first line of the display.  So we
+	        * re-insert it.
+		*/
+		    setdpy();
+	            if (tempbuf[0] == 'x')	/* means EOF */
+			telluser("");
+		/* null entry, normal case */
+		    else if (AL == 0) {		/* no insert line capability */
+		        blank();
+			showscreen();
+		    }
+		    else {			/* be a little sneakier */
+			curxy(0, Tscrlen-1);	/* go back to where prompt */
+			ceol(0, Tscrlen-1);  	/*  is now, and blank it */
+			home();
+			insline();		/* make some room */
+			pentry(topfile);
+			putchar('\n');
+		    }
+		    curxy(CURSOR, curline);
+		}
+		break;
+              case 'R':  /* re-read the directory */
+		     {
+		       int num;
+
+		     /* remember the name of the current file */
+		       strcpy(tempbuf,FNAME(curfile));
+		     deletefiles (argv);  /* delete marked files */
+		     if (numdeleted) goto startup; /* undeleted - restart */
+		     totfiles = 0;
+		     curxy(0,Tscrlen);
+		     ceol (0,Tscrlen);
+		     unsetdpy ();
+		     signal(SIGTSTP,SIG_DFL);
+		     getdpy ();
+		     printf(ediag("Reading","Чтение"));
+		     getfiles (argc,argv); 
+                     qsort (file, totfiles, sizeof (struct lbuf), compar);
+		     /* try to pos cursor where we were */
+		     setdpy ();
+		     if (findfname(tempbuf,&num))
+		       displaywindow(num);
+		     else 
+		       displaywindow(0);
+		     goto restart;
+		     }
+	    
+	    case 'r': 		/* Reverse sort */
+		curxy (0, Tscrlen);
+		printf (ediag("reverse ","обратная "));
+		rflg = -1;
+
+	    case 's': 		/* Normal sort */
+		if (command == 's')
+		{
+		    curxy (0, Tscrlen);
+		    rflg = 1;
+		}
+		printf (ediag("sort by [s,n,r,w]: ",
+			      "сортировка по [s,n,r,w]: "));
+		fflush (stdout);
+		command = getchar ();
+		while ((command == '?') || !((command == 'n') ||
+		    (command == 'r') || (command == 'w') || (command == 's') ||
+		    (command == ESC)))
+		{
+		    curxy (0, Tscrlen);
+		    ceol (0, Tscrlen);
+		    if (rflg == -1)
+			printf (ediag("reverse ","обратная "));
+		    printf (ediag(
+"sort by size, name, read or write date: ",
+"сортировка [размер(s), имя(n), время чтения(r)/записи(w)]: "));
+		    fflush (stdout);
+		    command = getchar ();
+		}
+		
+		if (command == ESC) {		/* abort */
+		    telluser("");
+		    curxy(CURSOR, curline);
+		    break;
+		}
+		
+		if (command == 's')
+		    sortyp = SIZE;
+		else
+		    if (command == 'w')
+			sortyp = WRITE;
+		    else
+			if (command == 'r')
+			    sortyp = READ;
+			else
+			    sortyp = 0;
+		printf ("%c", command);
+		qsort (file, totfiles, sizeof (struct lbuf), compar);
+		topfile = 0;
+		curfile = 0;
+		curline = 0;
+		blank ();
+		showscreen ();
+		curxy (CURSOR, 0);
+		break;
+
+	    case 'e': 		/* Edit a file or directory */
+	    case 'E':           /* go up a dir */
+		if ((file[curfile].ltype == 'd') || (command == 'E')){
+		    strcpy (tempbuf, dirednam);
+		    catargs(tempbuf, oldargv);
+		}
+		else {
+		    if ((t = getenv("EDITOR")) != NULL && strlen(t) > 0){
+			strcat(strcpy(tempbuf, t), " ");
+		    }
+		    else
+			strcpy (tempbuf, "eda ");     /***** eda crh ***/
+		}
+		strcpy(tmpbuf2,FNAME(curfile));
+		expandpath(tmpbuf2);
+		if (command == 'E') {
+		   /* if we got where we are by going down, then 'E'
+		      should just quit    */
+		   if (camedown) goto quit; 
+
+		   /* otherwise form the full path name of the upper node */
+		   cp=rindex(tmpbuf2,'/');
+		   if (cp) {
+		      *cp = '\0';
+		      formstartarg((file[curfile].lflags & ISARG) ?
+				    FNAME(curfile) : tmpbuf2);
+		      strcat(tmpbuf2,"/..");
+		   }
+		   else break; /* something would be wrong! */
+		   dcanon(tmpbuf2);
+		   if (eq(tmpbuf2,fullpath)) {
+		      if (eq(tmpbuf2,"/"))
+			  telluser(ediag("?already at '/'","?уже в '/'"));
+		      else telluser(ediag("?can't go up","?нельзя перейти выше"));
+		      break;
+		   }
+		   strcat(tempbuf,startarg);
+		}
+		else /* 'e' */ {
+		  if (file[curfile].ltype == 'd') {
+		    if (wasstartfile && eq(startfile,FNAME(curfile)) && quitok) 
+		       /* we came up this path; just quit */   
+		       goto quit;
+		    strcat(tempbuf, "-d "); /* indicate we're going down */
+		  }
+		}
+		strcat(tempbuf,tmpbuf2);
+		/*blank ();*/
+		curxy(0,Tscrlen);
+		ceol (0,Tscrlen);
+		unsetdpy ();
+		signal(SIGTSTP, SIG_DFL);
+		diredstat =system (tempbuf);
+	        if ((diredstat>>8)==ABORTSTAT) exit(ABORTSTAT);
+		signal(SIGTSTP, onctlz);
+		setdpy ();
+		if (diredstat != 0) {
+		  putchar('\n');
+		  presscr(FALSE);
+		  getchar();
+		}
+		blank ();
+		showscreen ();
+		if (arglist) telluser ("");
+		else printpath(fullpath,TRUE);
+		break;
+
+	    case 'm': 		/* 'more' a file */
+		if (file[curfile].ltype == 'd')
+		{
+		    telluser (ediag("?Can only page thru files",
+				"?Можно листать только файлы"));
+		    break;
+		}
+		strcpy (tempbuf, MOREPGM);
+		bldnam(tempbuf, numarg, curfile, argv);
+		/*blank ();*/
+		curxy(0,Tscrlen);
+		ceol (0,Tscrlen);
+		unsetdpy ();
+		signal(SIGTSTP, SIG_DFL);
+		system (tempbuf);
+		signal(SIGTSTP, onctlz);
+/*              if (!sigint)   */
+		presscr(TRUE);
+		setdpy ();
+ 	   	getchar ();
+		blank ();
+		showscreen ();
+		telluser ("");
+		break;
+
+	    case 'T':	/* don't wait at page end */
+	    case 't':	/* quickly type the file -- added 5/81, J.Lepreau */ 
+		if (file[curfile].ltype == 'd')
+		{
+		    telluser (ediag("?Can only type files",
+				"?Можно выдавать только файлы"));
+		    break;
+		}
+		tempbuf[0] = '\0';
+		bldnam(tempbuf, numarg, curfile, argv);
+		if (type(tempbuf, command == 't')) {   /* little t means wait */
+		    blank ();
+		    showscreen ();
+		    telluser("");
+		}
+		curxy (CURSOR, curline);
+		break;
+
+	    case 'l': 		/* Refresh screen */
+	    case CTRL(A):
+	    case CTRL(l):	/* added for editor compatibility -fjl */
+		blank ();
+		showscreen ();
+		telluser ("");
+		break;
+
+	    case 'c': 		/* Refresh current line */
+		curxy (0, curline);
+		pentry (curfile);
+		curxy (CURSOR, curline);
+		break;
+
+	    case 'f': 		/* forward window */
+		fscreen (countarg);
+		break;
+				/* wish we could do meta-v */
+	    case 'b': 		/* backward window */
+		bscreen (countarg);
+		break;
+
+	    case '\r': 
+	    case '+' :
+	    case 'j' :   /***crh***/
+	    case '\n': 		/* next file */
+		if (curfile == totfiles - 1)
+		    telluser (ediag("?At end of files",
+				"?Конец списка файлов"));
+		else {
+                   if (countarg < 1) countarg = 1;
+		   curfile = curfile + countarg;
+		   if (curfile > totfiles - 1) {
+		      curfile = totfiles - 1;
+		      dispfile(curfile);
+		      shortcountmess();
+		      break;
+		   }
+		   dispfile(curfile);
+	         }
+		 break;
+
+	    case 'y':
+	    case '^': 		/* previous file */
+	    case CTRL(h):		/* backspace */
+	    case 'k':            /****crh****/
+	    case '-':
+	    case CTRL(p):
+		if (curfile == 0)
+		    telluser (ediag("?At start of files",
+				"?Начало списка файлов"));
+		else {
+		    if (countarg < 1) countarg = 1;
+		    curfile = curfile - countarg;
+		    if (curfile < 0) {
+		       curfile=0;
+		       dispfile(curfile);
+		       shortcountmess();
+		       break;
+		    }
+		    dispfile(curfile);
+		}
+	        break;
+
+	    /* ^G info as in vi  */
+	    case CTRL(G):
+		sprintf(tempbuf,ediag(
+"file %d of %d --%d%%--",
+"%d файл из %d --%d%%--"),
+	                    curfile + 1,totfiles, (curfile+1)*100/totfiles);
+			  telluser("%s",tempbuf);
+			  break;
+
+	    /* line number addressing as in vi */
+	    case 'g':
+	    case 'G': if (countarg < 1)
+			dispfile((command == 'g') ? 0 : totfiles-1);
+		      else if (countarg > totfiles) {
+			dispfile(totfiles - 1);
+			shortcountmess();
+		      }
+		      else dispfile(countarg-1);
+		      break;
+
+	    case 'h': 		/* Help */
+	    case '?': 
+		if (type(ediag(e_helpfile,r_helpfile), 1)) {        /* wait */
+		    blank ();
+		    showscreen ();
+		    telluser("");
+		}
+		curxy (CURSOR, curline);
+		break;
+
+	    case 'd': 		/* delete file */
+		    if (file[curfile].deleted != DELETED) {
+		        numdeleted++;
+		        file[curfile].deleted = DELETED;
+			putchar ('D');
+			curxy (CURSOR, curline);
+		    }
+		    if (curline + 1 == scrlen)
+		    {
+			fscreen (1);
+			downline ();
+		    }
+		    else
+			if (curfile != totfiles - 1)
+			    downline ();
+		    break;
+
+	    case 'u':           /* undelete file */
+		    if (file[curfile].deleted == DELETED) {
+		        numdeleted--;
+		        file[curfile].deleted = NOTDELETED;
+			putchar (' ');
+			curxy (CURSOR, curline);
+		    }
+		    if (curline + 1 == scrlen)
+		    {
+			fscreen (1);
+			downline ();
+		    }
+		    else
+			if (curfile != totfiles - 1)
+			    downline ();
+		    break;
+
+	    default: 
+		if (command != -1) /* get around ^Z sending EOF? */
+		  telluser (ediag(
+"Unknown command. Type ? or h for help",
+"Ошибка. Для подсказки нажмите ? или h"));
+		break;
+	}
+	countarg = 0;
+    }
+ quit:
+    deletefiles (argv);
+    if (numdeleted) goto startup;
+    curxy(0,Tscrlen);  /*** crh ***/ 
+    ceol (0,Tscrlen);
+    unsetdpy();
+    exit(0); 
+}
+
+/*** new routines crh 8/82 ***/
+
+
+getcountarg()
+{
+  countarg = 0;
+  while (ISDIGIT(command)) {
+    countarg = 10 * countarg + command - (int)'0';
+    command = getchar();
+  }
+}
+
+typein(argv)
+/* puts arg chars into input buffer, i.e., fakes typing them in */
+	char *argv;
+{
+	struct sgttyb stb, stb2;
+	int pendin = LPENDIN;
+
+	ioctl(2, TIOCGETP, &stb);
+	stb2 = stb;
+	stb.sg_flags &= ~ECHO;
+	ioctl(2, TIOCSETN, &stb);
+	for (;; argv++) {
+		  if (*argv == '\0') break;
+			else ioctl(2, TIOCSTI, argv);
+	}
+	ioctl(2, TIOCSETN, &stb2);
+	ioctl(2, TIOCLBIS, &pendin);
+}
+
+
+
+onctlz ()
+{
+  signal (SIGTSTP, SIG_IGN);
+  curxy (0, Tscrlen);
+  ceol (0,Tscrlen);
+  unsetdpy();
+  signal(SIGTSTP,SIG_DFL);
+  kill(0,SIGTSTP); /*re-send ^z */
+  signal (SIGTSTP, SIG_IGN);
+  setdpy();
+  blank();
+  showscreen();
+  if (!intype) telluser("");
+  else {
+    curxy (0, Tscrlen);
+    ceol (0,Tscrlen);
+  }
+  fflush (stdout);
+  signal(SIGTSTP,onctlz);  /* wake up here ... */
+}
+
+match(filenum)
+int filenum;
+{
+int re_exec();
+char *strp;
+ 
+  if (file[filenum].lflags & ISARG) strp = file[filenum].ln.namep;
+  else strp = file[filenum].ln.lname;
+  return ( re_exec(strp));
+}
+
+dispfile(fnum)
+/* move to the indicated file number */
+int fnum;
+{
+ 
+  /* redraw if file not already on screen */
+  if ((fnum< topfile) || (fnum >=topfile+scrlen)) {
+     topfile = fnum/(scrlen - 1) * (scrlen - 1);
+     blank();
+     showscreen();
+  }
+  curfile=fnum;
+  curline= fnum - topfile;
+  curxy(CURSOR,curline);
+}
+
+findfile (down)
+int down;
+{
+int i,stat;
+
+  stat=0;
+  if (down) {
+    for (i=curfile+1; i <= totfiles; i++) {
+      stat = match(i);
+      if (stat != 0) break;
+    }
+  }
+  else {
+    for (i=curfile-1; i>= 0 ; i--) {
+      stat = match(i);
+      if (stat != 0) break;
+    }
+  }
+  if (stat == -1) {
+     telluser(ediag("botched regular expression",
+		"слишком сложное регулярное выражение"));
+     return;
+  }
+  if (stat) dispfile(i);
+  else telluser(ediag("No match","Образец не найден"));
+}
+
+getline(s)
+char s[];
+{
+ int stat,c,i;
+
+ i=0;
+ s[0]='\0';
+ stat=1;
+ while ( (fflush(stdout), (c=getchar()) != EOF) && (c != '\n')) {
+   if (c == ioctlb.sg_kill) {
+      i=0;
+      curxy(1,Tscrlen);
+      ceol(1,Tscrlen);
+      continue;
+   }
+   if (c != ioctlb.sg_erase) {
+       if (i < scrwid - 1) {
+	 s[i++]=c;
+         putchar(c);
+       }
+       else stat=0;
+   }
+   else {
+     if (i > 0) {
+       i--;
+       putchar('\b');
+       putchar(' '); putchar('\b');
+     }
+   }
+ }
+ s[i]='\0';
+ return(stat);
+}
+
+windsize ()
+{
+    if (scrlen == 0)			/* full screen */
+	scrlen = Tscrlen;
+    else if (scrlen == 999)		/* means split in half */
+        scrlen = (Tscrlen - 1) >> 1;	
+    if (scrlen < 2)
+	scrlen = 2;
+    if (Tscrlen < scrlen)
+	scrlen = Tscrlen;
+    splitflg = (Tscrlen > scrlen+1);	/* 1 extra line for separator */
+    if (splitflg) {
+	Worklen = Tscrlen - (scrlen+1);	/* size of 'working' window */
+	Worktop = scrlen + 1;		/* bottom half for now */
+    }
+    else
+	Worklen = 0;
+    
+}
+
+locstart(start)
+char *start;
+{
+int startfilenum;
+
+       if (findfname(start,&startfilenum))
+	 displaywindow(startfilenum);
+       else {
+	 /* if we cant find it, we cant use it */
+	 wasstartfile=FALSE;
+	 displaywindow(0);
+       }
+
+}
+
+findfname(filename,num)
+char filename[];
+int  *num;
+{
+  int i;
+       for (i=0; i<=totfiles; i++) {
+	 if eq(FNAME(i),filename) {
+	   *num = i;
+	   return(TRUE);
+	 }
+       }
+       return(FALSE);
+}
+
+formstartarg(name)
+/* form start file arg */
+char *name;
+{
+char tempbuf[256];
+
+ if (arglist) strcpy(startarg," -F");
+ else strcpy(startarg," -f");
+ strcpy(tempbuf,name);
+ dcanon(tempbuf);
+ cp=rindex(tempbuf,'/'); 
+ if (cp) strcat(startarg,cp+1);
+ else strcat(startarg,tempbuf);
+ strcat(startarg," ");
+}
+
+/*
+ * dcanon - canonicalize the pathname, removing excess ./ and ../ etc.  */
+dcanon(cp)
+	char *cp;
+{
+	register char *p, *sp;
+	register int slash;
+
+	/* assume name begins with a '/' */
+
+	for (p = cp; *p; ) {		/* for each component */
+		sp = p;			/* save slash address */
+		while(*++p == '/')	/* flush extra slashes */
+			;
+		if (p != ++sp)
+			strcpy(sp, p);
+		p = sp;			/* save start of component */
+		slash = 0;
+		while(*++p)		/* find next slash or end of path */
+			if (*p == '/') {
+				slash = 1;
+				*p = 0;
+				break;
+			}
+		if (*sp == '\0')	/* if component is null */
+			if (--sp == cp)	/* if path is one char (i.e. /) */
+				break;
+			else
+				*sp = '\0';
+		else if (eq(".", sp)) {
+			if (slash) {
+				strcpy(sp, ++p);
+				p = --sp;
+			} else if (--sp != cp)
+				*sp = '\0';
+		} else if (eq("..", sp)) {
+			if (--sp != cp)
+				while (*--sp != '/')
+					;
+			if (slash) {
+				strcpy(++sp, ++p);
+				p = --sp;
+			} else if (cp == sp)
+				*++sp = '\0';
+			else
+				*sp = '\0';
+		} else if (slash)
+			*p = '/';
+	}
+}
+
+
+char	wd[256];
+int	off;
+char	name[BUFSIZ];
+
+char *getfullpath(start)
+char *start;
+{
+/*  return the full path name */
+ 
+char	dot[500];
+char	dotdot[500];
+char	temp[500];
+int	file;
+struct	stat	d, dd;
+struct	direct	dir;
+
+	int rdev, rino;
+
+	off	= -1;
+        strcpy(dot,start);
+	strcpy(dotdot,start);
+	strcat(dotdot,"/..");
+	stat("/", &d);
+	rdev = d.st_dev;
+	rino = d.st_ino;
+	for (;;) {
+		stat(dot, &d);
+		if (d.st_ino==rino && d.st_dev==rdev){
+			prname();
+			return(wd);
+		}
+		if ((file = open(dotdot,0)) < 0) {
+			telluser(ediag("pwd: cannot open '..'\n",
+				"pwd: нельзя открыть '..'\n"));
+			exit(1);  
+		}
+		fstat(file, &dd);
+		strcat(dotdot,"/..");
+		strcat(dot,"/..");
+		if(d.st_dev == dd.st_dev) {
+			if(d.st_ino == dd.st_ino){
+				prname();
+				return(wd);
+			}
+			do
+				if (read(file, (char *)&dir, sizeof(dir)) < sizeof(dir)) {
+					telluser(ediag(
+"read error in '..'\n",
+"ошибка чтения в '..'\n"));
+					printf(dir.d_name); /***/
+					exit(1);  
+				}
+			while (dir.d_ino != d.st_ino);
+		}
+		else do {
+				if(read(file, (char *)&dir, sizeof(dir)) < sizeof(dir)) {
+					telluser(ediag(
+"read error in '..'\n",
+"ошибка чтения в '..'\n"));
+					printf(dir.d_name); /***/
+					exit(1);  
+				}
+				strcpy(temp,dot);
+				strcat(temp,"/");
+				strcat(temp,dir.d_name);
+				stat(temp, &dd);
+			} while(dd.st_ino != d.st_ino || dd.st_dev != d.st_dev);
+		close(file);
+                {
+	          register i, j;
+          
+	          i = -1;
+	          while (dir.d_name[++i] != 0);
+	          if ((off+i+2) > BUFSIZ-1){
+		          prname();
+		          return(wd);
+	          }
+	          for(j=off+1; j>=0; --j)
+		          name[j+i+1] = name[j];
+	          off=i+off+1;
+	          name[i] = '/';
+	          for(--i; i>=0; --i)
+		          name[i] = dir.d_name[i];
+	       } 
+	 }
+}
+
+prname()
+{
+	strcpy(wd,"/");
+	if (off<0)
+		off = 0;
+	name[off] = '\0';
+	strcat(wd,name);
+}
+
+prtsplitstr(str)
+char str[];
+{
+int top,cur_scrl;
+
+      cur_scrl = totfiles - topfile + 1;	/* topfile starts at 0 */
+      top = ((cur_scrl < scrlen) ? cur_scrl : scrlen) + 1;
+      curxy(0,top);
+      if (CD != 0) putpad(CD);
+      printf(str);
+      curxy (CURSOR, curline);
+}
+  
+printpath(str,printbottom)
+char str[];
+int printbottom;
+{
+static char error[] = "path too long - use split screen to display it";
+static char rerror[] = "слишком длинный путь - используйте разделенный экран";
+
+if (printbottom) {
+  if (strlen(str) < scrwid) telluser(str);
+  else if (splitflg) prtsplitstr(str);
+  else telluser(ediag(error,rerror));
+}
+else if (splitflg) prtsplitstr(str);
+else if (strlen(str) < scrwid) telluser(str);
+else telluser(ediag(error,rerror));
+}
+    
+expandpath(name)
+char name[];
+{
+char temp[256];
+
+  if (name[0]!= '/') {
+     if (arglist)
+	strcpy(temp,getfullpath("."));
+     else strcpy(temp,fullpath);
+     strcat(temp,"/");
+     strcat(temp,name);
+     strcpy(name,temp);
+  }
+  dcanon(name);
+}
+
+
+/* end 8/82 routines */
+
+getfiles (argc,argv)
+register int argc;
+register char *argv[];
+{
+   if (argc == 1)
+	readdir (".");
+   else {
+	struct stat stbuf;
+
+        arglist=1;
+	if (argc == 2) {
+	    if (stat(argv[1],&stbuf) < 0) {
+	      printf (ediag(
+"\nSorry, %s unreadable.\n",
+"\nИзвините, нельзя прочесть %s.\n"),
+argv[1]);
+	      unsetdpy ();
+	      exit(1);
+	    }
+	    if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+	       readdir (argv[1]);
+	       arglist=0;
+	    }
+	}
+	if (arglist) 
+	{
+	    fflush (stdout);
+	    while (--argc > 0)
+	    {
+		if (totfiles == MAXFILES)
+		    overflow();
+		if ((totfiles % NCROSS) == 0)
+		    write (fileno(stdout), ".", 1);
+		if (gstat(*++argv) == 0) {
+		    file[totfiles].ln.namep = *argv;
+		    file[totfiles].lflags |= ISARG;
+		    totfiles++;
+		}
+	    }
+	}
+    }
+    if (totfiles == 0) {
+		printf(ediag("\n?Empty directory\007\n",
+			"\n?Каталог пуст\007\n"));
+	unsetdpy();
+	sleep(1);		/* So user can see it - don't worry if less */
+	exit(0);
+    }
+    
+}
+
+deletefiles (argv)
+char *argv[];
+{
+  int i;
+
+    if (numdeleted)
+    {
+	blank ();
+	printf (ediag(
+"The following %s marked for deletion:\n",
+"Помечены для удаления:\n"),
+		(numdeleted == 1) ? "is" : "are");
+	typefiles ();
+	printf (ediag("\nShall I delete %s? ",
+		      "\nУничтожить? "),
+		(numdeleted == 1) ? "this" : "these");
+	fflush (stdout);
+	if ((command = getchar ()) != 'y' && command != 'Y' &&
+	    command != 'д' && command != 'Д')
+	{
+	    blank ();
+	    showscreen ();
+	    curxy (0, Tscrlen);
+	    ceol (0, Tscrlen);
+	    curxy (CURSOR, curline);
+	    return;
+	}
+	else
+	{
+	  int failures;
+
+	    failures=0;
+	    printf ("Y\n");
+	    for (i = 0; i < totfiles; i++)
+		if (file[i].deleted == DELETED) {
+		    nambuf[0] = '\0';
+		    bldnam(nambuf, numarg, i, argv);
+		    if (file[i].ltype == 'd')
+			rm (nambuf, 0);
+		    else
+		    	if (unlink (nambuf) < 0) {
+			    printf (ediag(
+"Delete of %s failed.\n",
+"Не удалось уничтожить %s.\n"),
+nambuf);
+			    failures++;
+			}
+		}
+		if (failures) {
+		  presscr(FALSE);
+		  getchar();
+		}
+	}
+    }
+    numdeleted = 0;
+}
+
+typefiles ()
+{
+    int     longsiz,
+            i,
+            j,
+            maxperln,
+            numout,
+            longthis;
+    longsiz = numout = 0;
+    for (i = 0; i < totfiles; i++)
+	if (file[i].deleted == DELETED)
+	    if (file[i].lflags & ISARG)
+	    {
+		if (strlen (file[i].ln.namep) > longsiz)
+		{
+		    longsiz = strlen (file[i].ln.namep);
+		}
+	    }
+	    else
+	    {
+		if (strlen (file[i].ln.lname) > longsiz)
+		{
+		    longsiz = strlen (file[i].ln.lname);
+		}
+	    }
+    maxperln = scrwid / (longsiz + 3);
+    for (i = 0; i < totfiles; i++)
+	if (file[i].deleted == DELETED)
+	{
+	    if (file[i].lflags & ISARG)
+	    {
+		printf ("%s", file[i].ln.namep);
+		longthis = strlen (file[i].ln.namep);
+	    }
+	    else
+	    {
+		printf ("%.14s", file[i].ln.lname);
+		longthis = strlen (file[i].ln.lname);
+	    }
+	    numout++;
+	    if ((numout % maxperln) == 0)
+		putchar ('\n');
+	    else if (numout != numdeleted)
+		for (j = 0; j < (longsiz + 3 - longthis); j++)
+		    putchar (' ');
+	}
+}
+
+rm (arg, level)
+char    arg[];
+{
+    struct stat buf;
+    struct direct   direct;
+    char    name[100];
+    int     d;
+
+    if (stat (arg, &buf))
+    {
+	return;
+    }
+    if ((buf.st_mode & S_IFMT) == S_IFDIR)
+    {
+	if (access (arg, 02) < 0)
+	{
+	    printf (ediag("%s not deleted.\n", "нельзя уничтожить %s.\n"), arg);
+	    return;
+	}
+	if ((d = open (arg, 0)) < 0)
+	{
+	    printf (ediag("rm: %s: cannot read\n", "rm: нельзя читать %s\n"), arg);
+	    return;
+	}
+	while (read (d, (char *) & direct, sizeof (direct)) == sizeof (direct))
+	{
+	    if (direct.d_ino != 0 && !dotname (direct.d_name))
+	    {
+		sprintf (name, "%s/%.14s", arg, direct.d_name);
+		rm (name, level + 1);
+	    }
+	}
+	close (d);
+	errcode += rmdir (arg);
+	return;
+    }
+
+    if (unlink (arg))
+    {
+	++errcode;
+	printf (ediag("%s not deleted.\n", "%s не уничтожен.\n"), arg);
+    }
+}
+
+dotname (s)
+char   *s;
+{
+    if (s[0] == '.')
+	if (s[1] == '.')
+	    if (s[2] == '\0')
+		return (1);
+	    else
+		return (0);
+	else
+	    if (s[1] == '\0')
+		return (1);
+    return (0);
+}
+
+rmdir (f)
+char   *f;
+{
+    int     status,
+            i;
+
+    if (dotname (f))
+	return (0);
+    while ((i = vfork ()) == -1)
+	sleep (3);
+    if (i == 0) {
+    	execl ("/bin/rmdir", "rmdir", f, 0);
+    	execl ("/usr/bin/rmdir", "rmdir", f, 0);
+	printf (ediag("rm: can't find rmdir\n","rm: нельзя найти rmdir\n"));
+	fflush (stdout);
+    	_exit(1);
+    }
+    wait (&status);
+    return (status);
+}
+
+shortcountmess()
+{
+  telluser(ediag("used shortened count","счетчик уменьшен"));
+}
+
+displaywindow(filenum)
+/* forces a new window */
+int filenum;
+{
+  topfile = -999;  /* force a redraw */
+  dispfile(filenum);
+}
+
+fscreen (count)
+int count;
+{
+  if (topfile + scrlen - 1 > totfiles - 1) {
+      telluser (ediag("?No remaining windows","?Нет последующих страниц"));
+      return;
+  }
+  if (count <= 1) count=1;
+  else if ((topfile + count*(scrlen-1)) > totfiles - 1)
+  {
+     displaywindow(totfiles - 1);
+     shortcountmess();
+     return;
+  }
+ displaywindow(topfile + count*(scrlen-1));
+}
+
+bscreen (count)
+int count;
+{
+  if (topfile - scrlen + 1 < 0) {
+      telluser (ediag("?No previous windows","?Нет предыдущих страниц"));
+      return;
+  }
+  if (count <= 1) count=1;
+  else if ((topfile -count*(scrlen-1)) < 0) {
+    displaywindow(0);
+    shortcountmess();
+    return;
+  }
+  displaywindow(topfile - count*(scrlen-1));
+}
+
+showscreen ()
+{
+    int     i,
+	    x1,x2,
+            numprint;
+    home ();
+    setlinebuf (stdout);
+    numprint = 0;
+    for (i = topfile; (numprint < scrlen) && (i < totfiles); i++)
+    {
+	numprint++;
+	pentry (i);
+	putchar ('\n');
+    }
+    if (splitflg) {
+	strcpy(newdivider,divider);
+	x1 = (topfile * LW) / totfiles;
+	x2 = ((topfile+scrlen-1)*LW)/totfiles;
+	if (x1==x2) newdivider[x1]='o';
+	else {
+	  if ((x1==0) && (topfile==0)) newdivider[0]='[';
+	  else newdivider[x1]='(';
+	  if (x2>=LW || topfile+scrlen >= totfiles) newdivider[LW]=']';
+	  else newdivider[x2]=')';
+	}
+    	printf ("%s\n", newdivider);
+    }
+    fflush(stdout);		/* reset for display functions */
+    setbuf(stdout, _sobuf);
+}
+
+readdir (dir)			/* Reads directory dir */
+register char *dir;
+{
+    struct direct   dentry;
+    register j;
+
+    fflush (stdout);
+    if ((dirf = fopen (dir, "r")) == NULL)
+    {
+	printf (ediag("\nSorry, %s unreadable.\n",
+		       "\nИзвините, не могу прочесть %s.\n"),
+dir);
+	unsetdpy ();
+	exit(1);
+    }
+    for (;;)
+    {
+	if (fread ((char *) & dentry, sizeof (dentry), 1, dirf) != 1)
+	    break;
+	if (dentry.d_ino == 0
+		|| dentry.d_name[0] == '.' && (dentry.d_name[1] == '\0'
+		    || dentry.d_name[1] == '.' && dentry.d_name[2] == '\0'))
+	    continue;
+
+	if (totfiles >= MAXFILES)
+	    overflow();			/* abort, too may files */
+	/* Just ignore if can't find the file, dir may be changing */
+	if (gstat (makename (dir, dentry.d_name)) == 0) {	/* 0 == Ok */
+	    file[totfiles].lnum = dentry.d_ino;
+	    for (j = 0; j < DIRSIZ; j++)
+	        file[totfiles].ln.lname[j] = dentry.d_name[j];
+	    if (totfiles % NCROSS == 0)
+		write (fileno(stdout), ".", 1);
+	    totfiles++;
+	}
+    }
+    fclose (dirf);
+}
+
+gstat (name)			/* Stats the file with name */
+register char  *name;
+{
+
+    file[totfiles].lflags = 0;
+    file[totfiles].lnum = 0;
+    file[totfiles].ltype = '-';
+
+    if (stat (name, &statbuf) < 0)
+	return(-1);
+
+    file[totfiles].lnum = statbuf.st_ino;
+    file[totfiles].lsize = statbuf.st_size;
+    switch (statbuf.st_mode & S_IFMT)
+    {
+	case S_IFDIR: 
+	    file[totfiles].ltype = 'd';
+	    break;
+	case S_IFBLK: 
+	    file[totfiles].ltype = 'b';
+	    file[totfiles].lsize = (off_t) statbuf.st_rdev;
+	    break;
+	case S_IFCHR: 
+	    file[totfiles].ltype = 'c';
+	    file[totfiles].lsize = (off_t) statbuf.st_rdev;
+	    break;
+    }
+    file[totfiles].deleted = NOTDELETED;
+    file[totfiles].lflags = statbuf.st_mode & ~S_IFMT;
+    file[totfiles].luid = statbuf.st_uid;
+    file[totfiles].lgid = statbuf.st_gid;
+    file[totfiles].lnl = statbuf.st_nlink;
+    file[totfiles].latime = statbuf.st_atime;
+    file[totfiles].lmtime = statbuf.st_mtime;
+    totblocks += nblock (statbuf.st_size);
+    return(0);
+}
+
+char *
+makename (dir, filen)
+char   *dir,
+       *filen;
+{
+    static char dfile[100];
+    register char  *dp,
+                   *fp;
+    register int    i;
+
+    dp = dfile;
+    fp = dir;
+    while (*fp)
+	*dp++ = *fp++;
+    *dp++ = '/';
+    fp = filen;
+    for (i = 0; i < DIRSIZ; i++)
+	*dp++ = *fp++;
+    *dp = 0;
+    return (dfile);
+}
+
+off_t
+nblock (size)
+off_t   size;
+{
+    return (size + BSIZE - 1) / BSIZE;
+}
+
+pentry (whichone)
+int     whichone;
+{
+    struct
+    {
+	char    dminor,
+	        dmajor;
+    };
+    register    t;
+    register char  *cp;
+
+    if (file[whichone].lnum == -1)
+	return;
+    if (iflg)
+	printf ("%5u ", file[whichone].lnum);
+    if (sflg)
+	printf ("%4ld ", nblock (file[whichone].lsize));
+    if (lflg)
+    {
+	putchar (file[whichone].ltype);
+	pmode (file[whichone].lflags);
+	printf ("%2d ", file[whichone].lnl);
+	t = file[whichone].luid;
+	if (getname (t, userbuf, TRUE) == 0)
+	    printf ("%-8.8s ", userbuf);
+	else
+	    printf ("%-8d ", t);
+	t = file[whichone].lgid;
+	if (getname (t, grpbuf, FALSE) == 0)
+	    printf ("%-8.8s ", grpbuf);
+	else
+	    printf ("%-8d ", t);
+	if (file[whichone].ltype == 'b' || file[whichone].ltype == 'c')
+	    printf ("%3d,%3d", major ((int) file[whichone].lsize),
+		    minor ((int) file[whichone].lsize));
+	else
+	    printf ("%7ld", file[whichone].lsize);
+	if ((sortyp == WRITE) || (sortyp == 0) || (sortyp == SIZE))
+	{
+	    cp = ctime (&file[whichone].lmtime);
+	    if (file[whichone].lmtime < year)
+		printf (" %-7.7s %-4.4s ", cp + 4, cp + 20);
+	    else
+		printf (" %-12.12s ", cp + 4);
+	}
+	else
+	    if (sortyp == READ)
+	    {
+		cp = ctime (&file[whichone].latime);
+		if (file[whichone].latime < year)
+		    printf (" %-7.7s %-4.4s ", cp + 4, cp + 20);
+		else
+		    printf (" %-12.12s ", cp + 4);
+	    }
+    }
+    printf ("%c", file[whichone].deleted ? 'D' : ' ');
+    if (file[whichone].lflags & ISARG)
+	printf (" %.26s", file[whichone].ln.namep);
+    else
+	printf (" %.14s", file[whichone].ln.lname);
+}
+
+getname (uid, buf, u)
+int     uid;
+char    buf[];
+int     u;
+{
+    int     j,
+            c,
+            n,
+            i;
+
+    if (u && uid == lastuid || !u && uid == lastgid)
+	return (0);
+    if (u && pwdf == NULL || !u && grpf == NULL)
+	return (-1);
+    rewind (u ? pwdf: grpf);
+    if (u)
+	lastuid = -1;
+    else
+	lastgid = -1;
+    do
+    {
+	i = 0;
+	j = 0;
+	n = 0;
+	while ((c = fgetc (u ? pwdf: grpf)) != '\n')
+	{
+	    if (c == EOF)
+		return (-1);
+	    if (c == ':')
+	    {
+		j++;
+		c = '0';
+	    }
+	    if (j == 0)
+		buf[i++] = c;
+	    if (j == 2)
+		n = n * 10 + c - '0';
+	}
+    } while (n != uid);
+    buf[i++] = '\0';
+    if (u)
+	lastuid = uid;
+    else
+	lastgid = uid;
+    return (0);
+}
+
+int     m1[] =
+{
+    1, S_IREAD >> 0, 'r', '-'
+};
+int     m2[] =
+{
+    1, S_IWRITE >> 0, 'w', '-'
+};
+int     m3[] =
+{
+    2, S_ISUID, 's', S_IEXEC >> 0, 'x', '-'
+};
+int     m4[] =
+{
+    1, S_IREAD >> 3, 'r', '-'
+};
+int     m5[] =
+{
+    1, S_IWRITE >> 3, 'w', '-'
+};
+int     m6[] =
+{
+    2, S_ISGID, 's', S_IEXEC >> 3, 'x', '-'
+};
+int     m7[] =
+{
+    1, S_IREAD >> 6, 'r', '-'
+};
+int     m8[] =
+{
+    1, S_IWRITE >> 6, 'w', '-'
+};
+int     m9[] =
+{
+    2, S_ISVTX, 't', S_IEXEC >> 6, 'x', '-'
+};
+
+int    *m[] =
+{
+    m1, m2, m3, m4, m5, m6, m7, m8, m9
+};
+
+pmode (aflag)
+{
+    register int  **mp;
+
+    flags = aflag;
+    for (mp = &m[0]; mp < &m[sizeof (m) / sizeof (m[0])];)
+	select (*mp++);
+}
+
+select (pairp)
+register int   *pairp;
+{
+    register int    n;
+
+    n = *pairp++;
+    while (--n >= 0 && (flags & *pairp++) == 0)
+	pairp++;
+    putchar (*pairp);
+}
+
+compar (pp1, pp2)
+struct lbuf *pp1,
+           *pp2;
+{
+    register struct lbuf   *p1,
+                           *p2;
+
+    p1 = pp1;
+    p2 = pp2;
+    if (p1 -> lflags & ISARG && p1 -> ltype == 'd')
+    {
+	if (!((p2 -> lflags & ISARG) && p2 -> ltype == 'd'))
+	    return (1);
+    }
+    else
+    {
+	if ((p2 -> lflags & ISARG) && p2 -> ltype == 'd')
+	    return (-1);
+    }
+    if (sortyp == SIZE)
+    {
+	if (p2 -> lsize == p1 -> lsize)
+	    return (0);
+	if (p2 -> lsize > p1 -> lsize)
+	    return (rflg);
+	return (-rflg);
+    }
+    else
+	if (sortyp == WRITE)
+	{
+	    if (p2 -> lmtime == p1 -> lmtime)
+		return (0);
+	    if (p2 -> lmtime > p1 -> lmtime)
+		return (rflg);
+	    return (-rflg);
+	}
+	else
+	    if (sortyp == READ)
+	    {
+		if (p2 -> latime == p1 -> latime)
+		    return (0);
+		if (p2 -> latime > p1 -> latime)
+		    return (rflg);
+		return (-rflg);
+	    }
+    return (rflg * strlcmp ((p1 -> lflags & ISARG) ? p1 -> ln.namep : p1 -> ln.lname,
+		(p2 -> lflags & ISARG) ? p2 -> ln.namep : p2 -> ln.lname));
+}
+
+ceol (x,y)
+int x,y;
+{
+    if (CE) putpad (CE);
+    else {  /***crh for terms w/o ce, put blanks & restore cursor **/
+      register i;
+
+      for (i=x; i <  scrwid ; i++ ) putchar(' ');
+      curxy(x,y);
+    }
+}
+blank ()
+{
+    if (CL)
+	putpad (CL);
+    else if (CD) {
+	home ();
+	putpad (CD);
+    }
+}
+home () 
+{
+    if (HO) putpad (HO);
+    else curxy(0,0);
+}
+insline ()
+{
+    if (AL)
+	putpad (AL);
+}
+
+/* Yes, folks, we use direct cursor addressing to get to next line!
+   Before you mumble "What sort of cretin would do this?" here's
+   the reason. We don't use \n since that obviously won't work.
+   We don't use \012 since virgin version 7 makes that into a crlf.
+   We don't use raw mode since we type out help files efficently,
+   and we don't want to switch modes all the time. So enjoy. -- SMC */
+
+downline ()
+{
+    curfile++;
+    curline++;
+    if (DO)
+	putpad (DO);
+    else
+	curxy (CURSOR, curline);
+
+}
+
+upline ()
+{
+    curline--;
+    curfile--;
+    if (UP)
+	putpad (UP);
+    else
+	curxy (CURSOR, curline);
+}
+
+/*VARARGS1*/
+telluser (msg, args)
+char   *msg;
+{
+    curxy (0, Tscrlen);
+    ceol (0,Tscrlen);
+    printf (msg, args);
+    curxy (CURSOR, curline);
+    blurb++;
+}
+
+curxy (col, lin)
+{
+    extern char *tgoto ();
+
+    putpad (tgoto (CM, col, lin));
+}
+
+char *fgets();
+
+
+nottext(fn)
+/** routine to try to determine whether the file is obviously not a text
+file. Adapted from "more".   *** crh ***/
+
+char fn[];
+{
+int c;
+FILE *f;
+
+if ((f=fopen(fn, "r")) == NULL) return(FALSE);
+c = getw(f);
+
+/* Try to see whether it is an ASCII file */
+
+switch ( c ) {
+    case A_MAGIC1:
+    case A_MAGIC2:
+    case A_MAGIC3:
+    case A_MAGIC4:
+    case A_MAGIC5:
+    case A_MAGIC6:
+    case A_MAGIC7:
+    case 0177545:
+	fclose (f);
+	return (TRUE);
+    default:
+	fclose (f);
+	return(FALSE);
+    }
+ }
+
+getch(fd)
+FILE    *fd;
+{
+  if (wasspecial) {
+     wasspecial = FALSE;
+     return (specialcc);
+  }
+  else return (getc(fd));
+}
+
+type (filestr, waitflg)    /* Modified to type help file & others. fjl 5/81 */
+char *filestr;			/* Kludgy now with split screen stuff! */
+{
+    int     helpfd = 5;
+    FILE    *fd = stdin;
+    register int     i,j, n;
+    register int     cc = 0;
+    int	    cur_scrl;		/* current screen length */
+    char    helpbuf[BUFSIZ];
+    
+    if (nottext(filestr)) {
+       telluser(ediag("?Not a text file: %s", "?Нетекстовый файл: %s"), filestr);
+       return (FALSE);
+    }
+    if (!splitflg)
+	helpfd = open(filestr, 0);
+    else
+    	fd = fopen(filestr, "r");
+    if (helpfd < 0 || fd == NULL) {
+	telluser(ediag(
+"?Unable to open %sfile",
+"?Нельзя открыть файл%s"),
+strcmp(filestr,ediag(e_helpfile,r_helpfile))?"":ediag("help "," подсказки"));
+	return (FALSE);
+    }
+    
+    signal(SIGINT, catchint);
+    sigint = 0;
+    intype=1;
+
+    if (!splitflg) {
+    	blank();
+	fflush (stdout);
+	while ((i = read (helpfd, helpbuf, BUFSIZ)) > 0 && !sigint)
+	    write (fileno(stdout), helpbuf, i);
+	close(helpfd);
+    }
+    else {
+	cur_scrl = totfiles - topfile + 1;	/* topfile starts at 0 */
+	Worktop = ((cur_scrl < scrlen) ? cur_scrl : scrlen) + 1;
+	if (!splitflg) {
+	   blank();
+	   Worktop=0;
+	}
+	do {
+	    curxy(0, Worktop);
+	    /**** crh  replace call to ceod()  ****/
+	    if (CD != 0)  putpad(CD);
+	    else if (!splitflg) blank();  
+	    wasspecial = FALSE;
+	    for (i = Worktop; (i < Tscrlen) && !sigint && (cc != EOF); i++) {
+		n = 0;
+		while ((cc = getch(fd)) != EOF) {
+		    if (cc == '\t') n= (n/8) * 8 + 8;
+chklen:
+		    if (n >= scrwid  /*+1 */ ) { /* Use only 79 cols crh***/
+			if (cc != '\n') {
+			    if (!wasspecial) ungetc(cc, fd);
+			       else specialcc=cc;
+			    cc = '\n';
+			}
+		    }
+		    if (i >= Tscrlen) goto Efor;
+		    if ( (cc >= ' ') && !isprint(cc)) {
+			n++;
+			wasspecial = TRUE;
+			if (cc & 0200) {
+			    cc &= ~0200;
+			    putchar ('M');
+			    if (n >= scrwid) {
+				if ((CD==0) && splitflg)
+				   ceol(n,i);
+				putchar ('\n');
+				i++;
+				n = 0;
+			    }
+			    putchar ('-');
+			    n++;
+			}
+			else {
+			    putchar('^');
+			    cc = '?';
+			}
+			goto chklen;
+		    }
+		    else
+		    if ( (cc < ' ') && (cc != '\t') && (cc != '\n') ) {
+			 /* form the graphic of the control char */
+			putchar('^');
+			cc = cc + 64;
+			n++;
+			wasspecial = TRUE;
+			goto chklen;
+		    }
+		    if (cc != '\n') {
+		       putchar(cc);
+		       wasspecial = FALSE;
+		    }
+		    else {
+		       if ((CD==0) && splitflg)
+			  ceol(n,i);
+		       putchar('\n');
+		       break;
+		    }
+		    if (cc != '\t') n++;
+		}
+	    }
+	Efor:
+	       if (CD==0 && splitflg)
+	         for (j= i; j < Tscrlen;j++ ) {
+		    curxy(0, j);
+		    ceol (0,j);
+	         }
+	} while (!sigint && (cc != EOF) && waitchk(waitflg));
+	
+	if (feof(fd))	
+	    printf(ediag("===== End-of-File =====\n",
+			 "===== Конец Файла =====\n"));
+	fflush(stdout);
+	fclose(fd);
+	return(FALSE);	/* needs no re-display */
+    }
+	    
+    if (!splitflg) {		/* redundant now... */
+    	if (!sigint) {
+	    curxy(0, Tscrlen);
+	    presscr(TRUE);
+    	    getchar ();
+    	}
+    	blank ();
+    }
+    return (TRUE);
+}
+
+waitchk(waitflg)
+{
+	if (waitflg) {
+	    curxy(0, Tscrlen);
+	    ceol(0,Tscrlen);
+	    printf (ediag("---Continue---","---Дальше?---"));
+	    curxy(0, Tscrlen);
+	}
+	fflush (stdout);
+	if (!waitflg)
+	    return(1);
+	if (getchar() == 'q')
+	    sigint = 1;         /* simulate interrupt */
+	ceol(0,Tscrlen);
+	if (sigint)
+	    return(0);		/* avoids clear of screen */
+	return(1);
+}
+
+getdpy ()
+{
+    short ctpgrp;
+
+    fflush (stdout);
+    do {
+	ioctl( 0, TIOCGPGRP, &ctpgrp );
+    }
+    while (ctpgrp != getpgrp(0) && (getchar (), TRUE));
+    ioctl (0, TIOCGETP, &ioctlb);
+}
+
+setdpy ()
+{
+    getdpy ();
+    ioctlb.sg_flags |= CBREAK;
+    ioctlb.sg_flags &= ~ECHO;
+    ioctl (0, TIOCSETP, &ioctlb);
+}
+
+unsetdpy ()
+{
+    fflush (stdout);
+    ioctlb.sg_flags &= ~CBREAK;
+    ioctlb.sg_flags |= ECHO;
+    ioctl (0, TIOCSETP, &ioctlb);
+}
+
+getcap ()
+{
+    char   *ap;
+    char   *term, tbuf[1024];
+    char   *xPC;
+
+    term = getenv ("TERM");
+    if (term == 0)
+    {
+	fprintf (stderr, ediag("No TERM in environment\n",
+				"Нет переменной среды TERM\n"));
+	exit(1);
+    }
+
+    switch (tgetent (tbuf, term))
+    {
+	case -1: 
+	    fprintf (stderr, ediag(
+"Cannot open termcap file\n",
+"Нельзя открыть файл termcap\n"));
+	    exit (2);
+	case 0: 
+	    fprintf (stderr, ediag(
+"%s: unknown terminal\n",
+"неизвестный терминал %s\n"),
+term);
+	    exit (3);
+    }
+
+    ap = tcapbuf;
+
+    Tscrlen = tgetnum ("li") - 1;
+    scrwid = tgetnum ("co") - 1;/* lose 1 so won't scroll in last line */
+
+    UP = tgetstr ("up", &ap);
+    CD = tgetstr ("cd", &ap);
+    CE = tgetstr ("ce", &ap);
+    HO = tgetstr ("ho", &ap);
+    DO = tgetstr ("do", &ap);
+    CL = tgetstr ("cl", &ap);
+    CM = tgetstr ("cm", &ap);
+    AL = tgetstr ("al", &ap);		/* insert line, optional */
+
+    xPC = tgetstr ("pc", &ap);
+    if (xPC)
+	PC = *xPC;
+
+    /*** crh changed error test ***/
+    if ((CM == 0) || (CL == 0) || (UP == 0)  )
+    {
+	fprintf (stderr, ediag(
+"Tty must have cursor addr, clear, and 4 cursor motions.\n",
+"У терминала должна быть прямая постановка,\
+\nочистка экрана и 4 перемещения курсора.\n"));
+	exit (1);
+    }
+    if (Tscrlen <= 0 || scrwid <= 0)
+    {
+	fprintf (stderr, ediag(
+"Must know the screen size\n",
+"Неизвестен размер экрана\n"));
+	exit (1);
+    }
+}
+
+outch (c)
+{
+    putchar (c);
+}
+
+putpad (str)
+char   *str;
+{
+    if (str)
+	tputs (str, 1, outch);
+}
+
+catchint()
+{
+	signal(SIGINT, SIG_IGN);	/* reset it */
+	sigint = 1;
+}
+
+char *
+bldnam(str, numarg, filidx, argv)
+char *str;
+char *argv[];
+{
+	
+	if (numarg == 1)
+	    strcat (str, file[filidx].ln.lname);
+	else
+	    if (numarg == 2) {
+		if (arglist) 
+		   strcat (str, file[filidx].ln.namep);
+		else {
+		   strcat (str, argv[1]);
+		   strcat (str, "/");
+		   strcat (str, file[filidx].ln.lname);
+		}
+	    }
+	    else
+		strcat (str, file[filidx].ln.namep);
+	return(str);
+}
+
+char *
+catargs(str, argv)
+char *str;
+char *argv[];
+{
+	char *sprintf (), buf[30];
+
+	if (asswin != -1)
+	    strcat (str, sprintf (buf, "-w%d ", asswin));
+	if (!splitflg)
+	    strcat (str, "-wf ");
+	sprintf (buf, "-%c%c ", (rflg > 0) ? 's': 'r',
+			sortstr[sortyp]);
+	if (strcmp (buf, "-sn "))
+		strcat (str, buf);
+	return(str);
+}
+
+overflow()
+{
+    printf(ediag("\n?Too many files\007\n","\n?Слишком много файлов\007\n"));
+    unsetdpy();
+    sleep(1);		/* So user can see it - don't worry if less */
+    exit(1);
+}
+
+char *skipto (string,charset)
+char *charset,*string;
+{
+	register char *setp,*strp;
+	register int found;
+
+	found = 0;			/* not found yet */
+	strp = string;			/* start at first char */
+
+	while (*strp && !found) {	/* until null or found */
+		/* find first char in charset matching *strp */
+		for (setp=charset; (*setp) && (*setp != *strp); setp++) ;
+		if (*setp)	found = 1;	/* matches a char */
+		else		strp++;		/* else keep looking */
+	}
+
+	return (strp);
+}
+
+
+presscr(ret)
+{
+    printf (ediag("Press <CR> for %s...","Для %s нажмите <ВК>..."),
+      ret ? ediag("return","возврата") : ediag("continue","продолжения"));
+    fflush (stdout);
+}
+@

@@ -1,0 +1,43 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.02.04.21.12.25;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Установка цвета в карте.
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+
+extern char _HEXtab[];
+
+colormap( ncol, R, G, B )
+{
+	if( ncol & ~017 )
+		return;
+	R >>= 6;  R &= 017;
+	G >>= 6;  G &= 017;
+	B >>= 6;  B &= 017;
+
+	printf( "JG%c%c%c%c0", _HEXtab[ncol],
+			       _HEXtab[R], _HEXtab[G], _HEXtab[B] );
+}
+@

@@ -1,0 +1,82 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     88.05.10.22.11.39;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@
+
+# Эта штука добавляется в исходный файл перед
+# запуском rcs               Давидов 04.28.88
+#
+# $Header$
+# $Log$
+#
+
+
+
+#  E_82 - для машин типа СМ 1700 (расширение таблиц):
+
+#CFLAGS= -O -DE_82
+
+CFLAGS= -O
+
+all:    spell hlist hlista hlistb hstop spellin spellout
+
+install:        all
+	install -s spell $(DESTDIR)/usr/lib
+	install -s spellin ${DESTDIR}/usr/bin
+	install -s spellout ${DESTDIR}/usr/bin
+	install -c hlist  $(DESTDIR)/usr/dict
+	install -c hlista $(DESTDIR)/usr/dict
+	install -c hlistb $(DESTDIR)/usr/dict
+	install -c hstop $(DESTDIR)/usr/dict
+	install -c spell.sh $(DESTDIR)/usr/bin/spell
+
+clean:
+	rm -f *.o spell spellin hlista hlistb hlist hstop spellout
+
+spell: spell.o
+	cc spell.o -o spell
+spellin: spellin.o
+	cc spellin.o -o spellin
+spellout: spellout.o
+	cc spellout.o -o spellout
+
+hlist: /usr/dict/words spellin
+	spellin </usr/dict/words >hlist
+hlista: american local hlist spellin
+	(cat american local)|spellin hlist >hlista
+hlistb: british local hlist spellin
+	(cat british local)|spellin hlist >hlistb
+hstop: stop spellin
+	spellin <stop >hstop
+
+
+spell.c:                RCS/spell.c,v;          co spell.c
+spell.h:                RCS/spell.h,v;          co spell.h
+spell.h.pcm:            RCS/spell.h.pcm,v;      co spell.h.pcm
+spell.h.vcm:            RCS/spell.h.vcm,v;      co spell.h.vcm
+spell.sh:               RCS/spell.sh,v;         co spell.sh
+spellin.c:              RCS/spellin.c,v;        co spellin.c
+spellout.c:             RCS/spellout.c,v;       co spellout.c
+Makefile:               RCS/Makefile,v;         co Makefile
+@

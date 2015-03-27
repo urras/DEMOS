@@ -1,0 +1,57 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.14.13.48.21;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * getcwp() returns the pathname of the current working project. If the
+ * PROJECT environment variable is undefined or a null string, null is
+ * returned.
+ */
+#include "null.h"
+#include <sys/types.h>
+char *
+getcwp()
+{
+	extern char *_PROJECT;          /* project root directory pathname */
+	void getproject();              /* get PROJECT environment variable */
+
+	if (_PROJECT == NULL)
+		getproject();
+	return(_PROJECT);
+}
+@

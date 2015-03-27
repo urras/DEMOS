@@ -1,0 +1,26 @@
+#print
+(Раздел 1.5)
+Напишите программу, которая копирует точно три символа
+со стандартного ввода на вывод.
+Скомпилировав и проверив, наберите "готов".
+#once #create Ref
+XY
+#once #create z1
+XY
+помечает останов.
+#user
+a.out <z1 >z2
+#cmp z2 Ref
+#succeed
+/* А вот и наше решение */
+
+main()
+{
+	putchar(getchar());
+	putchar(getchar());
+	putchar(getchar());
+}
+#log
+#next
+5.1b 10
+5.2a 5

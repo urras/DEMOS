@@ -1,0 +1,310 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.10.20.15.16.32;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.12.28.20.28.35;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.28.18.46.27;  author avg;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.12.28.18.42.02;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Построитель лексических анализатров LEX.
+@
+
+
+1.3
+log
+@U(x) определено как & 0377, т.к. некоторые компиляторы делают так:
+(unsigned) x ==> char -> int -> unsigned
+@
+text
+@/*
+ * $Log:	header.c,v $
+ * Revision 1.2  86/12/28  20:28:35  avg
+ * Версия для ДЕМОС 2.0
+ * 
+ */
+
+#include <ediag.h>
+#include "ldefs.h"
+
+/*NOXSTR*/
+#ifndef lint
+static char rcsid[] = "$Header: header.c,v 1.2 86/12/28 20:28:35 avg Exp $";
+static char hrcsid[] = LDHDR;
+#endif
+/*YESXSTR*/
+
+phead1()
+{
+	if( fout == NULL )
+		error( "No %%%% in head\n", "Нет %%%% в начале\n" );
+	fprintf( fout, "#include <stdio.h>\n" );
+/*
+	if( ZCH > NCH ){
+		fprintf( fout, "#define U(x) ((x)&0377)\n" );
+	}else{
+		fprintf( fout, "#define U(x) x\n" );
+	}
+ */
+	fprintf( fout, "#include <ediag.h>\n" );
+	fprintf( fout, "#define U(x) ((x)&0377)\n" );
+	fprintf( fout, "#define NLSTATE yyprevious=YYNEWLINE\n" );
+	fprintf( fout, "#define BEGIN yybgin = yysvec + 1 +\n" );
+	fprintf( fout, "#define INITIAL 0\n" );
+	fprintf( fout, "#define YYLERR 0\n" );
+	fprintf( fout, "#define YYSTATE (yyestate-yysvec-1)\n" );
+	if( optim ){
+		fprintf( fout, "#define YYOPTIM 1\n" );
+	}
+# ifdef DEBUG
+	fprintf( fout, "#define LEXDEBUG 1\n" );
+# endif
+	fprintf( fout, "#define YYLMAX 200\n" );
+	fprintf( fout, "#define output(c) putc(c,yyout)\n" );
+	fprintf( fout, "%s%d%s\n",
+  "#define input() (((yytchar=yysptr>yysbuf?U(*--yysptr):getc(yyin))==",
+	ctable['\n'],
+ "?(yylineno++,yytchar):yytchar)==EOF?0:yytchar)" );
+	fprintf( fout,
+"#define unput(c) {yytchar= (c);if(yytchar=='\\n')yylineno--;*yysptr++=yytchar;}\n" );
+	fprintf( fout, "#define yymore() (yymorfg=1)\n" );
+	fprintf( fout, "#define ECHO fprintf(yyout, \"%%s\",yytext)\n" );
+	fprintf( fout, "#define REJECT { nstr = yyreject(); goto yyfussy;}\n" );
+	fprintf( fout, "int yyleng; extern char yytext[];\n" );
+	fprintf( fout, "int yymorfg;\n" );
+	fprintf( fout, "extern char *yysptr, yysbuf[];\n" );
+	fprintf( fout, "int yytchar;\n" );
+	fprintf( fout, "FILE *yyin ={stdin}, *yyout ={stdout};\n" );
+	fprintf( fout, "extern int yylineno;\n" );
+	fprintf( fout, "struct yysvf { \n" );
+	fprintf( fout, "\tstruct yywork *yystoff;\n" );
+	fprintf( fout, "\tstruct yysvf *yyother;\n" );
+	fprintf( fout, "\tint *yystops;};\n" );
+	fprintf( fout, "struct yysvf *yyestate;\n" );
+	fprintf( fout, "extern struct yysvf yysvec[], *yybgin;\n" );
+}
+
+phead2()
+{
+	if( fout == NULL )
+		error( "No %%%% in head\n", "Нет %%%% в начале\n" );
+	fprintf( fout, "while((nstr = yylook()) >= 0)\n" );
+	fprintf( fout, "yyfussy: switch(nstr){\n" );
+	fprintf( fout, "case 0:\n" );
+	fprintf( fout, "if(yywrap()) return(0); break;\n" );
+}
+
+ptail()
+{
+	if( !pflag ){
+		if( fout == NULL )
+			error( "No %%%% in head\n", "Нет %%%% в начале\n" );
+		fprintf( fout, "case -1:\nbreak;\n" );             /* for reject */
+		fprintf( fout, "default:\n" );
+		fprintf( fout, "fprintf(yyout,ediag(\"bad switch yylook %%d\",\"плохой переключатель yylook %%d\"),nstr);\n" );
+		fprintf( fout, "} return(0); }\n" );
+		fprintf( fout, "/* конец yylex */\n" );
+	}
+	pflag = 1;
+}
+
+statistics()
+{
+	fprintf( errorf, ediag(
+"%d/%d nodes(%%e)\n%d/%d positions(%%p)\n%d/%d states(%%n)\n%ld jumps\n",
+"%d/%d узлов(%%e)\n%d/%d позиций(%%p)\n%d/%d состояний(%%n)\n%ld переходов\n"),
+		tptr, treesize, nxtpos-positions, maxpos, stnum+1, nstates, rcount );
+	fprintf( errorf, ediag(
+"%d/%d packed char classes(%%k)\n",
+"%d/%d упакованных классов символов(%%k)\n"), pcptr-pchar, pchlen );
+	if( optim ){
+		fprintf( errorf, ediag(
+"%d/%d packed jumps(%%a)\n",
+"%d/%d упакованных переходов(%%a)\n"), nptr, ntrans );
+	}
+	fprintf( errorf, ediag(
+"%d/%d output slots(%%o)\n",
+"%d/%d выходных элементов(%%o)\n"), yytop, outsize );
+}
+@
+
+
+1.2
+log
+@Версия для ДЕМОС 2.0
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d13 1
+a13 1
+static char rcsid[] = "$Header$";
+d31 1
+a31 1
+	fprintf( fout, "#define U(x) ((unsigned)(x))\n" );
+@
+
+
+1.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d2 1
+a2 5
+ * МНОС РЛ 1.2
+ * lex - построитель лексических анализаторов
+ *	Версия для СМ-4 и т.п. - Антонов В.Г.
+ *				( ИПК Минавтопрома, ВМК МГУ )
+ * Последнее изменение: 03.09.85
+d7 7
+@
+
+
+1.0
+log
+@Initial revision
+@
+text
+@d1 21
+a21 3
+# include "ldefs.c"
+phead1(){
+	ratfor ? rhd1() : chd1();
+d23 11
+a33 14
+
+chd1(){
+	fprintf(fout,"# include \"stdio.h\"\n");
+	if (ZCH>NCH)
+	fprintf(fout, "# define U(x) ((x)&0377)\n");
+	else
+	fprintf(fout, "# define U(x) x\n");
+	fprintf(fout, "# define NLSTATE yyprevious=YYNEWLINE\n");
+	fprintf(fout,"# define BEGIN yybgin = yysvec + 1 +\n");
+	fprintf(fout,"# define INITIAL 0\n");
+	fprintf(fout,"# define YYLERR yysvec\n");
+	fprintf(fout,"# define YYSTATE (yyestate-yysvec-1)\n");
+	if(optim)
+		fprintf(fout,"# define YYOPTIM 1\n");
+d35 1
+a35 1
+	fprintf(fout,"# define LEXDEBUG 1\n");
+d37 4
+a40 4
+	fprintf(fout,"# define YYLMAX 200\n");
+	fprintf(fout,"# define output(c) putc(c,yyout)\n");
+	fprintf(fout, "%s%d%s\n",
+  "# define input() (((yytchar=yysptr>yysbuf?U(*--yysptr):getc(yyin))==",
+d42 19
+a60 19
+ "?(yylineno++,yytchar):yytchar)==EOF?0:yytchar)");
+	fprintf(fout,
+"# define unput(c) {yytchar= (c);if(yytchar=='\\n')yylineno--;*yysptr++=yytchar;}\n");
+	fprintf(fout,"# define yymore() (yymorfg=1)\n");
+	fprintf(fout,"# define ECHO fprintf(yyout, \"%%s\",yytext)\n");
+	fprintf(fout,"# define REJECT { nstr = yyreject(); goto yyfussy;}\n");
+	fprintf(fout,"int yyleng; extern char yytext[];\n");
+	fprintf(fout,"int yymorfg;\n");
+	fprintf(fout,"extern char *yysptr, yysbuf[];\n");
+	fprintf(fout,"int yytchar;\n");
+	fprintf(fout,"FILE *yyin ={stdin}, *yyout ={stdout};\n");
+	fprintf(fout,"extern int yylineno;\n");
+	fprintf(fout,"struct yysvf { \n");
+	fprintf(fout,"\tstruct yywork *yystoff;\n");
+	fprintf(fout,"\tstruct yysvf *yyother;\n");
+	fprintf(fout,"\tint *yystops;};\n");
+	fprintf(fout,"struct yysvf *yyestate;\n");
+	fprintf(fout,"extern struct yysvf yysvec[], *yybgin;\n");
+	}
+d62 9
+a70 18
+rhd1(){
+	fprintf(fout,"integer function yylex(dummy)\n");
+	fprintf(fout,"define YYLMAX 200\n");
+	fprintf(fout,"define ECHO call yyecho(yytext,yyleng)\n");
+	fprintf(fout,"define REJECT nstr = yyrjct(yytext,yyleng);goto 30998\n");
+	fprintf(fout,"integer nstr,yylook,yywrap\n");
+	fprintf(fout,"integer yyleng, yytext(YYLMAX)\n");
+	fprintf(fout,"common /yyxel/ yyleng, yytext\n");
+	fprintf(fout,"common /yyldat/ yyfnd, yymorf, yyprev, yybgin, yylsp, yylsta\n");
+	fprintf(fout,"integer yyfnd, yymorf, yyprev, yybgin, yylsp, yylsta(YYLMAX)\n");
+	fprintf(fout,"for(;;){\n");
+	fprintf(fout,"\t30999 nstr = yylook(dummy)\n");
+	fprintf(fout,"\tgoto 30998\n");
+	fprintf(fout,"\t30000 k = yywrap(dummy)\n");
+	fprintf(fout,"\tif(k .ne. 0){\n");
+	fprintf(fout,"\tyylex=0; return; }\n");
+	fprintf(fout,"\t\telse goto 30998\n");
+	}
+d72 10
+a81 2
+phead2(){
+	if(!ratfor)chd2();
+a82 11
+
+chd2(){
+	fprintf(fout,"while((nstr = yylook()) >= 0)\n");
+	fprintf(fout,"yyfussy: switch(nstr){\n");
+	fprintf(fout,"case 0:\n");
+	fprintf(fout,"if(yywrap()) return(0); break;\n");
+	}
+
+ptail(){
+	if(!pflag)
+		ratfor ? rtail() : ctail();
+d84 1
+a84 1
+	}
+d86 13
+a98 6
+ctail(){
+	fprintf(fout,"case -1:\nbreak;\n");		/* for reject */
+	fprintf(fout,"default:\n");
+	fprintf(fout,"fprintf(yyout,\"bad switch yylook %%d\",nstr);\n");
+	fprintf(fout,"} return(0); }\n");
+	fprintf(fout,"/* end of yylex */\n");
+d100 4
+a103 20
+
+rtail(){
+	register int i;
+	fprintf(fout,"\n30998 if(nstr .lt. 0 .or. nstr .gt. %d)goto 30999\n",casecount);
+	fprintf(fout,"nstr = nstr + 1\n");
+	fprintf(fout,"goto(\n");
+	for(i=0; i<casecount; i++)
+		fprintf(fout,"%d,\n",30000+i);
+	fprintf(fout,"30999),nstr\n");
+	fprintf(fout,"30997 continue\n");
+	fprintf(fout,"}\nend\n");
+	}
+statistics(){
+	fprintf(errorf,"%d/%d nodes(%%e), %d/%d positions(%%p), %d/%d (%%n), %ld transitions\n",
+		tptr, treesize, nxtpos-positions, maxpos, stnum+1, nstates, rcount);
+	fprintf(errorf, ", %d/%d packed char classes(%%k)", pcptr-pchar, pchlen);
+	if(optim)fprintf(errorf,", %d/%d packed transitions(%%a)",nptr, ntrans);
+	fprintf(errorf, ", %d/%d output slots(%%o)", yytop, outsize);
+	putc('\n',errorf);
+	}
+@

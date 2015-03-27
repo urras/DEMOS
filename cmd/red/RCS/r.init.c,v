@@ -1,0 +1,349 @@
+head     4.1;
+access   ;
+symbols  RED_4:3.1.2 RED_3_9:3.6 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+4.1
+date     88.03.31.22.03.30;  author alex;  state Exp;
+branches ;
+next     3.6;
+
+3.6
+date     87.06.05.23.50.43;  author alex;  state Exp;
+branches ;
+next     3.5;
+
+3.5
+date     87.04.02.18.37.53;  author alex;  state Stab;
+branches ;
+next     3.4;
+
+3.4
+date     86.09.19.19.54.01;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.52.12;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.00.24.59;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.04.20.23.42.03;  author alex;  state Exp;
+branches 3.1.1.1 3.1.2.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.05.06;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.16.21.53.36;  author alex;  state Stab;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.16.22.18.41;  author alex;  state Stab;
+branches ;
+next     ;
+
+3.1.2.1
+date     87.06.19.17.00.46;  author alex;  state Exp;
+branches ;
+next     3.1.2.2;
+
+3.1.2.2
+date     87.06.23.18.51.35;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+4.1
+log
+@Версия 4.1 - обкатка на UTEC, СМ
+@
+text
+@/*
+ *      Редактор RED.
+ *      файл r.init.h - инициализация переменных.
+ *      $Header: r.init.c,v 3.1.2.2 87/06/23 18:51:35 alex Exp $
+ *      $Log:	r.init.c,v $
+ * Revision 3.1.2.2  87/06/23  18:51:35  alex
+ * wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+ * 
+ * Revision 3.1.2.1  87/06/19  17:00:46  alex
+ * Start revision for red/4
+ * 
+ * Revision 3.6  87/06/05  23:50:43  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.5  87/04/02  18:37:53  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.5  87/04/01  19:16:06  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.4  86/09/19  19:54:01  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:52:12  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  00:24:59  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.3  86/06/16  22:18:41  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.1  86/06/05  00:05:06  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/04/20  23:42:03  alex
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:42:03  alex
+ * *** empty log message ***
+ * 
+ * Revision 1.4  86/04/13  22:03:40  alex
+ */
+
+
+#define INIT_RE
+#include "r.defs.h"
+
+int tabstops[NTABS] = {
+  -1, 0,  8, 16, 24, 32, 40, 48, 56, 64,
+ 72, 80, 88, 96,104,112,120,128,136, BIGTAB,
+  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,};
+
+/* Параметры для движения по файлу */
+
+int defplline = 10;               /* +LINE       */
+int defmiline = 10;               /* -LINE       */
+int defplpage =  1;                /* +PAGE      */
+int defmipage =  1;                /* -PAGE      */
+int deflport  = 30;                /* LEFT PORT  */
+int defrport  = 30;                /* RIGHT PORT */
+int definsert  = 1;                /* OPEN       */
+int defdelete  = 1;                /* CLOSE      */
+int defpick    = 1;                /* PICK       */
+char *deffile = "/usr/lib/re.std";   /* Файл подсказок */
+
+/* Инициализации  */
+int lcline  = 0;
+int icline  = 20; /* Инкремент для расширения */
+int clineno = -1;
+char fcline = 0;
+
+/* Файл / протокол */
+int ttyfile  = -1;
+int inputfile = 0;
+
+#ifdef DEMOSES
+short dflinsert=4;
+#endif DEMOSES
+@
+
+
+3.6
+log
+@Добавлен roll для терминалов с sr/sf и отображение
+ табуляций в режиме -t + всякая мелочь
+@
+text
+@d2 1
+a2 1
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+d4 1
+a4 1
+ *      $Header: r.init.c,v 3.5 87/04/02 18:37:53 alex Exp $
+d6 10
+a53 1
+int lread1 = -1;         /* -1 означает, что символ использован */
+@
+
+
+3.5
+log
+@Версия для Utec слита с версией с выделением прописных букв
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.5 87/04/01 19:16:06 alex Exp $
+d6 3
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.3 86/08/04 20:52:12 alex Exp $
+d6 6
+d54 1
+a54 1
+char deffile[] = "/usr/lib/re.std";   /* Файл подсказок */
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.2 86/07/24 00:24:59 alex Exp $
+d6 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.1.1.3 86/06/16 22:18:41 alex Exp $
+d6 3
+@
+
+
+3.1
+log
+@Базовая версия для ЕС.
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.1 86/04/20 23:42:03 alex Exp $
+d6 6
+d13 3
+d54 3
+@
+
+
+3.1.2.1
+log
+@Start revision for red/4
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.6 87/06/05 23:50:43 alex Exp $
+a5 25
+ * Revision 3.6  87/06/05  23:50:43  alex
+ * Добавлен roll для терминалов с sr/sf и отображение
+ *  табуляций в режиме -t + всякая мелочь
+ * 
+ * Revision 3.5  87/04/02  18:37:53  alex
+ * Версия для Utec слита с версией с выделением прописных букв
+ * 
+ * Revision 3.5  87/04/01  19:16:06  alex
+ * Revision for Utec: Cs, Ce, Ct, hR
+ * 
+ * Revision 3.4  86/09/19  19:54:01  alex
+ * Версия для СМ-1700
+ * 
+ * Revision 3.3  86/08/04  20:52:12  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  00:24:59  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.3  86/06/16  22:18:41  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.1  86/06/05  00:05:06  alex
+ * Отлажено_на_модели
+ * 
+a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:42:03  alex
+d33 1
+a33 1
+char *deffile = "/usr/lib/re.std";   /* Файл подсказок */
+a44 3
+#ifdef DEMOSES
+short dflinsert=4;
+#endif DEMOSES
+@
+
+
+3.1.2.2
+log
+@wYNESENA PEREMENNAQ lread1 I \TO OTLAVENO
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.1.2.1 87/06/19 17:00:46 alex Exp $
+a5 3
+ * Revision 3.1.2.1  87/06/19  17:00:46  alex
+ * Start revision for red/4
+ * 
+d48 1
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@a6 3
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:42:03  alex
+d44 1
+a44 1
+short dflinsert=1;
+@
+
+
+3.1.1.2
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@d4 1
+a4 1
+ *      $Header: r.init.c,v 3.1.1.1 86/06/05 00:05:06 alex Exp $
+a5 3
+ * Revision 3.1.1.1  86/06/05  00:05:06  alex
+ * Отлажено_на_модели
+ * 
+d47 1
+a47 1
+short dflinsert=4;
+@
+
+
+3.1.1.3
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@@

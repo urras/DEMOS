@@ -1,0 +1,136 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.3
+date     88.12.23.19.45.27;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.26.19.04.26;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.09.12.22.05.56;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Make-файл для сборки программ поддержки оперативного руководства.
+@
+
+
+1.3
+log
+@Не добавлялись whatis & apropos.
+@
+text
+@# Makefile для программ поддержки оперативного руководства
+#
+# $Log:	Makefile,v $
+# Revision 1.2  88/09/26  19:04:26  avg
+# See diff.
+# 
+# Revision 1.1  88/09/12  22:05:56  avg
+# Initial revision
+#
+
+# Для версии исходных текстов без архивов RCS установите R=X
+R=
+RCS=RCS
+
+DESTDIR=/usr/man/man0
+
+all: catman man
+
+install: i_man i_catman
+
+i_whatis i_apropos i_man: man
+	rm -f /usr/bin/man /usr/bin/whatis /usr/bin/apropos
+	cp man /usr/bin/man
+	ln /usr/bin/man /usr/bin/apropos
+	ln /usr/bin/man /usr/bin/whatis
+
+i_catman: catman getNAME mm.prog makewhatis
+	cp catman getNAME mm.prog makewhatis $(DESTDIR)
+	-/etc/chgrp sys $(DESTDIR)/catman
+	-chmod u+g $(DESTDIR)/catman
+
+catman: makewhatis
+
+catman: catman.c
+	cc -s -o catman -O catman.c
+
+$(R)catman.c: $(RCS)/catman.c,v ; co $(COFLAGS) catman.c
+
+makewhatis: getNAME mm.prog
+
+$(R)makewhatis: $(RCS)/makewhatis,v ; co $(COFLAGS) makewhatis
+$(R)mm.prog: $(RCS)/mm.prog,v ; co $(COFLAGS) mm.prog
+
+getNAME: getNAME.c
+	cc -s -o getNAME -O getNAME.c
+
+$(R)getNAME.c: $(RCS)/getNAME.c,v ; co $(COFLAGS) getNAME.c
+
+man: man.c
+	cc -s -n -o man -O man.c -lndir
+
+$(R)man.c: $(RCS)/man.c,v ; co $(COFLAGS) man.c
+
+clear clean:
+	rm -f *.[ob] man getNAME catman
+
+CLRSRC: clear
+	rm -f getNAME.c catman.c man.c mm.prog makewhatis
+@
+
+
+1.2
+log
+@See diff.
+@
+text
+@d3 4
+a6 1
+# $Log: Makefile,v $
+d21 2
+a22 1
+i_man: man
+d24 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 4
+a6 1
+# $Log$
+d12 2
+d16 1
+a16 1
+install: all i_man
+d21 5
+a29 2
+	-chgrp sys catman
+	chmod 2755 catman
+d44 1
+a44 1
+	cc -s -n -o man -O man.c
+d49 1
+a49 1
+	rm -f *.[ob] man
+d52 1
+a52 1
+	rm -f getNAME.c catman.c man.c
+@

@@ -1,0 +1,473 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.11.14.16.29.55;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.52.07;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Если стоит флаг SISO + LCASE, то большие буквы вводятся как \a.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: single.c,v 1.1 86/11/11 17:52:07 avg Exp $";
+#endif
+
+/*
+ * $Log:        single.c,v $
+ * Revision 1.1  86/11/11  17:52:07  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 09.07.1986
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+#ifdef V2
+#  include <sys/code.h>
+#else
+#  define Ucode
+#endif V2
+
+int  insflag = 1;         /* Флаг вставка-замена */
+int  texflag = 0;         /* Флаг режима текста/программ */
+
+/*
+ * Переключение режима вставка-замена или редактирования программ/текстов
+ */
+idsw(arg)
+{
+	int     c1, l1;
+	extern  int mlevel;
+	char   *p;
+
+	c1 = cc;
+	l1 = cl;
+	if( (arg & ~01) == 0 )
+		insflag = arg;
+	else
+		insflag |= (texflag = arg & 01);
+	if( mlevel )
+		return;
+	qpos( 0, csh );
+	clrl();
+#ifdef VS
+	printx( VS );
+#endif VS
+#ifndef HPUX
+	if( _ediag ) {
+#endif
+		switch( arg ) {
+		    case PLUS:
+			p = "*** Insert mode ***";
+			cc += 19;
+			break;
+		    case MINUS:
+			p = "*** Replace mode ***";
+			cc += 20;
+			break;
+		    case PLUS | 010:
+			p = "*** Text processing ***";
+			cc += 23;
+			break;
+		    case MINUS| 010:
+			p = "*** Program source processing ***";
+			cc += 33;
+		}
+#ifndef HPUX
+	} else {
+		switch( arg ) {
+		    case PLUS:
+			p = "*** Режим вставки ***";
+			cc += 21;
+			break;
+		    case MINUS:
+			p = "*** Режим замены ***";
+			cc += 20;
+			break;
+		    case PLUS | 010:
+			p = "*** Редактирование текста ***";
+			cc += 29;
+			break;
+		    case MINUS| 010:
+			p = "*** Редактирование программ ***";
+			cc += 31;
+		}
+	}
+#endif
+	printx( p );
+#ifdef VE
+	printx( VE );
+#endif VE
+#ifdef S_bell
+	printx(S_bell);
+#endif S_bell
+	qpos( l1, c1 );
+	fflush( stdout );
+#if !defined(HPUX) && !defined(V2)
+	sleep( -50 );           /* 1.0 sec in МНОС РЛ 1.2 */
+#else
+	sleep( 2 );
+#endif
+	typestr( 0 );
+	qpos( l1, c1 );
+}
+
+/*
+ * Ввод одного символа
+ */
+singlechar(sym, narg)
+char sym;
+{
+	register int   i, mc;
+	int            cold, ij, sq;
+	register char *p;
+	extern   int   Zflag;
+
+#ifdef UPPERONLY
+#ifdef V2
+	extern int SISOF;
+
+	if( SISOF ) {
+		if( (0100 < sym && sym < 0133) ||
+#ifdef Ucode
+		    (sym & 0340) == 0300 ) {
+#else
+		    (sym & 0340) == 0340 ) {
+#endif Ucode
+			sym ^= 040;
+			goto esc;
+		} else switch( sym ) {
+		    case '{':   sym = '(';      goto esc;
+		    case '}':   sym = ')';      goto esc;
+		    case '|':   sym = '!';      goto esc;
+		    case '~':   sym = '^';      goto esc;
+		    case '`':   sym = '\'';
+esc:
+			while( narg-- > 0 ) {
+				singlechar( '\\', 1 );
+				singlechar( sym, 1 );
+			}
+			return;
+		}
+	}
+#endif V2
+
+	/* Convert lower case to upper case letters */
+	if( (0140 < sym && sym < 0173 ) ||
+#ifdef Ucode
+	    (sym & 0340) == 0340 )
+#else
+	    (sym & 0340) == 0300 )
+#endif Ucode
+		sym ^= 040;
+#endif UPPERONLY
+
+	if( sym != ' ' ) {
+		p = line(cl);
+		for( i = llen(cl)+1, i = i>width1?width1:i ; i<cc ; i++ )
+			p[i] = ' ';
+	} else if( texflag && insflag ) {
+		p = line(cl);
+		if( cc == width1 ) {
+			rightleft( PLUS, 1 );    /* NEXT LINE */
+			if( line(cl)[0] != ' ' )
+				icdc( PLUS, 1 );
+			return;
+		}
+		ij = 0;
+		for( i = llen(cl) ; i>cc ; i-- )
+			if( p[i] != ' ' )
+				ij++;
+		icdc( PLUS, narg );
+		rightleft( PLUS, narg );
+		if( narg+cc > width && ij )
+			icdc( PLUS, 1 );
+		return;
+	}
+	i = (narg+cc < width)? narg : width-cc;
+	ij = (i - ((sq = csh+SWID-1)-cc));
+	Zflag = (ij > 10);
+	if( insflag && !icdc(PLUS, narg) )
+		return;
+	Zflag = 0;
+	while( i-- ) {
+		if( ij > 0 && ij <= 10 && cc >= sq-1 ) {
+			cold = cc;
+			pos(cl, (cc+ij)<width ? cc+ij : width1);
+			qpos(cl, cold);
+			ij = 0;
+		}
+		line(cl)[cc] = sym;
+		mc = cc;
+		if( ij <= 10 )
+			pchar();
+		else if( cc<width1 )
+			cc++;
+	}
+	if( sym != ' ' && mc > llen(cl) )
+		llen(cl) = mc;
+	if( ij > 10 ) {
+		ij = cc+7;
+		if( ij > width1 )
+			ij = width1;
+		csh = ij-(SWID-1);
+		rew();
+	}
+}
+
+/*
+ * Вправо/влево курсор
+ */
+rightleft(arg,narg)
+{
+	int  i;
+
+	i = cc + ((arg == PLUS)? narg : -narg);
+	if( texflag ) {
+		if( i < 0 ) {
+			i = width1;
+			up( NULL, 1 );
+		}
+		if( i > width1 ) {
+			i = 0;
+			down( NULL, 1 );
+		}
+	} else {
+		if( i < 0 )
+			i = 0;
+		if( i > width1 )
+			i = width1;
+	}
+	if( narg < 4 && i > csh && i < csh+SWID-1 )
+		qpos(cl, i);
+	else
+		pos(cl, i);
+}
+
+/*
+ * Табуляции вправо/влево
+ */
+tab(arg, narg)
+{
+	int  i;
+
+	i = ( cc + ((arg == PLUS)?(narg*8):(7-narg*8)) ) & ~07 ;
+	if( i < 0 )
+		i = 0;
+	if( i > width1 )
+		i = width1;
+	pos(cl, i);
+}
+
+/*
+ * В начало/конец строки по непробелам
+ */
+nonspace(arg)
+{
+	register int  i, ll;
+	register char *p;
+
+	p = line(cl);
+	ll = llen(cl);
+	if( arg == PLUS ) {
+		for( i = ll ; i>=0 && p[i] == ' ' ; i-- );
+		if( i != width1 )
+			i++;
+	} else {
+		for( i = 0 ; i<ll && p[i] == ' ' ; i++ );
+		if( i == ll && p[ll] == ' ' )
+			i = 0;
+	}
+	pos(cl, i);
+}
+
+/*
+ * Табуляция вправо/влево по словам
+ */
+wtab(arg, narg)
+{
+	register int  i;
+	register char *p;
+	int  len,nr, xs;
+
+	p = line(cl);
+	len = llen(cl);
+	nr = narg;
+	while( nr-- ) {
+		i = cc;
+		xs = 0;
+AGAIN:
+		if( arg == PLUS ) {     /* Вправо */
+			if( i > len )
+				goto NEXTL;
+			if( i < 0 )
+				i = 0;
+			else
+				while( i <= len && p[i] != ' ' )
+					i++;
+			if( i > len )
+				goto NEXTL;
+			while( i <= len && p[i] == ' ' )
+				i++;
+			if( i > len )
+				goto NEXTL;
+			pos( cl, i );
+			continue;
+NEXTL:
+			if( !texflag || cl == NLIN-1 ) {
+				if( xs > 0 )
+					up( NULL, xs );
+				return;
+			}
+			i = -1;
+			down( NULL, 1 );
+		} else {                /* Влево */
+			if( --i < 0 )
+				goto PREVL;
+			while( i >= 0 && ( i > len || p[i] == ' ' ) )
+				i--;
+			if( i < 0 )
+				goto PREVL;
+			while( i >= 0 && p[i] != ' ' )
+				i--;
+			i++;
+			pos( cl, i );
+			continue;
+PREVL:
+			if( !texflag || cl == 0 ) {
+				if( xs > 0 )
+					down( NULL, xs );
+				return;
+			}
+			i = width1;
+			up( NULL, 1 );
+		}
+		xs++;
+		p = line(cl);
+		len = llen(cl);
+		goto AGAIN;
+	}
+}
+
+/*
+ * В начало/конец файла
+ */
+tofeof(arg, narg)
+{
+	int  i;
+	extern char eof;
+	register cLL;
+
+	if( arg == PLUS ) {     /* Вниз */
+		if( eof ) {
+			if( bstack.lines )
+				i = bstack.lines+NLIN-cl-narg;
+			else {
+				for( cLL = NLIN-1 ; cLL >= 0 ; cLL-- )
+					if( lempty( cLL, 0, width ) )
+						break;
+				i = cLL - cl;
+			}
+		} else {
+			down(NULL, 077777); /* Прогон исх. файла до EOF */
+			       /* max int */
+			i = 1-narg;
+		}
+	} else                  /* Вверх */
+		i = narg-1 - (wstack.lines+cl);
+	if( i == 0 )
+		return;
+	if( i > 0 )
+		down(NULL, i);
+	else
+		up(NULL, -i);
+}
+
+/*
+ * Выдать номер текущей строки (arg==PLUS) / позиции (arg==MINUS)
+ */
+lnum(arg)
+{
+	char sym;
+	char bf[6];
+	int  cc1,cl1;
+	int  lnumb,i;
+	extern int  mdf,mdp,mlevel;
+	extern char mtext[3][256],amesg[];
+	extern int  repflg;
+
+	cc1 = cc;
+	cl1 = cl;
+	qpos( 0, csh+SWID-11 );
+#ifdef VS
+	printx(VS);
+#endif VS
+	printx( amesg );
+	cc = csh+SWID-1;
+	qpos( 0, csh+SWID-7 );
+	lnumb = (arg==PLUS)? cl1+wstack.lines+1 : cc1+1;
+	i = 5;
+	while( lnumb ) {
+		bf[i--] = '0' + ((lnumb%10)&017);
+		lnumb /= 10;
+	}
+	writex( &bf[i+1], 5-i );
+	cc += 5-i;
+#ifdef VE
+	printx(VE);
+#endif VE
+	qpos( cl1, cc1 );
+	readchar(&sym);
+	clrmsg( cl, cc );
+	if( mdf && mlevel == 0 ) {
+		 if( mdp < 254 )
+			mtext[mdf-1][mdp++] = sym;
+#ifdef S_bell
+		 else
+			printx(S_bell);
+#endif S_bell
+	}
+	execute(sym, 1);
+	repflg = 1;
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d21 5
+d121 39
+@

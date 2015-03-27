@@ -1,0 +1,403 @@
+head     1.4;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.4 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     86.07.21.14.57.21;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.06.03.15.04.10;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.19.52.27;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.23.37;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.19.48;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.46.10;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.14.04;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.38.39;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.4
+log
+@Слита с версией alex-а из 4.2
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.print.c,v 1.3 86/06/03 15:04:10 dmitry Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.print.c,v $
+ * Revision 1.3  86/06/03  15:04:10  dmitry
+ * Убраны дурацкие ifdefы.
+ *
+ * Revision 1.2  86/06/02  19:52:27  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские буквы.
+ *
+ * Revision 1.1  86/06/01  20:23:37  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+
+p60ths(l)
+	long l;
+{
+
+	l += 3;
+	printf("%d.%d", (int) (l / 60), (int) ((l % 60) / 6));
+}
+
+psecs(l)
+	long l;
+{
+	register int i;
+
+	i = l / 3600;
+	if (i) {
+		printf("%d:", i);
+		i = l % 3600;
+		p2dig(i / 60);
+		goto minsec;
+	}
+	i = l;
+	printf("%d", i / 60);
+minsec:
+	i %= 60;
+	printf(":");
+	p2dig(i);
+}
+
+p2dig(i)
+	register int i;
+{
+
+	printf("%d%d", i / 10, i % 10);
+}
+
+char    linbuf[128];
+char    *linp = linbuf;
+
+putchar(c)
+	register int c;
+{
+	c &= 0377;
+	if ( !ISQUOTED(c) && (c == 0177 || c < ' ' && c != '\t' && c != '\n')) {
+		putchar('^');
+		if (c == 0177)
+			c = '?';
+		else
+			c |= 'A' - 1;
+	}
+	c = TRIMED(c);
+	*linp++ = c;
+	if (c == '\n' || linp >= &linbuf[sizeof linbuf - 2])
+		flush();
+}
+
+draino()
+{
+
+	linp = linbuf;
+}
+
+flush()
+{
+	register int unit;
+	int lmode = 0;
+
+#include <sys/ioctl.h>
+
+	if (linp == linbuf)
+		return;
+	if (haderr)
+		unit = didfds ? 2 : SHDIAG;
+	else
+		unit = didfds ? 1 : SHOUT;
+#ifdef TIOCLGET
+	if (didfds==0 && ioctl(unit, TIOCLGET, &lmode)==0 &&
+	    lmode & LFLUSHO) {
+		lmode = LFLUSHO;
+		ioctl(unit, TIOCLBIC, &lmode);
+		write(unit, "\n", 1);
+	}
+#endif
+	write(unit, linbuf, linp - linbuf);
+	linp = linbuf;
+}
+
+plist(vp)
+	register struct varent *vp;
+{
+
+	if (setintr)
+		sigrelse(SIGINT);
+	for (vp = vp->link; vp != 0; vp = vp->link) {
+		int len = blklen(vp->vec);
+
+		printf(vp->name);
+		printf("\t");
+		if (len != 1)
+			putchar('(');
+		blkpr(vp->vec);
+		if (len != 1)
+			putchar(')');
+		printf("\n");
+	}
+	if (setintr)
+		sigrelse(SIGINT);
+}
+
+putqchar(c)
+register int c;
+{
+	putchar(QUOTED(c));
+}
+@
+
+
+1.3
+log
+@Убраны дурацкие ifdefы.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.print.c,v 1.2 86/06/02 19:52:27 dmitry Exp $";
+
+d9 3
+a20 4
+
+/*
+ * C Shell
+ */
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские буквы.
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.print.c,v 1.1 86/06/01 20:23:37 dmitry Exp $";
+d11 3
+a66 1
+#ifndef Ucode
+a73 1
+#endif  Ucode
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.print.c,v 0.0 86/04/20 21:25:01 root Exp $";
+d10 4
+a13 1
+ * $Log$
+d57 2
+a58 2
+char	linbuf[128];
+char	*linp = linbuf;
+d63 3
+a65 2
+
+	if ((c & QUOTE) == 0 && (c == 0177 || c < ' ' && c != '\t' && c != '\n')) {
+d72 2
+a73 1
+	c &= TRIM;
+d130 6
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 11
+a11 1
+static	char *sccsid = "@@(#)sh.print.c 4.1 10/9/80";
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.print.c  2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+d54 2
+a55 2
+char    linbuf[64];
+char    *linp = linbuf;
+d83 1
+d85 4
+d93 6
+a98 3
+	if (linp != linbuf) {
+		write(unit, linbuf, linp - linbuf);
+		linp = linbuf;
+d100 3
+a107 1
+	register int (*wasintr)();
+d110 1
+a110 1
+		wasintr = signal(SIGINT, pintr);
+d124 1
+a124 1
+		signal(SIGINT, wasintr);
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* $Header: sh.print.c,v 2.1 86/03/12 23:47:47 alex Exp $ */
+
+d9 8
+d44 2
+a45 2
+char	linbuf[128];
+char	*linp = linbuf;
+d51 1
+a51 2
+	c &= 0377;
+	if ( !ISQUOTED(c) && (c == 0177 || c < ' ' && c != '\t' && c != '\n')) {
+d58 1
+a58 1
+	c = TRIMED(c);
+a72 1
+	int lmode = 0;
+a73 4
+#include <sys/ioctl.h>
+
+	if (linp == linbuf)
+		return;
+d78 3
+a80 6
+#ifdef TIOCLGET
+	if (didfds==0 && ioctl(unit, TIOCLGET, &lmode)==0 &&
+	    lmode & LFLUSHO) {
+		lmode = LFLUSHO;
+		ioctl(unit, TIOCLBIC, &lmode);
+		write(unit, "\n", 1);
+a81 3
+#endif
+	write(unit, linbuf, linp - linbuf);
+	linp = linbuf;
+d87 1
+d90 1
+a90 1
+		sigrelse(SIGINT);
+d104 1
+a104 7
+		sigrelse(SIGINT);
+}
+
+putqchar(c)
+register int c;
+{
+	putchar(QUOTED(c));
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.print.c,v $
+ * Revision 1.1  86/02/24  20:23:45  sys
+ * Initial revision
+ * 
+d50 2
+a51 3
+	c &= 0377;
+#ifndef МНОС
+	if ( !ISQUOTED(c) && (c == 0177 || c < ' ' && c != '\t' && c != '\n')) {
+d58 1
+a58 2
+#endif МНОС
+	c = TRIMED(c);
+a72 1
+	int lmode = 0;
+a73 6
+#ifndef МНОС
+#       include <sys/ioctl.h>
+#endif  МНОС
+
+	if (linp == linbuf)
+		return;
+d78 3
+a80 5
+#ifdef TIOCLGET
+	if (didfds==0 && ioctl(unit, TIOCLGET, &lmode)==0 &&
+	    lmode & LFLUSHO) {
+		ioctl(unit, TIOCLBIC, LFLUSHO);
+		write(unit, "\n", 1);
+a81 3
+#endif
+	write(unit, linbuf, linp - linbuf);
+	linp = linbuf;
+a104 6
+}
+
+putqchar(c)
+register int c;
+{
+	putchar(QUOTED(c));
+@

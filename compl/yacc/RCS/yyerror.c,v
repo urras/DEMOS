@@ -1,0 +1,36 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.12.28.17.03.58;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Библиотека YACC.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+
+#include <stdio.h>
+
+yyerror(s)
+char *s;
+{
+	fprintf( stderr, "%s\n", s );
+}
+@

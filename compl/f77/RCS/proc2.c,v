@@ -1,0 +1,210 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.29.32;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@#include "defs"
+
+
+doext()
+{
+struct extsym *p;
+
+for(p = extsymtab ; p<nextext ; ++p)
+	prext( varstr(XL, p->extname), p->maxleng, p->extinit);
+}
+
+
+
+
+/* VARIOUS ROUTINES FOR PROCESSING DECLARATIONS */
+
+struct extsym *comblock(len, s)
+register int len;
+register char *s;
+{
+struct extsym *mkext(), *p;
+
+if(len == 0)
+	{
+	s = BLANKCOMMON;
+	len = strlen(s);
+	}
+p = mkext( varunder(len, s) );
+if(p->extstg == STGUNKNOWN)
+	p->extstg = STGCOMMON;
+else if(p->extstg != STGCOMMON)
+	{
+	err1("%s cannot be a common block name", s);
+	return(0);
+	}
+
+return( p );
+}
+
+
+incomm(c, v)
+struct extsym *c;
+struct nameblock *v;
+{
+if(v->vstg != STGUNKNOWN)
+	dclerr("incompatible common declaration", v);
+else
+	{
+	v->vstg = STGCOMMON;
+	c->extp = hookup(c->extp, mkchain(v,NULL) );
+	}
+}
+
+
+
+
+
+setintr(v)
+register struct nameblock * v;
+{
+register int k;
+
+if(v->vstg == STGUNKNOWN)
+	v->vstg = STGINTR;
+else if(v->vstg!=STGINTR)
+	dclerr("incompatible use of intrinsic function", v);
+if(v->vclass==CLUNKNOWN)
+	v->vclass = CLPROC;
+if(v->vprocclass == PUNKNOWN)
+	v->vprocclass = PINTRINSIC;
+else if(v->vprocclass != PINTRINSIC)
+	dclerr("invalid intrinsic declaration", v);
+if(k = intrfunct(v->varname))
+	v->vardesc.varno = k;
+else
+	dclerr("unknown intrinsic function", v);
+}
+
+
+
+setext(v)
+register struct nameblock * v;
+{
+if(v->vclass == CLUNKNOWN)
+	v->vclass = CLPROC;
+else if(v->vclass != CLPROC)
+	dclerr("invalid external declaration", v);
+
+if(v->vprocclass == PUNKNOWN)
+	v->vprocclass = PEXTERNAL;
+else if(v->vprocclass != PEXTERNAL)
+	dclerr("invalid external declaration", v);
+}
+
+
+
+
+/* create dimensions block for array variable */
+
+setbound(v, nd, dims)
+register struct nameblock * v;
+int nd;
+struct { expptr lb, ub; } dims[ ];
+{
+register expptr q, t;
+register struct dimblock *p;
+int i;
+
+if(v->vclass == CLUNKNOWN)
+	v->vclass = CLVAR;
+else if(v->vclass != CLVAR)
+	{
+	dclerr("only variables may be arrays", v);
+	return;
+	}
+
+v->vdim = p = (struct dimblock *) ckalloc( sizeof(int) + (3+2*nd)*sizeof(expptr) );
+p->ndim = nd;
+p->nelt = ICON(1);
+
+for(i=0 ; i<nd ; ++i)
+	{
+	if( (q = dims[i].ub) == NULL)
+		{
+		if(i == nd-1)
+			{
+			frexpr(p->nelt);
+			p->nelt = NULL;
+			}
+		else
+			err("only last bound may be asterisk");
+		p->dims[i].dimsize = minicon(ICON(1));;
+		p->dims[i].dimexpr = NULL;
+		}
+	else
+		{
+		if(dims[i].lb)
+			{
+			q = mkexpr(OPMINUS, q, cpexpr(dims[i].lb));
+			q = mkexpr(OPPLUS, q, ICON(1) );
+			}
+		if( ISCONST(q) )
+			{
+			p->dims[i].dimsize = minicon(q);
+			p->dims[i].dimexpr = NULL;
+			}
+		else	{
+			p->dims[i].dimsize = autovar(1, tyint, NULL);
+			p->dims[i].dimexpr = q;
+			}
+		if(p->nelt)
+			p->nelt = mkexpr(OPSTAR, p->nelt, cpexpr(p->dims[i].dimsize));
+		}
+	}
+p->nelt = minicon(p->nelt);
+q = dims[nd-1].lb;
+if(q == NULL)
+	q = ICON(1);
+
+for(i = nd-2 ; i>=0 ; --i)
+	{
+	t = dims[i].lb;
+	if(t == NULL)
+		t = ICON(1);
+	if(p->dims[i].dimsize)
+		q = mkexpr(OPPLUS, t, mkexpr(OPSTAR, cpexpr(p->dims[i].dimsize), q) );
+	}
+
+if( ISCONST(q) )
+	{
+	p->baseoffset = minicon(q);
+	p->basexpr = NULL;
+	}
+else
+	{
+	p->baseoffset = autovar(1, tyint, NULL);
+	p->basexpr = q;
+	}
+}
+
+
+
+
+
+
+@

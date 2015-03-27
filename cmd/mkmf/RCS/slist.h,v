@@ -1,0 +1,64 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.17.12.46.17;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** $Header$
+** $Log$
+**
+*/
+
+/*
+ * Singly-linked list definitions
+ */
+/*
+ * Singly-linked list macros
+ */
+#define SLNUM(slist)    (slist)->nk
+/*
+ * Singly-linked list block
+ */
+typedef struct slblk
+	{
+	char *key;                      /* points to a key */
+	struct slblk *x_next;             /* ptr to next list block */
+	} SLBLK;
+/*
+ * Singly-linked list head block
+ */
+typedef struct slisthb
+	{
+	int nk;                         /* number of keys in list */
+	int maxkey;                     /* length of longest key */
+	SLBLK *x_head;                    /* pointer to first list block */
+	SLBLK *x_curblk;                  /* pointer to current block */
+	SLBLK *x_tail;                    /* pointer to last list block */
+	} SLIST;
+/*
+ * Functions defined for singly-linked list operations
+ */
+extern char *slappend();		/* append key */
+extern SLIST *slinit();			/* initialize list */
+extern int slsort();			/* sort list */
+@

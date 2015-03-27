@@ -1,0 +1,73 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.17.12.46.20;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** $Header$
+** $Log$
+**
+*/
+
+/*
+ * Singly-linked key+string list definitions
+ */
+
+/*
+ * Singly-linked key+string list macros
+ */
+#define SLSNUM(slslist) (slslist)->nk
+/*
+ * Singly-linked key+string list block
+ */
+typedef struct _slsblk
+	{
+	char *key;                      /* points to key */
+	char *string;                   /* points to non-key string */
+	struct _slsblk *y_next;           /* ptr to next list block */
+	} SLSBLK;
+/*
+ * Singly-linked key+string list head block
+ */
+typedef struct _slslisthb
+	{
+	int nk;                         /* number of keys in list */
+	int maxkey;                     /* length of longest key */
+	int maxstr;			/* length of longest non-key string */
+	SLSBLK *y_head;                   /* pointer to first list block */
+	SLSBLK *y_curblk;                 /* pointer to current block */
+	SLSBLK *y_tail;                   /* pointer to last list block */
+	} SLSLIST;
+/*
+ * Functions defined for singly-linked key+string list operations
+ */
+extern char *slsappend();		/* append key+string */
+extern SLSBLK *slsget();		/* get next key+string block */
+extern SLSLIST *slsinit();		/* initialize key+string list */
+extern char *slsinsert();		/* insert key+string */
+extern char *slsprepend();		/* prepend key+string */
+extern void slsprint();			/* print key+string list */
+extern void slsrewind();		/* rewind key+string list */
+extern void slsrm();			/* remove key+string list item */
+extern int slssort();			/* sort key+string list */
+@

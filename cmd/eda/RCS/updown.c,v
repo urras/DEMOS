@@ -1,0 +1,282 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.02.15.23.07.50;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.52.15;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Если терминал умеет роллировать вниз и вставлять строку, то теперь 
+будет предпочитаться роллирование.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: updown.c,v 1.1 86/11/11 17:52:15 avg Exp $";
+#endif
+
+/*
+ * $Log:        updown.c,v $
+ * Revision 1.1  86/11/11  17:52:15  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.3
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 26.09.1984
+ */
+
+#include NAME
+#include "glob.h"
+
+/*
+ * Вверх курсор
+ */
+up(arg, narg)
+{
+	int nr,i;
+
+	nr = narg;
+
+/* В пределах одного экрана */
+	i = wstack.lines ? 2 : 0;
+	while( cl > i ) {
+		printx(S_up);
+		cl--;
+		if( (--nr) == 0 )
+			return;
+	}
+	if( !wstack.lines )
+		return;
+
+/* narg больше размера экрана */
+	if( narg > 40 )
+		minutes();
+	ccold = cc;
+	i = 2;
+	while( nr && wstack.lines ) {
+		nr--;
+		if( testinput() )
+			goto out;
+		putds(NLIN-1);                         /* Скроллирование */
+		scr.roll = (scr.roll+NLIN-1) % NLIN;
+		getus(0);
+		if( narg <= 40 ) {
+			qpos(0, csh);
+#ifdef S_rd
+			printx(S_rd);
+#ifdef BROLL
+			cl = 0;
+			cc = csh;
+			pos( cl, cc );
+#endif BROLL
+#else
+#ifdef S_il
+			printx(S_il);
+#else
+# define NOtype 0
+#endif S_il
+#endif S_rd
+#ifndef NOtype
+			typestr(0);
+#endif NOtype
+		}
+	}
+	if( nr )
+		i = (nr>1) ? 0 : 1;
+out:
+#ifndef NOtype
+	if( narg > 40 ) {
+#endif NOtype
+		cl = i;
+		cc = ccold;
+		rew();
+#ifndef NOtype
+	} else
+		qpos(i, ccold);
+#endif NOtype
+}
+
+/*
+ * Вниз курсор
+ */
+down(arg, narg)
+{
+	int nr,rwflg, xx;
+	register i, x;
+	extern char eof;
+
+	nr = narg;
+	rwflg = 0;
+
+/* В пределах одного экрана */
+	i = (bstack.lines || eof == 0) ? NLIN-3 : NLIN-1;
+	while( cl < i ) {
+		cl++;
+#ifdef S_down
+		printx(S_down);
+#else
+		printx(S_cr);
+		x = cc - csh;
+		cc = csh;
+		xx = llen( cl );
+		while( x-- > 0 ) {
+			if( cc > llen(cl) )
+				pchar();
+			else
+				printx( " " ), cc++;
+		}
+#endif S_down
+		if( (--nr) == 0 )
+			return;
+	}
+	if( (bstack.lines == 0) && eof && narg != 1)
+		return;
+
+/* narg больше размера экрана */
+	if( narg > 40 )
+		minutes();
+	ccold = cc;
+	i = cl;
+	do {
+		if( testinput() )
+			goto out;
+		if( bstack.lines == 0 && eof ) {
+			if( narg == 1 )
+				i = NLIN-1;
+			else {
+				i = (nr<2) ? NLIN-2 : NLIN-1;
+				goto out;
+			}
+		}
+		putus(0);                             /* Скроллирование */
+		scr.roll = (scr.roll+1) % NLIN;
+		if( getds(NLIN-1) )
+			rwflg++;
+		if( narg <= 40 && !rwflg ) {
+#ifndef SCNTRL
+#ifdef ROLL
+#ifndef S_down
+			qpos(NLIN-1, csh);
+#else
+			qpos(NLIN-1, cc);       /* Предполагается, что  */
+#endif S_down
+			printx(S_cr);           /* ROLL и S_cr   опред. */
+			cc = csh;               /* одновременно         */
+#else
+#ifdef S_ru
+			qpos(NLIN-1, csh);
+			printx(S_ru);
+#ifdef BROLL
+			cl = 0;
+			cc = csh;
+#endif BROLL
+#else
+			qpos(0, csh);
+			printx(S_dl);
+#endif S_ru
+#endif ROLL
+#else
+#ifdef S_ru
+			qpos(NLIN-1, csh);
+			printx(S_ru);
+#ifdef BROLL
+			cl = 0;
+			cc = csh;
+#endif BROLL
+#else
+			qpos(0, csh);
+			printx(S_dl);
+#endif S_ru
+#endif SCNTRL
+			typestr(NLIN-1);
+		}
+	} while( --nr );
+out:
+	if( narg > 40 || rwflg ) {
+		cl = i;
+		cc = ccold;
+		rew();
+	} else
+		qpos(i, ccold);
+}
+
+/*
+ * Вверх/вниз страницу
+ */
+page(arg, narg)
+{
+	int nr;
+	extern char eof;
+
+	if( narg > 2 )
+		minutes();
+
+	nr = narg*NLIN;
+	while( nr-- ) {
+		if( testinput() )
+			goto out;
+		if( arg == MINUS ) {
+			if( wstack.lines == 0 )
+				goto out;
+			putds(NLIN-1);                 /* Скроллирование */
+			scr.roll = (scr.roll+NLIN-1) % NLIN;
+			getus(0);
+		} else {
+			if( bstack.lines == 0 && eof )
+				goto out;
+			putus(0);                     /* Скроллирование */
+			scr.roll = (scr.roll+1) % NLIN;
+			getds(NLIN-1);
+		}
+	}
+out:
+	if( cl < 2 )
+		cl = 2;
+	else if( cl > NLIN-3 )
+		cl = NLIN-3;
+	rew();
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+a54 3
+#ifdef S_il
+			printx(S_il);
+#else
+a56 3
+#else
+# define NOtype 0
+#endif S_rd
+d62 5
+d68 1
+@

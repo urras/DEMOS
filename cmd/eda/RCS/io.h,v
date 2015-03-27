@@ -1,0 +1,124 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.01.19.11.54.18;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.11.20.46.44;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.49;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.3
+log
+@Теперь размер блока в define BufSIZE.
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: io.h,v 1.2 86/11/11 20:46:44 avg Exp $";*/
+#endif
+
+/*
+ * $Log:        io.h,v $
+ * Revision 1.2  86/11/11  20:46:44  avg
+ * Убран rcsid
+ *
+ * Revision 1.1  86/11/11  17:51:49  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.3
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 17.02.1985
+ */
+
+/*
+ * Упрощенный имитатор stdio.h
+ */
+#ifndef BufSIZE
+#define BufSIZE 512
+
+struct _iob {
+	int     _chan;
+	int     _flag;
+	char   *_ptr;
+	int     _cnt;
+	char    _buf[BufSIZE];
+};
+
+#define FILE    struct _iob
+
+#ifndef NULL
+# define NULL   0
+#endif
+
+#define EOF     (-1)
+
+FILE  *fopen();
+
+#define _IOREAD   1
+#define _IOWRITE  2
+#define _IOEOF    4
+
+#define NBUFS   3
+
+FILE    _bufs[NBUFS];
+
+#define stdout (&_bufs[0])
+#endif BufSIZE
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@d2 1
+a2 1
+/*static char rcsid[] = "$Header: io.h,v 1.1 86/11/11 17:51:49 avg Exp $";*/
+d6 4
+a9 1
+ * $Log:	io.h,v $
+d12 1
+a12 1
+ * 
+d24 2
+d32 1
+a32 1
+	char    _buf[512];
+d54 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

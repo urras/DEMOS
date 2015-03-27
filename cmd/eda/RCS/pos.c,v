@@ -1,0 +1,254 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.51.56;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.3
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 17.02.1985
+ */
+
+#include NAME
+#include "glob.h"
+
+#ifdef S_pos
+char posstr[] = S_pos;
+#ifdef UPPERONLY
+char IN_tab[] = {
+	0376,0340,0341,0366,0344,0345,0364,0343,
+	0365,0350,0351,0352,0353,0354,0355,0356,
+	0357,0377,0360,0361,0362,0363,0346,0342,
+	0374,0373,0347,0370,0375,0371,0367,0372,
+	0336,0300,0301,0326,0304,0305,0324,0303,
+	0325,0310,0311,0312,0313,0314,0315,0316,
+	0317,0337,0320,0321,0322,0323,0306,0302,
+	0334,0333,0307,0330,0335,0331,0327,0332
+};
+#endif UPPERONLY
+#endif S_pos
+
+/*
+ * Позиционирование курсора на экране в координаты (x,y)
+ *  ( без сдвигания экрана )
+ *              0 +----> y
+ *                |
+ *                v x
+ */
+qpos(x,y)
+{
+	register int  i;
+	register char *q;
+
+#ifdef S_pos                    /* Прямое позиционирование */
+	char s[sizeof posstr], *p;
+
+	if( (abs(x-cl)+abs(y-cc)) > 5 ) {
+		q = posstr;
+		p = s;
+		for( i = (sizeof posstr)-1 ; i ; i-- )
+			*p++ = *q++;
+		s[POSX] += x;
+		p = &s[POSY];
+		*p += (y-csh);
+#ifdef UPPERONLY
+		if( *p > 0137 )
+			*p = IN_tab[(*p)-0140];
+#endif UPPERONLY
+		writex(s, (sizeof posstr)-1);
+		cc = y;
+		cl = x;
+		return;
+	}
+#else
+#ifndef SCNTRL                  /* Случай, когда печать CR,LF,HOME не   */
+				/* приводит к записи невидимых символов */
+
+/* SPECIAL CASE FOR DUMB РИН-609 */
+#if !defined( S_right ) && !defined( S_down )
+	/* Должны быть определены S_cr, S_left и S_up */
+
+	if( cl > x ) {
+		i = cl - x;
+		while( i-- > 0 )
+			printx(S_up);
+	} else if( cl < x ) {
+		i = x - cl;
+		while( i-- > 0 )
+			printx(S_cr);
+		cc = csh;
+	}
+	cl = x;
+	if( cc < y ) {
+		i = y - cc;
+		while( i-- > 0 )
+			pchar();
+	} else if( cc > y ) {
+		i = cc - y;
+		while( i-- > 0 )
+			printx(S_left);
+	}
+#else   /* РИН CASE */
+
+#ifdef S_ret
+	if( abs(cc-y) > (y-csh+4) ) {
+		printx(S_ret);
+		cc = csh;
+	}
+#endif S_ret
+#ifdef S_home
+	if( (abs(cc-y)+abs(cl-x)) > (y-csh+x+4) ) {
+		printx(S_home);
+		cl = 0;
+		cc = csh;
+	}
+#endif S_home
+#ifndef S_ret
+#ifdef S_cr                                      /* Если S_ret определен */
+	if( abs(cc-y) > (y-csh+6) ) {            /* это условие  всегда  */
+		if( cl == NLIN-1 ) {             /* выдает FALSE         */
+			printx(S_up);
+			cl--;
+		}
+		printx(S_cr);
+		cc = csh;
+		cl++;
+	}
+#endif S_cr
+#endif S_ret
+#endif /* РИН */
+#endif SCNTRL
+#endif S_pos
+
+#if defined(S_right)&&defined(S_down)&&defined(S_left)&&defined(S_up)
+/* Позиционирование перемещениями вправо/влево и вверх/вниз */
+	if( i = abs(x-cl) ) {
+		q = (x>cl)? S_down : S_up;
+		while( i-- )
+			printx(q);
+	}
+	if( i = abs(y-cc) ) {
+		q = (y>cc)? S_right : S_left;
+		while( i-- )
+			printx(q);
+	}
+#endif
+	cc = y;
+	cl = x;
+}
+
+/*
+ * Позиционирование кусора ( возм. со сдвигом экрана )
+ */
+pos(x, yo)
+{
+	register int i, j;
+	char        *p, c;
+	int          y;
+	int          nq, iu;
+
+	if( width1 < SWID )
+		goto out;
+	if( yo < cc ) {
+		y = yo - 8;
+		if( y < 0 )
+			y = 0;
+	} else if( yo > cc ) {
+		y = yo + 8;
+		if( y > width1 )
+			y = width1;
+	} else
+		goto out;
+	if( y < csh ) {         /* Сдвиг влево */
+#ifdef S_ic
+		if( (nq = csh-y) < 15 ) {
+			for( i = 0 ; i<NLIN ; i++ ) {
+				if( lempty( i, csh, SWID ) ) {
+					qpos(i, csh);
+					for( j = nq ; j ; j-- )
+						printx(S_ic);
+				}
+				p = line(i);
+				iu = llen(i);
+				for( j = 0 ; j < nq ; j++ ) {
+					if( y+j > iu )
+						break;
+					if( (c = p[y+j]) != ' ' ) {
+						qpos(i, csh+j);
+						writex(&c, 1);
+						cc++;
+					}
+				}
+			}
+			csh = y;
+			cc -= nq;
+			goto out;
+		}
+
+#endif S_ic
+		csh = y;
+		cc = yo;
+		cl = x;
+		rew();
+		return;
+	} else if( y > csh+SWID-1 ) {           /* Сдвиг вправо */
+#ifdef S_dc
+		if( (nq = y-(csh+SWID-1)) < 15 ) {
+			for( i = 0 ; i<NLIN ; i++ ) {
+				if( lempty( i, csh, SWID ) ) {
+					qpos(i, csh);
+					for( j = nq ; j ; j-- )
+						printx(S_dc);
+				}
+			}
+			csh = y-(SWID-1);
+			cc += nq;
+			for( i = 0 ; i<NLIN ; i++ ) {
+				p = line(i);
+				for( j = nq ; j ; j-- ) {
+					iu = SWID+csh-j;
+					if( iu > llen(i) || p[iu] == ' ' )
+						continue;
+					qpos(i, iu);
+					pchar();
+				}
+			}
+			goto out;
+		}
+#endif S_dc
+		csh = y-(SWID-1);
+		cc = yo;
+		cl = x;
+		rew();
+		return;
+	}
+out:
+	qpos(x, yo);
+}
+@

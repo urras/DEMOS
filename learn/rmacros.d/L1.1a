@@ -1,0 +1,23 @@
+#print
+Этот курс обучает использованию макропакета "-ms" для создания
+документов по форме, принятой в Bell Laboratories.
+Прежде, чем приступить к изучению этого макропакета Вы должны быть уверены
+в том, что знаете один из редакторов. Для того, чтобы проверить свои
+знания запишите в файл "decl" ПРЯМО В ТАКОМ ВИДЕ КАК ОН ЕСТЬ, приведенный
+ниже файл. Сделав это, ответьте "готов".
+
+#create Ref
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+#print Ref
+#user
+#cmp decl Ref
+#log
+#next
+2.1a 10

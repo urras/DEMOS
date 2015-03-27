@@ -1,0 +1,212 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.01.19.16.56.42;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.52.03;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Если при записи нет свободного места на дисках, редактор
+теперь останавливается и после перезапуска повторяет обмен.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: readchar.c,v 1.1 86/11/11 17:52:03 avg Exp $";
+#endif
+
+/*
+ * $Log:        readchar.c,v $
+ * Revision 1.1  86/11/11  17:52:03  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 09.07.1986
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+static char cbuf[64];          /* Буфер для ввода с терминала */
+static int  len,shift;         /* Длина и сдвиг головы очереди */
+       int  ffault = 0;        /* Поиск закончился неуспешно */
+
+static char Bcb[7];     /* Буфер для возврата символов */
+static nBcb = 0;
+
+/*
+ * Читать один символ из очереди терминала или
+ *   из макробуфера
+ */
+readchar(sym)
+char *sym;
+{
+	int         macro, mp, co, lo;
+	extern int  mlevel, mstack[3], mnarg[3], mpoint[3], XOUT;
+	extern char mtext[3][256];
+	extern ErrFlag;
+
+	if( ErrFlag ) {
+		ErrFlag = 0;
+		rew();
+	}
+	if( nBcb ) {
+		*sym = Bcb[--nBcb];
+		return;
+	}
+	if( mlevel ) {          /* Исполнение макро */
+		if( ffault || testinput() ) {
+			ffault = 0;
+			mlevel = 0;
+			*sym = 0;       /* Терминатор, не должен исп. для */
+			return;         /* других целей */
+		}
+		ffault = 0;
+		macro = mstack[mlevel-1];
+		mp = mpoint[mlevel-1]++;
+		if( *sym = mtext[macro][mp] )
+			return;
+		mpoint[mlevel-1] = 0;
+		if( (--mnarg[mlevel-1]) == 0 )
+			mlevel--;       /* Выход из макро */
+	} else {
+		ffault = 0;
+		if( len <= 0 ) {
+			if( XOUT ) {
+				XOUT = 0;
+				co = cc; lo = cl;
+				qpos( 0, csh );
+				clrl();
+#ifdef VS
+				printx( VS );
+#endif VS
+				printx( ediag( "*** Ready *** ",
+					       "*** Готово ***" ));
+#ifdef VE
+				printx( VE );
+#endif VE
+				cc += 14;
+				XOUT = 1;
+			}
+			fflush( stdout );
+			read(0, sym, 1);
+			if( XOUT ) {
+				XOUT = 0;
+				qpos( 0, csh );
+				clrl();
+				fflush( stdout );
+				XOUT = 1;
+				cc = co; cl = lo;
+			}
+			len = shift = 0;
+		} else {
+			*sym = cbuf[shift++];
+			shift &= 077;
+			len--;
+		}
+	}
+}
+
+/*
+ * Проверка буфера терминала -
+ *  нет ли символа прерывания
+ */
+testinput()
+{
+	register char sym = 0;
+	int  ssym;
+	extern int XOUT;
+
+	while( sym == 0 && !empty(0) ) {
+		read(0, &ssym, 1);
+		sym = ssym;
+		if( 0
+#ifdef F_inter
+		      || sym == *(F_inter)     /* F_inter - один символ */
+#endif
+#ifdef Q_inter
+		      || sym == *(Q_inter)     /* Q_inter - один символ */
+#endif
+					   ) {
+			len = 0;
+			shift = 0;
+			return(1);
+		}
+		if( 0
+#ifdef F_flush
+		      || sym == *(F_flush)     /* F_flush - один символ */
+#endif
+#ifdef Q_flush
+		      || sym == *(Q_flush)     /* Q_flush - один символ */
+#endif
+					   ) {
+			stdout->_cnt = 0;
+			stdout->_ptr = stdout->_buf;
+			XOUT = 1;
+		} else if( len < 63 ) {
+			cbuf[(shift+len) & 077] = sym;
+			len++;
+			sym = 0;
+		}
+	}
+	return(0);
+}
+
+/*
+ * Возврат символа на ввод
+ */
+backchar(c)
+{
+	Bcb[nBcb++] = c;
+}
+
+#ifdef V2
+/*
+ * Имитатор системного вызова empty (МНОС РЛ 1.2) в ДЕМОС 2.0
+ */
+empty(chn)
+{
+	long NR;
+
+	ioctl(chn, FIONREAD, &NR);
+	return( NR==0l );
+}
+#endif V2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d39 1
+d41 4
+@

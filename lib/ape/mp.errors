@@ -1,0 +1,58 @@
+----------------------------------
+		gcd.c
+----------------------------------
+	invert:
+line 29: second argument to xalloc missing
+
+----------------------------------
+		madd.c
+----------------------------------
+	msub:
+lines 144-145 silly but harmless
+
+----------------------------------
+		mdiv.c
+----------------------------------
+	mdiv:
+xfrees q and r prematurely (only a problem when doing mdiv(a,b,a,c), etc.
+	m_div:
+has some inefficiencies, but works
+
+----------------------------------
+		mout.c
+----------------------------------
+	m_in:
+ungetc's extra character read on stdin instead of input file "f"
+doesn't always free space taken up by "x"
+miscellaneous white-space processing problems
+bases > 10 not handled properly
+
+	m_out:
+octal output inefficient
+space allocated is insufficient for bases < 8 [?]
+bases > 10 not handled properly
+
+	sdiv, s_div:
+don't check for zero divisors
+
+----------------------------------
+		msqrt.c
+----------------------------------
+	msqrt:
+loop manipulations are inefficient
+
+----------------------------------
+		pow.c
+----------------------------------
+	pow:
+frees d prematurely
+
+	rpow:
+very inefficient:  generates a huge number for a modulus
+			and then calls on pow
+
+----------------------------------
+		util.c
+----------------------------------
+	itom:
+assumes int and short are the same

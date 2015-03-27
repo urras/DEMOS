@@ -1,0 +1,97 @@
+#print
+Наиболее общим форматом документа является формат TM (technical memorandum -
+техническое сообщение). Его получают, используя команду  ".TM".
+Если Вы воспользуетесь ей вместо команды ".IM", то получите обычное
+сообщение  "MEMORANDUM FOR FILE". В качестве аргументов команде ".TM" обычно
+задают номер технического сообщения, номер темы и т.п.
+Командная строка для формата TM (которая должна быть первой заданой
+строкой) должна содержать
+
+  .TM memo-no. case-no. filing-no.
+
+так, например, командная строка
+
+   .TM 75-1274-1 39199 39199-11
+
+задает номер технического сообщения равным 75-1274-1, номер темы 39199
+и архивный номер 39199-11.  Предположим, что
+номер этого сообщения
+ 75-1776-1
+а номер темы и архивный номер совпадают и равны:
+ 12345
+Отредактируйте файл "decl" под формат технического сообщения и получите его.
+#create Ref
+.TM 75-1776-1 12345 12345
+.TL
+Declaration of Independence
+.AU
+Thomas Jefferson
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#once nroff -ms Ref >X1 &
+#create decl
+.IM
+.TL
+Declaration of Independence
+.AU
+Thomas Jefferson
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#copyout
+#user
+#uncOpyout
+tail -66 .ocopy >X2
+#cmp X1 X2
+#log
+#next
+12.1a 10

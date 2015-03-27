@@ -1,0 +1,62 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.02.02.18.30.13;  author dvolodin;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.02.16.04.43;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.2
+log
+@Radius bug corrected.
+@
+text
+@/* $Header: circle.c,v 1.1 88/02/02 16:04:43 dvolodin Exp $
+ * $Log:	circle.c,v $
+ * Revision 1.1  88/02/02  16:04:43  dvolodin
+ * Initial revision
+ * 
+ */
+
+# include <stdio.h>
+
+extern float scalex ;
+
+circle( x, y, r )
+short x, y, r ;
+{
+    move( x, y );
+    printf( "JM%04d0", 1000+(int)(scalex*r));
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header$
+ * $Log$
+d10 2
+d16 1
+a16 1
+    printf( "JM%04d0", 1000+r );
+@

@@ -1,0 +1,265 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.03.21.18.31.57;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+4-часть администратора
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Администратор - обслуживание бюджетов
+ *  Автор: Антонов В.Г. ( ВМК МГУ, ИПК Минавтопрома )
+ *  Последнее изменение: 28.06.85
+ *
+ */
+
+#include "adm.h"
+
+/*
+ * Добавление пользователя в группу, если
+ *  такой группы нет, завести ее.
+ */
+matchgroup( gn, n )
+char   *gn, *n;
+{
+	char    fmatrix[2560];
+	struct group *grp, *getgrname();
+	int     ngid, i;
+	FILE   *Groups;
+	char   *p;
+
+	if( (grp = getgrname( gn )) == NULL ) {
+
+		printf( ediag(
+			"Create group %s ? ",
+			"Создать группу %s ? "), gn );
+		if( ask( NO ) == NO )
+			return( -1 );
+
+		/* Добавить группу */
+		setgrent();
+		for( ngid = 0 ; ngid < 256 ; ngid++ )
+			fmatrix[ ngid ] = 0;
+		while( (grp = getgrent()) != NULL ) {
+			if( grp->gr_gid >= 0 && grp->gr_gid < 256 )
+				fmatrix[ grp->gr_gid ] = 1;
+		}
+		for( ngid = 0 ; ngid < 256 ; ngid++ )
+			if( fmatrix[ ngid ] == 0 )
+				goto found;
+		printf( ediag(
+			"Too many groups.\n",
+			"Слишком много групп.\n") );
+		return( -1 );
+found:
+		printf( " ...  gid = %d\n", ngid );
+		if( BEDIT() )
+			return( -1 );
+		if( (Groups = fopen( GROUP, "a" )) == NULL ) {
+			EEDIT();
+			printf( ediag(
+				"Can't change %s\n",
+				"Не могу изменить %s\n"), GROUP );
+			return( -1 );
+		}
+		fprintf( Groups, "%s::%d:%s\n", gn, ngid, n );
+		fclose( Groups );
+		EEDIT();
+		return( ngid );
+	}
+
+	/* Добавить в список пользователей */
+	ngid = grp->gr_gid;
+	if( (Groups = fopen( GROUP, "r" )) == NULL ) {
+		printf( ediag(
+			"Can't open %s\n",
+			"Не могу открыть %s\n"), GROUP );
+		return( -1 );
+	}
+	if( BEDIT() )
+		return( -1 );
+loop:
+	if( fgets( fmatrix, 2559, Groups ) == NULL )
+		goto EOL;
+	i = cmpgrp( gn, fmatrix );
+	for( ;; ) {
+		p = &fmatrix[strlen( fmatrix ) - 2];
+		if( p <= fmatrix || *p != '\\' )
+			break;
+		fputs( fmatrix, admtmp );
+		if( fgets( fmatrix, 2559, Groups ) == NULL )
+			goto EOL;
+	}
+	if( i ) {
+		i = strlen( fmatrix ) ;
+		fmatrix[i-1] = 0;
+		if( fmatrix[i-2] != ':' )
+			strcat( fmatrix, "," );
+		strcat( fmatrix, n );
+		strcat( fmatrix, "\n" );
+	}
+	fputs( fmatrix, admtmp );
+	goto loop;
+EOL:
+	fclose( admtmp ); admtmp = NULL;
+	fclose( Groups );
+	unlink( OLDGROUP );
+	if( link( GROUP, OLDGROUP ) == -1 )
+		goto FAIL;
+	unlink( GROUP );
+	if( link( TMP, GROUP ) == -1 )
+		goto FAIL;
+	unlink( OLDGROUP );
+	EEDIT();
+	return( ngid );
+FAIL:
+	printf( ediag(
+		"Can't change %s, it possibly botched.\n Old copy name is %s.\n",
+		"Не могу заменить %s, он, возможно, испорчен.\n  Старая копия в %s.\n"), GROUP, OLDGROUP );
+	EEDIT();
+	return( -1 );
+}
+
+/*
+ * Сохранить имя для upass
+ */
+savepass()
+{
+        strcpy( nameS, upass->pw_name );
+}
+
+/*
+ * Восстановить upass
+ */
+resetpass()
+{
+        upass = getpwname( nameS );
+}
+
+/*
+ * Сравнить имя группы с первым полем в grp
+ */
+cmpgrp( gn, grp )
+char   *gn, *grp;
+{
+        register char *p, *q;
+
+        p = gn; q = grp;
+        while( *p ) {
+                if( *p++ != *q++ )
+                        return( 0 );
+        }
+        return( *q == ':' );
+}
+
+/*
+ * Проверить существование домашнего каталога пользователя
+ *  и создать его, если до этого его не было
+ */
+checkdir( dir, uid, gid )
+char   *dir;
+{
+	struct stat b;
+        char   *p, str[80], *rindex(), str1[80];
+        int     WAC = 0;
+
+        if( stat( dir, &b ) != -1 ) {
+		if( (b.st_mode & S_IFMT) != S_IFDIR ) {
+                        printf( ediag( "It isn't a directory.\n", "Это не каталог.\n" ) );
+                        return( 1 );
+                }
+                return( 0 );
+        }
+        printf( ediag( " Create ? ", " Создать ? " ) );
+        if( ask( YES ) == NO )
+                return( 1 );
+        p = str;
+        do {
+                strcpy( str, dir );
+                if( (p = index( p+1, '/' )) != NULL )
+                        *p = 0;
+                if( !WAC && stat( str, &b ) != -1 ) {
+			if( (b.st_mode&S_IFMT) != S_IFDIR )
+                                goto Fail;
+                        continue;
+                } else {
+			if( mknod( str, S_IFDIR | 0755, 0, 0 ) == -1 )
+                                goto Fail;
+                        WAC++;
+                        strcpy( str1, str );
+                        strcat( str1, "/." );
+                        link( str, str1 );
+                        strcat( str1, "." );
+                        *(rindex( str, '/' )) = 0;
+                        if( *str == 0 )
+                                strcpy( str, "/" );
+                        link( str, str1 );
+                }
+        } while ( p != NULL );
+        chown( dir, uid, gid );
+        return( 0 );
+Fail:
+        printf( ediag(
+                "Can't create %s.\n",
+                "Не могу создать %s.\n"), dir );
+        return( 1 );
+}
+
+/*
+ * Уничтожить пользователя
+ */
+remuser( name )
+char   *name;
+{
+        FILE   *Psw;
+        char    string[256];
+
+        if( (Psw = fopen( PASSWD, "r" )) == NULL ) {
+                printf( ediag(
+                        "Can't open %s\n",
+                        "Не могу открыть %s\n"), PASSWD );
+                return;
+        }
+        BEDIT();
+        while( fgets( string, 255, Psw ) != NULL ) {
+                if( !cmpgrp( name, string ) )
+                        fputs( string, admtmp );
+        }
+        fclose( admtmp ); admtmp = NULL;
+        fclose( Psw );
+        unlink( OLDPASSWD );
+        if( link( PASSWD, OLDPASSWD ) == -1 )
+                goto FAIL;
+        unlink( PASSWD );
+        if( link( TMP, PASSWD ) == -1 )
+                goto FAIL;
+        unlink( OLDPASSWD );
+        EEDIT();
+        remufg( name, 0 );
+        return;
+FAIL:
+        EEDIT();
+        printf( ediag(
+                "Can't change %s, it's possibly botched.\n Old copy name is %s.\n",
+                "Не могу заменить %s, он, возможно, испорчен.\n  Старая копия в %s.\n"), PASSWD, OLDPASSWD );
+        return;
+}
+
+@

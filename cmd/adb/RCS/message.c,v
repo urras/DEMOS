@@ -1,0 +1,98 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.01.05.18.37.14;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adb
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+/*
+ *
+ *	UNIX debugger
+ * $Log$
+ */
+
+
+
+#include	"mac.h"
+#include	"mode.h"
+
+MSG		BADMOD	=  "bad modifier";
+MSG             R_BADMOD = "неверный модификатор";
+MSG		BADCOM	=  "bad command";
+MSG             R_BADCOM = "неверная команда";
+MSG             BADSM  =  "symbol not found";
+MSG             R_BADSM = "имя не найдено";
+MSG		BADLOC	=  "automatic variable not found";
+MSG             R_BADLOC = "локальная переменная не найдена";
+MSG		NOCFN	=  "c routine not found";
+MSG             R_NOCFN =  "Си-функция не найдена";
+MSG		NOMATCH	=  "cannot locate value";
+MSG             R_NOMATCH ="нельзя разместить значение";
+MSG		NOBKPT	=  "no breakpoint set";
+MSG             R_NOBKPT = "нет точки останова";
+MSG		BADKET	=  "unexpected ')'";
+MSG             R_BADKET = "неожиданная `)'";
+MSG		NOADR	=  "address expected";
+MSG             R_NOADR =  "ожидался адрес";
+MSG		NOPCS	=  "no process";
+MSG             R_NOPCS =  "нет процесса";
+MSG		BADVAR	=  "bad variable";
+MSG             R_BADVAR = "неверная переменная";
+MSG		BADTXT	=  "text address not found";
+MSG             R_BADTXT = "адрес кода не найден";
+MSG		BADDAT	=  "data address not found";
+MSG             R_BADDAT = "адрес данных не найден";
+MSG		ODDADR	=  "odd address";
+MSG             R_ODDADR = "нечетный адрес";
+MSG		EXBKPT	=  "too many breakpoints";
+MSG             R_EXBKPT = "слишком много точек останова";
+MSG		A68BAD	=  "bad a68 frame";
+MSG             R_A68BAD = "неверный фрейм Алгола 68";
+MSG		A68LNK	=  "bad a68 link";
+MSG             R_A68LNK = "неверная связь Алгола 68";
+MSG		ADWRAP	=  "address wrap around";
+MSG             R_ADWRAP = "переполнение адреса";
+MSG		BADEQ	=  "unexpected `='";
+MSG             R_BADEQ =  "неожиданное `='";
+MSG		BADWAIT	=  "wait error: process disappeared!";
+MSG             R_BADWAIT = "ошибка ожидания: процесс исчез!";
+MSG		ENDPCS	=  "process terminated";
+MSG             R_ENDPCS = "процесс прекращен";
+MSG		NOFORK	=  "try again";
+MSG             R_NOFORK = "попытайтесь снова";
+MSG             BADSN  =  "syntax error";
+MSG             R_BADSN = "синтаксическая ошибка";
+MSG		NOEOR	=  "newline expected";
+MSG             R_NOEOR =  "ожидался конец строки";
+MSG		SZBKPT	=  "bkpt: command too long";
+MSG             R_SZBKPT = "слишком длинная команда по точке останова";
+MSG		BADFIL	=  "bad file format";
+MSG             R_BADFIL = "неверный формат файла";
+MSG		BADNAM	=  "not enough space for symbols";
+MSG             R_BADNAM = "нет места для таблиы имен";
+MSG		LONGFIL	=  "filename too long";
+MSG             R_LONGFIL = "слишком длинное имя файла";
+MSG		NOTOPEN	=  "cannot open";
+MSG             R_NOTOPEN = "нельзя открыть";
+MSG		DIFMAG	=  "different core magic number";
+MSG             R_DIFMAG = "другое \"магическое\" число образа памяти";
+@

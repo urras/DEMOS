@@ -1,0 +1,53 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.14.13.50.29;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** Эта штука добавляется в исходный файл перед
+** запуском rcs               Давидов 04.28.88
+**
+** $Header$
+** $Log$
+*/
+
+# ifndef        lint
+/* NOXSTR  */
+static char     Rcs_id[] = "$Header$";
+/* YESXSTR */
+# endif         lint
+
+/*
+ * strpcpy() copies string s2 to s1 and returns a pointer to the
+ * next character after s1.
+ */
+char *
+strpcpy(s1, s2)
+	register char *s1;
+	register char *s2;
+{
+	while (*s1++ = *s2++)
+		continue;
+	return(--s1);
+}
+@

@@ -1,0 +1,155 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.3
+date     88.09.21.13.42.16;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.04.21.20.38.37;  author andrew;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.03.09.22.23.29;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+1.3
+log
+@Изменено расположение библиотек f77 - с /usr/f77lib на /usr/lib/f77.
+@
+text
+@/*
+  Driver for Fortran 77 Compiler
+  For the PDP11, Running on the PDP11,
+  Using the Ritchie C compiler's second pass
+*/
+
+#if HERE!=PDP11 || TARGET!=PDP11 || FAMILY!=DMR
+	Wrong Definitions File!
+#endif
+
+/* NEWAS - as ИПК */
+#ifdef DEBF77
+#define PASS0NAME       "f77pass0"
+#define MESS1NAME       "Messages"
+#define PASS1NAME       "f77p1"
+#define PASS1FNAME      "f77p1f" /* f77pass1f */
+#else
+#define PASS0NAME       "/usr/lib/f77/f77pass0"
+#define MESS1NAME       "/usr/lib/f77/Messages"
+#define PASS1NAME       "/usr/lib/f77/f77p1"
+#define PASS1FNAME      "/usr/lib/f77/f77p1f" /* f77pass1f */
+#endif DEBF77
+#define PASS2NAME       "/lib/c1"
+#define PASS2OPT        "/lib/c2"
+#define NOFLPASS2       "/lib/c1"
+#define ASMNAME "/bin/as"
+#define LDNAME  "/bin/ld"
+#define FOOTNAME        "/lib/crt0.o"
+#define PROFFOOT        "/lib/mcrt0.o"
+#define NOFLFOOT        "/lib/fcrt0.o"
+#define NOFLPROFFOOT    "/lib/fmcrt0.o"
+#define LIBFPSIM        "-lfpsim"
+
+static char *Qovliblist [ ] =
+	{
+	"/usr/lib/f77/libU77.a",
+	"/usr/lib/f77/libF77.a",
+	"/usr/lib/f77/libI77.a",
+	"-lm",
+	"-lsplitc",
+	"-L",
+	"-lovbasec",
+	NULL };
+
+static char *ovliblist [ ] =
+	{
+	"-L",
+	"/usr/lib/f77/libU77.a",
+	"/usr/lib/f77/libF77.a",
+	"/usr/lib/f77/libI77.a",
+	"-lm",
+	"-lovc",
+	NULL };
+
+static char *noliblist [ ] =
+	{
+	"/usr/lib/f77/libU77.a",
+	"/usr/lib/f77/libF77.a",
+	"/usr/lib/f77/libI77.a",
+	"-lm",
+	"-lc",
+	NULL };
+static char **liblist = noliblist;
+@
+
+
+1.2
+log
+@-Q
+@
+text
+@d3 1
+a3 1
+  For the PDP11, Running on the PDP11, 
+d18 4
+a21 4
+#define PASS0NAME       "/usr/f77lib/f77pass0"
+#define MESS1NAME       "/usr/f77lib/Messages"
+#define PASS1NAME       "/usr/f77lib/f77p1"
+#define PASS1FNAME      "/usr/f77lib/f77p1f" /* f77pass1f */
+d23 2
+a24 2
+#define PASS2NAME	"/lib/c1"
+#define PASS2OPT	"/lib/c2"
+d26 6
+a31 6
+#define ASMNAME	"/bin/as"
+#define LDNAME	"/bin/ld"
+#define FOOTNAME	"/lib/crt0.o"
+#define PROFFOOT	"/lib/mcrt0.o"
+#define NOFLFOOT	"/lib/fcrt0.o"
+#define NOFLPROFFOOT	"/lib/fmcrt0.o"
+d36 3
+a38 3
+	"/usr/f77lib/libU77.a",
+	"/usr/f77lib/libF77.a",
+	"/usr/f77lib/libI77.a",
+d48 3
+a50 3
+	"/usr/f77lib/libU77.a",
+	"/usr/f77lib/libF77.a",
+	"/usr/f77lib/libI77.a",
+d57 3
+a59 3
+	"/usr/f77lib/libU77.a",
+	"/usr/f77lib/libF77.a",
+	"/usr/f77lib/libI77.a",
+a63 1
+
+@
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@d34 11
+d47 1
+a51 1
+	"-L",
+@

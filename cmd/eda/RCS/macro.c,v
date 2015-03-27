@@ -1,0 +1,227 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.01.18.22.10.33;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.51;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Изменена проверка на конец макро.
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: macro.c,v 1.1 86/11/11 17:51:51 avg Exp $";
+#endif
+
+/*
+ * $Log:        macro.c,v $
+ * Revision 1.1  86/11/11  17:51:51  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 09.07.1986
+ */
+
+#include NAME
+#include "glob.h"
+
+#ifdef Mname4
+# define NM 4
+#else
+# define NM 3
+#endif
+
+char mtext[NM][256];    /* Строки с текстом макроопределений */
+int  mdf      = 0;      /* Флаг - установлен при определении макро */
+int  mlevel   = 0;      /* Указатель стека вызовов макро */
+int  mdef[4]={0,0,0,0}; /* Флаги - соотв. макро определены */
+int  mnarg[4],          /* Числовой аргумент макровызова */
+     mpoint[4],         /* Указатель текущей команды в макро */
+     mstack[4];         /* Стек вызовов макро */
+int  mdp;               /* Указатель для определения макро */
+char mesg[]    = " <Macro 0>";
+char mnames[NM] = { Mname1, Mname2, Mname3,
+#ifdef Mname4
+		    Mname4
+#endif
+};
+char mesg1[]   = " <End M 0>";
+
+/*
+ * Хитрое сравнение c и c1
+ */
+neqc(c, c1)
+register c, c1;
+{
+#ifdef Ucode
+	extern char UtoK[];
+#endif
+	return ( c != c1                                         &&
+#ifdef Ucode
+		 ((c & 0300) != 0300 || (c = UtoK[c&037]) != c1) &&
+#endif
+#ifdef KOI8
+		 ((c & 0300) != 0300 || (c = c&0177) != c1)      &&
+#endif
+		 ((c & 0100) == 0 || c==0137 || (c^040) != c1)     );
+}
+
+/*
+ * Определение макро
+ */
+mdefine(arg)
+{
+	char s, *sb;
+	int  fl;
+	extern int  repflg;
+	register char *pp;
+	char    Svb[7];
+
+	mdp = 0;
+	if( mlevel )
+		return;
+#ifdef S_bell
+	printx(S_bell);
+#endif S_bell
+	fl = 0;
+	ccold = cc;
+	clold = cl;
+	qpos(0, csh+SWID-11);
+	mesg[8] = mnames[arg-1];
+#ifdef VS
+	printx( VS );
+#endif VS
+	printx(mesg);
+#ifdef VE
+	printx( VE );
+#endif VE
+	cc = csh+SWID-1;
+	qpos(clold, ccold);
+	mdf = arg;
+	for(;;) {
+		do
+			readchar(&s);
+		while( s == '\0' );
+		if( fl == 0 ) {
+			clrmsg( cl, cc );
+			fl++;
+		}
+		if( mlevel == 0) {
+			if( !neqc(s, *FS_mdend) ) {  /* Символ - ограничитель */
+						     /* макроопределения      */
+				sb = Svb;
+				*sb++ = s;
+				pp = &(FS_mdend[1]);
+				for(;;) {
+					if( *pp == 0 )
+						goto brk;
+					readchar(&s);
+					*sb++ = s;
+					if( neqc(s, *pp++) ) {
+						while( sb > (Svb+1) )
+							backchar( *--sb );
+						s = Svb[0];
+						goto SKIP1;
+					}
+				}
+			    brk:
+				break;
+			}
+		    SKIP1:
+			if( mdp < 254 )
+				mtext[arg-1][mdp++] = s;
+#ifdef S_bell
+			else
+				printx(S_bell);
+#endif S_bell
+		}
+		execute(s, 1);
+	}
+	mtext[arg-1][mdp] = 0;
+	mdef[arg-1] = 1;
+	mdf = 0;
+	ccold = cc;
+	clold = cl;
+	qpos(0, csh+SWID-11);
+	mesg1[8] = mnames[arg-1];
+#ifdef VS
+	printx(VS);
+#endif VS
+	printx(mesg1);
+#ifdef VE
+	printx(VE);
+#endif VE
+	cc = csh+SWID-1;
+	qpos(clold, ccold);
+#ifdef S_bell
+	printx(S_bell);
+#endif S_bell
+	readchar(&s);
+	clrmsg( cl, cc );
+	execute(s, 1);
+	repflg = 1;
+}
+
+/*
+ * Исполнить макро
+ */
+mexec(arg, narg)
+{
+	if( mlevel > 2 || arg == mdf )
+		return;
+	if( mlevel && mdef[arg-1] &&
+	    ( arg-1 == mstack[0] ||
+	    (mlevel == 2 && arg-1 == mstack[1]) ))
+		return;
+	if( mdef[arg-1] ) {
+		mstack[mlevel] = arg-1;
+		mnarg[mlevel] = narg;
+		mpoint[mlevel] = 0;
+		mlevel++;
+	}
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d44 19
+d103 2
+a104 2
+			if( s == *FS_mdend ) {  /* Символ - ограничитель */
+						/* макроопределения      */
+d112 2
+a113 1
+					if( s != *pp++ ) {
+d116 1
+@

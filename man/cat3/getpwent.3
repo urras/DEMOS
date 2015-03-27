@@ -1,0 +1,132 @@
+
+GETPWENT(3)     ДЕМОС. Библиотечные функции      GETPWENT(3)
+
+
+ИИММЯЯ
+       ggeettppwweenntt, ggeettppwwuuiidd, ggeettppwwnnaamm,  sseettppwweenntt,  eennddppwweenntt  -
+       получить запись из файла паролей.
+
+ФФООРРММААТТ
+       #iinncclluuddee <_p_w_d._h>
+
+       ssttrruucctt ppaasssswwdd *ggeettppwweenntt()
+
+       ssttrruucctt ppaasssswwdd *ggeettppwwuuiidd(_u_i_d)
+       iinntt _u_i_d;
+
+       ssttrruucctt ppaasssswwdd *ggeettppwwnnaamm(_n_a_m_e)
+       cchhaarr *_n_a_m_e;
+
+       iinntt sseettppwweenntt();
+
+       iinntt eennddppwweenntt();
+
+ООППИИССААННИИЕЕ
+       Функции ggeettppwweenntt, ggeettppwwuuiidd и ggeettppwwnnaamm возвращают ука-
+       затели на объекты со следующей структурой, содержащей
+       поля строки из файла паролей.
+
+       ssttrruucctt  ppaasssswwdd {
+         cchhaarr  *ppww__nnaammee;    /* имя пользователя */
+         cchhaarr  *ppww__ppaasssswwdd;  /* шифрованный пароль */
+         iinntt    ppww__uuiidd;     /* идент. пользователя */
+         iinntt    ppww__ggiidd;     /* идент. группы */
+         iinntt    ppww__qquuoottaa;   /* не используется */
+         cchhaarr  *ppww__ccoommmmeenntt; /* комментарий */
+         cchhaarr  *ppww__ggeeccooss;   /* не используется */
+         cchhaarr  *ppww__ddiirr;     /* регистрационный кат.*/
+         cchhaarr  *ppww__sshheellll;   /* интерпретатор ком.яз.*/
+       };
+
+       Поля ppww__ggeeccooss, ppww__qquuoottaa и ppww__ccoommmmeenntt не используются;
+       назначения других полей описывается в _p_a_s_s_w_d(5).
+
+       Функция ggeettppwweenntt считывает следующую строку (открывая
+       файл,  если нужно); функция sseettppwweenntt делает возврат к
+       началу файла; eennddppwweenntt закрывает файл.
+
+       Функции ggeettppwwuuiidd и ggeettppwwnnaamm производят поиск в  файле
+       паролей  с начала и до нахождения соответствующих _u_i_d
+       или _n_a_m_e (или до конца файла (EEOOFF)).
+
+ФФААЙЙЛЛЫЫ
+       /_e_t_c/_p_a_s_s_w_d
+
+ДДООППООЛЛННИИТТЕЕЛЛЬЬННЫЫЕЕ ССССЫЫЛЛККИИ
+       _g_e_t_l_o_g_i_n(3), _g_e_t_g_r_e_n_t(3), _p_a_s_s_w_d(5)
+
+ДДИИААГГННООССТТИИККАА
+       При обнаружении конца файла или в случае  возникнове-
+       ния ошибки возвращается нулевой указатель.
+
+
+
+
+                            -1-                     ДЕМОС/PV
+
+
+GETPWENT(3)     ДЕМОС. Библиотечные функции      GETPWENT(3)
+
+
+ЗЗААММЕЕЧЧААННИИЯЯ
+       Вся информация содержится в  статической  области,  в
+       связи  с  чем  ее  необходимо куда-либо перезаписать,
+       если она должна быть сохранена.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            -2-                     ДЕМОС/PV
+

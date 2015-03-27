@@ -1,0 +1,202 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.09.12.20.40.55;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Выделение названия статьи из man-овского листка.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * -------------------> by @@VG
+ * $Log$
+ */
+
+static char rcsid[] = "$Header$";
+
+#include <stdio.h>
+
+main(argc, argv)
+	int argc;
+	char *argv[];
+{
+
+	argc--, argv++;
+	while (argc > 0)
+		getfrom(*argv++), argc--;
+	exit(0);
+}
+
+#define iss(c) ((c)==' '||(c)=='\t')
+
+getfrom(name)
+	char *name;
+{
+	char headbuf[BUFSIZ];
+	char linbuf[BUFSIZ];
+	char Title[100];
+	char Section[100];
+	char *q, *p;
+	register char *cp;
+	int i = 0;
+
+	if (freopen(name, "r", stdin) == 0) {
+		perror(name);
+		exit(1);
+	}
+	for (;;) {
+		if (fgets(headbuf, sizeof headbuf, stdin) == NULL)
+			return;
+		if (headbuf[0] != '.')
+			continue;
+		if (headbuf[1] == 'T' && headbuf[2] == 'H')
+			break;
+		if (headbuf[1] == 't' && headbuf[2] == 'h')
+			break;
+	}
+	for (;;) {
+		if (fgets(linbuf, sizeof linbuf, stdin) == NULL)
+			return;
+		if (linbuf[0] != '.')
+			continue;
+		if (linbuf[1] == 'S' && linbuf[2] == 'H')
+			break;
+		if (linbuf[1] == 's' && linbuf[2] == 'h')
+			break;
+	}
+	trimln(headbuf);
+	lower(headbuf);
+	p = headbuf;
+	while( !iss(*p) ) p++;  /* skip .TH */
+	while( iss(*p) ) p++;   /* skip space */
+	q = Title;
+	while( !iss(*p) && *p != 0 )    /* copy title */
+		*q++ = *p++;
+	*q = '\0';
+	while( iss(*p) ) p++;   /* skip space */
+	q = Section;
+	while( !iss(*p) && *p != 0 )    /* copy section num */
+		*q++ = *p++;
+	*q = '\0';
+	if( Title[0] == '\0' )
+		strcpy(Title, "unknown");
+	if( Section[0] == '\0' )
+		strcpy(Section, "u");
+	printf("%s\t%s\t", Title, Section);
+	for (;;) {
+		if (fgets(linbuf, sizeof linbuf, stdin) == NULL)
+			break;
+		if (linbuf[0] == '.') {
+			if (linbuf[1] == 'S' && linbuf[2] == 'H')
+				break;
+			if (linbuf[1] == 's' && linbuf[2] == 'h')
+				break;
+		}
+		deroff(linbuf);
+		trimln(linbuf);
+		if (i != 0)
+			printf(" ");
+		i++;
+		printf("%s", linbuf);
+	}
+	printf("\n");
+}
+
+trimln(cp)
+	register char *cp;
+{
+
+	while (*cp)
+		cp++;
+	if (*--cp == '\n')
+		*cp = 0;
+}
+
+deroff(cpl)
+	char *cpl;
+{
+	char wline[256];
+	register char *q = wline;
+	register char *cp = cpl;
+
+	/*
+	 * Delete all of MAN macros
+	 */
+	if( *cp == '.' ) {
+		cp++;
+		while( iss(*cp) ) cp++;
+		if( (*cp == 'B' && cp[1] == 'R') ||
+		    (*cp == 'B' && cp[1] == 'I') ||
+		    (*cp == 'R' && cp[1] == 'B') ||
+		    (*cp == 'R' && cp[1] == 'I') ||
+		    (*cp == 'I' && cp[1] == 'R') ||
+		    (*cp == 'I' && cp[1] == 'B') ) {
+			/* remove all of spaces */
+			cp += 2;
+			while( *cp != '\n' && *cp != '\0' ) {
+				if( !iss(*cp) )
+					*q++ = *cp;
+				cp++;
+			}
+		} else {
+			while( !iss(*cp) && *cp != '\0') cp++;  /* skip macro name */
+			while( iss(*cp) && *cp != '\0' ) cp++; /* skip for arg */
+			while( *cp != '\n' && *cp != '\0' )
+				*q++ = *cp++;
+		}
+		*q++ = '\n';
+		*q   = 0;
+		q    = wline;
+		cp   = cpl;
+	} else {
+		strcpy(wline, cpl);
+	}
+
+	/*
+	 * Remove escapes
+	 */
+	while( *q != '\n' && *q != '\0' ) {
+		if( *q == '\\' ) {
+			switch( *++q ) {
+			    case 'e': *cp++ = '\\'; q++; continue;
+			    case 'f': q += 2; continue;
+			    case '%': q++; continue;
+			    case '&': q++; continue;
+			}
+		}
+		*cp++ = *q++;
+	}
+	*cp++ = '\n';
+	*cp   = 0;
+}
+
+lower(s)
+	register char *s;
+{
+	register c;
+
+	while( c = (*s & 0377) ) {
+		if( 'A' <= c && c <= 'Z' )
+			*s = c + 040;
+		else
+		if( (c&0340) == 0340 )
+			*s = c - 040;
+		s++;
+	}
+}
+@

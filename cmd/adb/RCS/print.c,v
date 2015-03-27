@@ -1,0 +1,820 @@
+head     1.8;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.8
+date     89.01.31.17.22.04;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.09.16.19.50.21;  author ache;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.09.16.14.51.44;  author ache;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.09.15.23.42.43;  author ache;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.09.15.20.19.29;  author ache;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.15.18.40.54;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.14.22.21.49;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.01.05.18.38.14;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adb
+@
+
+
+1.8
+log
+@Сделан разбор стека ядра в режиме IPK_FASTKOV.
+@
+text
+@#
+/*
+ *
+ *      UNIX debugger
+ * $Log:        print.c,v $
+ * Revision 1.7  88/09/16  19:50:21  ache
+ * Исправлена выдача плавающих регистров.
+ *
+ * Revision 1.6  88/09/16  14:51:44  ache
+ * Правлена работа с режимами терминала.
+ *
+ * Revision 1.5  88/09/15  23:42:43  ache
+ * Работа с буфером вывода по новому.
+ *
+ * Revision 1.4  88/09/15  20:19:29  ache
+ * Добавлено приглашение, если ввод/вывод с терминала.
+ *
+ * Revision 1.3  88/09/15  18:40:54  ache
+ * Размер стека ядра теперь берется из переменной 's'
+ *
+ * Revision 1.2  88/09/14  22:21:49  ache
+ * Коррекно проверяется размер стека ядра.
+ * Появилась возможность читать/писать регистры ядра.
+ *
+ * Revision 1.1  88/01/05  18:38:14  andrew
+ * Initial revision
+ *
+ */
+
+#include "defs.h"
+
+
+MSG             LONGFIL,R_LONGFIL;
+MSG             NOTOPEN,R_NOTOPEN;
+MSG             A68BAD,R_A68BAD;
+MSG             A68LNK,R_A68LNK;
+MSG             BADMOD,R_BADMOD;
+
+MAP             txtmap;
+MAP             datmap;
+OVTAG           curov;
+int             overlay;
+
+SYMTAB          symbol;
+INT             eflag;
+INT             lastframe;
+INT             kernel;
+INT             callpc;
+
+INT             infile;
+INT             inoutty;
+INT             outfile;
+CHAR            *lp;
+INT             maxoff;
+INT             maxpos;
+INT             octal;
+
+INT             mkfault;
+
+/* symbol management */
+L_INT           localval;
+
+/* breakpoints */
+BKPTR           bkpthead;
+
+REGLIST reglist [] {
+		"ps", RPS,
+		"pc", PC,
+		"sp", R6,
+		"r5", R5,
+		"r4", R4,
+		"r3", R3,
+		"r2", R2,
+		"r1", R1,
+		"r0", R0
+};
+
+REGLIST kregs[] = {
+		"sp", KSP,
+		"r5", KR5,
+		"r4", KR4,
+		"r3", KR3,
+		"r2", KR2,
+		"r1", KR1,
+		"r0", KR0
+};
+
+STRING  ovname  "ov";   /* not in reglist (not from kernel stack) */
+INT             frnames[] { 0, 3, 4, 5, 1, 2 };
+
+char            lastc;
+POS             corhdr[];
+POS             *uar0;
+
+INT             fcor;
+STRING          errflg;
+INT             signo;
+
+
+L_INT           dot;
+L_INT           var[];
+STRING          symfil;
+STRING          corfil;
+INT             pid;
+L_INT           adrval;
+INT             adrflg;
+L_INT           cntval;
+INT             cntflg;
+int             overlay;
+
+STRING          signals[] {
+		"",
+		"hangup",
+		"interrupt",
+		"quit",
+		"illegal instruction",
+		"trace/BPT",
+		"IOT",
+		"EMT",
+		"floating exception",
+		"killed",
+		"bus error",
+		"memory fault",
+		"bad system call",
+		"broken pipe",
+		"alarm call",
+		"terminated",
+		"<unused 16 >",
+		"stopped (signal)",
+		"stopped from tty",
+		"continued",            /* adb should never see this */
+		"child stopped",
+		"stopped (input)",
+		"stopped (output)",
+		"input available"
+};
+
+STRING          R_signals[] {
+		"",
+		"конец связи",
+		"прерывание",
+		"выход",
+		"запрещенная команда",
+		"прерывание по команде BPT",
+		"использование команды IOT",
+		"использование команды EMT",
+		"ошибка действительной арифметики",
+		"уничтожен",
+		"ошибка шины",
+		"прерывание по защите памяти",
+		"недопустимый параметр системного вызова",
+		"оборвалась труба",
+		"прерывание по таймеру",
+		"программный завершение процесса",
+		"<16 не используется>",
+		"остановлен (по сигналу)",
+		"остановлен с терминала",
+		"продолжен",            /* adb should never see this */
+		"изменилось состояние порожденного процесса",
+		"ждет ввода с терминала",
+		"ждет вывода на терминал",
+		"поступили данные с терминала"
+};
+
+int     nsig = sizeof(signals)/sizeof(signal[0]);
+
+
+/* general printing routines ($) */
+
+printtrace(modif)
+{
+	INT             narg, i, stat, name, limit;
+	POS             dynam;
+	REG BKPTR       bkptr;
+	CHAR            hi, lo;
+	INT             word;
+	STRING          comptr;
+	L_INT           argp, frame, link;
+	SYMPTR          symp;
+	OVTAG           savov;
+
+	IF cntflg==0 THEN cntval = -1; FI
+
+	switch (modif) {
+
+	    case '<':
+	    case '>':
+		{CHAR           file[64];
+		INT             index;
+
+		index=0;
+		IF modif=='<'
+		THEN    iclose();
+		ELSE    oclose();
+		FI
+		IF rdc()!=EOR
+		THEN    REP file[index++]=lastc;
+			    IF index>=63 THEN error(ediag(LONGFIL,R_LONGFIL)); FI
+			PER readchar()!=EOR DONE
+			file[index]=0;
+			flushbuf();
+			IF modif=='<'
+			THEN    infile=open(file,0);
+				IF infile<0
+				THEN    infile=0; error(ediag(NOTOPEN,R_NOTOPEN));
+				FI
+				if (isatty(infile)) {
+				    gtty(infile,&adbtty);
+				    usrtty=adbtty;
+				}
+			ELSE    outfile=open(file,1);
+				IF outfile<0
+				THEN    outfile=creat(file,0644);
+				ELSE    lseek(outfile,0L,2);
+				FI
+				if (isatty(outfile)) {
+				    TTY buftty;
+
+				    gtty(outfile,&buftty);
+				    eflag = !(buftty.sg_flags & CYRILL);
+				}
+			FI
+			inoutty=isatty(infile)&&isatty(outfile);
+		FI
+		lp--;
+		}
+		break;
+
+	    case 'o':
+		octal = TRUE; break;
+
+	    case 'd':
+		octal = FALSE; break;
+
+	    case 'q': case 'Q': case '%':
+		done();
+
+	    case 'w': case 'W':
+		maxpos=(adrflg?adrval:MAXPOS);
+		break;
+
+	    case 's': case 'S':
+		maxoff=(adrflg?adrval:MAXOFF);
+		break;
+
+	    case 'v':
+		prints(ediag("variables\n","переменные\n"));
+		FOR i=0;i<=35;i++
+		DO IF var[i]
+		   THEN printc((i<=9 ? '0' : 'a'-10) + i);
+			printf(" = %Q\n",var[i]);
+		   FI
+		OD
+		break;
+
+	    case 'm': case 'M':
+		printmap(ediag("? map","? карта"),&txtmap);
+		printmap(ediag("/ map","/ карта"),&datmap);
+		break;
+
+	    case 0: case '?':
+		IF pid
+		THEN printf(ediag("pcs id = %d\n","номер процесса = %d\n"),pid);
+		ELSE prints(ediag("no process\n","нет процессов"));
+		FI
+		sigprint(); newline();
+
+	    case 'r': case 'R':
+		printregs();
+		return;
+
+	    case 'f': case 'F':
+		printfregs(modif=='F');
+		return;
+
+	    case 'c': case 'C':
+		frame=(adrflg?adrval:(kernel?corhdr[KR5]:uar0[R5]))&EVEN;
+		lastframe=0;
+		savov = curov;
+		callpc=(adrflg?get(frame+2,DSP):(kernel?(-2):uar0[PC]));
+		chkerr();
+		WHILE cntval-- DO
+			narg = findroutine(frame);
+			errflg = mkfault = 0;
+			printf("%.8s(", symbol.symc);
+			argp = frame+4;
+			IF --narg >= 0
+			THEN    printf("%o", get(argp, DSP));
+			FI
+			WHILE --narg >= 0
+			DO      argp += 2;
+				printf(",%o", get(argp, DSP));
+			OD
+			prints(")\n");
+
+			IF modif=='C'
+			THEN WHILE localsym(frame)
+			     DO word=get(localval,DSP);
+				printf("%8t%.8s:%10t", symbol.symc);
+				IF errflg THEN prints("?\n"); errflg=0; ELSE printf("%o\n",word); FI
+			     OD
+			FI
+
+			lastframe=frame;
+			errflg = mkfault = 0;
+			chkerr();
+			frame=get(frame, DSP);
+			IF kernel? ((POS)frame > ((POS)0140000) + var[VARS])
+				 :(frame==0)
+				THEN break; FI
+			IF (frame & 01) || ((unsigned)frame <= (unsigned)lastframe) THEN
+				printf(ediag("Illegal frame\n", "Неправильный указатель кадра\n"));
+				break;
+			FI
+		OD
+		if (overlay)
+			setovmap(savov);
+		break;
+
+	    /*print externals*/
+	    case 'e': case 'E':
+		symset();
+		WHILE (symp=symget())
+		DO chkerr();
+		   IF (symp->symf)==043 ORF (symp->symf)==044
+		   THEN printf("%.8s:%12t%o\n", symp->symc, get(leng(symp->symv),DSP));
+		   FI
+		OD
+		break;
+
+	    case 'a': case 'A':
+		frame=(adrflg ? adrval : uar0[R4]);
+
+		WHILE cntval--
+		DO chkerr();
+		   stat=get(frame,DSP); dynam=get(frame+2,DSP); link=get(frame+4,DSP);
+		   IF modif=='A'
+		   THEN printf("%8O:%8t%-8o,%-8o,%-8o",frame,stat,dynam,link);
+		   FI
+		   IF stat==1 THEN break; FI
+		   IF errflg THEN error(ediag(A68BAD,R_A68BAD)); FI
+
+		   IF get(link-4,ISP)!=04767
+		   THEN IF get(link-2,ISP)!=04775
+			THEN error(ediag(A68LNK,R_A68LNK));
+			ELSE /*compute entry point of routine*/
+			     prints(" ? ");
+			FI
+		   ELSE printf("%8t");
+		        valpr(name=shorten(link)+get(link-2,ISP),ISYM);
+			name=get(leng(name-2),ISP);
+			printf("%8t\""); limit=8;
+			REP word=get(leng(name),DSP); name += 2;
+			    lo=word&LOBYTE; hi=(word>>8)&LOBYTE;
+			    printc(lo); printc(hi);
+			PER lo ANDF hi ANDF limit-- DONE
+			printc('"');
+		   FI
+		   limit=4; i=6; printf(ediag("%24targs:%8t","%24tаргументы:%8t"));
+		   WHILE limit--
+		   DO printf("%8t%o",get(frame+i,DSP)); i += 2; OD
+		   newline();
+		   frame=dynam;
+		OD
+		newline();
+		errflg=0;
+		break;
+
+	    /*set default c frame*/
+	    /*print breakpoints*/
+	    case 'b': case 'B':
+		printf(ediag("breakpoints\ncount%8tbkpt%24tcommand\n",
+			     "точки останова\nсчетчик%8tточка%24tкоманда\n"));
+		savov = curov;
+		FOR bkptr=bkpthead; bkptr; bkptr=bkptr->nxtbkpt
+		DO IF bkptr->flag
+		   THEN printf("%-8.8d",bkptr->count);
+			curov = bkptr->ovly;
+			psymoff(leng(bkptr->loc),ISYM,"%24t");
+			comptr=bkptr->comm;
+			WHILE *comptr DO printc(*comptr++); OD
+		   FI
+		OD
+		curov = savov;
+		break;
+
+	    default: error(ediag(BADMOD,R_BADMOD));
+	}
+
+}
+
+printmap(s,amap)
+STRING	s; MAP *amap;
+{
+	int file;
+	file=amap->ufd;
+	printf("%s%12t`%s'\n",s,(file<0 ? "-" : (file==fcor ? corfil : symfil)));
+	printf("b1 = %-16Q",amap->b1);
+	printf("e1 = %-16Q",amap->e1);
+	printf("f1 = %-16Q",amap->f1);
+	IF amap->bo
+	THEN	printf("\n\t{ bo = %-16Q",amap->bo);
+		printf("eo = %-16Q",amap->eo);
+		printf("fo = %-16Q}",amap->fo);
+	FI
+	printf("\nb2 = %-16Q",amap->b2);
+	printf("e2 = %-16Q",amap->e2);
+	printf("f2 = %-16Q",amap->f2);
+	newline();
+}
+
+printfregs(longpr)
+{
+#ifndef NONFP
+	REG i;
+	L_REAL f;
+	struct Lfp *pfp;
+
+	pfp = (struct Lfp *)(&((U *)corhdr)->u_fps);
+	printf("fpsr	%o\n", pfp->fpsr);
+	FOR i=0; i<FRMAX; i++
+	DO      IF (((U *)corhdr)->u_fps.u_fpsr&FD) ORF longpr /* long mode */
+		THEN	f = pfp->Lfr[frnames[i]];
+		ELSE	f = ((struct Sfp *)pfp)->Sfr[frnames[i]];
+		FI
+		printf("fr%-8d%-32.18f\n", i, f);
+	OD
+#endif
+}
+
+printregs()
+{
+	REG REGPTR	p;
+	INT		v;
+
+	IF kernel
+	THEN	FOR p=kregs; p<&kregs[7]; p++
+		DO	printf("%s%8t%o%8t", p->rname, v=corhdr[p->roffs]);
+			valpr(v,DSYM);
+			newline();
+		OD
+	ELSE	FOR p=reglist; p < &reglist[NREG]; p++
+		DO	printf("%s%8t%o%8t", p->rname, v=uar0[p->roffs]);
+			valpr(v,(p->roffs==PC?ISYM:DSYM));
+			newline();
+		OD
+		IF overlay
+		THEN	setovmap(((U *)corhdr)->u_ovdata.uo_curov);
+			var[VARC] = curov;
+			printf("%s%8t%o\n", ovname, curov);
+		FI
+		printpc();
+	FI
+}
+
+getreg(regnam)
+{
+	REG REGPTR	p;
+	REG STRING	regptr;
+	CHAR		regnxt;
+
+	regnxt=readchar();
+	IF kernel THEN
+	FOR p=kregs; p<&kregs[7]; p++
+	DO	regptr=p->rname;
+		IF (regnam == *regptr++) ANDF (regnxt == *regptr)
+		THEN	return(p->roffs);
+		FI
+	OD
+	lp--;
+	return(NOREG);
+	FI
+	FOR p=reglist; p<&reglist[NREG]; p++
+	DO	regptr=p->rname;
+		IF (regnam == *regptr++) ANDF (regnxt == *regptr)
+		THEN	return(p->roffs);
+		FI
+	OD
+	IF regnam==ovname[0] ANDF regnxt==ovname[1]
+	THEN	return((POS *)&(((U *)corhdr)->u_ovdata.uo_curov) - uar0);
+	FI
+	lp--;
+	return(NOREG);
+}
+
+printpc()
+{
+	dot=uar0[PC];
+	psymoff(dot,ISYM,":%16t"); printins(0,ISP,chkget(dot,ISP));
+	newline();
+}
+
+sigprint()
+{
+	if ((unsigned) signo < nsig)
+		prints(ediag(signals[signo],R_signals[signo]));
+	else
+		prints(ediag("unknown signal","неизвестный сигнал"));
+}
+
+@
+
+
+1.7
+log
+@Исправлена выдача плавающих регистров.
+@
+text
+@d4 5
+a8 2
+ *	UNIX debugger
+ * $Log:	print.c,v $
+d11 1
+a11 1
+ * 
+d14 1
+a14 1
+ * 
+d17 1
+a17 1
+ * 
+d20 1
+a20 1
+ * 
+d24 1
+a24 1
+ * 
+d27 1
+a27 1
+ * 
+d39 4
+a42 4
+MAP		txtmap;
+MAP		datmap;
+OVTAG		curov;
+int		overlay;
+d44 1
+a44 1
+SYMTAB		symbol;
+d46 3
+a48 3
+INT		lastframe;
+INT		kernel;
+INT		callpc;
+d50 1
+a50 1
+INT		infile;
+d52 5
+a56 5
+INT		outfile;
+CHAR		*lp;
+INT		maxoff;
+INT		maxpos;
+INT		octal;
+d58 2
+d61 1
+a61 1
+L_INT		localval;
+d64 1
+a64 1
+BKPTR		bkpthead;
+d88 2
+a89 2
+STRING	ovname	"ov";	/* not in reglist (not from kernel stack) */
+INT		frnames[] { 0, 3, 4, 5, 1, 2 };
+d91 3
+a93 3
+char		lastc;
+POS		corhdr[];
+POS		*uar0;
+d95 3
+a97 3
+INT		fcor;
+STRING		errflg;
+INT		signo;
+d100 10
+a109 10
+L_INT		dot;
+L_INT		var[];
+STRING		symfil;
+STRING		corfil;
+INT		pid;
+L_INT		adrval;
+INT		adrflg;
+L_INT		cntval;
+INT		cntflg;
+int		overlay;
+d111 1
+a111 1
+STRING		signals[] {
+a128 1
+#ifdef	MENLO_JCL
+d131 1
+a131 1
+		"continued",		/* adb should never see this */
+a135 1
+#endif
+a155 1
+#ifdef	MENLO_JCL
+a162 1
+#endif
+d165 1
+a165 1
+int	nsig = sizeof(signals)/sizeof(signal[0]);
+d172 9
+a180 9
+	INT		narg, i, stat, name, limit;
+	POS		dynam;
+	REG BKPTR	bkptr;
+	CHAR		hi, lo;
+	INT		word;
+	STRING		comptr;
+	L_INT		argp, frame, link;
+	SYMPTR		symp;
+	OVTAG		savov;
+d188 2
+a189 2
+		{CHAR		file[64];
+		INT		index;
+d193 2
+a194 2
+		THEN	iclose();
+		ELSE	oclose();
+d197 1
+a197 1
+		THEN	REP file[index++]=lastc;
+d203 1
+a203 1
+			THEN	infile=open(file,0);
+d213 2
+a214 2
+				THEN	outfile=creat(file,0644);
+				ELSE	lseek(outfile,0L,2);
+d246 1
+a246 1
+	    case 'v': 
+d281 2
+a282 2
+		WHILE cntval--
+		DO	chkerr();
+d284 1
+d288 1
+a288 1
+			THEN	printf("%o", get(argp, DSP));
+d291 1
+a291 1
+			DO	argp += 2;
+d305 5
+a309 3
+			frame=get(frame, DSP)&EVEN;
+			IF kernel? ((POS)frame > ((POS)0140000) + var[VARS]):
+			    (frame==0)
+d311 4
+@
+
+
+1.6
+log
+@Правлена работа с режимами терминала.
+@
+text
+@d6 3
+d411 1
+a411 1
+	pfp = (struct Lfp *)&(struct user *)corhdr->u_fpsr;
+d414 1
+a414 1
+	DO	IF ((U *)corhdr)->u_fpsr&FD ORF longpr /* long mode */
+@
+
+
+1.5
+log
+@Работа с буфером вывода по новому.
+@
+text
+@d6 3
+d39 1
+d197 1
+d203 5
+a207 1
+			ELSE	outfile=open(file,1);
+d212 6
+@
+
+
+1.4
+log
+@Добавлено приглашение, если ввод/вывод с терминала.
+@
+text
+@d6 3
+d247 1
+a247 1
+		sigprint(); flushbuf();
+d336 1
+a336 2
+		   printc(EOR);
+
+d339 1
+a340 1
+		flushbuf();
+d383 1
+a383 1
+	printc(EOR);
+d414 1
+a414 1
+			printc(EOR);
+d419 1
+a419 1
+			printc(EOR);
+d464 1
+a464 1
+	printc(EOR);
+@
+
+
+1.3
+log
+@Размер стека ядра теперь берется из переменной 's'
+@
+text
+@d6 3
+d38 1
+d201 1
+a201 1
+
+@
+
+
+1.2
+log
+@Коррекно проверяется размер стека ядра.
+Появилась возможность читать/писать регистры ядра.
+@
+text
+@d6 4
+a40 1
+L_INT		stksiz;
+d279 1
+a279 1
+			IF kernel? ((POS)frame > ((POS)0140000) + stksiz):
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d37 1
+d276 1
+a276 1
+			IF kernel? ((unsigned)frame>(unsigned)0142000):
+a426 1
+	IF kernel THEN return(NOREG); FI	/* not supported */
+d428 10
+@

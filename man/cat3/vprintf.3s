@@ -1,0 +1,132 @@
+
+VPRINTF(3S)     ДЕМОС. Библиотечные функции      VPRINTF(3S)
+
+
+ИИММЯЯ
+       vvpprriinnttff, vvffpprriinnttff,  vvsspprriinnttff  -  форматный  вывод  со
+       списком аргументов.
+
+ФФООРРММААТТ
+       #iinncclluuddee <_s_t_d_i_o._h>
+       #iinncclluuddee <_v_a_r_a_r_g_s._h>
+
+       vvpprriinnttff (_f_o_r_m_a_t, _a_p)
+       cchhaarr *_f_o_r_m_a_t;
+       vvaa__lliisstt _a_p;
+
+       vvffpprriinnttff (_s_t_r_e_a_m, _f_o_r_m_a_t, _a_p)
+       FFIILLEE *_s_t_r_e_a_m;
+       cchhaarr *_f_o_r_m_a_t;
+       vvaa__lliisstt _a_p;
+
+       vvsspprriinnttff (_s, _f_o_r_m_a_t, _a_p)
+       cchhaarr *_s, *_f_o_r_m_a_t;
+       vvaa__lliisstt _a_p;
+
+ООППИИССААННИИЕЕ
+       Функции vvpprriinnttff, vvffpprriinnttff, и vvsspprriinnttff  делают  то  же
+       самое,  что  и  pprriinnttff, ffpprriinnttff, и sspprriinnttff соответст-
+       венно (_p_r_i_n_t_f(3s)), но работают при этом с переменным
+       списком аргументов в форме _v_a_r_a_r_g_s(3).
+
+ППРРИИММЕЕРР
+       Следующий пример демонстрирует использование  функции
+       vvffpprriinnttff для печати сообщения об ошибке:
+
+       #iinncclluuddee <_s_t_d_i_o._h>
+       #iinncclluuddee <_v_a_r_a_r_g_s._h>
+            .
+            .
+            .
+       /*
+        *   Вызов функции:
+        *        _e_r_r_o_r (_и_м_я__ф_у_н_к_ц_и_и, _ф_о_р_м_а_т, _а_р_г_у_м_е_н_т_ы);
+        */
+       /*VVAARRAARRGGSS22*/
+       _e_r_r_o_r (vvaa__aalliisstt)
+       vvaa__ddccll
+       {
+           vvaa__lliisstt _a_r_g_s;
+           cchhaarr *_f_m_t;
+
+           vvaa__ssttaarrtt (_a_r_g_s);
+           /* Печать имени функции, вызвавшей ошибку */
+           ffpprriinnttff (ssttddeerrrr, "ОШИБКА в %s: ",
+                          vvaa__aarrgg (_a_r_g_s, cchhaarr *));
+           _f_m_t = vvaa__aarrgg (_a_r_g_s, cchhaarr *);
+           /* Печать оставшегося сообщения */
+           vvffpprriinnttff (ssttddeerrrr, _f_m_t, _a_r_g_s);
+           vvaa__eenndd (_a_r_g_s);
+           aabboorrtt ();
+       }
+
+
+
+                            -1-                     ДЕМОС/PV
+
+
+VPRINTF(3S)     ДЕМОС. Библиотечные функции      VPRINTF(3S)
+
+
+ФФААЙЙЛЛЫЫ
+       /_u_s_r/_i_n_c_l_u_d_e/_v_a_r_a_r_g_s._h
+
+ДДООППООЛЛННИИТТЕЕЛЛЬЬННЫЫЕЕ ССССЫЫЛЛККИИ
+       _p_r_i_n_t_f(3s), _v_a_r_a_r_g_s(3)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            -2-                     ДЕМОС/PV
+

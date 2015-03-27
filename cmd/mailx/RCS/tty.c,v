@@ -1,0 +1,396 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     88.07.23.20.38.56;  author ache;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.11.12.35.07;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.12.25.16.01.01;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.3
+log
+@Русские диагностики
+@
+text
+@#
+
+/*
+ * Mail -- a mail program
+ *
+ * Generally useful tty stuff.
+ *
+ * $Log:	tty.c,v $
+ * Revision 1.2  88/01/11  12:35:07  avg
+ * Для ДЕМОС 2 сделан ввод без использования TIOCSTI (т.к. есть разные
+ * нюансы в работе ея с русскими буквами).
+ * Добавлен NOXSTR у rcsid.
+ * 
+ * Revision 1.1  87/12/25  16:01:01  avg
+ * Initial revision
+ *
+ */
+
+#include "rcv.h"
+
+/*NOXSTR*/
+static char rcsid[] = "$Header: tty.c,v 1.2 88/01/11 12:35:07 avg Exp $";
+/*YESXSTR*/
+
+#ifdef TIOCSETA /* Demos2 Only */
+#undef TIOCSTI
+#endif
+
+static  int     c_erase;                /* Current erase char */
+static  int     c_kill;                 /* Current kill char */
+static  int     hadcont;                /* Saw continue signal */
+static  jmp_buf rewrite;                /* Place to go when continued */
+#ifndef TIOCSTI
+static  int     ttyset;                 /* We must now do erase/kill */
+static  struct sgttyb ttybuf;
+#ifdef TIOCSETA
+static int crterase;    /* TTY allows CRT BS-ing */
+static int sflgs;
+#endif
+#endif
+
+/*
+ * Read all relevant header fields.
+ */
+grabh(hp, gflags)
+	struct header *hp;
+{
+	int ttycont(), signull();
+#ifndef TIOCSTI
+	int (*savesigs[2])();
+#endif
+	int (*savecont)();
+	register int s;
+	int errs;
+
+# ifdef VMUNIX
+	savecont = sigset(SIGCONT, signull);
+# endif VMUNIX
+	errs = 0;
+#ifndef TIOCSTI
+	ttyset = 0;
+#endif
+	if (gtty(fileno(stdin), &ttybuf) < 0) {
+		perror("gtty");
+		return(-1);
+	}
+	c_erase = ttybuf.sg_erase;
+	c_kill = ttybuf.sg_kill;
+#ifndef TIOCSTI
+	ttybuf.sg_erase = 0;
+	ttybuf.sg_kill = 0;
+#ifdef TIOCSETA
+	sflgs = ttybuf.sg_flags;
+	ttybuf.sg_flags |= CBREAK;
+	ttybuf.sg_flags &= ~ECHO;
+	{
+		struct sgttya sa;
+		ioctl(0, TIOCGETA, &sa);
+		crterase = ((sa.sg_local & (LCRTERA|LCRTBS|LPRTERA)) ==
+					   (LCRTERA|LCRTBS));
+	}
+#endif
+	for (s = SIGINT; s <= SIGQUIT; s++)
+		if ((savesigs[s-SIGINT] = sigset(s, SIG_IGN)) == SIG_DFL)
+			sigset(s, SIG_DFL);
+#endif
+	if (gflags & GTO) {
+#ifndef TIOCSTI
+		if (!ttyset && hp->h_to != NOSTR)
+			ttyset++, stty(fileno(stdin), &ttybuf);
+#endif
+		hp->h_to = readtty("To: ", hp->h_to);
+		if (hp->h_to != NOSTR)
+			hp->h_seq++;
+	}
+	if (gflags & GSUBJECT) {
+#ifndef TIOCSTI
+		if (!ttyset && hp->h_subject != NOSTR)
+			ttyset++, stty(fileno(stdin), &ttybuf);
+#endif
+		hp->h_subject = readtty("Subject: ", hp->h_subject);
+		if (hp->h_subject != NOSTR)
+			hp->h_seq++;
+	}
+	if (gflags & GCC) {
+#ifndef TIOCSTI
+		if (!ttyset && hp->h_cc != NOSTR)
+			ttyset++, stty(fileno(stdin), &ttybuf);
+#endif
+		hp->h_cc = readtty("Cc: ", hp->h_cc);
+		if (hp->h_cc != NOSTR)
+			hp->h_seq++;
+	}
+	if (gflags & GBCC) {
+#ifndef TIOCSTI
+		if (!ttyset && hp->h_bcc != NOSTR)
+			ttyset++, stty(fileno(stdin), &ttybuf);
+#endif
+		hp->h_bcc = readtty("Bcc: ", hp->h_bcc);
+		if (hp->h_bcc != NOSTR)
+			hp->h_seq++;
+	}
+# ifdef VMUNIX
+	sigset(SIGCONT, savecont);
+# endif VMUNIX
+#ifndef TIOCSTI
+	ttybuf.sg_erase = c_erase;
+	ttybuf.sg_kill = c_kill;
+#ifdef TIOCSETA
+	ttybuf.sg_flags = sflgs;
+#endif TIOCSETA
+	if (ttyset)
+		stty(fileno(stdin), &ttybuf);
+	for (s = SIGINT; s <= SIGQUIT; s++)
+		sigset(s, savesigs[s-SIGINT]);
+#endif
+	return(errs);
+}
+
+/*
+ * Read up a header from standard input.
+ * The source string has the preliminary contents to
+ * be read.
+ *
+ */
+
+char *
+readtty(pr, src)
+	char pr[], src[];
+{
+	char ch, canonb[BUFSIZ];
+	int c, signull();
+	register char *cp, *cp2;
+
+	fputs(pr, stdout);
+	fflush(stdout);
+	if (src != NOSTR && strlen(src) > BUFSIZ - 2) {
+		printf(ediag("too long to edit\n",
+"слишком длинная для редактирования\n"));
+		return(src);
+	}
+#ifndef TIOCSTI
+	if (src != NOSTR)
+		cp = copy(src, canonb);
+	else
+		cp = copy("", canonb);
+	fputs(canonb, stdout);
+	fflush(stdout);
+#else
+	cp = src == NOSTR ? "" : src;
+	while (c = *cp++) {
+		if (c == c_erase || c == c_kill) {
+			ch = '\\';
+			ioctl(0, TIOCSTI, &ch);
+		}
+		ch = c;
+		ioctl(0, TIOCSTI, &ch);
+	}
+	cp = canonb;
+	*cp = 0;
+#endif
+	cp2 = cp;
+	while (cp2 < canonb + BUFSIZ)
+		*cp2++ = 0;
+	cp2 = cp;
+	if (setjmp(rewrite))
+		goto redo;
+# ifdef VMUNIX
+	sigset(SIGCONT, ttycont);
+# endif VMUNIX
+#if defined(TIOCSTI) || !defined(TIOCSETA)
+	while (cp2 < canonb + BUFSIZ) {
+		c = getc(stdin);
+		if (c == EOF || c == '\n')
+			break;
+		*cp2++ = c;
+	}
+	*cp2 = 0;
+#else
+	/* SIMULATE SCREEN EDITING FUNCTIONS */
+	if (!ttyset)
+		ttyset++, stty(fileno(stdin), &ttybuf);
+	for( cp2 = canonb; *cp2 ; cp2++ );
+	for(;;) {
+		static crterf = 0;
+
+		c = getc(stdin);
+		if( c == '\n' || c == EOF ) {
+			putchar('\n');
+			break;
+		}
+		if( c == c_erase ) {
+			if( cp2 > canonb ) {
+				if( crterase )
+					printf( "\b \b" );
+				else {
+					if( !crterf ) {
+						crterf++;
+						putchar( '[' );
+					}
+					putc(cp2[-1], stdout);
+				}
+				*--cp2 = 0;
+			}
+		} else if( c == c_kill ) {
+			if( crterase ) {
+				while( cp2-- > canonb )
+					printf( "\b \b" );
+			} else
+				printf( "^U\n" );
+			cp2 = canonb;
+			*cp2 = 0;
+			crterf = 0;
+		} else {
+			if( (c & 0140) == 0 )
+				c = '$';
+			if( crterf ) {
+				crterf = 0;
+				putchar( ']' );
+			}
+			if( cp2 < canonb + BUFSIZ + 1 ) {
+				putc(c, stdout);
+				*cp2++ = c;
+				*cp2 = 0;
+			}
+		}
+		fflush(stdout);
+	}
+#endif
+# ifdef VMUNIX
+	sigset(SIGCONT, signull);
+# endif VMUNIX
+	if (c == EOF && ferror(stdin) && hadcont) {
+redo:
+		hadcont = 0;
+		cp = strlen(canonb) > 0 ? canonb : NOSTR;
+		clearerr(stdin);
+		return(readtty(pr, cp));
+	}
+#if !defined(TIOCSTI) && !defined(TIOCSETA)
+	if (cp == NOSTR || *cp == '\0')
+		return(src);
+	cp2 = cp;
+	if (!ttyset)
+		return(strlen(canonb) > 0 ? savestr(canonb) : NOSTR);
+	while (*cp != '\0') {
+		c = *cp++;
+		if (c == c_erase) {
+			if (cp2 == canonb)
+				continue;
+			if (cp2[-1] == '\\') {
+				cp2[-1] = c;
+				continue;
+			}
+			cp2--;
+			continue;
+		}
+		if (c == c_kill) {
+			if (cp2 == canonb)
+				continue;
+			if (cp2[-1] == '\\') {
+				cp2[-1] = c;
+				continue;
+			}
+			cp2 = canonb;
+			continue;
+		}
+		*cp2++ = c;
+	}
+	*cp2 = '\0';
+#endif
+	if (equal("", canonb))
+		return(NOSTR);
+	return(savestr(canonb));
+}
+
+# ifdef VMUNIX
+/*
+ * Receipt continuation.
+ */
+ttycont(s)
+{
+
+	hadcont++;
+	sigrelse(SIGCONT);
+	longjmp(rewrite, 1);
+}
+# endif VMUNIX
+
+/*
+ * Null routine to satisfy
+ * silly system bug that denies us holding SIGCONT
+ */
+signull(s)
+{}
+@
+
+
+1.2
+log
+@Для ДЕМОС 2 сделан ввод без использования TIOCSTI (т.к. есть разные
+нюансы в работе ея с русскими буквами).
+Добавлен NOXSTR у rcsid.
+@
+text
+@d8 6
+a13 1
+ * $Log:        tty.c,v $
+d22 1
+a22 1
+static char rcsid[] = "$Header: tty.c,v 1.1 87/12/25 16:01:01 avg Exp $";
+d158 2
+a159 1
+		printf("too long to edit\n");
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d8 4
+a11 1
+ * $Log$
+d16 3
+a18 1
+static char rcsid[] = "$Header$";
+d20 4
+d30 4
+d35 1
+a39 1
+
+a42 1
+	struct sgttyb ttybuf;
+d67 11
+d124 3
+d185 1
+d193 51
+d254 1
+a254 1
+#ifndef TIOCSTI
+@

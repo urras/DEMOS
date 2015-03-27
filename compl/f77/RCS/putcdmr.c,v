@@ -1,0 +1,250 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.29.48;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@æÏÒÔÒÁÎ-77, ×ÅÒÓÉÑ 2.6.
+@
+
+
+
+1.1
+log
+@÷ÅÒÓÉÑ_2.6
+@
+text
+@/*  INTERMEDIATE CODE GENERATION FOR D. M. RITCHIE C COMPILERS */
+/* þÁÓÔØ 2 - ïðåòáãéé ó ëïíðìåëóîùíé þéóìáíé */
+#if FAMILY != DMR
+	WRONG put FILE !!!!
+#endif
+
+#include "defs"
+#include "dmrdefs"
+#undef LOCAL
+#define LOCAL /* */
+
+
+extern int ops2[];
+extern int types2[];
+
+LOCAL putcxeq(p)
+register struct exprblock *p;
+{
+register struct addrblock *lp, *rp;
+int ncomma;
+
+ncomma = 0;
+lp = putcx1(p->leftp, &ncomma);
+rp = putcx1(p->rightp, &ncomma);
+putassign(realpart(lp), realpart(rp));
+if( ISCOMPLEX(p->vtype) )
+	{
+	++ncomma;
+	putassign(imagpart(lp), imagpart(rp));
+	}
+putcomma(ncomma, TYREAL, NO);
+frexpr(rp);
+free(p);
+return(lp);
+}
+
+
+
+LOCAL putcxop(p)
+expptr p;
+{
+struct addrblock *putcx1();
+int ncomma;
+
+ncomma = 0;
+putaddr( putcx1(p, &ncomma), NO);
+putcomma(ncomma, TYINT, NO);
+}
+
+
+
+LOCAL struct addrblock *putcx1(p, ncommap)
+register expptr p;
+int *ncommap;
+{
+struct addrblock *q, *lp, *rp;
+register struct addrblock *resp;
+int opcode;
+int ltype, rtype;
+
+if(p == NULL)
+	return(NULL);
+
+switch(p->tag)
+	{
+	case TCONST:
+		if( ISCOMPLEX(p->vtype) )
+			p = putconst(p);
+		return( p );
+
+	case TADDR:
+		if( ! addressable(p) )
+			{
+			++*ncommap;
+			resp = mktemp(tyint, NULL);
+			putassign( cpexpr(resp), p->memoffset );
+			p->memoffset = resp;
+			}
+		return( p );
+
+	case TEXPR:
+		if( ISCOMPLEX(p->vtype) )
+			break;
+		++*ncommap;
+		resp = mktemp(TYDREAL, NO);
+		putassign( cpexpr(resp), p);
+		return(resp);
+
+	default:
+		fatal1("putcx1: bad tag %d", p->tag);
+	}
+
+opcode = p->opcode;
+if(opcode==OPCALL || opcode==OPCCALL)
+	{
+	++*ncommap;
+	return( putcall(p) );
+	}
+else if(opcode == OPASSIGN)
+	{
+	++*ncommap;
+	return( putcxeq(p) );
+	}
+resp = mktemp(p->vtype, NULL);
+if(lp = putcx1(p->leftp, ncommap) )
+	ltype = lp->vtype;
+if(rp = putcx1(p->rightp, ncommap) )
+	rtype = rp->vtype;
+
+switch(opcode)
+	{
+	case OPCOMMA:
+		frexpr(resp);
+		resp = rp;
+		rp = NULL;
+		break;
+
+	case OPNEG:
+		putassign( realpart(resp), mkexpr(OPNEG, realpart(lp), NULL) );
+		putassign( imagpart(resp), mkexpr(OPNEG, imagpart(lp), NULL) );
+		*ncommap += 2;
+		break;
+
+	case OPPLUS:
+	case OPMINUS:
+		putassign( realpart(resp), mkexpr(opcode, realpart(lp), realpart(rp) ));
+		if(rtype < TYCOMPLEX)
+			putassign( imagpart(resp), imagpart(lp) );
+		else if(ltype < TYCOMPLEX)
+			{
+			if(opcode == OPPLUS)
+				putassign( imagpart(resp), imagpart(rp) );
+			else	putassign( imagpart(resp), mkexpr(OPNEG, imagpart(rp), NULL) );
+			}
+		else
+			putassign( imagpart(resp), mkexpr(opcode, imagpart(lp), imagpart(rp) ));
+
+		*ncommap += 2;
+		break;
+
+	case OPSTAR:
+		if(ltype < TYCOMPLEX)
+			{
+			if( ISINT(ltype) )
+				lp = intdouble(lp, ncommap);
+			putassign( realpart(resp), mkexpr(OPSTAR, cpexpr(lp), realpart(rp) ));
+			putassign( imagpart(resp), mkexpr(OPSTAR, cpexpr(lp), imagpart(rp) ));
+			}
+		else if(rtype < TYCOMPLEX)
+			{
+			if( ISINT(rtype) )
+				rp = intdouble(rp, ncommap);
+			putassign( realpart(resp), mkexpr(OPSTAR, cpexpr(rp), realpart(lp) ));
+			putassign( imagpart(resp), mkexpr(OPSTAR, cpexpr(rp), imagpart(lp) ));
+			}
+		else	{
+			putassign( realpart(resp), mkexpr(OPMINUS,
+				mkexpr(OPSTAR, realpart(lp), realpart(rp)),
+				mkexpr(OPSTAR, imagpart(lp), imagpart(rp)) ));
+			putassign( imagpart(resp), mkexpr(OPPLUS,
+				mkexpr(OPSTAR, realpart(lp), imagpart(rp)),
+				mkexpr(OPSTAR, imagpart(lp), realpart(rp)) ));
+			}
+		*ncommap += 2;
+		break;
+
+	case OPSLASH:
+		/* fixexpr has already replaced all divisions
+		 * by a complex by a function call
+		 */
+		if( ISINT(rtype) )
+			rp = intdouble(rp, ncommap);
+		putassign( realpart(resp), mkexpr(OPSLASH, realpart(lp), cpexpr(rp)) );
+		putassign( imagpart(resp), mkexpr(OPSLASH, imagpart(lp), cpexpr(rp)) );
+		*ncommap += 2;
+		break;
+
+	case OPCONV:
+		putassign( realpart(resp), realpart(lp) );
+		if( ISCOMPLEX(lp->vtype) )
+			q = imagpart(lp);
+		else if(rp != NULL)
+			q = realpart(rp);
+		else
+			q = mkrealcon(TYDREAL, 0.0);
+		putassign( imagpart(resp), q);
+		*ncommap += 2;
+		break;
+
+	default:
+		fatal1("putcx1 of invalid opcode %d", opcode);
+	}
+
+frexpr(lp);
+frexpr(rp);
+free(p);
+return(resp);
+}
+
+
+
+
+LOCAL putcxcmp(p)
+register struct exprblock *p;
+{
+int opcode;
+int ncomma;
+register struct addrblock *lp, *rp;
+struct exprblock *q;
+
+ncomma = 0;
+opcode = p->opcode;
+lp = putcx1(p->leftp, &ncomma);
+rp = putcx1(p->rightp, &ncomma);
+
+q = mkexpr( opcode==OPEQ ? OPAND : OPOR ,
+	mkexpr(opcode, realpart(lp), realpart(rp)),
+	mkexpr(opcode, imagpart(lp), imagpart(rp)) );
+putx( fixexpr(q) );
+putcomma(ncomma, TYINT, NO);
+
+free(lp);
+free(rp);
+free(p);
+}
+@

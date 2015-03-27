@@ -1,0 +1,47 @@
+#print
+Напишите подпрограмму с именем "index(s,c)"
+первый формальный параметр которой - указатель
+на символьную строку 's', а второй - символьная
+переменная  'c', поиск которой и проводотся в
+строке 's'. Если символа 'c' в строке не обнаружено,
+то подпрограмма возвращает значение 0;
+в противном случае возвращается указатель на
+адрес символа 'c' в строке 's'.
+Назовите программу "index.c".
+Затем, как обычно,
+скомпилируйте, проверьте, прогоните, наберите ....
+#once #create Ref
+0
+19
+0
+25
+0
+#once #create tzaqc.c
+char *alpha "abcdefghijklmnopqrstuvwxyz";
+main()
+{
+	extern char *index();
+	printf("%d\n", index(alpha, '+'));
+	printf("%d\n",index(alpha, 't')-alpha));
+	printf("%d\n",index(alpha, 'a')-alpha));
+	printf("%d\n",index(alpha, 'z')-alpha));
+	printf("%d\n",index("", 'z'));
+}
+#user
+cc tzaqc.c index.o
+a.out  >value
+#cmp value Ref
+#succeed
+А попробуйте вот так:
+
+char *index (s, c)
+char *s;
+{
+	for( ; *s; s++)
+		if (*s == c)
+			return(s);
+	return(0);
+}
+#log
+#next
+31.1a 10

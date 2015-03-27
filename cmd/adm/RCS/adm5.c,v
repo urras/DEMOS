@@ -1,0 +1,335 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.03.21.18.32.12;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+5 (и прследняя) - часть администратора
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Администратор - обслуживание бюджетов
+ *  Автор: Антонов В.Г. ( ВМК МГУ, ИПК Минавтопрома )
+ *  Последнее изменение: 28.06.85
+ *
+ */
+
+#include "adm.h"
+
+/*
+ * Удалить пользователя из списков групп
+ */
+remufg( name, F )
+char   *name;
+{
+	struct group *GRP, *getgrent();
+	register int i, j;
+	int     FL;
+	char   *p;
+
+	BEDIT();
+	setgrent();
+	while( (GRP = getgrent()) != NULL ) {
+		FL = 0;
+
+		/* Проверить, в этой ли группе пользователь */
+		for( i = 0; GRP->gr_mem[i] ; i++ ) {
+			if( !strcmp( GRP->gr_mem[i], name ) ) {
+				FL++;
+				GRP->gr_mem[i] = NULL;
+			}
+		}
+		if( !F && i == 1 && FL ) {
+			printf( ediag(
+				"Group %s removed.\n",
+				"Группа %s уничтожена.\n"), GRP->gr_name );
+			continue;       /* Удалить эту группу */
+		}
+
+		/* Вывести группу */
+		fprintf( admtmp, "%s:%s:%d:", GRP->gr_name, GRP->gr_passwd, GRP->gr_gid );
+		if( i==1 && FL && F ) {
+			fprintf( admtmp, "\n" );
+			continue;
+		}
+		if( (GRP->gr_mem[i-1]) == NULL )
+			i--;
+		for( j = 0; j < i ; j++ )
+			if( p = GRP->gr_mem[j] ) {
+				if( j == (i-1) )
+					fprintf( admtmp, "%s\n", p );
+				else {
+					fprintf( admtmp, "%s,", p );
+				}
+			}
+	}
+	endgrent();
+	fclose( admtmp ); admtmp = NULL;
+	unlink( OLDGROUP );
+	if( link( GROUP, OLDGROUP ) == -1 )
+		goto FAIL;
+	unlink( GROUP );
+	if( link( TMP, GROUP ) == -1 )
+		goto FAIL;
+	unlink( OLDGROUP );
+	EEDIT();
+	return( 0 );
+FAIL:
+	EEDIT();
+	printf( ediag(
+		"Can't change %s, it's possibly botched.\n Old copy name is %s.\n",
+		"Не могу заменить %s, он, возможно, испорчен.\n  Старая копия в %s.\n"), GROUP, OLDGROUP );
+	return( 1 );
+}
+
+/*
+ * Изменить информацию о пользователях
+ */
+chuser( p )
+char   *p;
+{
+	char   *q;
+	int     CF, xuid;
+	struct passwd *Psw;
+	char    istr[80], *QQ, xyzzy[60];
+	register char *ir;
+	struct group *GRP;
+	char    Uname[32], Ucomment[128], Udir[80], Ushell[40];
+	char    oldUname[32], Uxcomm[128];
+	int     Uuid, Ugid, oldUgid;
+
+	q = p;
+	Wint = 0;
+BOL:
+	for(;;) {
+		if( Wint ) {
+			Wint = 0;
+			printf( "OK\n" );
+			return;
+		}
+		switch( xuid = getuser( &q ) ) {
+		    case -2 :
+			printf( "OK\n" );
+			return;
+		    case -1 :
+			if( upass == NULL ) {
+				printf( ediag(
+					"Bad uid.\n",
+					"Плохой uid.\n" ));
+				return;
+			} else {
+				Tolower( upass->pw_name );
+				printf( ediag(
+					"No user %s.\n",
+					"Пользователя %s нет.\n"), upass->pw_name );
+				printf( ediag( "  Create ? ", "  Завести ? " ) );
+				if( ask( YES ) == YES )
+				      adduser( upass->pw_name );
+			}
+			goto BOL;
+		    default :
+			if( upass == NULL && (upass = getpwuid( xuid )) == NULL ) {
+				printf( ediag(
+					"No user with uid=%d.\n",
+					"Пользователя с uid=%d нет.\n"), xuid );
+				goto BOL;
+			}
+		}
+
+		CF = 0;
+		strcpy( oldUname, upass->pw_name );
+		strcpy( Uname,    upass->pw_name );
+		Uuid = upass->pw_uid;
+		oldUgid = Ugid = upass->pw_gid;
+		strcpy( Ucomment, upass->pw_gecos );
+		strcpy( Uxcomm,   upass->pw_gecos );
+		strcpy( Udir, upass->pw_dir );
+		strcpy( Ushell, upass->pw_shell );
+
+		printf( ediag(
+			"User %s ( %s ):\n",
+			"Пользователь %s ( %s ):\n"),
+			oldUname, GFIO( Ucomment ) );
+ASKA1:
+		printf( ediag(
+			"User name [%s] ? ",
+			"Имя пользователя [%s] ? "), oldUname );
+		gets( istr, 32 );
+		Tolower( istr );
+		ir = istr;
+		SKIPSPACES( ir );
+		if( *ir != '\0' && strcmp( ir, oldUname) ) {
+			setpwent();
+			while( (Psw = getpwent()) != NULL )
+				if( !strcmp( ir, Psw->pw_name ) ) {
+					printf( ediag(
+				    "Such user already exist.\n",
+				    "Такой пользователь уже есть.\n" ) );
+					goto ASKA1;
+				}
+			strcpy( Uname, ir );
+			CF++;
+		}
+
+ASKA2:
+		if( (GRP = getgrgid( oldUgid )) != NULL )
+			printf( ediag(
+				"Group [%s] ? ",
+				"Группа [%s] ? "), GRP->gr_name );
+		else
+			printf( ediag("Group ? ", "Группа ? ") );
+		gets( istr, 32 );
+		Tolower( istr );
+		ir = istr;
+		SKIPSPACES( ir );
+		if( *ir == '\0' ) {
+			if( GRP == NULL ) {
+				printf( ediag(
+					"There is no old group.\n",
+					"Старой группы нет.\n") );
+				goto ASKA2;
+			}
+			strcpy( istr, GRP->gr_name );
+			ir = istr;
+		} else if( GRP == NULL || strcmp( GRP->gr_name, ir ) )
+			goto STEP1;
+		if( !strcmp( oldUname, Uname ) )
+			goto Skip;
+STEP1:
+		if( remufg( oldUname, (GRP != NULL && !strcmp( ir, GRP->gr_name )) ) )
+			return;
+		if( (Ugid = matchgroup( ir, Uname )) == -1 )
+			goto BOL;
+		CF++;
+Skip:
+		xyzzy[0] = '\0';
+GAGA1:          printf( ediag(
+			"User name and family [%s] ?\n >> ",
+			"ФИО пользователя [%s] ?\n >> "), Ucomment );
+		gets( istr, 80 );
+		if( index( istr, ':' ) ) {
+			printf( ediag(
+				"Can't contain ':'\n",
+				"Не должно быть знаков ':'\n") );
+			goto GAGA1;
+		}
+		if( *istr != '\0' ) {
+			strcpy( xyzzy, istr );
+			CF++;
+		}
+
+		QQ = Uxcomm;
+		while( *QQ != ',' && *QQ != '\0' )
+			QQ++;
+		if( *QQ != '\0' )
+			QQ++;
+GAGA2:          printf( ediag(
+			"Other info [%s] ? ",
+			"Инф. о пользователе [%s] ? "), QQ );
+		gets( istr, 60 );
+		if( index( istr, ':' ) ) {
+			printf( ediag(
+				"Can't contain ':'\n",
+				"Не должно быть знаков ':'\n" ) );
+			goto GAGA2;
+		}
+		if( *istr != '\0' ) {
+			CF++;
+			if( *xyzzy != '\0' )
+				strcpy( Ucomment, xyzzy );
+			strcat( Ucomment, ", " );
+			strcat( Ucomment, istr );
+		} else if( *xyzzy != '\0' ) {
+			if( *QQ != '\0' ) {
+				strcpy( Ucomment, xyzzy );
+				strcat( Ucomment, ", " );
+				strcat( Ucomment, QQ );
+			} else
+				strcpy( Ucomment, xyzzy );
+		} else
+			strcpy( Ucomment, Uxcomm );
+
+		printf( ediag(
+			"Home directory [%s] ? ",
+			"Начальный каталог [%s] ? "), Udir );
+		gets( istr, 80 );
+		ir = istr;
+		SKIPSPACES( ir );
+		if( *ir != '\0' && strcmp( ir, Udir ) ) {
+			strcpy( Udir, ir );
+			checkdir( Udir, Uuid, Ugid );
+			CF++;
+		}
+
+		printf( ediag(
+			"User default shell [%s] ? ",
+			"Интерпретатор ком. языка [%s] ? "), (*Ushell == 0)? DFLTSHELL : Ushell );
+		gets( istr, 40 );
+		ir = istr;
+		SKIPSPACES( ir );
+		if( *ir != '\0' && strcmp( ir, Ushell) ) {
+			strcpy( Ushell, ir );
+			CF++;
+		}
+
+		if( CF ) {
+			if( BEDIT() )
+				goto FAIL1;
+			setpwent();
+			while( (Psw = getpwent()) != NULL ) {
+				if( strcmp( Psw->pw_name, oldUname ) )
+					fprintf( admtmp, "%s:%s:%d:%d:%s:%s:%s\n",
+						Psw->pw_name,
+						Psw->pw_passwd,
+						Psw->pw_uid,
+						Psw->pw_gid,
+						Psw->pw_gecos,
+						Psw->pw_dir,
+						Psw->pw_shell );
+				else
+					fprintf( admtmp, "%s:%s:%d:%d:%s:%s:%s\n",
+						Uname,
+                                                Psw->pw_passwd,
+                                                Uuid,
+                                                Ugid,
+                                                Ucomment,
+                                                Udir,
+                                                Ushell );
+                        }
+                        endpwent();
+                        fclose( admtmp ); admtmp = NULL;
+                        unlink( OLDPASSWD );
+                        if( link( PASSWD, OLDPASSWD ) == -1 )
+                                goto FAIL;
+                        unlink( PASSWD );
+                        if( link( TMP, PASSWD ) == -1 )
+                                goto FAIL;
+                        unlink( OLDPASSWD );
+                        EEDIT();
+                }
+        }
+FAIL:
+        EEDIT();
+FAIL1:
+        printf( ediag(
+                "Can't change %s, it's possibly botched.\n Old copy name is %s.\n",
+                "Не могу заменить %s, он, возможно, испорчен.\n  Старая копия в %s.\n"), PASSWD, OLDPASSWD );
+        return;
+}
+@

@@ -1,0 +1,2186 @@
+head     22.5;
+access   avg dmitry flerov davidov alex fox andrew korotaev dvolodin abs;
+symbols  Архыз0:1.6.1;
+locks    ;
+comment  @ * @;
+
+
+22.5
+date     90.11.12.19.19.10;  author root;  state Exp;
+branches ;
+next     22.4;
+
+22.4
+date     89.07.01.20.13.46;  author avg;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.04.28.17.02.44;  author avg;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.12.15.36.09;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.02.13.33.09;  author abs;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.31.17.59.54;  author korotaev;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     89.03.03.14.16.12;  author abs;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     89.02.09.16.36.59;  author abs;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.02.07.15.51.28;  author abs;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.02.04.18.51.33;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.01.26.15.55.42;  author korotaev;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.01.07.20.56.57;  author korotaev;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.11.02.21.08.57;  author dvolodin;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.03.23.13.37.36;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.01.23.19.53.30;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.12.09.16.31.52;  author andrew;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.04.18.14.42.44;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.52.28;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы.  Машинно-независимая часть.
+@
+
+
+22.5
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	sys1.c,v $
+ * Revision 22.4  89/07/01  20:13:46  avg
+ * Увеличен размер области свопинга, для которой начнут выполняться 
+ * проверки.
+ * 
+ * Revision 22.3  89/04/28  17:02:44  avg
+ * Добавлен #include "h/space.h" для вытаскивания констант SEMMNS и MSGMNI.
+ *
+ * Revision 22.2  89/04/12  15:36:09  korotaev
+ * "param.h" ==> <sys/param.h>
+ *
+ * Revision 22.1  89/04/02  13:33:09  abs
+ * заменил один anic на printf
+ *
+ * Revision 22.0  89/03/31  17:59:54  korotaev
+ * Begining DEMOS 2.2.
+ *
+ * Revision 1.12  89/03/03  14:16:12  abs
+ * semaphores
+ *
+ * Revision 1.11  89/02/09  16:36:59  abs
+ * механизм копирования аргументов при ШеллСкрипте переписан вообще на фиг !
+ *
+ * Revision 1.10  89/02/07  15:51:28  abs
+ * UCB_SHELLSCRIPT теперь имеет аргументы.
+ *
+ * Revision 1.9  89/02/04  18:51:33  avg
+ * Ускорено переключение пользовательских оверлеев.
+ *
+ * Revision 1.8  89/01/26  15:55:42  korotaev
+ * Уменьшены диагностики.
+ *
+ * Revision 1.7  89/01/07  20:56:57  korotaev
+ * Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+ *
+ * (from VAX/UTS SV.2)
+ *
+ * Revision 1.5  88/03/23  13:37:36  korotaev
+ * Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+ *
+ * Revision 1.4  88/01/23  19:53:30  korotaev
+ * Состояние после слияния с AVG-Э-85.
+ *
+ * Revision 1.3  87/12/09  16:31:52  andrew
+ * 31 оверлей
+ *
+ * Revision 1.2  87/04/18  14:42:44  avg
+ * Правки в vfork by alex.
+ *
+ * Revision 1.1  86/04/19  15:52:28  avg
+ * Initial revision
+ *
+ */
+
+/* Структура стека сразу после exec-а :
+     ----------------
+     |   na-ne= argc
+     |    a0
+     |    ...
+     |    an
+     |   NULL
+     |    e0
+     |    ...
+     |    em
+     |   NULL
+  a0:|    "argv0\0"
+     |    ...
+  an:|    "argvn\0"
+  e0:|    "envp0\0"
+     |    ...
+  em:|    "envpm\0"
+     |     0
+   0:| пустой стек
+ -----
+
+*/
+#include <sys/param.h>
+#include <sys/systm.h>
+#include "../include/map.h"
+#include <sys/dir.h>
+#include <sys/user.h>
+#include <sys/proc.h>
+#include "../include/buf.h"
+#include "../include/reg.h"
+#include "../include/psw.h"
+#include <sys/inode.h>
+#include <sys/seg.h>
+#include <sys/acct.h>
+#include <sys/file.h>
+#include <sys/wait.h>
+
+#include "h/space.h"    /* для SEMMNS */
+
+extern panicreboot;
+
+/*
+ * exec system call, with and without environments.
+ */
+struct execa {
+	char    *fname;
+	char    **argp;
+	char    **envp;
+};
+
+exec()
+{
+	((struct execa *)u.u_ap)->envp = NULL;
+	exece();
+}
+
+#define byteaddress int
+
+exece()
+{
+	register nc;    /* общее число байт в argp и envp */
+	int na,         /* число строк в argp и envp вместе */
+	    ne,         /* число строк в envp */
+	    ucp,c;
+	byteaddress ap;
+		/* грязное место. В дальнейшем время от времени
+		 * ap используется по разному: как   char *
+		 * как char **     и как    int
+		 */
+	register char *cp;
+	register struct buf *bp;
+	register struct execa *uap;
+	memaddr bno;
+	struct inode *ip;
+	char *next;
+#define  AP (uap->argp)
+#define  EP (uap->envp)
+
+# define SCRMAG  "#!"
+# define SCRMAG2 "/*#!"
+# define ARGPLACE "$*"
+# define SHSIZE  70
+# define ARGV    11
+	char **AV;
+
+	extern int schar();
+	int uid, gid;
+	char indir, local;
+	off_t  off;
+	char shellcmd[ SHSIZE ];        /* прочитанная команда */
+	char *argv[ ARGV ];             /* разобранная команда */
+
+	if ((ip = namei(uchar, LOOKUP, 1)) == NULL)
+		return;
+#ifdef SCHED
+	u.u_procp->p_sflag |= SEXEC;
+#endif SCHED
+	bno = 0;
+	bp = (struct buf *) NULL;
+	indir = 0;
+	uid = u.u_uid;
+	gid = u.u_gid;
+	if (ip->i_mode&ISUID)
+	    uid = ip->i_uid;
+	if (ip->i_mode&ISGID)
+	    gid = ip->i_gid;
+again:
+	if (access(ip, IEXEC))
+		goto bad;
+	if ((ip->i_mode & IFMT) != IFREG ||
+	   (ip->i_mode & (IEXEC | (IEXEC >> 3) | (IEXEC >> 6))) == 0) {
+		u.u_error = EACCES;
+		goto bad;
+	}
+
+	/* moved from getxfile() */
+	u.u_base = (caddr_t) &u.u_exdata;
+	u.u_count = sizeof u.u_exdata;
+	u.u_offset = 0;
+	u.u_segflg = 1;
+
+	readi(ip);
+
+	u.u_segflg = 0;
+	if (u.u_error)
+	    goto bad;
+
+	/* check if script. */
+	if (indir < NSYMLNK && u.u_offset > (off_t)2 ){
+	    cp = (char *) &u.u_exdata;
+	    if( !bcmp(cp, SCRMAG, 2 ))
+		off = (off_t) 2;
+	    else if( u.u_offset > (off_t)4 && !bcmp( cp, SCRMAG2, 4))
+		off = (off_t) 4;
+	    else goto NoScript;
+
+	    /* да, имеется shell script */
+	    indir++;
+
+	    /* зачитать в буфер первые SHSIZE байт файла */
+	    u.u_count = SHSIZE;
+	    u.u_base  = shellcmd;
+	    u.u_offset= off;
+	    u.u_segflg = 1;
+
+	    readi( ip );
+	    u.u_segflg = 0;
+
+	    if( u.u_error )
+		goto bad;
+
+	    iput( ip );
+	    off = u.u_offset - off;
+	    /* столько байт на самом деле прочлось внутрь */
+
+	    /* обработка */
+	    /* пока nc используется как временная переменная */
+
+	    for( nc=0; nc < (int) off; nc++ )
+		if( shellcmd[ nc ] == '\n' ){
+			shellcmd[ nc] = '\0';
+			goto Parse;
+		}
+Big:
+	    /* строка слишком длинная */
+	    u.u_error = E2BIG;
+Ret:
+# ifdef SCHED
+	    u.u_procp->p_sflag &= ~SEXEC;
+# endif SCHED
+	    return;
+Parse:
+
+	    nc = 0;
+	    cp = shellcmd;
+	    for(;;){
+		/* пропуск пробелов */
+		while( *cp == ' ' ) cp++;
+		if( ! *cp ) break;      /* конец строки */
+
+		if( nc == ARGV-1 ) goto Big;
+		argv[ nc++ ] = cp;
+
+		/* пропуск аргумента */
+		while( *cp && *cp != ' ' ) cp++;
+		if( ! *cp ) break;
+
+		*cp ++ = '\0';
+	    }
+	    argv[ nc ] = NULL;
+
+	    if( !nc ){
+		u.u_error = EINVAL;
+		goto Ret;
+	    }
+
+	    u.u_dirp = argv[0];
+
+	    /* смотрим, что лежит в указуемом файле */
+	    if ((ip = namei(schar, LOOKUP, 1)) == NULL) {
+# ifdef SCHED
+		u.u_procp->p_sflag &= ~SEXEC;
+# endif SCHED
+		return;
+	    }
+	    goto again;
+	}
+	if( indir == NSYMLNK ){
+		u.u_error = ELOOP;
+		goto bad;
+	}
+
+NoScript:
+	/*other magic numbers are described in getxfile()*/
+
+	/*
+	 * Collect arguments on "file" in swap space.
+	 * ip - locked ino of executable core image file.
+	 */
+	uap = (struct execa *)u.u_ap;
+	ap = na = ne = nc = 0;
+
+	/* заказать в своппинге место для размещения
+	 * аргументов и окружения новой программы
+	 */
+#ifndef UCB_NKB
+	if ((bno = malloc(swapmap, (NCARGS + BSIZE - 1) / BSIZE)) == 0) {
+#else   UCB_NKB
+	if ((bno = malloc(swapmap, ctod((int) btoc(NCARGS + BSIZE)))) == 0) {
+#endif  UCB_NKB
+		/* panicreboot++;
+		 * panic("out of swap");
+		 */
+		printf( "misswap\n");
+		u.u_error = ENOSPC;
+		goto bad;
+	}
+
+     /* формат:
+	 пусть есть файл   /.../.../x
+	 со следующим содержимым:
+	 -------------------------------
+	 |#!CMD A1 A2 A3
+	 | .......
+
+	Вызываем команду:
+		x B1 B2
+
+	Запустится на самом деле такая команда:
+		CMD A1 A2 A3 /.../.../x B1 B2
+
+	Один из аргументов Ai может иметь вид $*
+	Тогда аргументы запуска подставятся на это место, а не в конец:
+	 -------------------------------
+	 |#!CMD A1 $* A2 A3
+	 | .......
+
+	Вызываем:
+		x B1 B2
+
+	Запустится:
+		CMD A1 /.../.../x B1 B2 A2 A3
+     */
+
+	if( indir ) AV = argv;
+	else        AV = NULL;
+
+	/* цикл чтения сначала argp, затем envp в своппинг */
+	if ( AP ) for (;;) {
+
+GetNext:
+
+		/* здесь ap используется как флаг, что можно
+		 * брать аргументы из argv
+		 */
+		if( AV  && ! ap ){
+			next = *AV++;
+			if( next == NULL ){
+				AV = NULL;
+				goto GetNext;
+			}
+			if( !bcmp( next, ARGPLACE, 2 ))
+				goto Argp;
+			local = 1;
+		}else
+
+Argp:           if( AP ){
+			next = fuword ( (caddr_t) AP++ );
+			if( next == NULL ){
+				AP = NULL;
+				ap = 0;
+				/* можно дочитывать argv,
+				 * если еще осталось
+				 */
+				goto GetNext;
+			}
+			/* полное имя косвенного файла задаем как
+			 * argp0 скриптовой программе.
+			 */
+			if( ap == 0 && indir )
+				next = (caddr_t) (uap->fname);
+			local = 0;
+			ap++;   /* не ноль */
+		}else
+		if( EP ){
+			next = fuword( (caddr_t) EP++ );
+			if( next == NULL ) break;
+			local = 0;
+			ne++;
+			ap++;
+		}else
+			break;
+
+		/* число пересланных строк */
+		na++;
+		if (next == (char *)-1)
+			u.u_error = EFAULT;
+
+		/* Адрес строки сейчас хранится в next.
+		 * Начинаем цикл пересылки строки в "файл" в своппинге
+		 */
+		do {
+			if (nc >= NCARGS - 1)
+				u.u_error = E2BIG;
+			if( local ){
+			     /* строка - в пространстве ядра */
+			     c = *next++;
+			     c &= 0377;
+			} else
+			     /* строка - в пространстве юзера */
+			     if ((c = fubyte((caddr_t) next++)) < 0)
+				   u.u_error = EFAULT;
+
+			if (u.u_error)
+				goto bad;
+			if ((nc & BMASK) == 0) {
+				if (bp) {
+					mapout(bp);
+					bdwrite(bp);
+				}
+			/* заказываем кэш-буфер для записи в
+			 * "своппинговый файл"
+			 */
+#ifndef UCB_NKB
+				bp = getblk(swapdev, swplo + bno + (nc >> BSHIFT));
+#else
+				bp = getblk(swapdev,
+				  dbtofsb(clrnd(swplo + bno)) + (nc >> BSHIFT));
+#endif
+				cp = mapin(bp);
+			}
+
+			/* число засланных байтов ++ */
+			nc++;
+
+			/* заносим байт в кэш-буфер */
+			*cp++ = c;
+
+		} while (c > 0);        /* пока не конец строки */
+	}
+
+	if (bp) {
+		mapout(bp);
+		bdwrite(bp);
+	}
+
+	/* выделяем память для новой программы,
+	 * зачитываем программу из файла в эту память
+	 */
+	bp = 0;
+	nc = (nc + NBPW - 1) & ~(NBPW - 1);
+	if (getxfile(ip, (na * NBPW) + nc, uid, gid) || u.u_error)
+		goto bad;
+
+	/*
+	 * copy back arglist
+	 * формируем стек нового процесса (для вызова main)
+	 */
+
+	ucp = -nc - NBPW;
+	ap = ucp - na * NBPW - 3 * NBPW;
+	u.u_ar0[R6] = ap;
+	suword((caddr_t)ap, na - ne);
+	nc = 0;
+	for (;;) {
+		ap += NBPW;
+		if (na == ne) {
+			suword((caddr_t)ap, 0);
+			ap += NBPW;
+		}
+		if (--na < 0)
+			break;
+		suword((caddr_t)ap, ucp);
+		do {
+			if ((nc & BMASK) == 0) {
+				if (bp) {
+					mapout(bp);
+					bp->b_flags |= B_AGE;
+					brelse(bp);
+				}
+#ifndef UCB_NKB
+				bp = bread(swapdev, swplo + bno + (nc>>BSHIFT));
+#else
+				bp = bread(swapdev,
+				  dbtofsb(clrnd(swplo + bno)) + (nc >> BSHIFT));
+#endif
+				bp->b_flags &= ~B_DELWRI;
+				cp = mapin(bp);
+				/* stick in interpreter name for accounting */
+				if (indir && nc == 0)
+					bcopy(cp, (caddr_t)u.u_dbuf, DIRSIZ);
+			}
+			subyte((caddr_t)ucp++, (c = *cp++));
+			nc++;
+		} while(c & 0377);
+	}
+	suword((caddr_t) ap, 0);
+	suword((caddr_t) (-NBPW), 0);
+	/* завершено формирование стека */
+
+	if (bp) {
+		mapout(bp);
+		bp->b_flags |= B_AGE;
+		brelse(bp);
+		bp = 0;
+	}
+	setregs();
+
+bad:
+#ifdef SCHED
+	u.u_procp->p_sflag &= ~SEXEC;
+#endif SCHED
+	if (bp) {
+		mapout(bp);
+		bp->b_flags |= B_AGE;
+		brelse(bp);
+	}
+	if (bno)
+#ifndef UCB_NKB
+		mfree(swapmap, (NCARGS + BSIZE - 1) / BSIZE, bno);
+#else
+		mfree(swapmap, ctod((int) btoc(NCARGS + BSIZE)), bno);
+#endif
+	iput(ip);
+}
+
+/*
+ * Read in and set up memory for executed file.
+ * Zero return is normal;
+ * non-zero means only the text is being replaced
+ */
+getxfile(ip, nargc, uid, gid)
+int nargc, uid, gid;
+register struct inode *ip;
+{
+	register unsigned ds;
+	register sep;
+	register unsigned ts, ss;
+	register i, overlay;
+	register ovflag,ovmax;
+	struct u_ovd sovdata;
+	register xovflag;
+	unsigned ovhead[1 + NXOVL];
+	long lsize;
+
+	sep = 0;
+	overlay = 0;
+	ovflag = 0;
+	xovflag = 0;
+	if (u.u_exdata.ux_mag == A_MAGIC1) {
+		lsize = (long) u.u_exdata.ux_dsize + u.u_exdata.ux_tsize;
+		u.u_exdata.ux_dsize = lsize;
+		if (lsize != u.u_exdata.ux_dsize) {     /* check overflow */
+			u.u_error = ENOMEM;
+			goto bad;
+		}
+		u.u_exdata.ux_tsize = 0;
+	} else if (u.u_exdata.ux_mag == A_MAGIC3)
+		sep++;
+	else if (u.u_exdata.ux_mag == A_MAGIC4)
+		overlay++;
+	else if (u.u_exdata.ux_mag == A_MAGIC5)
+		ovflag++;
+	else if (u.u_exdata.ux_mag == A_MAGIC7) {
+		ovflag++;
+		xovflag++;
+	}
+	else if (u.u_exdata.ux_mag == A_MAGIC6) {
+		sep++;
+		ovflag++;
+	}
+	else if (u.u_exdata.ux_mag != A_MAGIC2) {
+		u.u_error = ENOEXEC;
+		goto bad;
+	}
+	if (u.u_exdata.ux_tsize!=0 && (ip->i_flag&ITEXT)==0 && ip->i_count!=1) {
+		u.u_error = ETXTBSY;
+		goto bad;
+	}
+
+	/*
+	 * find text and data sizes
+	 * try them out for possible
+	 * overflow of max sizes
+	 */
+	ts = btoc(u.u_exdata.ux_tsize);
+	lsize = (long) u.u_exdata.ux_dsize + u.u_exdata.ux_bsize;
+	if (lsize != (unsigned) lsize) {
+		u.u_error = ENOMEM;
+		goto bad;
+	}
+	ds = btoc(lsize);
+	ss = SSIZE + btoc(nargc);
+
+	/*
+	 * if auto overlay get second header
+	 */
+
+	sovdata = u.u_ovdata;
+	u.u_ovdata.uo_ovbase = 0;
+	u.u_ovdata.uo_curov  = 0;
+	u.u_ovdata.uo_maxov  = 0;       /* used for checks in EMT handler */
+	if (ovflag) {
+		register n_ovl1 = (xovflag?NXOVL:NOVL);
+
+		u.u_ovdata.uo_maxov = n_ovl1++;
+		u.u_count = sizeof(unsigned)*n_ovl1;
+		u.u_base = (caddr_t) ovhead;
+		u.u_offset = sizeof(u.u_exdata);
+		u.u_segflg = 1;
+		readi(ip);
+		u.u_segflg = 0;
+		if (u.u_count != 0)
+			u.u_error = ENOEXEC;
+		if (u.u_error) {
+			u.u_ovdata = sovdata;
+			goto bad;
+		}
+		/* set beginning of overlay segment */
+		u.u_ovdata.uo_ovbase = ctos(ts);
+
+		/* 0th entry is max size of the overlays */
+		ovmax = btoc(ovhead[0]);
+
+		/* set max number of segm. registers to be used */
+		u.u_ovdata.uo_nseg = ctos(ovmax);
+
+		/* set base of data space */
+		u.u_ovdata.uo_dbase = stoc(u.u_ovdata.uo_ovbase + u.u_ovdata.uo_nseg);
+
+		/*
+		 * Set up a table of offsets to each of the
+		 * overlay segements. The ith overlay runs
+		 * from ov_offst[i-1] to ov_offst[i].
+		 */
+		u.u_ovdata.uo_ov_offst[0] = ts;
+		for (i = 1; i < n_ovl1; i++) {
+			register t;
+			/* check if any overlay is larger than ovmax */
+			if ((t=btoc(ovhead[i])) > ovmax) {
+				u.u_error = ENOEXEC;
+				u.u_ovdata = sovdata;
+				goto bad;
+			}
+			u.u_ovdata.uo_ov_offst[i] =
+				t + u.u_ovdata.uo_ov_offst[i - 1];
+		}
+	}
+
+	if (overlay) {
+		if (u.u_sep == 0 && ctos(ts) != ctos(u.u_tsize) || nargc) {
+			u.u_error = ENOMEM;
+			goto bad;
+		}
+		ds = u.u_dsize;
+		ss = u.u_ssize;
+		sep = u.u_sep;
+		xfree();
+		xalloc(ip);
+		u.u_ar0[PC] = u.u_exdata.ux_entloc & ~01;
+	} else {
+		if (estabur(ts, ds, ss, sep, RO)) {
+			u.u_ovdata = sovdata;
+			goto bad;
+		}
+
+		/*
+		 * allocate and clear core
+		 * at this point, committed
+		 * to the new image
+		 */
+
+		u.u_prof.pr_scale = 0;
+#ifdef  VIRUS_VFORK
+		if (u.u_procp->p_flag & SVFORK)
+			endvfork();
+		else
+			xfree();
+		expand(ds, S_DATA);
+		clear(u.u_procp->p_daddr, ds);
+		expand(ss,S_STACK);
+		clear(u.u_procp->p_saddr, ss);
+#else
+		xfree();
+		i = USIZE + ds + ss;
+		expand(i);
+		clear(u.u_procp->p_addr + USIZE, i - USIZE);
+#endif
+		xalloc(ip);
+
+		/*
+		 * read in data segment
+		 */
+		estabur((unsigned)0, ds, (unsigned)0, 0, RO);
+		u.u_base = 0;
+		u.u_offset = sizeof(u.u_exdata);
+		if (ovflag) {
+			u.u_offset += sizeof(unsigned)*((xovflag?NXOVL:NOVL)+1);
+			u.u_offset +=
+		(((long)u.u_ovdata.uo_ov_offst[xovflag?NXOVL:NOVL]) << 6);
+		}
+		else
+			u.u_offset += u.u_exdata.ux_tsize;
+		u.u_count = u.u_exdata.ux_dsize;
+		readi(ip);
+
+		/*
+		 * set SUID/SGID protections, if no tracing
+		 */
+		if ((u.u_procp->p_flag & STRC) == 0) {
+			u.u_uid = uid;
+			u.u_procp->p_uid = uid;
+			u.u_gid = gid;
+		} else
+			psignal(u.u_procp, SIGTRAP);
+	}
+	u.u_tsize = ts;
+	u.u_dsize = ds;
+	u.u_ssize = ss;
+	u.u_sep = sep;
+	estabur(ts, ds, ss, sep, RO);
+bad:
+	return(overlay);
+}
+
+/*
+ * Clear registers on exec
+ */
+setregs()
+{
+	register int (**rp)();
+	long sigmask;
+	register char *cp;
+	register i;
+
+	u.u_procp->p_flag &= ~SNUSIG;
+	for(rp = &u.u_signal[1], sigmask = 1L; rp < &u.u_signal[NSIG];
+	    sigmask <<= 1, rp++) {
+		switch (*rp) {
+
+		case SIG_HOLD:
+			u.u_procp->p_flag |= SNUSIG;
+			continue;
+		case SIG_IGN:
+		case SIG_DFL:
+			continue;
+
+		default:
+			/*
+			 * Normal or deferring catch; revert to default.
+			 */
+			(void) _spl6();
+			*rp = SIG_DFL;
+			if ((int)SIG_DFL & 1)
+				u.u_procp->p_siga0 |= sigmask;
+			else
+				u.u_procp->p_siga0 &= ~sigmask;
+			if ((int)SIG_DFL & 2)
+				u.u_procp->p_siga1 |= sigmask;
+			else
+				u.u_procp->p_siga1 &= ~sigmask;
+			(void) _spl0();
+			continue;
+		}
+	}
+	for(cp = &regloc[0]; cp < &regloc[6];)
+		u.u_ar0[*cp++] = 0;
+	u.u_ar0[PC] = u.u_exdata.ux_entloc & ~01;
+#ifndef NONFP
+	for(rp = (int *)&u.u_fps; rp < (int *)&u.u_fps.u_fpregs[6];)
+		*rp++ = 0;
+#endif
+	for(i=0; i<NOFILE; i++) {
+		if (u.u_pofile[i]&EXCLOSE) {
+#ifndef UCB_NET
+			closef(u.u_ofile[i]);
+#else
+			closef(u.u_ofile[i],1);
+#endif
+			u.u_ofile[i] = NULL;
+			u.u_pofile[i] &= ~EXCLOSE;
+		}
+	}
+#ifdef  ACCT
+	u.u_acflag &= ~AFORK;
+#endif
+	/*
+	 * Remember file name.
+	 */
+	bcopy((caddr_t)u.u_dbuf, (caddr_t)u.u_comm, DIRSIZ);
+}
+
+/*
+ * exit system call:
+ * pass back caller's arg
+ */
+rexit()
+{
+	register struct a {
+		int     rval;
+	} *uap;
+
+	uap = (struct a *)u.u_ap;
+	exit((uap->rval & 0377) << 8);
+}
+
+/*
+ * Release resources.
+ * Save u. area for parent to look at.
+ * Enter zombie state.
+ * Wake up parent and init processes,
+ * and dispose of children.
+ */
+exit(rv)
+{
+	register int i;
+	register struct proc *p, *q;
+	register struct file *f;
+
+	p = u.u_procp;
+	p->p_flag &= ~(STRC|SULOCK);
+	p->p_clktim = 0;
+#ifdef  CGL_RTP
+	/*
+	 * if this a "real time" process that is dying
+	 * remove the rtpp flag.
+	 */
+	if (rtpp != NULL && rtpp == p)
+		rtpp = NULL;
+#endif
+	(void) _spl6();
+	if ((int)SIG_IGN & 1)
+		p->p_siga0 = ~0L;
+	else
+		p->p_siga0 = 0L;
+	if ((int)SIG_IGN & 2)
+		p->p_siga1 = ~0L;
+	else
+		p->p_siga1 = 0L;
+	(void) _spl0();
+	for(i=0; i<NSIG; i++)
+		u.u_signal[i] = SIG_IGN;
+	for(i=0; i<NOFILE; i++) {
+		f = u.u_ofile[i];
+		u.u_ofile[i] = NULL;
+#ifndef UCB_NET
+		closef(f);
+#else
+		closef(f,1);
+#endif
+	}
+	plock(u.u_cdir);
+	iput(u.u_cdir);
+	if (u.u_rdir) {
+		plock(u.u_rdir);
+		iput(u.u_rdir);
+	}
+#if SEMMNS > 0
+	semexit();
+#endif
+#ifdef  ACCT
+	acct();
+#endif  ACCT
+#ifdef  VIRUS_VFORK
+	if (p->p_flag & SVFORK) {
+		endvfork();
+	} else {
+		xfree();
+		mfree(coremap, p->p_dsize, p->p_daddr);
+		mfree(coremap, p->p_ssize, p->p_saddr);
+	}
+	mfree(coremap, USIZE, p->p_addr);
+#else   VIRUS_VFORK
+	xfree();
+	mfree(coremap, p->p_size, p->p_addr);
+#endif  VIRUS_VFORK
+	p->p_stat = SZOMB;
+#ifdef RUBIN
+	ilrma(p->p_pid);
+#endif RUBIN
+	if (p->p_pid == 1) {
+		/*
+		 * If /etc/init is not found by the icode,
+		 * the stack size will still be zero when it exits.
+		 * Don't panic: we're unlikely to find init after a reboot,
+		 * either.
+		 */
+		if (u.u_ssize == 0) {
+			printf("can't exec init\n");
+			for (;;)
+				idle();
+		} else {
+			panicreboot++;
+			panic("init died");
+		}
+	}
+	p->p_un.xp_xstat = rv;
+	p->p_un.xp_utime = u.u_cutime + u.u_utime;
+	p->p_un.xp_stime = u.u_cstime + u.u_stime;
+#ifdef  UCB_LOGIN
+	p->p_un.xp_login = u.u_login;
+#endif
+	for(q = &proc[0]; q <= maxproc; q++)
+		if (q->p_pptr == p) {
+			q->p_pptr = &proc[1];
+			q->p_ppid = 1;
+			wakeup((caddr_t)&proc[1]);
+			/*
+			 * Traced processes are killed
+			 * since their existence means someone is screwing up.
+			 * Stopped processes are sent a hangup and a continue.
+			 * This is designed to be ``safe'' for setuid
+			 * processes since they must be willing to tolerate
+			 * hangups anyways.
+			 */
+			if (q->p_flag&STRC) {
+				q->p_flag &= ~STRC;
+				psignal(q, SIGKILL);
+			} else if (q->p_stat == SSTOP) {
+				psignal(q, SIGHUP);
+				psignal(q, SIGCONT);
+			}
+			/*
+			 * Protect this process from future
+			 * tty signals, clear TSTP/TTIN/TTOU if pending,
+			 * and set SDETACH bit on procs.
+			 */
+			spgrp(q, -1);
+		}
+	wakeup((caddr_t)p->p_pptr);
+	psignal(p->p_pptr, SIGCHLD);
+	swtch();
+}
+
+/*
+ * Wait system call.
+ * Search for a terminated (zombie) child,
+ * finally lay it to rest, and collect its status.
+ * Look also for stopped (traced) children,
+ * and pass back status from them.
+ */
+wait()
+{
+	register f;
+	register struct proc *p;
+	register options;
+
+	options = (u.u_ar0[RPS] & PS_ALLCC) == PS_ALLCC ?  u.u_ar0[R0] : 0;
+	f = 0;
+
+loop:
+	for(p = &proc[0]; p <= maxproc; p++)
+	if (p->p_pptr == u.u_procp)
+		{
+		f++;
+		if (p->p_stat == SZOMB) {
+			u.u_r.r_val1 = p->p_pid;
+			u.u_r.r_val2 = p->p_un.xp_xstat;
+			p->p_un.xp_xstat = 0;
+			p->p_pptr = 0;
+			p->p_siga0 = 0L;
+			p->p_siga1 = 0L;
+			p->p_cursig = 0;
+			u.u_cutime += p->p_un.xp_utime;
+			u.u_cstime += p->p_un.xp_stime;
+			p->p_pid = 0;
+			p->p_ppid = 0;
+			p->p_pgrp = 0;
+			p->p_sig = 0;
+			p->p_flag = 0;
+			p->p_wchan = 0;
+			p->p_stat = NULL;
+			if (p == maxproc)
+				while (maxproc->p_stat == NULL)
+					maxproc--;
+			return;
+		}
+		if (p->p_stat == SSTOP && (p->p_flag & SWTED) == 0 &&
+		   (p->p_flag & STRC || options & WUNTRACED )){
+			p->p_flag |= SWTED;
+			u.u_r.r_val1 = p->p_pid;
+			u.u_r.r_val2 = (p->p_cursig << 8) | 0177;
+			return;
+		}
+	}
+	if (f) {
+		if (options & WNOHANG) {
+			u.u_r.r_val1 = 0;
+			return;
+		} else {
+			if ((u.u_procp->p_flag & SNUSIG) && save(u.u_qsav)) {
+				u.u_eosys = RESTARTSYS;
+				return;
+			}
+			sleep((caddr_t)u.u_procp, PWAIT);
+			goto loop;
+		}
+	}
+	u.u_error = ECHILD;
+}
+
+/*
+ * fork system call.
+ */
+#ifdef  VIRUS_VFORK
+fork()
+{
+	fork1(0);
+}
+
+/*
+ * vfork system call
+ */
+vfork()
+{
+	fork1(1);
+}
+
+fork1(isvfork)
+#else   VIRUS_VFORK
+fork()
+#endif
+{
+#ifdef  UCB_PGRP
+	register struct proc *p1;
+	struct proc *p2;
+	register a, pg;
+#else
+	register struct proc *p1, *p2;
+	register a;
+#endif
+
+	/*
+	 * Make sure there's enough swap space for max
+	 * core image, thus reducing chances of running out
+	 * If swapping area size < 1.5 Mb, avoid this test,
+	 * for the sake of PC.
+	 */
+	if( nswap >= 3000 ) {
+		if ((a = malloc(swapmap, ctod(maxmem))) == 0) {
+		       u.u_error = ENOMEM;
+		       goto out;
+		}
+		mfree(swapmap, ctod(maxmem), a);
+	}
+	a = 0;
+#ifdef  UCB_PGRP
+	pg = u.u_procp->p_pgrp; /* process group number */
+#endif
+	p2 = NULL;
+	for(p1 = proc; p1 < procNPROC; p1++) {
+		if (p1->p_stat==NULL && p2==NULL)
+			p2 = p1;
+		else {
+			/*
+			 * Exempt low positive uids (0-15) for users like uucp
+			 * and network, which shouldn't lose limits.
+			 */
+#ifdef  UCB_PGRP
+			if (p1->p_pgrp==pg && (unsigned) u.u_uid>=16
+			    && p1->p_stat!=NULL)
+				a++;
+#else
+			if ((p1->p_uid==u.u_uid && p1->p_stat!=NULL)
+			    && ((unsigned) u.u_uid >= 16))
+				a++;
+#endif
+		}
+	}
+	/*
+	 * Disallow if
+	 *  No processes at all;
+	 *  not su and too many procs owned (or in pgrp, if UCB_PGRP set);
+	 *  or not su and would take last slot.
+	 */
+	if (p2 == NULL)
+		tablefull("proc");
+	if (p2 == NULL || (u.u_uid != 0 && (p2 == procNPROC-1 || a > MAXUPRC))){
+		u.u_error = EAGAIN;
+		goto out;
+	}
+	p1 = u.u_procp;
+#ifdef  VIRUS_VFORK
+	if (newproc(isvfork))
+#else
+	if (newproc())
+#endif
+		{
+		u.u_r.r_val1 = p1->p_pid;
+		u.u_start = time;
+		u.u_cstime = 0;
+		u.u_stime = 0;
+		u.u_cutime = 0;
+		u.u_utime = 0;
+#ifdef  UCB_LOGIN
+		u.u_login = 0;
+#endif
+#ifdef  ACCT
+		u.u_acflag = AFORK;
+#endif
+		return;
+	}
+	u.u_r.r_val1 = p2->p_pid;
+
+out:
+	u.u_ar0[R7] += NBPW;
+}
+
+/*
+ * break system call.
+ *  -- bad planning: "break" is a dirty word in C.
+ */
+sbreak()
+{
+	struct a {
+		char    *nsiz;
+	};
+	register a, n, d;
+	int i;
+
+	/*
+	 * set n to new data size
+	 * set d to new-old
+	 * set n to new total size
+	 */
+
+	n = btoc((int) ((struct a *) u.u_ap)->nsiz);
+	if (!u.u_sep)
+		if (u.u_ovdata.uo_ovbase)
+			n -= u.u_ovdata.uo_dbase;
+		else
+			n -= ctos(u.u_tsize) * stoc(1);
+	if (n < 0)
+		n = 0;
+#ifdef  VIRUS_VFORK
+	d = n - u.u_dsize;
+	if (estabur(u.u_tsize, n, u.u_ssize, u.u_sep, RO))
+		return;
+	expand(n,S_DATA);
+	if (d > 0)
+		clear(u.u_procp->p_daddr + u.u_dsize, d);
+	u.u_dsize = n;
+
+#else   VIRUS_VFORK
+	d = n - u.u_dsize;
+	n += USIZE+u.u_ssize;
+	if (estabur(u.u_tsize, u.u_dsize+d, u.u_ssize, u.u_sep, RO))
+		return;
+	u.u_dsize += d;
+	if (d > 0)
+		goto bigger;
+	a = u.u_procp->p_addr + n - u.u_ssize;
+	copy(a-d, a, u.u_ssize);        /* d is negative */
+	expand(n);
+	return;
+
+bigger:
+	expand(n);
+	a = u.u_procp->p_addr + n - u.u_ssize - d;
+	n = u.u_ssize;
+	while (n >= d) {
+		n -= d;
+		copy(a+n, a+n+d, d);
+	}
+	copy(a, a+d, n);
+	clear(a, d);
+#endif  VIRUS_VFORK
+}
+@
+
+
+22.4
+log
+@Увеличен размер области свопинга, для которой начнут выполняться 
+проверки.
+@
+text
+@d2 5
+a6 1
+ * $Log:        sys1.c,v $
+d80 1
+a80 1
+#include <sys/map.h>
+d84 3
+a86 2
+#include <sys/buf.h>
+#include <sys/reg.h>
+d91 1
+a91 1
+#include <wait.h>
+@
+
+
+22.3
+log
+@Добавлен #include "h/space.h" для вытаскивания констант SEMMNS и MSGMNI.
+@
+text
+@d3 3
+d1006 1
+a1006 1
+	 * If swapping area size < 500 Kb, avoid this test,
+d1009 1
+a1009 1
+	if( nswap >= 1000 ) {
+@
+
+
+22.2
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d2 4
+a5 1
+ * $Log:	sys1.c,v $
+d8 1
+a8 1
+ * 
+d84 2
+a85 1
+#include <sys/sem.h>
+@
+
+
+22.1
+log
+@заменил один anic на printf
+@
+text
+@d2 4
+a5 1
+ * $Log:        sys1.c,v $
+d68 1
+a68 1
+#include "param.h"
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@d2 4
+a5 1
+ * $Log:	sys1.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d271 4
+a274 2
+		/* panicreboot++; */
+		panic("out of swap");
+@
+
+
+1.12
+log
+@semaphores
+@
+text
+@d3 3
+a75 1
+#include "rubin.h"
+a115 1
+#ifdef  UCB_SCRIPT
+a128 1
+#endif UCB_SCRIPT
+a136 1
+#ifdef  UCB_SCRIPT
+a144 1
+#endif UCB_SCRIPT
+a151 1
+#ifdef  UCB_SCRIPT
+a251 1
+#endif UCB_SCRIPT
+a273 1
+#ifdef UCB_SCRIPT
+a301 1
+#endif UCB_SCRIPT
+a306 1
+#ifdef  UCB_SCRIPT
+a320 1
+#endif UCB_SCRIPT
+a331 1
+#ifdef UCB_SCRIPT
+a337 1
+#endif UCB_SCRIPT
+a342 1
+#ifdef UCB_SCRIPT
+a343 1
+#endif UCB_SCRIPT
+a359 1
+#ifdef UCB_SCRIPT
+a364 1
+#endif UCB_SCRIPT
+a406 4
+#ifndef UCB_SCRIPT
+	if (getxfile(ip, (na * NBPW) + nc) || u.u_error)
+		goto bad;
+#else
+a408 1
+#endif
+a443 1
+#ifdef  UCB_SCRIPT
+a446 1
+#endif
+a486 1
+#ifdef  UCB_SCRIPT
+a488 3
+#else
+getxfile(ip, nargc)
+#endif
+a494 1
+#ifdef  MENLO_OVLY
+a496 1
+#ifdef  IPK_XOVLY
+a498 4
+#else
+	unsigned ovhead[1 + NOVL];
+#endif  /*IPK_XOVLY*/
+#endif
+a500 33
+#ifndef UCB_SCRIPT
+	/*
+	 * read in first few bytes
+	 * of file for segment
+	 * sizes:
+	 * ux_mag = A_MAGIC1/A_MAGIC2/A_MAGIC3/A_MAGIC4
+	 *  A_MAGIC1 is plain executable
+	 *  A_MAGIC2 is RO text
+	 *  A_MAGIC3 is separated ID
+	 *  A_MAGIC4 is overlaid text
+	 */
+#ifdef  MENLO_OVLY
+	/*
+	 * ux_mag = A_MAGIC1/A_MAGIC2/A_MAGIC3/A_MAGIC4/A_MAGIC5/A_MAGIC6/A_MAGIC7
+	 *  A_MAGIC5 is nonseparate auto-overlay
+	 *  A_MAGIC6 is separate auto overlay
+	 *  A_MAGIC7 is nonseparate expanded auto-overlay
+	 */
+#endif
+
+	u.u_base = (caddr_t) &u.u_exdata;
+	u.u_count = sizeof(u.u_exdata);
+	u.u_offset = 0;
+	u.u_segflg = 1;
+	readi(ip);
+	u.u_segflg = 0;
+	if (u.u_error)
+		goto bad;
+	if (u.u_count != 0) {
+		u.u_error = ENOEXEC;
+		goto bad;
+	}
+#endif
+a502 1
+#ifdef  MENLO_OVLY
+a503 1
+#ifdef  IPK_XOVLY
+a504 2
+#endif  /*IPK_XOVLY*/
+#endif
+a516 1
+#ifdef  MENLO_OVLY
+a518 1
+#ifdef  IPK_XOVLY
+a522 1
+#endif  /*IPK_XOVLY*/
+a526 1
+#endif
+a548 1
+#ifdef  MENLO_OVLY
+a558 1
+#ifdef  IPK_XOVLY
+a562 4
+#else
+		u.u_ovdata.uo_maxov = NOVL;
+		u.u_count = sizeof(ovhead);
+#endif  /*IPK_XOVLY*/
+a591 1
+#ifdef  IPK_XOVLY
+a592 3
+#else
+		for (i = 1; i < 1 + NOVL; i++) {
+#endif  /*IPK_XOVLY*/
+a604 1
+#endif
+a617 1
+#ifdef  MENLO_OVLY
+a618 1
+#endif
+a650 3
+#ifndef MENLO_OVLY
+		u.u_offset = sizeof(u.u_exdata) + u.u_exdata.ux_tsize;
+#else
+a652 1
+#ifdef  IPK_XOVLY
+a655 4
+#else
+			u.u_offset += sizeof(ovhead);
+			u.u_offset += (((long)u.u_ovdata.uo_ov_offst[NOVL]) << 6);
+#endif  /*IPK_XOVLY*/
+a658 1
+#endif
+a665 9
+#ifndef UCB_SCRIPT
+			if (ip->i_mode & ISUID)
+				if (u.u_uid != 0) {
+					u.u_uid = ip->i_uid;
+					u.u_procp->p_uid = ip->i_uid;
+				}
+			if (ip->i_mode&ISGID)
+				u.u_gid = ip->i_gid;
+#else
+a668 1
+#endif
+a1083 1
+#ifdef  MENLO_OVLY
+a1087 3
+#else
+		n -= ctos(u.u_tsize) * stoc(1);
+#endif
+@
+
+
+1.11
+log
+@механизм копирования аргументов при ШеллСкрипте переписан вообще на фиг !
+@
+text
+@d2 4
+a5 1
+ * $Log:        sys1.c,v $
+d72 1
+d917 3
+@
+
+
+1.10
+log
+@UCB_SHELLSCRIPT теперь имеет аргументы.
+@
+text
+@d3 3
+a16 3
+ * Revision 1.6  88/11/02  21:08:57  dvolodin
+ * *** empty log message ***
+ *
+d106 4
+d113 4
+a116 2
+# define SHSIZE  60
+# define ARGV    10
+d120 1
+a120 1
+	char indir, localargv=0;
+d244 4
+a248 1
+
+d258 1
+a258 6
+#ifdef UCB_SCRIPT
+	if( indir && nc > 1 )   /* ... и у скрипта есть аргументы */ {
+		localargv++;
+		uap -> argp = argv;
+		/* argp теперь берется из аргументов shell script-а */
+	}
+a259 16
+	/* формат аргументов script-а, запущенного из файла FILE
+	 * содержащего:
+	 * #!CMD -k1 -k2 ...
+	 *
+	 * при помощи команды   FILE -c1 -c2 ...
+	 *
+	 * запускается команда CMD с аргументами:
+	 * если есть ключи -k1 ...
+	 *      CMD  FILE -k1 -k2 ....
+	 * если нет ключей -k1 ...
+	 *      FILE FILE -c1 -c2 ...
+	 *
+	 * то есть имя файла FILE подставляется в качестве argv1
+	 */
+#endif UCB_SCRIPT
+	na = ne = nc = 0;
+d274 31
+d306 3
+a308 2
+	if (uap->argp) for (;;) {
+		ap = NULL;
+a309 2
+		/* insert script path name as first arg */
+		/* вставить имя FILE в качестве argv1   */
+d311 25
+a335 6
+		if (indir && na == 1)
+		    ap = uap->fname;
+		else
+#endif
+		/* чтение аргументов argp */
+		if (uap->argp) {
+d337 6
+a342 5
+		/* здесь ap используется как  char *ap;   */
+			if( localargv )
+			     ap =      *((char **)uap->argp);
+			     /* из буфера в ядре */
+			else
+d344 8
+a351 14
+			     ap = fuword((caddr_t)uap->argp);
+			     /* из юзерского пространства */
+			uap->argp++;
+		}
+
+		/* чтение аргументов envp (после того,
+		 * как прочлись все argp)
+		 */
+		if (ap==NULL && uap->envp) {
+			uap->argp = NULL;
+			/* envp всегда из юзерского пространства */
+			if ((ap = fuword((caddr_t)uap->envp)) == NULL)
+				break;
+			uap->envp++;
+d353 2
+a354 4
+		}
+
+		/* прочли и argp и envp - вываливаемся */
+		if (ap==NULL)
+d359 1
+a359 1
+		if (ap == -1)
+d362 1
+a362 1
+		/* Адрес строки сейчас хранится в ap.
+d369 3
+a371 10
+			if( localargv && ne == 0 && na != 1+1){
+			  /* ne == 0, т.е. мы читаем argp,
+			   * а не envp.
+			   * Однако, если na == 1+1,
+			   * то идет вставление имени FILE в argv1,
+			   * а оно - в юзерском пространстве.
+			   * (na было 1, говоря про запись в argv1,
+			   *  и чуть выше было сделано   na++; )
+			   */
+			     c = * ((char *)ap);
+a372 1
+			     ap++;
+d375 2
+a376 1
+			    if ((c = fubyte((caddr_t) ap++)) < 0)
+@
+
+
+1.9
+log
+@Ускорено переключение пользовательских оверлеев.
+@
+text
+@d3 3
+d34 22
+d88 2
+d92 9
+a100 1
+	register nc;
+a104 1
+	int na, ne, ucp, ap, c;
+d107 5
+a111 1
+#define SCRMAG  '#!'
+d113 6
+a118 2
+	int uid, gid, indir;
+#endif
+d136 1
+a136 1
+#endif
+d145 1
+d151 1
+d153 1
+d157 11
+a167 5
+	/* check if script.  one level only */
+	if (indir == 0
+	   && u.u_exdata.ux_mag == SCRMAG
+	   && u.u_count < sizeof u.u_exdata - sizeof u.u_exdata.ux_mag)
+	{
+d169 61
+a229 8
+	    cp = (char *) &u.u_exdata + sizeof u.u_exdata.ux_mag;
+	    while (*cp == ' ' && cp < (char *)&u.u_exdata + sizeof u.u_exdata-1)
+		cp++;
+	    u.u_dirp = cp;
+	    while (cp < (char *) &u.u_exdata + sizeof u.u_exdata - 1 && *cp != '\n')
+		cp++;
+	    *cp = '\0';
+	    iput(ip);
+d231 1
+a231 1
+#ifdef SCHED
+d233 1
+a233 1
+#endif SCHED
+d238 3
+d242 1
+a242 1
+#endif
+d246 1
+a247 3
+	na = 0;
+	ne = 0;
+	nc = 0;
+d249 26
+d280 1
+a280 1
+		panicreboot++;
+d282 2
+d285 2
+d291 2
+d297 1
+d299 9
+a307 1
+			ap = fuword((caddr_t)uap->argp);
+d310 4
+d316 1
+d322 2
+d326 2
+d331 4
+d338 18
+a355 2
+			if ((c = fubyte((caddr_t) ap++)) < 0)
+				u.u_error = EFAULT;
+d363 3
+d374 2
+d377 2
+d380 2
+a381 1
+		} while (c > 0);
+d383 1
+d388 4
+d404 1
+d448 2
+@
+
+
+1.8
+log
+@Уменьшены диагностики.
+@
+text
+@d2 4
+a5 1
+ * $Log:	sys1.c,v $
+d8 1
+a8 1
+ * 
+d10 1
+a10 1
+ * 
+d13 1
+a13 1
+ * 
+d327 1
+a327 1
+	 * ux_mag = A_MAGIC1/A_MAGIC2/A_MAGIC3/A_MAGIC4/A_MAGIC5/A_MAGIC6
+a329 4
+	 */
+#ifdef  IPK_XOVLY
+	/*
+	 * ux_mag = A_MAGIC7
+a331 1
+#endif  /*IPK_XOVLY*/
+d411 2
+a412 1
+	u.u_ovdata.uo_curov = 0;
+d415 1
+a415 1
+		register n_ovl1 = (xovflag?NXOVL:NOVL)+1;
+d417 1
+d420 1
+d445 1
+@
+
+
+1.7
+log
+@Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+
+(from VAX/UTS SV.2)
+@
+text
+@d3 5
+d147 1
+a147 1
+		panic("Out of swap");
+d725 1
+a725 1
+			printf("Can't exec /etc/init\n");
+@
+
+
+1.6
+log
+@*** empty log message ***
+@
+text
+@d2 4
+a5 1
+ * $Log:        sys1.c,v $
+a69 3
+#ifndef UCB_SYMLINKS
+	if ((ip = namei(uchar, LOOKUP)) == NULL)
+#else
+a70 1
+#endif
+d114 1
+a114 2
+	    while (cp < (char *) &u.u_exdata + sizeof u.u_exdata - 1
+		  && *cp != '\n')
+d118 1
+a118 6
+#ifndef UCB_SYMLINKS
+	    if ((ip = namei(schar, LOOKUP)) == NULL)
+#else
+	    if ((ip = namei(schar, LOOKUP, 1)) == NULL)
+#endif
+		{
+d120 1
+a120 1
+	u.u_procp->p_sflag &= ~SEXEC;
+d123 1
+a123 1
+		}
+a564 1
+#ifdef  MENLO_JCL
+a566 3
+#else
+	register int *rp;
+#endif
+a569 5
+#ifndef MENLO_JCL
+	for(rp = &u.u_signal[0]; rp < &u.u_signal[NSIG]; rp++)
+		if ((*rp & 1) == 0)
+			*rp = 0;
+#else
+a599 1
+#endif
+a664 1
+#ifdef  MENLO_JCL
+a674 1
+#endif
+a733 1
+#ifdef  MENLO_JCL
+a762 15
+#else
+	for(q = &proc[0]; q <= maxproc; q++)
+		if (q->p_ppid == p->p_pid) {
+			wakeup((caddr_t)&proc[1]);
+			q->p_ppid = 1;
+			if (q->p_stat==SSTOP)
+				setrun(q);
+		}
+	for(q = &proc[0]; q <= maxproc; q++)
+		if (p->p_ppid == q->p_pid) {
+			wakeup((caddr_t)q);
+			swtch();
+			/* no return */
+		}
+#endif
+a776 1
+#ifdef  MENLO_JCL
+a779 1
+#endif
+a783 1
+#ifdef  MENLO_JCL
+a784 3
+#else
+	if (p->p_ppid == u.u_procp->p_pid)
+#endif
+a789 1
+#ifdef  MENLO_JCL
+a794 1
+#endif
+d810 1
+a810 5
+		   (p->p_flag & STRC
+#ifdef  MENLO_JCL
+				|| options & WUNTRACED
+#endif
+					)){
+a812 1
+#ifdef  MENLO_JCL
+a813 3
+#else
+			u.u_r.r_val2 = (fsig(p) << 8) | 0177;
+#endif
+a817 1
+#ifdef  MENLO_JCL
+a828 4
+#else
+		sleep((caddr_t) u.u_procp, PWAIT);
+		goto loop;
+#endif
+@
+
+
+1.5
+log
+@Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+@
+text
+@d2 4
+a5 1
+ * $Log:	sys1.c,v $
+d8 1
+a8 1
+ * 
+d11 1
+a11 1
+ * 
+d14 1
+a14 1
+ * 
+d35 1
+d144 1
+a144 2
+	if ((bno = malloc(swapmap, (NCARGS + BSIZE - 1) / BSIZE)) == 0)
+		panic("Out of swap");
+d146 3
+a148 1
+	if ((bno = malloc(swapmap, ctod((int) btoc(NCARGS + BSIZE)))) == 0)
+d150 1
+a150 1
+#endif  UCB_NKB
+d742 3
+a745 2
+		else
+			panic("init died");
+@
+
+
+1.4
+log
+@Состояние после слияния с AVG-Э-85.
+@
+text
+@d3 3
+d69 3
+d121 4
+d126 1
+d262 3
+@
+
+
+1.3
+log
+@31 оверлей
+@
+text
+@d3 3
+d903 2
+d906 6
+a911 3
+	if ((a = malloc(swapmap, ctod(maxmem))) == 0) {
+		u.u_error = ENOMEM;
+		goto out;
+a912 1
+	mfree(swapmap, ctod(maxmem), a);
+@
+
+
+1.2
+log
+@Правки в vfork by alex.
+@
+text
+@d2 4
+a5 1
+ * $Log:        sys1.c,v $
+d282 4
+d287 1
+d308 6
+d333 3
+d352 6
+d395 7
+a402 1
+		u.u_count = sizeof(ovhead);
+d430 3
+d434 1
+d501 5
+d508 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d21 1
+d30 1
+a30 1
+	char	**envp;
+d45 1
+a45 1
+	memaddr	bno;
+d48 2
+a49 2
+#ifdef	UCB_SCRIPT
+#define	SCRMAG	'#!'
+d62 1
+a62 1
+#ifdef	UCB_SCRIPT
+d79 1
+a79 1
+#ifdef	UCB_SCRIPT
+d100 1
+a100 1
+	          && *cp != '\n')
+d114 1
+a114 1
+	
+d122 1
+a122 1
+#ifndef	UCB_NKB
+d125 1
+a125 1
+#else	UCB_NKB
+d128 1
+a128 1
+#endif	UCB_NKB
+d131 1
+a131 1
+#ifdef	UCB_SCRIPT
+d165 1
+a165 1
+#ifndef	UCB_NKB
+d183 1
+a183 1
+#ifndef	UCB_SCRIPT
+d216 1
+a216 1
+#ifndef	UCB_NKB
+d224 1
+a224 1
+#ifdef	UCB_SCRIPT
+d251 1
+a251 1
+#ifndef	UCB_NKB
+d264 1
+a264 1
+#ifdef	UCB_SCRIPT
+d276 1
+a276 1
+#ifdef	MENLO_OVLY
+d283 1
+a283 1
+#ifndef	UCB_SCRIPT
+d294 1
+a294 1
+#ifdef	MENLO_OVLY
+d317 1
+a317 1
+#ifdef	MENLO_OVLY
+d323 1
+a323 1
+		if (lsize != u.u_exdata.ux_dsize) {	/* check overflow */
+d332 1
+a332 1
+#ifdef	MENLO_OVLY
+d362 1
+a362 1
+#ifdef	MENLO_OVLY
+d428 1
+a428 1
+#ifdef	MENLO_OVLY
+d439 1
+a439 1
+	
+d441 1
+a441 1
+#ifdef	VIRUS_VFORK
+d457 1
+a457 1
+	
+d463 1
+a463 1
+#ifndef	MENLO_OVLY
+d481 1
+a481 1
+#ifndef	UCB_SCRIPT
+d511 1
+a511 1
+#ifdef	MENLO_JCL
+d520 1
+a520 1
+#ifndef	MENLO_JCL
+d559 1
+a559 1
+#ifndef	NONFP
+d574 1
+a574 1
+#ifdef	ACCT
+d590 1
+a590 1
+		int	rval;
+d613 1
+a613 1
+#ifdef	CGL_RTP
+d621 1
+a621 1
+#ifdef	MENLO_JCL
+d650 1
+a650 1
+#ifdef	ACCT
+d652 2
+a653 2
+#endif	ACCT
+#ifdef	VIRUS_VFORK
+d662 1
+a662 1
+#else	VIRUS_VFORK
+d665 1
+a665 1
+#endif	VIRUS_VFORK
+d667 3
+d688 1
+a688 1
+#ifdef	UCB_LOGIN
+d691 1
+a691 1
+#ifdef	MENLO_JCL
+d750 1
+a750 1
+#ifdef	MENLO_JCL
+d759 1
+a759 1
+#ifdef	MENLO_JCL
+d769 1
+a769 1
+#ifdef	MENLO_JCL
+d792 1
+a792 1
+#ifdef	MENLO_JCL
+d798 1
+a798 1
+#ifdef	MENLO_JCL
+d807 1
+a807 1
+#ifdef	MENLO_JCL
+d830 1
+a830 1
+#ifdef	VIRUS_VFORK
+d845 1
+a845 1
+#else	VIRUS_VFORK
+d849 1
+a849 1
+#ifdef	UCB_PGRP
+d868 2
+a869 2
+#ifdef	UCB_PGRP
+	pg = u.u_procp->p_pgrp;	/* process group number */
+d880 1
+a880 1
+#ifdef	UCB_PGRP
+d904 1
+a904 1
+#ifdef	VIRUS_VFORK
+d916 1
+a916 1
+#ifdef	UCB_LOGIN
+d919 1
+a919 1
+#ifdef	ACCT
+d937 1
+a937 1
+		char	*nsiz;
+d950 1
+a950 1
+#ifdef	MENLO_OVLY
+d960 1
+a960 1
+#ifdef	VIRUS_VFORK
+d969 1
+a969 1
+#else	VIRUS_VFORK
+d978 1
+a978 1
+	copy(a-d, a, u.u_ssize);	/* d is negative */
+d992 1
+a992 1
+#endif	VIRUS_VFORK
+@

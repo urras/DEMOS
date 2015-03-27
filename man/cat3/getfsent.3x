@@ -1,0 +1,132 @@
+
+GETFSENT(3X)    ДЕМОС. Библиотечные функции     GETFSENT(3X)
+
+
+ИИММЯЯ
+       ggeettffsseenntt, ggeettffssssppeecc, ggeettffssffiillee, sseettffsseenntt, eennddffsseenntt  -
+       выдача информации о файловых системах.
+
+ФФООРРММААТТ
+       #iinncclluuddee <_f_s_t_a_b._h>
+
+       ssttrruucctt ffssttaabb *ggeettffsseenntt()
+
+       ssttrruucctt ffssttaabb *ggeettffssssppeecc(_s_p_e_c)
+       cchhaarr *_s_p_e_c;
+
+       ssttrruucctt ffssttaabb *ggeettffssffiillee(_f_i_l_e)
+       cchhaarr *_f_i_l_e;
+
+       ssttrruucctt ffssttaabb *ggeettffssttyyppee(_t_y_p_e)
+       cchhaarr *_t_y_p_e;
+
+       iinntt sseettffsseenntt()
+
+       iinntt eennddffsseenntt()
+
+ООППИИССААННИИЕЕ
+       Kаждая из программ возвращает указатель на  некоторый
+       объект со структурой, описанной в <_f_s_t_a_b._h>, содержа-
+       щий разбитую на поля строку  с  параметрами  файловой
+       системы:
+
+       #ddeeffiinnee FFSSNNMMLLGG 16
+
+       ssttrruucctt ffssttaabb{
+               cchhaarr     ffss__ssppeecc[FFSSNNMMLLGG];
+               cchhaarr     ffss__ffiillee[FFSSNNMMLLGG];
+               cchhaarr     ffss__ttyyppee[3];
+               iinntt      ffss__ffrreeqq;
+               iinntt      ffss__ppaassssnnoo;
+       };
+
+       Значения полей описаны в _f_s_t_a_b(5).
+
+       ggeettffsseenntt читает очередную запись из файла /_e_t_c/_f_s_t_a_b,
+       открывая его, если это необходимо.
+
+       sseettffsseenntt открывает файл  /_e_t_c/_f_s_t_a_b  и  устанавливает
+       указатель чтения на его начало.
+
+       eennddffsseenntt закрывает файл /_e_t_c/_f_s_t_a_b.
+
+       ggeettffssssppeecc и ggeettffssffiillee  последовательно  просматривает
+       файл /_e_t_c/_f_s_t_a_b с начала до тех пор, пока не произой-
+       дет совпадения с указанным именем специального  файла
+       (именем файла файловой системы, для ggeettffssffiillee).
+
+ФФААЙЙЛЛЫЫ
+       /_e_t_c/_f_s_t_a_b
+
+ДДООППООЛЛННИИТТЕЕЛЛЬЬННЫЫЕЕ ССССЫЫЛЛККИИ
+       _f_s_t_a_b(5)
+
+
+                            -1-                      ДЕМОС/P
+
+
+GETFSENT(3X)    ДЕМОС. Библиотечные функции     GETFSENT(3X)
+
+
+ДДИИААГГННООССТТИИККАА
+       При обнаружении конца файла или в случае  возникнове-
+       ния ошибки возвращается нулевой указатель.
+
+ЗЗААММЕЕЧЧААННИИЯЯ
+       Вся информация содержится в  статической  области,  в
+       связи  с  чем  она  должна  быть скопирована, если ее
+       нужно сохранить.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            -2-                      ДЕМОС/P
+

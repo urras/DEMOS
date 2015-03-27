@@ -1,0 +1,218 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.28.27;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@#include "defs"
+#if FAMILY == DMR
+#	include "dmrdefs"
+#endif
+#if FAMILY==SCJ && OUTPUT==BINARY
+#	include "scjdefs"
+static char textline[50];
+#endif
+
+/*
+      PDP 11-SPECIFIC PRINTING ROUTINES
+*/
+
+int maxregvar = 0;
+int regnumvar = 0;
+int regnum[] = { 3, 2 };
+/*
+
+prsave()
+{
+}
+*/
+
+
+
+
+prlabel(fp, k)
+FILEP fp;
+int k;
+{           /*NOXXSTR*/
+fprintf(fp, "L%d:\n", k);
+}           /*YESXSTR*/
+
+
+
+prconi(fp, type, n)
+FILEP fp;
+int type;
+ftnint n;
+{
+register int *np;
+np = &n;
+if(type == TYLONG)
+/*NOXXSTR*/        fprintf(fp, "\t%d.;%d.\n", np[0], np[1]);
+else
+	fprintf(fp, "\t%d.\n", np[1]);
+/*YESXSTR*/
+}
+
+
+prcona(fp, a)
+FILEP fp;
+ftnint a;
+{           /*NOXXSTR*/
+fprintf(fp, "L%ld\n", a);
+}           /*YESXSTR*/
+
+
+
+#if HERE!=PDP11
+BAD NEWS
+#endif
+
+#if HERE==PDP11
+prconr(fp, type, x)
+FILEP fp;
+int type;
+double x;
+{
+register int k, *n;
+n = &x;	/* nonportable cheat */
+k = (type==TYREAL ? 2 : 4);
+/*NOXXSTR*/ fprintf(fp, "\t");
+while(--k >= 0)
+	fprintf(fp, "%d.%c", *n++, (k==0 ? '\n' : ';') );
+/*YESXSTR*/
+}
+#endif
+
+
+
+
+preven(k)
+int k;
+{
+if(k > 1)
+/*NOXXSTR*/        fprintf(asmfile, "\t.even\n", k);    /*YESXSTR*/
+}
+
+
+
+#if FAMILY == SCJ
+
+prcmgoto(p, nlab, skiplabel, labarray)
+expptr p;
+int nlab, skiplabel, labarray;
+{
+int regno;
+
+putforce(p->vtype, p);
+
+if(p->vtype == TYLONG)
+	{
+	regno = 1;      /*NOXXSTR*/
+	p2pass(sprintf(textline, "\ttst\tr0"));
+	p2pass(sprintf(textline, "\tbne\tL%d", skiplabel));
+	}
+else
+	regno = 0;
+
+p2pass(sprintf(textline, "\tcmp\tr%d,$%d.", regno, nlab));
+p2pass(sprintf(textline, "\tbhi\tL%d", skiplabel));
+p2pass(sprintf(textline, "\tasl\tr%d", regno));
+p2pass(sprintf(textline, "\tjmp\t*L%d(r%d)", labarray, regno));
+}                        /*YESXSTR*/
+
+/*NOXXSTR*/
+prarif(p, neg,zer,pos)
+expptr p;
+int neg, zer, pos;
+{
+register int ptype;
+
+putforce( ptype = p->vtype, p);
+if( ISINT(ptype) )
+	{
+	p2pass(sprintf(textline, "\ttst\tr0"));
+	p2pass(sprintf(textline, "\tjlt\tL%d", neg));
+	p2pass(sprintf(textline, "\tjgt\tL%d", pos));
+	if(ptype != TYSHORT)
+		{
+		p2pass(sprintf(textline, "\ttst\tr1"));
+		p2pass(sprintf(textline, "\tjeq\tL%d", zer));
+		}
+	p2pass(sprintf(textline, "\tjbr\tL%d", pos));
+	}
+else
+	{
+	p2pass(sprintf(textline, "\ttstf\tr0"));
+	p2pass(sprintf(textline, "\tcfcc"));
+	p2pass(sprintf(textline, "\tjeq\tL%d", zer));
+	p2pass(sprintf(textline, "\tjlt\tL%d", neg));
+	p2pass(sprintf(textline, "\tjmp\tL%d", pos));
+	}
+}
+/*YESXSTR*/
+#endif
+
+
+
+/*NOXXSTR*/
+char *memname(stg, mem)
+int stg, mem;
+{
+static char s[20];
+
+switch(stg)
+	{
+	case STGCOMMON:
+	case STGEXT:
+		sprintf(s, "_%s", varstr(XL, extsymtab[mem].extname) );
+		break;
+
+	case STGBSS:
+	case STGINIT:
+		sprintf(s, "v.%d", mem);
+		break;
+
+	case STGCONST:
+		sprintf(s, "L%d", mem);
+		break;
+
+	case STGEQUIV:
+		sprintf(s, "q.%d", mem);
+		break;
+/*YESXSTR*/
+	default:
+		fatal1("memname: invalid vstg %d", stg);
+	}
+return(s);
+}
+
+
+
+prtail()
+{
+#if FAMILY == SCJ
+	p2pass(sprintf(textline, "\t.globl\tcsv,cret"));
+#else
+	p2op(P2EOF);
+#endif
+}
+
+@

@@ -1,0 +1,222 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     88.01.19.11.35.44;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.50.41;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Сделан define на размер блока - BufSIZE
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: copyout.c,v 1.1 86/11/11 17:50:41 avg Exp $";
+#endif
+
+/*
+ * $Log:        copyout.c,v $
+ * Revision 1.1  86/11/11  17:50:41  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 12.09.1985
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+#define CR      012
+
+int  empstr;
+int  spaces;
+int  newlin;
+
+/*
+ * Копирование информации в выходной файл и
+ *   уничтожение временных файлов
+ */
+copyout()
+{
+	char sym,buf[BufSIZE];
+	register char *bb,*bp;
+	int  i,is,wfl,wfp;
+
+	extern char *wname,*bname,sfile,eof;
+	extern char pline[];
+	extern FILE *sbuf, *obuf;
+	extern int  plinfo;
+
+	spaces = empstr = 0;
+	newlin = 1;
+
+/* Копирование из верхнего стека */
+	wfl = wstack.lines;
+	wfp = wstack.block;
+	if( wfl ) {
+		i = 0;
+		bb = bp = buf;
+		lseek(wstack.rfile, 0l, 0);
+		while( wfl-- > 0 ) {
+			for(;;) {
+				if( ((bb-bp)%BufSIZE) == 0 ) {
+					if( wfp ) {
+						if(read(wstack.rfile, buf, BufSIZE)
+						   == -1 )
+							diskerror();
+						bb = bp = buf;
+						wfp--;
+					} else {
+						bb = bp = wstack.buffer;
+						bb[(wstack.bpoint) % BufSIZE]=CR;
+					}
+				}
+				if( (sym = *bp++) == CR && ( i || i++ ||
+				    (sym = *bp++) == CR ) )
+						goto ex;
+				outchr(sym);
+			}
+ex :
+			outchr(CR);
+		}
+	}
+	sclose(&wstack, wname);
+
+/* Скопировать буфер экрана */
+	for( i = 0 ; i<NLIN ; i++ ) {
+#ifdef UPPERONLY
+		conv_to(line(i), llen(i));
+#endif UPPERONLY
+		outline(i);
+	}
+
+/* Скопировать из нижнего стека - чтение по строкам */
+	bp = line(0);
+	while( bstack.lines ) {
+		llen(0) = getstring(bp, &bstack);
+		outline(0);
+	}
+	sclose(&bstack, bname);
+
+/* Копировать буфер - входную строку */
+	bb = pline;                  /* Нач. зачение bp установлено  */
+	if( plinfo > width1 )        /* при копировании из ниж.стека */
+		plinfo = width1;
+	for(i = plinfo; i>=0 ; i-- )
+		*bp++ = *bb++;
+	*bp = ' ';
+	llen(0) = plinfo;
+	outline(0);
+
+/* Копировать конец исходного файла */
+	if( sfile == 0 && eof == 0 ) {
+		while( empstr-- > 0 )
+			putc(CR, obuf);
+		while( (is = getc(sbuf)) != EOF )
+			putc(is, obuf);
+	} else
+		putc(CR, obuf);
+	fclose(sbuf);
+	fclose(obuf);
+}
+
+/*
+ * Вывод строки из буфера экрана в выходной файл
+ */
+outline(l)
+{
+	register int  i;
+	register char *p;
+	register char *q;
+
+	p = line(l);
+	i = llen(l);
+	if( i > width1 )
+		i = width1;
+	for( ; i>=0 && p[i] == ' ' ; i-- );
+	if( i>=0 )
+		for( q = &p[i] ; p <= q ;)
+			outchr(*p++);
+	outchr(CR);
+}
+
+/*
+ * Запись символа в выходной файл
+ */
+outchr(s)
+char s;
+{
+	int sym;
+	extern char tflg;
+	extern FILE *obuf;
+	register int i;
+
+	sym = s;
+	if( s == CR )
+		empstr++, newlin++;
+	else if( tflg && s == ' ' && newlin )
+		spaces++;
+	else {
+		for(; empstr > 0 ; empstr-- )
+			putc(CR, obuf);
+		newlin = 0;
+		if( tflg && spaces>0 ) {
+			i = spaces / 8;
+			for(; i>0 ; i-- )
+				putc('\t', obuf);
+			i = spaces % 8;
+			for(; i>0 ; i-- )
+				putc(' ', obuf);
+			spaces = 0;
+		}
+		putc(sym, obuf);
+	}
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d34 1
+a34 1
+	char sym,buf[512];
+d55 1
+a55 1
+				if( ((bb-bp)&0777) == 0 ) {
+d57 1
+a57 1
+						if(read(wstack.rfile, buf, 512)
+d64 1
+a64 1
+						bb[(wstack.bpoint) & 0777]=CR;
+@

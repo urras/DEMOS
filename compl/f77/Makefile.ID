@@ -1,0 +1,99 @@
+#       Фортран-77
+#       на ЭВМ Электроника-79  и т.п.
+#       с раздельным I/D адресным пространством
+#       Makefile для машин без раздельного I/D называется Makefile.SM
+
+all:    f77 f77p1
+
+
+XSTR = tools/xstr
+TOOLS = tools/
+CC = cc -O
+CFL = -DTARGET=PDP11 -DFAMILY=DMR -DHERE=PDP11 -DOUTPUT=BINARY -DPOLISH=POSTFIX
+LDFLAGS = -i
+YACC=${TOOLS}yacc7
+
+f77 : driver.o pdp11x0.o
+	cc -n  driver.o pdp11x0.o -o f77
+	@size f77
+
+driver.o : driver.c
+	  ${CC} ${CFL} -c driver.c
+
+pdp11x0.o : pdp11x.c
+	  rm -f pdp11x0.c
+	  ln pdp11x.c pdp11x0.c
+	  ${CC} ${CFL} -c pdp11x0.c
+	  rm -f pdp11x0.c
+
+OBJECTS = main.o init.o initp.o lex.o error.o misc.o \
+	gram.o pdp11x.o pdp11m.o pdp11p.o expr.o \
+	procm.o proc1.o proc2.o  equiv.o data.o \
+	intr1.o intr2.o exec.o execctl.o execdo.o io.o \
+	put.o putdmr.o putcdmr.o
+CFLAGS = -O ${CFL}
+
+${OBJECTS} : defs defines locdefs ftypes
+
+lex.o : tokdefs lex.c
+gram.c: gram.head gram.dcl gram.expr gram.exec gram.io tokdefs  ${TOOLS}newparser
+	( rpl <tokdefs "#define" "%token" ;\
+		cat gram.head gram.dcl gram.expr gram.exec gram.io ) >gram.in
+	$(YACC)  $(YFLAGS) gram.in
+	mv y.tab.c gram.c
+
+putscj.o :putscj.c scjdefs;cc ${CFLAGS} -DFAMILY=SCJ putscj.c -c
+malloc.o : malloc.c
+put.o putdmr.o putcdmr.o pdp11m.o: dmrdefs
+pdp11p.o : pdp11p.c cdebdefs
+
+f77p1: ${OBJECTS} malloc.o libio/libio.a
+	   $(CC) -i -o f77p1 $(OBJECTS) malloc.o  libio/libio.a
+# Пока все
+
+tokdefs: tokens
+	grep -n . <tokens | sed "s/\([^:]*\):\(.*\)/#define \2 \1/" >tokdefs
+
+gram.o :
+	cc -c ${CFL} gram.c
+driver.o $(OBJECTS)  : defs defines locdefs ftypes
+driver.o : drivedefs
+
+locdefs : pdp11defs
+	cp pdp11defs locdefs
+
+put.o putdmr.o pdp11.o : dmrdefs
+io.o : fio.h
+
+lint:
+	@echo "LINT DRIVER" >Lintout
+	@lint -p $(CFL) driver.c pdp11x.c >>Lintout
+	echo "LINT PASS1" >>Lintout
+	@nohup lint -p $(CFL) error.c exec.c intr.c expr.c gram.c init.c io.c\
+		lex.c main.c proc.c misc.c put.c putdmr.c pdp11.c pdp11x.c\
+		equiv.c data.c >>Lintout&
+
+cleanup clean:
+	-rm -f gram.c gram.in *.o f77 f77p1 f77p1f Oswitch.s gram0.c gram1h.h gram1.h
+	du
+# Для Э-79
+install: f77 f77p1f
+	rm -f /usr/f77lib/f77p1*
+	cp f77p1 /usr/f77lib
+	ln /usr/f77lib/f77p1f /usr/f77lib/f77p1
+	rm -f /usr/bin/f77
+	cp f77 /usr/bin/f77
+	strip /usr/bin/f77 /usr/lib/f77p1
+
+/usr/bin/f77 : f77
+	strip f77
+	@size f77 /usr/bin/f77
+	cp f77 /usr/bin/f77
+
+/usr/lib/f77p1 : f77pass1
+	strip f77pass1
+	@size f77pass1 /usr/lib/f77pass1
+	-chmod u-t /usr/lib/f77pass1
+	@/usr/lib/f77pass1 2>/dev/null
+	cp f77pass1 /usr/lib/f77pass1
+	echo "***Now do a    chmod u+t /usr/lib/f77pass1    in su mode"

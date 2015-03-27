@@ -1,0 +1,2740 @@
+head     22.0;
+access   korotaev ache dvolodin avg;
+symbols  Архыз0:1.2.1;
+locks    ;
+comment  @ *@;
+
+
+22.0
+date     89.03.30.15.48.40;  author korotaev;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.02.03.18.57.04;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.01.07.16.37.22;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.06.23.20.27.46;  author ache;  state Exp;
+branches 1.2.1.1;
+next     1.1;
+
+1.1
+date     88.01.04.19.34.16;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+1.2.1.1
+date     88.11.02.12.17.43;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Это вторая часть файла mch.s.
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@
+	.globl  _fuibyte, _fubyte, _suibyte, _subyte
+_fuibyte:
+#ifndef NONSEPARATE
+	mov     2(sp),r1
+	bic     $1,r1
+	jsr     pc,giword
+	br      2f
+#endif
+
+_fubyte:
+	mov     2(sp),r1
+	bic     $1,r1
+	jsr     pc,gword
+
+2:
+	cmp     r1,2(sp)
+	beq     1f
+	swab    r0
+1:
+	bic     $!377,r0
+	rts     pc
+
+_suibyte:
+#ifndef NONSEPARATE
+	mov     2(sp),r1
+	bic     $1,r1
+	jsr     pc,giword
+	mov     r0,-(sp)
+	cmp     r1,4(sp)
+	beq     1f
+	movb    6(sp),1(sp)
+	br      2f
+1:
+	movb    6(sp),(sp)
+2:
+	mov     (sp)+,r0
+	jsr     pc,piword
+	clr     r0
+	rts     pc
+#endif
+
+_subyte:
+	mov     2(sp),r1
+	bic     $1,r1
+	jsr     pc,gword
+	mov     r0,-(sp)
+	cmp     r1,4(sp)
+	beq     1f
+	movb    6(sp),1(sp)
+	br      2f
+1:
+	movb    6(sp),(sp)
+2:
+	mov     (sp)+,r0
+	jsr     pc,pword
+	clr     r0
+	rts     pc
+
+	.globl  _fuiword, _fuword, _suiword, _suword
+_fuiword:
+#ifndef NONSEPARATE
+	mov     2(sp),r1
+fuiword:
+	jsr     pc,giword
+	rts     pc
+#endif
+
+_fuword:
+	mov     2(sp),r1
+fuword:
+	jsr     pc,gword
+	rts     pc
+
+gword:
+#ifndef NONSEPARATE
+	mov     PS,-(sp)
+#ifdef  UCB_NET
+	bis     $30000,PS               / just in case; dgc; %%%%
+#endif
+	SPLHIGH
+	mov     nofault,-(sp)
+	mov     $err,nofault
+	mfpd    (r1)
+	mov     (sp)+,r0
+	br      1f
+
+giword:
+#endif
+	mov     PS,-(sp)
+#ifdef  UCB_NET
+	bis     $30000,PS               / just in case; dgc; %%%%
+#endif
+	SPLHIGH
+	mov     nofault,-(sp)
+	mov     $err,nofault
+	mfpi    (r1)
+	mov     (sp)+,r0
+	br      1f
+
+_suiword:
+#ifndef NONSEPARATE
+	mov     2(sp),r1
+	mov     4(sp),r0
+suiword:
+	jsr     pc,piword
+	rts     pc
+#endif
+
+_suword:
+	mov     2(sp),r1
+	mov     4(sp),r0
+suword:
+	jsr     pc,pword
+	rts     pc
+
+pword:
+#ifndef NONSEPARATE
+	mov     PS,-(sp)
+#ifdef  UCB_NET
+	bis     $30000,PS               / just in case; dgc; %%%%
+#endif
+	SPLHIGH
+	mov     nofault,-(sp)
+	mov     $err,nofault
+	mov     r0,-(sp)
+	mtpd    (r1)
+	br      1f
+
+piword:
+#endif
+	mov     PS,-(sp)
+#ifdef  UCB_NET
+	bis     $30000,PS               / just in case; dgc; %%%%
+#endif
+	SPLHIGH
+	mov     nofault,-(sp)
+	mov     $err,nofault
+	mov     r0,-(sp)
+	mtpi    (r1)
+1:
+	mov     (sp)+,nofault
+	mov     (sp)+,PS
+	rts     pc
+
+err:
+	mov     (sp)+,nofault
+	mov     (sp)+,PS
+	tst     (sp)+
+	mov     $-1,r0
+	rts     pc
+
+	.globl  _copyin, _copyiin, _copyout, _copyiout
+_copyin:
+#ifndef NONSEPARATE
+	jsr     pc,copsu
+1:
+	mfpd    (r0)+
+	mov     (sp)+,(r1)+
+	sob     r2,1b
+	br      2f
+#endif
+
+_copyiin:
+	jsr     pc,copsu
+1:
+	mfpi    (r0)+
+	mov     (sp)+,(r1)+
+	sob     r2,1b
+	br      2f
+
+_copyout:
+#ifndef NONSEPARATE
+	jsr     pc,copsu
+1:
+	mov     (r0)+,-(sp)
+	mtpd    (r1)+
+	sob     r2,1b
+	br      2f
+#endif
+
+_copyiout:
+	jsr     pc,copsu
+1:
+	mov     (r0)+,-(sp)
+	mtpi    (r1)+
+	sob     r2,1b
+2:
+	mov     (sp)+,nofault
+	mov     (sp)+,r2
+	clr     r0
+	rts     pc
+
+copsu:
+#ifdef  UCB_NET
+	bis     $30000,PS               / make sure that we copy to/from user space
+					/ this is a test - dgc - %%%%
+#endif
+	mov     (sp)+,r0
+	mov     r2,-(sp)
+	mov     nofault,-(sp)
+	mov     r0,-(sp)
+	mov     10(sp),r0
+	mov     12(sp),r1
+	mov     14(sp),r2
+	asr     r2
+	mov     $1f,nofault
+	rts     pc
+
+1:
+	mov     (sp)+,nofault
+	mov     (sp)+,r2
+	mov     $-1,r0
+	rts     pc
+
+	.globl  _idle, _waitloc
+_idle:
+	mov     PS,-(sp)
+	SPLLOW
+	wait
+waitloc:
+	mov     (sp)+,PS
+	rts     pc
+
+	.data
+_waitloc:
+	waitloc
+	.text
+#ifdef PROFILE
+/ These words are to insure that times reported for _save
+/ do not include those spent while in idle mode, when
+/ statistics are gathered for system profiling.
+/
+	rts     pc
+	rts     pc
+	rts     pc
+#endif  PROFILE
+
+	.globl  _save, _resume
+_save:
+	mov     (sp)+,r1
+	mov     (sp),r0
+	mov     r2,(r0)+
+	mov     r3,(r0)+
+	mov     r4,(r0)+
+	mov     r5,(r0)+
+	mov     sp,(r0)+
+#ifdef  MENLO_KOV
+	mov     OVLY_PAR,(r0)+
+#else
+	tst     (r0)+
+#endif /*MENLO_KOV*/
+	mov     r1,(r0)+
+	clr     r0
+	jmp     (r1)
+
+_resume:
+	mov     2(sp),r0                / new process
+	mov     4(sp),r1                / new stack
+	SPL7
+	mov     r0,KDSA6                / In new process
+	mov     (r1)+,r2
+	mov     (r1)+,r3
+	mov     (r1)+,r4
+	mov     (r1)+,r5
+	mov     (r1)+,sp
+#ifdef  MENLO_KOV
+	mov     (r1)+, OVLY_PAR
+#else
+	tst     (r1)+
+#endif /* MENLO_KOV */
+	mov     $1,r0
+	SPLLOW
+	jmp     *(r1)+
+
+/*
+ *      Note that in the Berkeley system, calls to spl's except splx
+ *      are substituted in line in the assembly code on machines
+ *      with the spl instruction or mtps/mfps.  Splx is done by macros
+ *      in param.h. See the makefile, :splfix.spl, :splfix.mtps,
+ *      :splfix.movb and param.h.  Calls to __spl# (_spl# in C)
+ *      are always expanded in-line and do not return the previous priority.
+ */
+
+#if     defined(KERN_NONSEP) && PDP11 != 34 && PDP11 != 23 && PDP11 != 24
+	/  Spl's for machines (like 11/40) without spl or m[tf]ps instructions.
+	.globl  _spl0, _spl1, _spl4, _spl5, _spl6, _spl7
+_spl0:
+	movb    PS,r0
+	clrb    PS
+	rts     pc
+_spl1:
+	movb    PS,r0
+	movb    $40, PS
+	rts     pc
+_spl4:
+	movb    PS,r0
+	movb    $200, PS
+	rts     pc
+_spl5:
+	movb    PS,r0
+	movb    $240, PS
+	rts     pc
+_spl6:
+	movb    PS,r0
+	movb    $300, PS
+	rts     pc
+_spl7:
+	movb    PS,r0
+	movb    $HIPRI, PS
+	rts     pc
+#endif
+
+	.globl  _copy, _clear, _kdsa6
+#ifdef  CGL_RTP
+	.globl  _copyu, _wantrtp, _runrtp
+#endif
+
+/*
+ * Copy count clicks from src to dst.
+ * Uses KDSA5 and 6 to copy with mov instructions.
+ * Interrupt routines must restore segmentation registers if needed;
+ * see seg.h.
+ * Note that if CGL_RTP is defined, it checks whether
+ * the real-time process is runnable once each loop,
+ * and preempts the current process if necessary
+ * (which must not swap before this finishes!).
+ *
+ * copy(src, dst, count)
+ * memaddr src, dst;
+ * int count;
+ */
+_copy:
+	jsr     r5, csv
+#ifdef  UCB_NET
+	mov     PS,-(sp)                / have to lock out interrupts...
+	SPL7
+	mov     KDSA5,-(sp)             / save seg5
+	mov     KDSD5,-(sp)             / save seg5
+#endif
+	mov     10(r5),r3               / count
+	beq     3f
+	mov     4(r5),KDSA5             / point KDSA5 at source
+	mov     $RO,KDSD5               / 64 bytes, read-only
+	mov     sp,r4
+	mov     $eintstk,sp             / switch to intstk
+	mov     KDSA6,_kdsa6
+	mov     6(r5),KDSA6             / point KDSA6 at destination
+	mov     $RW,KDSD6               / 64 bytes, read-write
+1:
+#ifdef  CGL_RTP
+	tst     _wantrtp
+	bne     preempt
+9:
+#endif
+	mov     $5*8192.,r0
+	mov     $6*8192.,r1
+#if     PDP11==70
+	mov     $4.,r2                  / copy one click (4*16)
+#else
+	mov     $8.,r2                  / copy one click (8*8)
+#endif
+2:
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+#if     PDP11==70
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+#endif
+	sob     r2,2b
+
+	inc     KDSA5                   / next click
+	inc     KDSA6
+	dec     r3
+	bne     1b
+	mov     _kdsa6,KDSA6
+	mov     $usize-1\<8|RW, KDSD6
+	clr     _kdsa6
+#ifndef NOKA5
+	.globl  _seg5
+	mov     _seg5+SE_DESC, KDSD5    / normalseg5();
+	mov     _seg5+SE_ADDR, KDSA5    / (restore all mapping)
+#endif  NOKA5
+	mov     r4,sp                   / back to normal stack
+3:
+#ifdef  UCB_NET
+	mov     (sp)+,KDSD5             / restore seg5
+	mov     (sp)+,KDSA5             / restore seg5
+	mov     (sp)+,PS                / back to normal priority
+#endif
+	jmp     cret
+
+#ifdef  CGL_RTP
+/*
+ * Save our state and restore enough context for a process switch.
+ */
+preempt:
+	mov     KDSA6, r0
+	mov     _kdsa6,KDSA6            / back to our u.
+	mov     $usize-1\<8|RW, KDSD6
+	clr     _kdsa6
+	mov     r4, sp                  / back to normal stack
+	mov     KDSA5, -(sp)
+	mov     r0, -(sp)               / KDSA6
+#ifndef NOKA5
+	mov     _seg5+SE_DESC, KDSD5    / normalseg5();
+	mov     _seg5+SE_ADDR, KDSA5    / (restore all mapping)
+#endif  NOKA5
+	jsr     pc, _runrtp             / switch context and run rtpp
+
+	/ Now continue where we left off.
+	mov     (sp)+, r0               / KDSA6
+	mov     (sp)+, KDSA5
+	mov     $RO,KDSD5               / 64 bytes, read-only
+	mov     KDSA6,_kdsa6
+	mov     $eintstk, sp
+	mov     r0, KDSA6
+	mov     $RW,KDSD6               / 64 bytes, read-write
+	br      9b
+
+/*
+ * Copy the u. to dst; not preemptable.
+ * Uses KDSA5 to copy with mov instructions.
+ * Interrupt routines must restore segmentation registers if needed;
+ * see seg.h.
+ *
+ * copyu(dst)
+ * memaddr dst;
+ */
+_copyu:
+	jsr     r5, csv
+	mov     4(r5),KDSA5             / point KDSA5 at dst.
+	mov     $usize-1\<8.|RW,KDSD5
+	mov     $6*8192.,r0
+	mov     $5*8192.,r1
+#if     PDP11==70
+	mov     $4.*usize,r2            / copy 4*16 bytes per click
+#else
+	mov     $8.*usize,r2            / copy 8*8 bytes per click
+#endif
+2:
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+#if     PDP11==70
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+	mov     (r0)+,(r1)+
+#endif
+	sob     r2,2b
+
+#ifndef NOKA5
+	mov     _seg5+SE_DESC, KDSD5    / normalseg5();
+	mov     _seg5+SE_ADDR, KDSA5    / (restore all mapping)
+#endif  NOKA5
+	jmp     cret
+#endif  CGL_RTP
+
+/*
+ * Clear count clicks at dst.
+ * Uses KDSA5.
+ * Interrupt routines must restore segmentation registers if needed;
+ * see seg.h.
+ *
+ * clear(dst, count)
+ * memaddr dst;
+ * int count;
+ */
+_clear:
+	jsr     r5, csv
+#ifdef  UCB_NET
+	mov     KDSA5,-(sp)             / save seg5
+	mov     KDSD5,-(sp)             / save seg5
+#endif
+	mov     4(r5),KDSA5             / point KDSA5 at source
+	mov     $RW,KDSD5               / 64 bytes, read-write
+	mov     6(r5),r3                / count
+	beq     3f
+1:
+#ifdef  CGL_RTP
+	tst     _wantrtp
+	bne     clrpreempt
+9:
+#endif
+	mov     $5*8192.,r0
+	mov     $8.,r2                  / clear one click (8*8)
+2:
+	clr     (r0)+
+	clr     (r0)+
+	clr     (r0)+
+	clr     (r0)+
+	sob     r2,2b
+
+	inc     KDSA5                   / next click
+	dec     r3
+	bne     1b
+3:
+#ifndef NOKA5
+	mov     _seg5+SE_DESC, KDSD5    / normalseg5();
+	mov     _seg5+SE_ADDR, KDSA5    / (restore all mapping)
+#endif  NOKA5
+#ifdef  UCB_NET
+	mov     (sp)+,KDSD5             / restore seg5
+	mov     (sp)+,KDSA5             / restore seg5
+#endif
+	jmp     cret
+
+#ifdef  CGL_RTP
+clrpreempt:
+	mov     KDSA5, -(sp)
+#ifndef NOKA5
+	mov     _seg5+SE_DESC, KDSD5    / normalseg5();
+	mov     _seg5+SE_ADDR, KDSA5    / (restore all mapping)
+#endif  NOKA5
+	jsr     pc, _runrtp             / switch context and run rtpp
+	/*
+	 * Now continue where we left off.
+	 */
+	mov     (sp)+, KDSA5
+	mov     $RW,KDSD5               / 64 bytes, read-write
+	br      9b
+#endif  CGL_RTP
+
+#ifdef  UCB_NET
+/*
+ *      copyv(fromaddr,toaddr,count)
+ *      virtual_addr fromaddr,toaddr;
+ *      unsigned count;
+ *
+ *      Copy two arbitrary pieces of PDP11 virtual memory from one location
+ *      to another.  Up to 8K bytes can be copied at one time.
+ *
+ *      A PDP11 virtual address is a two word value; a 16 bit "click" that
+ *      defines the start in physical memory of an 8KB segment and an offset.
+ */
+
+	.globl  _copyv
+
+	.data
+copyvsave: 0                    / saved copy of KDSA6
+	.text
+
+_copyv: jsr     r5,csv
+
+	tst     14(r5)          /* if (count == 0)              */
+	jeq     copyvexit       /*      return;                 */
+	cmp     $20000,14(r5)   /* if (count >= 8192)           */
+	jlos    copyvexit       /*      return;                 */
+
+	mov     PS,-(sp)        /* Lock out interrupts. sigh... */
+	SPL7
+
+	mov     KDSA5,-(sp)     /* save seg5                    */
+	mov     KDSD5,-(sp)
+
+	mov     4(r5),KDSA5     /* seg5 = fromclick             */
+	mov     $128.-1\<8.|RO,KDSD5
+	mov     10(r5),r1       /* click = toclick              */
+	mov     6(r5),r2        /* foff = fromoffset            */
+	add     $5*8192.,r2     /* foff = virtual addr (page 5) */
+	mov     12(r5),r3       /* toff = tooffset              */
+	add     $6*8192.,r3     /* toff = virtual addr (page 6) */
+	mov     14(r5),r0       /* count = count                */
+
+	/* Note: the switched stack is only for use of a fatal  */
+	/* kernel trap occurring during the copy; otherwise we  */
+	/* might conflict with the other copy routine           */
+	mov     sp,r4           /* switch stacks                */
+	mov     $eintstk,sp
+	mov     KDSA6,copyvsave
+
+	mov     r1,KDSA6        /* seg6 = click                 */
+	mov     $128.-1\<8.|RW,KDSD6
+
+	/****** Finally do the copy                        ******/
+	mov     r3,r1           /* Odd addresses or count?      */
+	bis     r2,r1
+	bis     r0,r1
+	bit     $1,r1
+	bne     copyvodd        /* Branch if odd                */
+
+	asr     r0              /* Copy a word at a time        */
+1:      mov     (r2)+,(r3)+
+	sob     r0,1b
+	br      copyvdone
+
+copyvodd: movb  (r2)+,(r3)+     /* Copy a byte at a time        */
+	sob     r0,copyvodd
+/       br      copyvdone
+
+copyvdone:
+	mov     copyvsave,KDSA6 /* remap in the stack           */
+	mov     $usize-1\<8.|RW,KDSD6
+	mov     r4,sp
+	mov     (sp)+,KDSD5     /* restore seg5                 */
+	mov     (sp)+,KDSA5
+	mov     (sp)+,PS        /* unlock interrupts            */
+
+copyvexit:
+	clr     r0
+	clr     r1
+	jmp     cret
+#endif  UCB_NET
+
+hardprobe:
+#ifndef NONFP
+	/ Test for floating point capability.
+fptest:
+	mov     $fpdone, nofault
+	setd
+	inc     fpp
+fpdone:
+#endif  NONFP
+
+	/ Test for SSR3 and UNIBUS map capability.  If there is no SSR3,
+	/ the first test of SSR3 will trap and we skip past septest.
+ubmaptest:
+	mov     $cputest, nofault
+#ifdef  UNIBUS_MAP
+	bit     $20, SSR3
+	beq     septest
+	incb    _ubmap
+#endif
+
+	/ Test for separate I/D capability.
+septest:
+#ifdef  NONSEPARATE
+	/ Don't attempt to determine whether we've got separate I/D
+	/ (but just in case we do, we must force user unseparated
+	/ because boot will have turned on separation if possible).
+	bic     $1, SSR3
+#else
+	/ Test for user I/D separation (not kernel).
+	bit     $1, SSR3
+	beq     cputest
+	incb    _sep_id
+#endif  NONSEPARATE
+
+	/ Try to find out what kind of cpu this is.
+	/ Defaults are 40 for nonseparate and 45 for separate.
+	/ Cputype will be one of: 24, 40, 60, 45, 44, 70, 73.
+cputest:
+#ifndef NONSEPARATE
+	tstb    _sep_id
+	beq     nonsepcpu
+
+	mov     $1f, nofault
+	mfpt
+	cmpb    $5,r0
+	bne     2f
+	mov     $73., _cputype
+	clrb    _ubmap
+	incb    _q22bus
+	br      3f
+2:
+	mov     $44., _cputype
+	/ Disable cache parity interrupts.
+3:
+	bis     $CCR_DCPI, *$PDP1144_CCR
+	br      cpudone
+1:
+	tstb    _ubmap
+	beq     cpudone
+
+	mov     $70., _cputype
+	/ Disable UNIBUS and nonfatal traps.
+	bis     $CCR_DUT|CCR_DT, *$PDP1170_CCR
+	br      cpudone
+
+nonsepcpu:
+#endif  NONSEPARATE
+	tstb    _ubmap
+	beq     1f
+	mov     $24., _cputype
+	br      cpudone
+1:
+	mov     $1f, nofault
+	mfpt
+	mov     $23., _cputype
+	clrb    _ubmap
+	incb    _q22bus
+	br      cpudone
+1:
+	mov     $cpudone, nofault
+	tst     PDP1160_MSR
+	mov     $60., _cputype
+	/ Disable cache parity error traps.
+	bis     $CCR_DT, *$PDP1160_CCR
+
+cpudone:
+	/ Test for stack limit register; set it if present.
+	mov     $1f, nofault
+	mov     $intstk-256., STACKLIM
+1:
+
+	clr     nofault
+	rts     pc
+
+/*
+ * Long quotient
+ */
+	.globl  ldiv, lrem
+ldiv:
+	jsr     r5,csv
+	mov     10.(r5),r3
+	sxt     r4
+	bpl     1f
+	neg     r3
+1:
+	cmp     r4,8.(r5)
+	bne     hardldiv
+	mov     6.(r5),r2
+	mov     4.(r5),r1
+	bge     1f
+	neg     r1
+	neg     r2
+	sbc     r1
+	com     r4
+1:
+	mov     r4,-(sp)
+	clr     r0
+	div     r3,r0
+	mov     r0,r4                   /high quotient
+	mov     r1,-(sp)                / Stash interim result
+	mov     r1,r0
+	mov     r2,r1
+	div     r3,r0
+	bvc     1f
+	mov     (sp),r0                 / Recover interim result.
+	mov     r2,r1                   / (Regs may be clobbered by failed div.)
+	sub     r3,r0                   / this is the clever part
+	div     r3,r0
+	tst     r1
+	sxt     r1
+	add     r1,r0                   / cannot overflow!
+1:
+	tst     (sp)+                   / Pop temp off stack.
+	mov     r0,r1
+	mov     r4,r0
+	tst     (sp)+
+	bpl     9f
+	neg     r0
+	neg     r1
+	sbc     r0
+9:
+	jmp     cret
+
+hardldiv:
+	iot                             / ``Cannot happen''
+
+/*
+ * Long remainder
+ */
+lrem:
+	jsr     r5,csv
+	mov     10.(r5),r3
+	sxt     r4
+	bpl     1f
+	neg     r3
+1:
+	cmp     r4,8.(r5)
+	bne     hardlrem
+	mov     6.(r5),r2
+	mov     4.(r5),r1
+	mov     r1,r4
+	bge     1f
+	neg     r1
+	neg     r2
+	sbc     r1
+1:
+	clr     r0
+	div     r3,r0
+	mov     r1,-(sp)                / Stash interim result.
+	mov     r1,r0
+	mov     r2,r1
+	div     r3,r0
+	bvc     1f
+	mov     (sp),r0                 / Recover interim result.
+	mov     r2,r1                   / (Regs may be clobbered by failed div.)
+	sub     r3,r0
+	div     r3,r0
+	tst     r1
+	beq     9f
+	add     r3,r1
+1:
+	tst     (sp)+                   / Pop temp off stack.
+	tst     r4
+	bpl     9f
+	neg     r1
+9:
+	sxt     r0
+	jmp     cret
+
+hardlrem:
+	iot                             / ``Cannot happen''
+
+	.globl  lmul
+lmul:
+	mov     r2,-(sp)
+	mov     r3,-(sp)
+	mov     8(sp),r2
+	sxt     r1
+	sub     6(sp),r1
+	mov     12.(sp),r0
+	sxt     r3
+	sub     10.(sp),r3
+	mul     r0,r1
+	mul     r2,r3
+	add     r1,r3
+	mul     r2,r0
+	sub     r3,r0
+	mov     (sp)+,r3
+	mov     (sp)+,r2
+	rts     pc
+
+#ifdef  UCB_NET
+	.globl  _htonl,_htons,_ntohl,_ntohs
+_htonl:
+_ntohl:
+	mov     2(sp),r0
+	mov     4(sp),r1
+	swab    r0
+	swab    r1
+	rts     pc
+
+_htons:
+_ntohs:
+	mov     2(sp),r0
+	swab    r0
+	rts     pc
+
+	.globl  _badaddr
+_badaddr:
+	mov     2(sp),r0
+	mov     nofault,-(sp)
+	mov     $1f,nofault
+	tst     (r0)
+	clr     r0
+	br      2f
+1:
+	mov     $-1,r0
+2:
+	mov     (sp)+,nofault
+	rts     pc
+
+	.globl  _bzero
+_bzero:
+	mov     2(sp),r0
+	beq     3f              / error checking...  dgc
+	mov     4(sp),r1
+	beq     3f              / error checking ... dgc
+	bit     $1,r0
+	bne     1f
+	bit     $1,r1
+	bne     1f
+	asr     r1
+2:      clr     (r0)+
+	sob     r1,2b
+	rts     pc
+
+1:      clrb    (r0)+
+	sob     r1,1b
+3:
+	rts     pc
+#endif  UCB_NET
+
+	.globl  csv, cret
+#ifndef MENLO_KOV
+csv:
+	mov     r5,r0
+	mov     sp,r5
+	mov     r4,-(sp)
+	mov     r3,-(sp)
+	mov     r2,-(sp)
+	tst     -(sp)
+	jsr     pc,(r0)
+
+cret:
+	mov     r5,r2
+	mov     -(r2),r4
+	mov     -(r2),r3
+	mov     -(r2),r2
+	mov     r5,sp
+	mov     (sp)+,r5
+	rts     pc
+
+#else   MENLO_KOV
+	.globl  __ovno
+	.data
+__ovno: 0
+	.text
+/*
+ * Inter-overlay calls call thunk which calls ovhndlr to
+ * save registers.  Intra-overlay calls may call function
+ * directly which calls csv to save registers.
+ */
+csv:
+	mov     r5,r1
+	mov     sp,r5
+	mov     OVLY_PAR,-(sp)
+
+	mov     r4,-(sp)
+	mov     r3,-(sp)
+	mov     r2,-(sp)
+	jsr     pc,(r1)                 / jsr part is sub $2,sp
+
+cret:
+	mov     r5,r2
+	/ Get the overlay out of the mark, and if it is non-zero
+	/ make sure it is the currently loaded one.
+	mov     -(r2),OVLY_PAR
+	mov     -(r2),r4
+	mov     -(r2),r3
+	mov     -(r2),r2
+	mov     r5,sp
+	mov     (sp)+,r5
+	rts     pc
+
+/*
+ * Ovhndlr1 through ovhndlr7  are called from the thunks,
+ * after the address to return to is put in r1.  This address is
+ * that after the call to csv, which will be skipped.
+ */
+.globl  ovhndlr1, ovhndlr2, ovhndlr3, ovhndlr4, ovhndlr5, ovhndlr6, ovhndlr7
+#ifdef  IPK_XKOV
+.globl  ovhndlr8, ovhndlr9, ovhndlra, ovhndlrb, ovhndlrc, ovhndlrd, ovhndlre
+.globl  ovhndlrf, ovhndlrg, ovhndlrh, ovhndlri, ovhndlrj, ovhndlrk, ovhndlrl
+.globl  ovhndlrm, ovhndlrn, ovhndlro, ovhndlrp, ovhndlrq, ovhndlrr, ovhndlrs
+.globl  ovhndlrt, ovhndlru, ovhndlrv
+#endif
+
+#  define OVA(x) x+x+ova
+
+ovhndlr1:       mov     $OVA(1),r0;  br      ovhndlr
+ovhndlr2:       mov     $OVA(2),r0;  br      ovhndlr
+ovhndlr3:       mov     $OVA(3),r0;  br      ovhndlr
+ovhndlr4:       mov     $OVA(4),r0;  br      ovhndlr
+ovhndlr5:       mov     $OVA(5),r0;  br      ovhndlr
+ovhndlr6:       mov     $OVA(6),r0;  br      ovhndlr
+ovhndlr7:       mov     $OVA(7),r0
+#ifdef  IPK_XKOV
+				br      ovhndlr
+ovhndlr8:       mov    $OVA(10),r0;  br      ovhndlr
+ovhndlr9:       mov    $OVA(11),r0;  br      ovhndlr
+ovhndlra:       mov    $OVA(12),r0;  br      ovhndlr
+ovhndlrb:       mov    $OVA(13),r0;  br      ovhndlr
+ovhndlrc:       mov    $OVA(14),r0;  br      ovhndlr
+ovhndlrd:       mov    $OVA(15),r0;  br      ovhndlr
+ovhndlre:       mov    $OVA(16),r0;  br      ovhndlr
+ovhndlrf:       mov    $OVA(17),r0;  br      ovhndlr
+ovhndlrg:       mov    $OVA(20),r0;  br      ovhndlr
+ovhndlrh:       mov    $OVA(21),r0;  br      ovhndlr
+ovhndlri:       mov    $OVA(22),r0;  br      ovhndlr
+ovhndlrj:       mov    $OVA(23),r0;  br      ovhndlr
+ovhndlrk:       mov    $OVA(24),r0;  br      ovhndlr
+ovhndlrl:       mov    $OVA(25),r0;  br      ovhndlr
+ovhndlrm:       mov    $OVA(26),r0;  br      ovhndlr
+ovhndlrn:       mov    $OVA(27),r0;  br      ovhndlr
+ovhndlro:       mov    $OVA(30),r0;  br      ovhndlr
+ovhndlrp:       mov    $OVA(31),r0;  br      ovhndlr
+ovhndlrq:       mov    $OVA(32),r0;  br      ovhndlr
+ovhndlrr:       mov    $OVA(33),r0;  br      ovhndlr
+ovhndlrs:       mov    $OVA(34),r0;  br      ovhndlr
+ovhndlrt:       mov    $OVA(35),r0;  br      ovhndlr
+ovhndlru:       mov    $OVA(36),r0;  br      ovhndlr
+ovhndlrv:       mov    $OVA(37),r0
+#endif
+/*
+ * Ovhndlr makes the argument (in r0) be the current overlay,
+ * saves the registers ala csv (but saves the previous overlay number),
+ * and then jmp's to the function, skipping the function's initial
+ * call to csv.
+ */
+ovhndlr:
+	mov     sp,r5
+	mov     OVLY_PAR, -(sp)
+	mov     *r0, OVLY_PAR
+	mov     r4,-(sp)
+	mov     r3,-(sp)
+	mov     r2,-(sp)
+	jsr     pc,(r1)                 / skip function's call to csv
+
+#endif  MENLO_KOV
+
+/*
+ * Save regs r0, r1, r2, r3, r4, r5, r6, K[DI]SA6
+ * starting at data location 0300, in preparation for dumping core.
+ */
+	.globl  _saveregs
+_saveregs:
+#ifdef  KERN_NONSEP
+	movb    $RW, KISD0              / write enable
+#endif
+	mov     r0,300
+	mov     $302,r0
+	mov     r1,(r0)+
+	mov     r2,(r0)+
+	mov     r3,(r0)+
+	mov     r4,(r0)+
+	mov     r5,(r0)+
+	mov     sp,(r0)+
+	mov     KDSA6,(r0)+
+	mov     KDSA5,(r0)+
+	rts     pc
+
+	.globl _nulldev, _nullsys
+
+_nulldev:               / placed in insignificant entries in bdevsw and cdevsw
+_nullsys:               / ignored system call
+	rts     pc
+
+	.globl  _u
+_u      = 140000
+usize   = 32.
+
+	.data
+	.globl  _ka6, _cputype, _sep_id, _ubmap, _q22bus
+_ubmap: .byte 0
+_sep_id: .byte 0
+_q22bus: .byte 0
+	.even
+
+#ifdef  KERN_NONSEP
+_ka6:   KISA6
+_cputype:40.
+
+#else   KERN_NONSEP
+_ka6:   KDSA6
+_cputype:45.
+#endif  KERN_NONSEP
+
+	.bss
+	.even
+intstk: .=.+INTSTK              / temporary stack while KDSA6 is repointed
+eintstk: .=.+2                  / initial top of intstk
+
+	.data
+nofault:.=.+2
+#ifndef NONFP
+fpp:    .=.+2
+#endif
+ssr:    .=.+6
+#ifdef  DISPLAY
+dispdly:.=.+2
+#endif
+saveps: .=.+2
+
+#ifdef PROFILE
+
+	.text
+/*
+ * System profiler
+ *
+ * Expects to have a KW11-P in addition to the line-frequency
+ * clock, and it should be set to BR7.
+ * Uses supervisor I space register 2 and 3 (040000 - 0100000)
+ * to maintain the profile.
+ */
+
+CCSB    = 172542
+CCSR    = 172540
+_probsiz = 37777
+
+	.globl  _isprof, _sprof, _probsiz, _mode
+/
+/ Enable clock interrupts for system profiling
+/
+_isprof:
+	mov     $1f,nofault
+	mov     $_sprof,104             / interrupt
+	mov     $340,106                / pri
+	mov     $100.,CCSB              / count set = 100
+	mov     $113,CCSR               / count down, 10kHz, repeat
+1:
+	clr     nofault
+	rts     pc
+
+/
+/ Process profiling clock interrupts
+/
+_sprof:
+	mov     r0,-(sp)
+	mov     PS,r0
+	ash     $-10.,r0
+	bic     $!14,r0                 / mask out all but previous mode
+	add     $1,_mode+2(r0)
+	adc     _mode(r0)
+	cmp     r0,$14                  / user
+	beq     done
+	mov     2(sp),r0                / pc
+	asr     r0
+	asr     r0
+	bic     $140001,r0
+	cmp     r0,$_probsiz
+	blo     1f
+	inc     _outside
+	br      done
+1:
+	mov     $10340,PS               / Set previous mode to supervisor
+	mfpi    40000(r0)
+	inc     (sp)
+	mtpi    40000(r0)
+done:
+	mov     (sp)+,r0
+	mov     $113,CCSR
+	rtt
+
+	.data
+_mode:  .=.+16.
+_outside: .=.+2
+#endif  PROFILE
+@
+
+
+1.4
+log
+@Убрана зависимость расположения регистров относительно u_ar0 от MENLO_KOV
+===> не требуется более пересобирать отладчики.
+@
+text
+@a1 58
+setreg:
+	mov     r0,-(sp)
+	bic     $!7,r0
+	bis     r0,r2
+	mov     (sp)+,r0
+	ash     $-3,r0
+	bic     $!7,r0
+	movb    0f(r0),r0
+	tstb    bflg
+	beq     1f
+	bit     $2,r2
+	beq     2f
+	bit     $4,r2
+	beq     2f
+1:
+	cmp     r0,$20
+	beq     2f
+	cmp     r0,$-20
+	beq     2f
+	asl     r0
+2:
+#ifndef NONFP
+	tstb    fflg
+	beq     3f
+	asl     r0
+	stfps   r1
+	bit     $200,r1
+	beq     3f
+	asl     r0
+3:
+#endif
+	bisb    r0,r2
+	rts     pc
+
+0:      .byte   0,0,10,20,-10,-20,0,0
+
+fetch:
+	bic     $1,r0
+	mov     nofault,-(sp)
+	mov     $1f,nofault
+	mfpi    (r0)
+	mov     (sp)+,r0
+	mov     (sp)+,nofault
+	rts     pc
+
+1:
+	mov     (sp)+,nofault
+	clrb    r2                      / clear out dest on fault
+	mov     $-1,r0
+	rts     pc
+
+	.bss
+bflg:   .=.+1
+jflg:   .=.+1
+fflg:   .=.+1
+	.text
+#endif  KERN_NONSEP
+
+d229 1
+a229 1
+#if     defined(PROFILE) && !defined(ENABLE34)
+d237 1
+a237 1
+#endif  defined(PROFILE) && !defined(ENABLE34)
+a248 1
+#ifdef IPK_FASTKOV
+a249 3
+#else  IPK_FASTKOV
+	mov     __ovno,(r0)+
+#endif IPK_FASTKOV
+a267 1
+#ifdef IPK_FASTKOV
+a268 10
+#else  IPK_FASTKOV
+	mov     (r1)+,r0
+	cmp     r0,__ovno
+	beq     1f
+	mov     r0,__ovno
+	asl     r0
+	mov     ova(r0), OVLY_PAR
+	mov     ovd(r0), OVLY_PDR
+1:
+#endif IPK_FASTKOV
+a701 49
+#ifdef  ENABLE34
+	/ Test for an ENABLE/34.  We are very cautious since
+	/ the ENABLE's PARs  are in the range of the floating
+	/ addresses.
+	tstb    _ubmap
+	bne     2f
+	mov     $2f, nofault
+	mov     32., r0
+	mov     $ENABLE_KISA0, r1
+1:
+	tst     (r1)+
+	sob     r0, 1b
+
+	tst     *$PDP1170_LEAR
+	tst     *$ENABLE_SSR3
+	tst     *$ENABLE_SSR4
+	incb    _enable34
+	incb    _ubmap
+
+	/ Turn on an ENABLE/34.  Enableon() is a C routine
+	/ which does a PAR shuffle and turns mapping on.
+	.globl  _enableon
+	.globl  _UISA, _UDSA, _KISA0, _KISA6, _KDSA1, _KDSA2, _KDSA5, _KDSA6
+
+	.data
+_UISA:  DEC_UISA
+_UDSA:  DEC_UDSA
+_KISA0: DEC_KISA0
+_KISA6: DEC_KISA6
+_KDSA1: DEC_KDSA1
+_KDSA2: DEC_KDSA2
+_KDSA5: DEC_KDSA5
+_KDSA6: DEC_KDSA6
+	.text
+
+	mov     $ENABLE_UISA, _UISA
+	mov     $ENABLE_UDSA, _UDSA
+	mov     $ENABLE_KISA0, _KISA0
+	mov     $ENABLE_KISA6, _KISA6
+	mov     $ENABLE_KDSA1, _KDSA1
+	mov     $ENABLE_KDSA2, _KDSA2
+	mov     $ENABLE_KDSA5, _KDSA5
+	mov     $ENABLE_KDSA6, _KDSA6
+	mov     $ENABLE_KDSA6, _ka6
+	jsr     pc, _enableon
+
+2:
+#endif  ENABLE34
+
+a905 1
+#ifdef IPK_FASTKOV
+a906 3
+#else  IPK_FASTKOV
+	mov     __ovno,-(sp)            / overlay is extra (first) word in mark
+#endif IPK_FASTKOV
+a916 1
+#ifdef IPK_FASTKOV
+a917 1
+#else  IPK_FASTKOV
+a918 4
+	bne     1f                      / zero is easy
+2:
+#endif IPK_FASTKOV
+	mov     -(r2),r4
+a924 23
+#ifndef IPK_FASTKOV
+	/ Not returning to base segment, so check that the right
+	/ overlay is mapped in, and if not change the mapping.
+1:
+	cmp     r4,__ovno
+	beq     2b                      / lucked out!
+
+	/ If return address is in base segment, then nothing to do.
+	cmp     2(r5),$_etext
+	blos    2b
+
+	/ Returning to wrong overlay --- do something!
+	mov     PS,-(sp)                / save PS
+	SPL7
+	mov     r4,__ovno
+	asl     r4
+	mov     ova(r4), OVLY_PAR
+	mov     ovd(r4), OVLY_PDR
+	mov     (sp)+,PS                        / restore PS, unmask interrupts
+	/ Could measure switches[ovno][r4]++ here.
+	jmp     2b
+#endif IPK_FASTKOV
+
+a937 1
+#ifdef IPK_FASTKOV
+a938 3
+#else  IPK_FASTKOV
+#  define OVA(x) x
+#endif IPK_FASTKOV
+a981 1
+#ifdef IPK_FASTKOV
+a983 6
+#else  IPK_FASTKOV
+	mov     __ovno,-(sp)            / save previous overlay number
+	cmp     r0,__ovno               / correct overlay mapped?
+	bne     2f
+1:
+#endif IPK_FASTKOV
+a988 10
+#ifndef IPK_FASTKOV
+2:      mov     PS,-(sp)                / save PS
+	SPL7
+	mov     r0,__ovno               / set new overlay number
+	asl     r0
+	mov     ova(r0), OVLY_PAR
+	mov     ovd(r0), OVLY_PDR
+	mov     (sp)+,PS                / restore PS, unmask interrupts
+	jbr     1b
+#endif IPK_FASTKOV
+a1019 3
+#if !defined(UCB_NET) && !defined(IPK_XOVLY)
+usize   = 16.
+#else
+a1020 1
+#endif
+a1023 4
+#ifdef  ENABLE34
+	.globl  _enable34
+_enable34: .byte 0
+#endif
+a1029 3
+#ifdef  ENABLE34
+_ka6:   DEC_KISA6
+#else
+a1030 1
+#endif
+a1033 3
+#ifdef  ENABLE34
+_ka6:   DEC_KDSA6
+#else
+a1034 1
+#endif
+d1054 2
+a1055 1
+#if     defined(PROFILE) && !defined(ENABLE34)
+d1117 1
+a1117 1
+#endif  defined(PROFILE) && !defined(ENABLE34)
+@
+
+
+1.3
+log
+@Сделан новый (гораздо более быстрый) способ переключения
+оверлейных сегментов в ядре. Включается #define IPK_FASTKOV
+в localopts.h .
+BASIC IDEA IS: хранить во фрейме процедур не номер оверлея, а
+сразу значение OVLY_PAR. OVLY_PDR сейчас всегда будет 8K.
+@
+text
+@d3 13
+a15 13
+	mov	r0,-(sp)
+	bic	$!7,r0
+	bis	r0,r2
+	mov	(sp)+,r0
+	ash	$-3,r0
+	bic	$!7,r0
+	movb	0f(r0),r0
+	tstb	bflg
+	beq	1f
+	bit	$2,r2
+	beq	2f
+	bit	$4,r2
+	beq	2f
+d17 5
+a21 5
+	cmp	r0,$20
+	beq	2f
+	cmp	r0,$-20
+	beq	2f
+	asl	r0
+d23 8
+a30 8
+#ifndef	NONFP
+	tstb	fflg
+	beq	3f
+	asl	r0
+	stfps	r1
+	bit	$200,r1
+	beq	3f
+	asl	r0
+d33 2
+a34 2
+	bisb	r0,r2
+	rts	pc
+d36 1
+a36 1
+0:	.byte	0,0,10,20,-10,-20,0,0
+d39 7
+a45 7
+	bic	$1,r0
+	mov	nofault,-(sp)
+	mov	$1f,nofault
+	mfpi	(r0)
+	mov	(sp)+,r0
+	mov	(sp)+,nofault
+	rts	pc
+d48 4
+a51 4
+ 	mov	(sp)+,nofault
+	clrb	r2			/ clear out dest on fault
+	mov	$-1,r0
+	rts	pc
+d54 3
+a56 3
+bflg:	.=.+1
+jflg:	.=.+1
+fflg:	.=.+1
+d58 1
+a58 1
+#endif	KERN_NONSEP
+d60 1
+a60 1
+	.globl	_fuibyte, _fubyte, _suibyte, _subyte
+d62 5
+a66 5
+#ifndef	NONSEPARATE
+	mov	2(sp),r1
+	bic	$1,r1
+	jsr	pc,giword
+	br	2f
+d70 3
+a72 3
+	mov	2(sp),r1
+	bic	$1,r1
+	jsr	pc,gword
+d75 3
+a77 3
+	cmp	r1,2(sp)
+	beq	1f
+	swab	r0
+d79 2
+a80 2
+	bic	$!377,r0
+	rts	pc
+d83 9
+a91 9
+#ifndef	NONSEPARATE
+	mov	2(sp),r1
+	bic	$1,r1
+	jsr	pc,giword
+	mov	r0,-(sp)
+	cmp	r1,4(sp)
+	beq	1f
+	movb	6(sp),1(sp)
+	br	2f
+d93 1
+a93 1
+	movb	6(sp),(sp)
+d95 4
+a98 4
+	mov	(sp)+,r0
+	jsr	pc,piword
+	clr	r0
+	rts	pc
+d102 8
+a109 8
+	mov	2(sp),r1
+	bic	$1,r1
+	jsr	pc,gword
+	mov	r0,-(sp)
+	cmp	r1,4(sp)
+	beq	1f
+	movb	6(sp),1(sp)
+	br	2f
+d111 1
+a111 1
+	movb	6(sp),(sp)
+d113 4
+a116 4
+	mov	(sp)+,r0
+	jsr	pc,pword
+	clr	r0
+	rts	pc
+d118 1
+a118 1
+	.globl	_fuiword, _fuword, _suiword, _suword
+d120 2
+a121 2
+#ifndef	NONSEPARATE
+	mov	2(sp),r1
+d123 2
+a124 2
+	jsr	pc,giword
+	rts	pc
+d128 1
+a128 1
+	mov	2(sp),r1
+d130 2
+a131 2
+	jsr	pc,gword
+	rts	pc
+d134 4
+a137 4
+#ifndef	NONSEPARATE
+	mov	PS,-(sp)
+#ifdef	UCB_NET
+	bis	$30000,PS		/ just in case; dgc; %%%%
+d140 5
+a144 5
+	mov	nofault,-(sp)
+	mov	$err,nofault
+	mfpd	(r1)
+	mov	(sp)+,r0
+	br	1f
+d148 3
+a150 3
+	mov	PS,-(sp)
+#ifdef	UCB_NET
+	bis	$30000,PS		/ just in case; dgc; %%%%
+d153 5
+a157 5
+	mov	nofault,-(sp)
+	mov	$err,nofault
+	mfpi	(r1)
+	mov	(sp)+,r0
+	br	1f
+d160 3
+a162 3
+#ifndef	NONSEPARATE
+	mov	2(sp),r1
+	mov	4(sp),r0
+d164 2
+a165 2
+	jsr	pc,piword
+	rts	pc
+d169 2
+a170 2
+	mov	2(sp),r1
+	mov	4(sp),r0
+d172 2
+a173 2
+	jsr	pc,pword
+	rts	pc
+d176 4
+a179 4
+#ifndef	NONSEPARATE
+	mov	PS,-(sp)
+#ifdef	UCB_NET
+	bis	$30000,PS		/ just in case; dgc; %%%%
+d182 5
+a186 5
+	mov	nofault,-(sp)
+	mov	$err,nofault
+	mov	r0,-(sp)
+	mtpd	(r1)
+	br	1f
+d190 3
+a192 3
+	mov	PS,-(sp)
+#ifdef	UCB_NET
+	bis	$30000,PS		/ just in case; dgc; %%%%
+d195 4
+a198 4
+	mov	nofault,-(sp)
+	mov	$err,nofault
+	mov	r0,-(sp)
+	mtpi	(r1)
+d200 3
+a202 3
+	mov	(sp)+,nofault
+	mov	(sp)+,PS
+	rts	pc
+d205 5
+a209 5
+	mov	(sp)+,nofault
+	mov	(sp)+,PS
+	tst	(sp)+
+	mov	$-1,r0
+	rts	pc
+d211 1
+a211 1
+	.globl	_copyin, _copyiin, _copyout, _copyiout
+d213 2
+a214 2
+#ifndef	NONSEPARATE
+	jsr	pc,copsu
+d216 4
+a219 4
+	mfpd	(r0)+
+	mov	(sp)+,(r1)+
+	sob	r2,1b
+	br	2f
+d223 1
+a223 1
+	jsr	pc,copsu
+d225 4
+a228 4
+	mfpi	(r0)+
+	mov	(sp)+,(r1)+
+	sob	r2,1b
+	br	2f
+d231 2
+a232 2
+#ifndef	NONSEPARATE
+	jsr	pc,copsu
+d234 4
+a237 4
+	mov	(r0)+,-(sp)
+	mtpd	(r1)+
+	sob	r2,1b
+	br	2f
+d241 1
+a241 1
+	jsr	pc,copsu
+d243 3
+a245 3
+	mov	(r0)+,-(sp)
+	mtpi	(r1)+
+	sob	r2,1b
+d247 4
+a250 4
+	mov	(sp)+,nofault
+	mov	(sp)+,r2
+	clr	r0
+	rts	pc
+d253 2
+a254 2
+#ifdef	UCB_NET
+	bis	$30000,PS		/ make sure that we copy to/from user space
+d257 10
+a266 10
+	mov	(sp)+,r0
+	mov	r2,-(sp)
+	mov	nofault,-(sp)
+	mov	r0,-(sp)
+	mov	10(sp),r0
+	mov	12(sp),r1
+	mov	14(sp),r2
+	asr	r2
+	mov	$1f,nofault
+	rts	pc
+d269 4
+a272 4
+	mov	(sp)+,nofault
+	mov	(sp)+,r2
+	mov	$-1,r0
+	rts	pc
+d274 1
+a274 1
+	.globl	_idle, _waitloc
+d276 1
+a276 1
+	mov	PS,-(sp)
+d280 2
+a281 2
+	mov	(sp)+,PS
+	rts	pc
+d287 1
+a287 1
+#if	defined(PROFILE) && !defined(ENABLE34)
+d292 4
+a295 4
+	rts	pc
+	rts	pc
+	rts	pc
+#endif	defined(PROFILE) && !defined(ENABLE34)
+d297 1
+a297 1
+	.globl	_save, _resume
+d299 8
+a306 8
+	mov	(sp)+,r1
+	mov	(sp),r0
+	mov	r2,(r0)+
+	mov	r3,(r0)+
+	mov	r4,(r0)+
+	mov	r5,(r0)+
+	mov	sp,(r0)+
+#ifdef	MENLO_KOV
+d310 1
+a310 1
+	mov	__ovno,(r0)+
+d312 6
+a317 4
+#endif
+	mov	r1,(r0)+
+	clr	r0
+	jmp	(r1)
+d320 2
+a321 2
+	mov	2(sp),r0		/ new process
+	mov	4(sp),r1		/ new stack
+d323 7
+a329 7
+	mov	r0,KDSA6		/ In new process
+	mov	(r1)+,r2
+	mov	(r1)+,r3
+	mov	(r1)+,r4
+	mov	(r1)+,r5
+	mov	(r1)+,sp
+#ifdef	MENLO_KOV
+d333 7
+a339 7
+	mov	(r1)+,r0
+	cmp	r0,__ovno
+	beq	1f
+	mov	r0,__ovno
+	asl	r0
+	mov	ova(r0), OVLY_PAR
+	mov	ovd(r0), OVLY_PDR
+d342 4
+a345 2
+#endif	MENLO_KOV
+	mov	$1,r0
+d347 1
+a347 1
+	jmp	*(r1)+
+d350 6
+a355 6
+ *	Note that in the Berkeley system, calls to spl's except splx
+ *	are substituted in line in the assembly code on machines
+ *	with the spl instruction or mtps/mfps.  Splx is done by macros
+ *	in param.h. See the makefile, :splfix.spl, :splfix.mtps,
+ *	:splfix.movb and param.h.  Calls to __spl# (_spl# in C)
+ *	are always expanded in-line and do not return the previous priority.
+d358 1
+a358 1
+#if	defined(KERN_NONSEP) && PDP11 != 34 && PDP11 != 23 && PDP11 != 24
+d360 1
+a360 1
+	.globl	_spl0, _spl1, _spl4, _spl5, _spl6, _spl7
+d362 3
+a364 3
+	movb	PS,r0
+	clrb	PS
+	rts	pc
+d366 3
+a368 3
+	movb	PS,r0
+	movb	$40, PS
+	rts	pc
+d370 3
+a372 3
+	movb	PS,r0
+	movb	$200, PS
+	rts	pc
+d374 3
+a376 3
+	movb	PS,r0
+	movb	$240, PS
+	rts	pc
+d378 3
+a380 3
+	movb	PS,r0
+	movb	$300, PS
+	rts	pc
+d382 3
+a384 3
+	movb	PS,r0
+	movb	$HIPRI, PS
+	rts	pc
+d387 3
+a389 3
+	.globl	_copy, _clear, _kdsa6
+#ifdef	CGL_RTP
+	.globl	_copyu, _wantrtp, _runrtp
+d407 3
+a409 3
+	jsr	r5, csv
+#ifdef	UCB_NET
+	mov	PS,-(sp)		/ have to lock out interrupts...
+d411 2
+a412 2
+	mov	KDSA5,-(sp)		/ save seg5
+	mov	KDSD5,-(sp)		/ save seg5
+d414 9
+a422 9
+	mov	10(r5),r3		/ count
+	beq	3f
+	mov	4(r5),KDSA5		/ point KDSA5 at source
+	mov	$RO,KDSD5		/ 64 bytes, read-only
+	mov	sp,r4
+	mov	$eintstk,sp		/ switch to intstk
+	mov	KDSA6,_kdsa6
+	mov	6(r5),KDSA6		/ point KDSA6 at destination
+	mov	$RW,KDSD6		/ 64 bytes, read-write
+d424 3
+a426 3
+#ifdef	CGL_RTP
+	tst	_wantrtp
+	bne	preempt
+d429 4
+a432 4
+	mov	$5*8192.,r0
+	mov	$6*8192.,r1
+#if	PDP11==70
+	mov	$4.,r2			/ copy one click (4*16)
+d434 1
+a434 1
+	mov	$8.,r2			/ copy one click (8*8)
+d437 9
+a445 9
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+#if	PDP11==70
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+d447 1
+a447 1
+	sob	r2,2b
+d449 13
+a461 13
+	inc	KDSA5			/ next click
+	inc	KDSA6
+	dec	r3
+	bne	1b
+	mov	_kdsa6,KDSA6
+	mov	$usize-1\<8|RW, KDSD6
+	clr	_kdsa6
+#ifndef	NOKA5
+	.globl	_seg5
+	mov	_seg5+SE_DESC, KDSD5	/ normalseg5();
+	mov	_seg5+SE_ADDR, KDSA5	/ (restore all mapping)
+#endif	NOKA5
+	mov	r4,sp			/ back to normal stack
+d463 4
+a466 4
+#ifdef	UCB_NET
+	mov	(sp)+,KDSD5		/ restore seg5
+	mov	(sp)+,KDSA5		/ restore seg5
+	mov	(sp)+,PS		/ back to normal priority
+d468 1
+a468 1
+	jmp	cret
+d470 1
+a470 1
+#ifdef	CGL_RTP
+d475 12
+a486 12
+	mov	KDSA6, r0
+	mov	_kdsa6,KDSA6		/ back to our u.
+	mov	$usize-1\<8|RW, KDSD6
+	clr	_kdsa6
+	mov	r4, sp			/ back to normal stack
+	mov	KDSA5, -(sp)
+	mov	r0, -(sp)		/ KDSA6
+#ifndef	NOKA5
+	mov	_seg5+SE_DESC, KDSD5	/ normalseg5();
+	mov	_seg5+SE_ADDR, KDSA5	/ (restore all mapping)
+#endif	NOKA5
+	jsr	pc, _runrtp		/ switch context and run rtpp
+d489 8
+a496 8
+	mov	(sp)+, r0		/ KDSA6
+	mov	(sp)+, KDSA5
+	mov	$RO,KDSD5		/ 64 bytes, read-only
+	mov	KDSA6,_kdsa6
+	mov	$eintstk, sp
+	mov	r0, KDSA6
+	mov	$RW,KDSD6		/ 64 bytes, read-write
+	br	9b
+d508 7
+a514 7
+	jsr	r5, csv
+	mov	4(r5),KDSA5		/ point KDSA5 at dst.
+	mov	$usize-1\<8.|RW,KDSD5
+	mov	$6*8192.,r0
+	mov	$5*8192.,r1
+#if	PDP11==70
+	mov	$4.*usize,r2		/ copy 4*16 bytes per click
+d516 1
+a516 1
+	mov	$8.*usize,r2		/ copy 8*8 bytes per click
+d519 9
+a527 9
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+#if	PDP11==70
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+	mov	(r0)+,(r1)+
+d529 1
+a529 1
+	sob	r2,2b
+d531 6
+a536 6
+#ifndef	NOKA5
+	mov	_seg5+SE_DESC, KDSD5	/ normalseg5();
+	mov	_seg5+SE_ADDR, KDSA5	/ (restore all mapping)
+#endif	NOKA5
+	jmp	cret
+#endif	CGL_RTP
+d549 4
+a552 4
+	jsr	r5, csv
+#ifdef	UCB_NET
+	mov	KDSA5,-(sp)		/ save seg5
+	mov	KDSD5,-(sp)		/ save seg5
+d554 4
+a557 4
+	mov	4(r5),KDSA5		/ point KDSA5 at source
+	mov	$RW,KDSD5		/ 64 bytes, read-write
+	mov	6(r5),r3		/ count
+	beq	3f
+d559 3
+a561 3
+#ifdef	CGL_RTP
+	tst	_wantrtp
+	bne	clrpreempt
+d564 2
+a565 2
+	mov	$5*8192.,r0
+	mov	$8.,r2			/ clear one click (8*8)
+d567 5
+a571 5
+	clr	(r0)+
+	clr	(r0)+
+	clr	(r0)+
+	clr	(r0)+
+	sob	r2,2b
+d573 3
+a575 3
+	inc	KDSA5			/ next click
+	dec	r3
+	bne	1b
+d577 7
+a583 7
+#ifndef	NOKA5
+	mov	_seg5+SE_DESC, KDSD5	/ normalseg5();
+	mov	_seg5+SE_ADDR, KDSA5	/ (restore all mapping)
+#endif	NOKA5
+#ifdef	UCB_NET
+	mov	(sp)+,KDSD5		/ restore seg5
+	mov	(sp)+,KDSA5		/ restore seg5
+d585 1
+a585 1
+	jmp	cret
+d587 1
+a587 1
+#ifdef	CGL_RTP
+d589 6
+a594 6
+	mov	KDSA5, -(sp)
+#ifndef	NOKA5
+	mov	_seg5+SE_DESC, KDSD5	/ normalseg5();
+	mov	_seg5+SE_ADDR, KDSA5	/ (restore all mapping)
+#endif	NOKA5
+	jsr	pc, _runrtp		/ switch context and run rtpp
+d598 4
+a601 4
+	mov	(sp)+, KDSA5
+	mov	$RW,KDSD5		/ 64 bytes, read-write
+	br	9b
+#endif	CGL_RTP
+d603 1
+a603 1
+#ifdef	UCB_NET
+d605 3
+a607 3
+ *	copyv(fromaddr,toaddr,count)
+ *	virtual_addr fromaddr,toaddr;
+ *	unsigned count;
+d609 2
+a610 2
+ *	Copy two arbitrary pieces of PDP11 virtual memory from one location
+ *	to another.  Up to 8K bytes can be copied at one time.
+d612 2
+a613 2
+ *	A PDP11 virtual address is a two word value; a 16 bit "click" that
+ *	defines the start in physical memory of an 8KB segment and an offset.
+d616 1
+a616 1
+	.globl	_copyv
+d619 1
+a619 1
+copyvsave: 0			/ saved copy of KDSA6
+d622 1
+a622 1
+_copyv:	jsr	r5,csv
+d624 4
+a627 4
+	tst	14(r5)		/* if (count == 0)		*/
+	jeq	copyvexit	/* 	return;			*/
+	cmp	$20000,14(r5)	/* if (count >= 8192)		*/
+	jlos	copyvexit	/*	return;			*/
+d629 1
+a629 1
+	mov	PS,-(sp)	/* Lock out interrupts. sigh... */
+d632 2
+a633 2
+	mov	KDSA5,-(sp)	/* save seg5			*/
+	mov	KDSD5,-(sp)
+d635 8
+a642 8
+	mov	4(r5),KDSA5	/* seg5 = fromclick		*/
+	mov	$128.-1\<8.|RO,KDSD5
+	mov	10(r5),r1	/* click = toclick		*/
+	mov	6(r5),r2	/* foff = fromoffset		*/
+	add	$5*8192.,r2	/* foff = virtual addr (page 5)	*/
+	mov	12(r5),r3	/* toff = tooffset		*/
+	add	$6*8192.,r3	/* toff = virtual addr (page 6)	*/
+	mov	14(r5),r0	/* count = count		*/
+d644 6
+a649 6
+	/* Note: the switched stack is only for use of a fatal	*/
+	/* kernel trap occurring during the copy; otherwise we	*/
+	/* might conflict with the other copy routine		*/
+	mov	sp,r4		/* switch stacks		*/
+	mov	$eintstk,sp
+	mov	KDSA6,copyvsave
+d651 2
+a652 2
+	mov	r1,KDSA6	/* seg6 = click			*/
+	mov	$128.-1\<8.|RW,KDSD6
+d654 6
+a659 6
+	/****** Finally do the copy 			   ******/
+	mov	r3,r1		/* Odd addresses or count?	*/
+	bis	r2,r1
+	bis	r0,r1
+	bit	$1,r1
+	bne	copyvodd	/* Branch if odd		*/
+d661 4
+a664 4
+	asr	r0		/* Copy a word at a time	*/
+1:	mov	(r2)+,(r3)+
+	sob	r0,1b
+	br	copyvdone
+d666 3
+a668 3
+copyvodd: movb	(r2)+,(r3)+	/* Copy a byte at a time	*/
+	sob	r0,copyvodd
+/	br	copyvdone
+d671 6
+a676 6
+	mov	copyvsave,KDSA6	/* remap in the stack		*/
+	mov	$usize-1\<8.|RW,KDSD6
+	mov	r4,sp
+	mov	(sp)+,KDSD5	/* restore seg5			*/
+	mov	(sp)+,KDSA5
+	mov	(sp)+,PS	/* unlock interrupts		*/
+d679 4
+a682 4
+	clr	r0
+	clr	r1
+	jmp	cret
+#endif	UCB_NET
+d685 1
+a685 1
+#ifndef	NONFP
+d688 1
+a688 1
+	mov	$fpdone, nofault
+d690 1
+a690 1
+	inc	fpp
+d692 1
+a692 1
+#endif	NONFP
+d697 5
+a701 5
+	mov	$cputest, nofault
+#ifdef	UNIBUS_MAP
+	bit	$20, SSR3
+	beq	septest
+	incb	_ubmap
+d706 1
+a706 1
+#ifdef	NONSEPARATE
+d710 1
+a710 1
+	bic	$1, SSR3
+d713 4
+a716 4
+	bit	$1, SSR3
+	beq	cputest
+	incb	_sep_id
+#endif	NONSEPARATE
+d722 3
+a724 3
+#ifndef	NONSEPARATE
+	tstb	_sep_id
+	beq	nonsepcpu
+d726 1
+a726 1
+	mov	$1f, nofault
+d735 1
+a735 1
+	mov	$44., _cputype
+d738 2
+a739 2
+	bis	$CCR_DCPI, *$PDP1144_CCR
+	br	cpudone
+d744 1
+a744 1
+	mov	$70., _cputype
+d746 2
+a747 2
+	bis	$CCR_DUT|CCR_DT, *$PDP1170_CCR
+	br	cpudone
+d750 5
+a754 5
+#endif	NONSEPARATE
+	tstb	_ubmap
+	beq	1f
+	mov	$24., _cputype
+	br	cpudone
+d763 3
+a765 3
+	mov	$cpudone, nofault
+	tst	PDP1160_MSR
+	mov	$60., _cputype
+d767 1
+a767 1
+	bis	$CCR_DT, *$PDP1160_CCR
+d771 2
+a772 2
+	mov	$1f, nofault
+	mov	$intstk-256., STACKLIM
+d775 1
+a775 1
+#ifdef	ENABLE34
+d779 5
+a783 5
+	tstb	_ubmap
+	bne	2f
+	mov	$2f, nofault
+	mov	32., r0
+	mov	$ENABLE_KISA0, r1
+d785 2
+a786 2
+	tst	(r1)+
+	sob	r0, 1b
+d788 5
+a792 5
+	tst	*$PDP1170_LEAR
+	tst	*$ENABLE_SSR3
+	tst	*$ENABLE_SSR4
+	incb	_enable34
+	incb	_ubmap
+d796 2
+a797 2
+	.globl	_enableon
+	.globl	_UISA, _UDSA, _KISA0, _KISA6, _KDSA1, _KDSA2, _KDSA5, _KDSA6
+d800 8
+a807 8
+_UISA:	DEC_UISA
+_UDSA:	DEC_UDSA
+_KISA0:	DEC_KISA0
+_KISA6:	DEC_KISA6
+_KDSA1:	DEC_KDSA1
+_KDSA2:	DEC_KDSA2
+_KDSA5:	DEC_KDSA5
+_KDSA6:	DEC_KDSA6
+d810 10
+a819 10
+	mov	$ENABLE_UISA, _UISA
+	mov	$ENABLE_UDSA, _UDSA
+	mov	$ENABLE_KISA0, _KISA0
+	mov	$ENABLE_KISA6, _KISA6
+	mov	$ENABLE_KDSA1, _KDSA1
+	mov	$ENABLE_KDSA2, _KDSA2
+	mov	$ENABLE_KDSA5, _KDSA5
+	mov	$ENABLE_KDSA6, _KDSA6
+	mov	$ENABLE_KDSA6, _ka6
+	jsr	pc, _enableon
+d822 1
+a822 1
+#endif	ENABLE34
+d824 2
+a825 2
+	clr	nofault
+	rts	pc
+d830 1
+a830 1
+	.globl	ldiv, lrem
+d832 2
+a833 2
+	jsr	r5,csv
+	mov	10.(r5),r3
+d835 2
+a836 2
+	bpl	1f
+	neg	r3
+d838 9
+a846 9
+	cmp	r4,8.(r5)
+	bne	hardldiv
+	mov	6.(r5),r2
+	mov	4.(r5),r1
+	bge	1f
+	neg	r1
+	neg	r2
+	sbc	r1
+	com	r4
+d848 16
+a863 16
+	mov	r4,-(sp)
+	clr	r0
+	div	r3,r0
+	mov	r0,r4			/high quotient
+	mov	r1,-(sp)		/ Stash interim result
+	mov	r1,r0
+	mov	r2,r1
+	div	r3,r0
+	bvc	1f
+	mov	(sp),r0			/ Recover interim result.
+	mov	r2,r1			/ (Regs may be clobbered by failed div.)
+	sub	r3,r0			/ this is the clever part
+	div	r3,r0
+	tst	r1
+	sxt	r1
+	add	r1,r0			/ cannot overflow!
+d865 8
+a872 8
+	tst	(sp)+			/ Pop temp off stack.
+	mov	r0,r1
+	mov	r4,r0
+	tst	(sp)+
+	bpl	9f
+	neg	r0
+	neg	r1
+	sbc	r0
+d874 1
+a874 1
+	jmp	cret
+d877 1
+a877 1
+	iot				/ ``Cannot happen''
+d883 5
+a887 5
+	jsr	r5,csv
+	mov	10.(r5),r3
+	sxt	r4
+	bpl	1f
+	neg	r3
+d889 9
+a897 9
+	cmp	r4,8.(r5)
+	bne	hardlrem
+	mov	6.(r5),r2
+	mov	4.(r5),r1
+	mov	r1,r4
+	bge	1f
+	neg	r1
+	neg	r2
+	sbc	r1
+d899 14
+a912 14
+	clr	r0
+	div	r3,r0
+	mov	r1,-(sp)		/ Stash interim result.
+	mov	r1,r0
+	mov	r2,r1
+	div	r3,r0
+	bvc	1f
+	mov	(sp),r0			/ Recover interim result.
+	mov	r2,r1			/ (Regs may be clobbered by failed div.)
+	sub	r3,r0
+	div	r3,r0
+	tst	r1
+	beq	9f
+	add	r3,r1
+d914 4
+a917 4
+	tst	(sp)+			/ Pop temp off stack.
+	tst	r4
+	bpl	9f
+	neg	r1
+d919 2
+a920 2
+	sxt	r0
+	jmp	cret
+d923 1
+a923 1
+	iot				/ ``Cannot happen''
+d925 1
+a925 1
+	.globl	lmul
+d927 16
+a942 16
+	mov	r2,-(sp)
+	mov	r3,-(sp)
+	mov	8(sp),r2
+	sxt	r1
+	sub	6(sp),r1
+	mov	12.(sp),r0
+	sxt	r3
+	sub	10.(sp),r3
+	mul	r0,r1
+	mul	r2,r3
+	add	r1,r3
+	mul	r2,r0
+	sub	r3,r0
+	mov	(sp)+,r3
+	mov	(sp)+,r2
+	rts	pc
+d944 1
+a944 1
+#ifdef	UCB_NET
+d977 1
+a977 1
+	beq	3f		/ error checking...  dgc
+d979 1
+a979 1
+	beq	3f		/ error checking ... dgc
+d995 2
+a996 2
+	.globl	csv, cret
+#ifndef	MENLO_KOV
+d998 5
+a1002 5
+	mov	r5,r0
+	mov	sp,r5
+	mov	r4,-(sp)
+	mov	r3,-(sp)
+	mov	r2,-(sp)
+d1004 1
+a1004 1
+	jsr	pc,(r0)
+d1007 7
+a1013 7
+	mov	r5,r2
+	mov	-(r2),r4
+	mov	-(r2),r3
+	mov	-(r2),r2
+	mov	r5,sp
+	mov	(sp)+,r5
+	rts	pc
+d1015 1
+a1015 1
+#else	MENLO_KOV
+d1018 1
+a1018 1
+__ovno:	0
+d1026 2
+a1027 2
+	mov	r5,r1
+	mov	sp,r5
+d1031 1
+a1031 1
+	mov	__ovno,-(sp)		/ overlay is extra (first) word in mark
+d1034 4
+a1037 4
+	mov	r4,-(sp)
+	mov	r3,-(sp)
+	mov	r2,-(sp)
+	jsr	pc,(r1)			/ jsr part is sub $2,sp
+d1040 1
+a1040 1
+	mov	r5,r2
+d1046 2
+a1047 2
+	mov	-(r2),r4
+	bne	1f			/ zero is easy
+d1050 6
+a1055 6
+	mov	-(r2),r4
+	mov	-(r2),r3
+	mov	-(r2),r2
+	mov	r5,sp
+	mov	(sp)+,r5
+	rts	pc
+d1061 2
+a1062 2
+	cmp	r4,__ovno
+	beq	2b			/ lucked out!
+d1065 2
+a1066 2
+	cmp	2(r5),$_etext
+	blos	2b
+d1069 1
+a1069 1
+	mov	PS,-(sp)		/ save PS 
+d1071 5
+a1075 5
+	mov	r4,__ovno
+	asl	r4
+	mov	ova(r4), OVLY_PAR
+	mov	ovd(r4), OVLY_PDR
+	mov	(sp)+,PS			/ restore PS, unmask interrupts
+d1077 1
+a1077 1
+	jmp	2b
+d1140 1
+a1140 1
+	mov	sp,r5
+d1145 3
+a1147 3
+	mov	__ovno,-(sp)		/ save previous overlay number
+	cmp	r0,__ovno		/ correct overlay mapped?
+	bne	2f
+d1151 3
+a1153 3
+	mov	r3,-(sp)
+	mov	r2,-(sp)
+	jsr	pc,(r1)			/ skip function's call to csv
+d1156 1
+a1156 1
+2:	mov	PS,-(sp)		/ save PS
+d1158 6
+a1163 6
+	mov	r0,__ovno		/ set new overlay number
+	asl	r0
+	mov	ova(r0), OVLY_PAR
+	mov	ovd(r0), OVLY_PDR
+	mov	(sp)+,PS		/ restore PS, unmask interrupts
+	jbr	1b
+d1165 1
+a1165 1
+#endif	MENLO_KOV
+d1171 1
+a1171 1
+	.globl	_saveregs
+d1173 2
+a1174 2
+#ifdef	KERN_NONSEP
+	movb	$RW, KISD0		/ write enable
+d1176 11
+a1186 11
+	mov	r0,300
+	mov	$302,r0
+	mov	r1,(r0)+
+	mov	r2,(r0)+
+	mov	r3,(r0)+
+	mov	r4,(r0)+
+	mov	r5,(r0)+
+	mov	sp,(r0)+
+	mov	KDSA6,(r0)+
+	mov	KDSA5,(r0)+
+	rts	pc
+d1190 3
+a1192 3
+_nulldev:		/ placed in insignificant entries in bdevsw and cdevsw
+_nullsys:		/ ignored system call
+	rts	pc
+d1194 2
+a1195 2
+	.globl	_u
+_u	= 140000
+d1197 1
+a1197 1
+usize	= 16.
+d1204 2
+a1205 2
+#ifdef	ENABLE34
+	.globl	_enable34
+d1208 1
+a1208 1
+_ubmap:	.byte 0
+d1213 3
+a1215 3
+#ifdef	KERN_NONSEP
+#ifdef	ENABLE34
+_ka6:	DEC_KISA6
+d1217 1
+a1217 1
+_ka6:	KISA6
+d1221 3
+a1223 3
+#else	KERN_NONSEP
+#ifdef	ENABLE34
+_ka6:	DEC_KDSA6
+d1225 1
+a1225 1
+_ka6:	KDSA6
+d1228 1
+a1228 1
+#endif	KERN_NONSEP
+d1232 2
+a1233 2
+intstk:	.=.+INTSTK		/ temporary stack while KDSA6 is repointed
+eintstk: .=.+2			/ initial top of intstk
+d1237 2
+a1238 2
+#ifndef	NONFP
+fpp:	.=.+2
+d1240 2
+a1241 2
+ssr:	.=.+6
+#ifdef	DISPLAY
+d1244 1
+a1244 1
+saveps:	.=.+2
+d1246 1
+a1246 1
+#if	defined(PROFILE) && !defined(ENABLE34)
+d1257 2
+a1258 2
+CCSB	= 172542
+CCSR	= 172540
+d1261 1
+a1261 1
+	.globl	_isprof, _sprof, _probsiz, _mode
+d1266 5
+a1270 5
+	mov	$1f,nofault
+	mov	$_sprof,104		/ interrupt
+	mov	$340,106		/ pri
+	mov	$100.,CCSB		/ count set = 100
+	mov	$113,CCSR		/ count down, 10kHz, repeat
+d1272 2
+a1273 2
+	clr	nofault
+	rts	pc
+d1279 16
+a1294 16
+	mov	r0,-(sp)
+	mov	PS,r0
+	ash	$-10.,r0
+	bic	$!14,r0			/ mask out all but previous mode
+	add	$1,_mode+2(r0)
+	adc	_mode(r0)
+	cmp	r0,$14			/ user
+	beq	done
+	mov	2(sp),r0		/ pc
+	asr	r0
+	asr	r0
+	bic	$140001,r0
+	cmp	r0,$_probsiz
+	blo	1f
+	inc	_outside
+	br	done
+d1296 4
+a1299 4
+	mov	$10340,PS		/ Set previous mode to supervisor
+	mfpi	40000(r0)
+	inc	(sp)
+	mtpi	40000(r0)
+d1301 2
+a1302 2
+	mov	(sp)+,r0
+	mov	$113,CCSR
+d1306 1
+a1306 1
+_mode:	.=.+16.
+d1308 1
+a1308 2
+#endif	defined(PROFILE) && !defined(ENABLE34)
+
+@
+
+
+1.2
+log
+@+ 31 оверлей ядра
+@
+text
+@d307 3
+d311 1
+d328 3
+d339 1
+d830 1
+a830 1
+	sxt	r4
+d1024 3
+d1028 2
+d1039 3
+d1045 1
+d1053 1
+d1074 1
+d1088 14
+a1101 7
+ovhndlr1:       mov     $1,r0;  br      ovhndlr
+ovhndlr2:       mov     $2,r0;  br      ovhndlr
+ovhndlr3:       mov     $3,r0;  br      ovhndlr
+ovhndlr4:       mov     $4,r0;  br      ovhndlr
+ovhndlr5:       mov     $5,r0;  br      ovhndlr
+ovhndlr6:       mov     $6,r0;  br      ovhndlr
+ovhndlr7:       mov     $7,r0;  br      ovhndlr
+d1103 25
+a1127 24
+ovhndlr8:       mov    $10,r0;  br      ovhndlr
+ovhndlr9:       mov    $11,r0;  br      ovhndlr
+ovhndlra:       mov    $12,r0;  br      ovhndlr
+ovhndlrb:       mov    $13,r0;  br      ovhndlr
+ovhndlrc:       mov    $14,r0;  br      ovhndlr
+ovhndlrd:       mov    $15,r0;  br      ovhndlr
+ovhndlre:       mov    $16,r0;  br      ovhndlr
+ovhndlrf:       mov    $17,r0;  br      ovhndlr
+ovhndlrg:       mov    $20,r0;  br      ovhndlr
+ovhndlrh:       mov    $21,r0;  br      ovhndlr
+ovhndlri:       mov    $22,r0;  br      ovhndlr
+ovhndlrj:       mov    $23,r0;  br      ovhndlr
+ovhndlrk:       mov    $24,r0;  br      ovhndlr
+ovhndlrl:       mov    $25,r0;  br      ovhndlr
+ovhndlrm:       mov    $26,r0;  br      ovhndlr
+ovhndlrn:       mov    $27,r0;  br      ovhndlr
+ovhndlro:       mov    $30,r0;  br      ovhndlr
+ovhndlrp:       mov    $31,r0;  br      ovhndlr
+ovhndlrq:       mov    $32,r0;  br      ovhndlr
+ovhndlrr:       mov    $33,r0;  br      ovhndlr
+ovhndlrs:       mov    $34,r0;  br      ovhndlr
+ovhndlrt:       mov    $35,r0;  br      ovhndlr
+ovhndlru:       mov    $36,r0;  br      ovhndlr
+ovhndlrv:       mov    $37,r0;  br      ovhndlr
+d1137 4
+d1144 3
+a1146 1
+1:	mov	r4,-(sp)
+d1151 1
+d1160 1
+@
+
+
+1.2.1.1
+log
+@Правки из САО под 1630.
+@
+text
+@a0 3
+/* $Header$
+ * $Log$
+ */
+a441 3
+#if PDP11 == 1630
+	mov     $128.-1\<8|RW, KDSD6
+#else /* 1630 */
+a442 1
+#endif /* 1630 */
+a464 3
+#if PDP11 == 1630
+	mov     $128.-1\<8|RW, KDSD6
+#else /* 1630 */
+a465 1
+#endif /* 1630 */
+d660 1
+a660 5
+#if PDP11 == 1630
+	mov     $128.-1\<8|RW, KDSD6
+#else /* 1630 */
+	mov	$usize-1\<8|RW, KDSD6
+#endif /* 1630 */
+a738 3
+#if PDP11 == 1630
+	mov     $1630., _cputype
+#else /* 1630 */
+a755 1
+#endif /* 1630 */
+d771 1
+a771 1
+	mov     $ENABLE_KISA0, r1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1062 40
+a1101 23
+	.globl	ovhndlr1, ovhndlr2, ovhndlr3, ovhndlr4 
+	.globl	ovhndlr5, ovhndlr6, ovhndlr7
+ovhndlr1:
+	mov	$1,r0
+	br	ovhndlr
+ovhndlr2:
+	mov	$2,r0
+	br	ovhndlr
+ovhndlr3:
+	mov	$3,r0
+	br	ovhndlr
+ovhndlr4:
+	mov	$4,r0
+	br	ovhndlr
+ovhndlr5:
+	mov	$5,r0
+	br	ovhndlr
+ovhndlr6:
+	mov	$6,r0
+	br	ovhndlr
+ovhndlr7:
+	mov	$7,r0
+	br	ovhndlr
+@

@@ -1,0 +1,407 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     89.06.10.11.42.21;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.06.07.18.24.42;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.05.03.21.51.21;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.03.16.12.12.46;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.05.19.29.43;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+C shell.
+@
+
+
+1.5
+log
+@Правки by sir.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static char rcsid[] = "$Header: sh.prompt.c,v 1.4 89/06/07 18:24:42 root Exp $";
+/*YESXSTR*/
+#endif
+
+/*
+ * C Shell.
+ *
+ * Print out prompt.
+ *
+ * $Log:	sh.prompt.c,v $
+ * Revision 1.4  89/06/07  18:24:42  root
+ * Исправлена перерисовка, более аккуратная работа с буфером
+ * 
+ * Revision 1.3  89/05/03  21:51:21  avg
+ * Сделана подстановка переменных в prompt.
+ * 
+ * Revision 1.2  89/03/16  12:12:46  avg
+ * Внесены изменения для экранной версии csh.
+ *
+ * Revision 1.1  89/03/05  19:29:43  avg
+ * Initial revision
+ *
+ */
+
+# include "sh.h"
+
+# define DEOF -1
+# define MAXPBUF 128
+
+extern int m_prompt;
+extern int pprompt;
+
+char   pbuf[MAXPBUF];
+
+       extern int ScrFlag;
+       extern int InitFlag;
+       extern int raw_tty;
+       extern int sc_width;
+       extern int col;
+       extern int max_col;
+
+
+int WasSignaled;
+
+putprompt()
+{
+	int     cp;
+	char    *pcp, *tcp;
+	unsigned line, j;
+	char    evno[20];
+	extern int closein;
+	extern TermInitFlag, TCQuiet;
+
+	if(closein)
+	    return;
+	col = 0;
+
+	if( !TermInitFlag ) {
+	    TCQuiet = !adrof("shistory");
+	    get_term();
+	    TCQuiet = 0;
+	}
+	if( !InitFlag && ScrFlag ) {
+	    if( ScrFlag == 0 )
+		goto PutPrompt;
+	    inihist();
+	    InitFlag = 1;
+	    max_col = sc_width;
+	}
+	if( !raw_tty && ScrFlag ) {
+	    set_mode();
+	    raw_tty = 1;
+	}
+	if( ScrFlag ) {
+		 /* ---- Reset prompt to a new line ---- */
+		if(WasSignaled)
+			resetln();
+		WasSignaled = 0;
+	}
+
+PutPrompt:
+	if( m_prompt ) {
+		tcp = pbuf;
+		for ( pcp = value("prompt"); *pcp && tcp < MAXPBUF+pbuf-1; pcp++ ) {
+			if (*pcp == HIST) {
+				line = eventno+1;
+				for( j = 0 ; line > 0 ; line /= 10 )
+					evno[j++] = (line%10) + '0';
+				while( j-- > 0 )
+					*tcp++ = evno[j];
+			} else {
+				if (*pcp == '\\' && pcp[1] == HIST )
+				       pcp++;
+				*tcp++ = *pcp;
+			}
+		}
+		*tcp = 0;
+		pprompt = pbuf;
+		for ( ;; ) {
+			cp = DgetC(1);
+			if( cp == DEOF || cp == 0 )
+				break;
+			PutChar( (char)(cp&0377) );
+			col ++;
+		}
+		pprompt = 0;
+
+	} else {                /* m_prompt == 0 */
+		 PutChar('?');
+		 PutChar(' ');
+		 col = 2;
+	}
+EXIT:
+	FlushOut();
+	if( !ScrFlag )
+	    return;
+	max_col = sc_width;
+	return;
+}
+
+PutEChar( cp )
+char cp;
+{
+	extern int lc_tty;      /* UPPER-CASE ONLY TERMINAL */
+	extern int ucase_flag;  /* \U\C\A\S\E mode is on - operates only on uc-only-ttys */
+
+	if( ucase_flag )
+		cp = (cp >= 'A' && cp <= 'Z') ? cp + 040 :
+		     ((cp > 0137 && cp < 0173) ? cp + 0140 : cp);
+	if( lc_tty )
+		cp = (cp > 0172 && cp < 0177) ? cp + 0140 : cp;
+	PutChar( (int)cp );
+}
+
+#include <time.h>
+
+/*
+ * Handle _time variable substitution
+ */
+SetCurrentTime()
+{
+	struct tm *t, *localtime();
+	long ty;
+	char *ts;
+
+	ts = value("_time");
+	if( ts == (char*)0 )
+		return;
+
+	time(&ty);
+	t = localtime(&ty);
+
+	ts[0] = '0' + t->tm_hour/10;
+	ts[1] = '0' + t->tm_hour%10;
+
+	ts[3] = '0' + t->tm_min/10;
+	ts[4] = '0' + t->tm_min%10;
+
+	ts[6] = '0' + t->tm_sec/10;
+	ts[7] = '0' + t->tm_sec%10;
+}
+
+/*
+ * Initial setting for _time variable
+ */
+InitialTimeSet()
+{
+	/*NOXSTR*/
+	setquoted("_time", "00:00:00");
+	/*YESXSTR*/
+	SetCurrentTime();
+}
+@
+
+
+1.4
+log
+@Исправлена перерисовка, более аккуратная работа с буфером
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.prompt.c,v 1.3 89/05/03 21:51:21 avg Exp $";
+d13 3
+d105 1
+a105 1
+			PutEChar( (char)(cp&0377) );
+@
+
+
+1.3
+log
+@Сделана подстановка переменных в prompt.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.prompt.c,v 1.2 89/03/16 12:12:46 avg Exp $";
+d12 4
+a15 1
+ * $Log:        sh.prompt.c,v $
+d102 1
+a102 1
+			PutChar( cp );
+d118 14
+@
+
+
+1.2
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.prompt.c,v 1.1 89/03/05 19:29:43 avg Exp $";
+d13 3
+d23 3
+d27 1
+d29 2
+a30 1
+#ifdef COMMANDEDIT
+a36 1
+#endif
+a37 3
+#ifndef COMMANDEDIT
+#define PutChar(c) putqchar(c)
+#endif
+d43 2
+a44 1
+	char    *cp;
+a51 1
+#ifdef COMMANDEDIT
+a75 1
+#endif
+d79 3
+a81 3
+		cp = value("prompt");
+		for ( ; *cp; cp++) {
+		     if (*cp == HIST) {
+d86 18
+a103 10
+					PutChar(evno[j]);
+		     } else {
+				if (*cp == '\\' && cp[1] == HIST )
+				       cp++;
+				PutChar(*cp);
+#ifdef COMMANDEDIT
+				col ++;
+#endif
+		    }
+		} /* for */
+a106 1
+#ifdef COMMANDEDIT
+a107 1
+#endif
+a109 1
+#ifdef COMMANDEDIT
+a113 1
+#endif
+d117 6
+a122 3
+#ifndef COMMANDEDIT
+PutChar( c )
+char    c;
+d124 19
+a142 1
+	write( (didfds ? 1 : SHOUT), &c, 1);
+d144 11
+a154 1
+#endif
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header$";
+d6 1
+d12 4
+a15 1
+ * $Log$
+d35 2
+d40 1
+a40 1
+	int     line, j;
+d43 1
+a43 1
+	int sprompt;
+d45 1
+a45 1
+	if( closein)
+d50 8
+a57 1
+	if( ! InitFlag &&  ScrFlag ) {
+a58 5
+	    get_term();
+	    if( ScrFlag == 0 ) {
+		reset_mode();
+		return;
+	    }
+d62 1
+a62 1
+	if( ! raw_tty && ScrFlag ) {
+d66 6
+d73 2
+a75 9
+#ifdef COMMANDEDIT
+		if( adrof("sprompt") == 0 || !ScrFlag ) {
+		     cp = value("prompt");
+		     sprompt = 0;
+		} else {
+		     cp = value("sprompt");
+		     sprompt = 1;
+		}
+#else
+a76 1
+#endif
+d79 6
+a84 32
+				 sprintf(evno,"%d", eventno + 1);
+				 for( j = 0 ; evno[j] ; j++, col++ )
+				    PutChar(evno[j]);
+		     }
+#ifdef COMMANDEDIT
+		     else if (*cp == '\'' && ScrFlag && sprompt)
+			    switch( *(++cp) ) {
+			    case 0:
+				  goto EXIT;
+			    case 'H':
+				  home();
+				  col = 0;
+				  break;
+			    case 'L':
+				  lower_left();
+				  col = 0;
+				  break;
+			    case 'D':
+				  clear_eol();  break;
+			    case 'S':
+				  so_enter(); break;
+			    case 'X':
+				  so_exit();  break;
+			    default:
+				  break;
+			    }
+#endif
+		    else {
+#ifdef COMMANDEDIT
+				if (*cp == '\\' && (cp[1] == HIST || ( cp[1] == '@@' && sprompt ) ) )
+				       cp++;
+#else
+a86 1
+#endif
+d88 1
+d90 1
+@

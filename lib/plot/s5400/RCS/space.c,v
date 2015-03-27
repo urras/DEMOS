@@ -1,0 +1,71 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     90.09.24.16.45.04;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.02.16.06.56;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.2
+log
+@???
+@
+text
+@/* $Header: space.c,v 1.1 88/02/02 16:06:56 dvolodin Exp $
+ * $Log:        space.c,v $
+ * Revision 1.1  88/02/02  16:06:56  dvolodin
+ * Initial revision
+ *
+ */
+
+extern float botx;
+extern float boty;
+extern float obotx;
+extern float oboty;
+extern float scalex;
+extern float scaley;
+extern float ScreenBox;   /* 1024. */
+
+space(x0,y0,x1,y1)
+short x0, y0, x1, y1 ;
+{
+	obotx = x0 ;
+	oboty = y0 ;
+	boty = 0. ;
+	botx = 0. ;
+	scalex = ScreenBox/(x1-x0);
+	scaley = ScreenBox/(y1-y0);
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header$
+ * $Log$
+d14 1
+d23 2
+a24 2
+	scalex = 1024./(x1-x0);
+	scaley = 1024./(y1-y0);
+@

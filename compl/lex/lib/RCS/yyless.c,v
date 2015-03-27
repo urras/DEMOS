@@ -1,0 +1,47 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.12.30.17.23.07;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Библиотека lex.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Log$
+ */
+yyless(x)
+{
+	extern char yytext[];
+	register char *lastch, *ptr;
+	extern int yyleng;
+	extern int yyprevious;
+
+	lastch = yytext+yyleng;
+	if (x>=0 && x <= yyleng)
+		ptr = x + yytext;
+	else
+		ptr = x;
+	while (lastch > ptr)
+		yyunput(*--lastch);
+	*lastch = 0;
+	if (ptr >yytext)
+		yyprevious = *--lastch;
+	yyleng = ptr-yytext;
+}
+@

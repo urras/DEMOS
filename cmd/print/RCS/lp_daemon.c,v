@@ -1,0 +1,1466 @@
+head     1.18;
+access   korotaev avg;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.18
+date     89.03.04.22.39.46;  author avg;  state Exp;
+branches ;
+next     1.17;
+
+1.17
+date     88.10.05.18.25.23;  author root;  state Exp;
+branches ;
+next     1.16;
+
+1.16
+date     88.09.22.13.19.59;  author korotaev;  state Exp;
+branches ;
+next     1.15;
+
+1.15
+date     88.04.20.18.45.05;  author avg;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     88.04.04.13.50.59;  author avg;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     88.01.30.17.18.35;  author avg;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     88.01.26.15.00.01;  author avg;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.01.18.19.13.35;  author avg;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     87.04.14.14.43.11;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     87.03.21.18.39.11;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     87.03.19.22.45.15;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     87.02.06.18.50.52;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     87.01.06.10.43.05;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.07.16.20.46.37;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.05.19.15.12.37;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.05.19.14.46.36;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.05.17.22.55.30;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.05.17.22.04.41;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Демон печати, in the flesh.
+@
+
+
+1.18
+log
+@Добавлена константа NPF - макс. число слотов в lptab.
+Сделана дополнительная проверка на одинаковые физ. имена устройств.
+Теперь lp_daemon сам сносит устаревшие и некорректные файлы в спулинге 
+печатиЭ
+@
+text
+@/*
+ * Демон печати - lp_daemon
+ * Автор: Антонов В.Г.
+ *
+ * $Log:        lp_daemon.c,v $
+ * Revision 1.17  88/10/05  18:25:23  root
+ * *** empty log message ***
+ *
+ * Revision 1.16  88/09/22  13:19:59  korotaev
+ * Исправлен PATH.
+ *
+ * Revision 1.15  88/04/20  18:45:05  avg
+ * Исправлено восстановление параметров линии по прерыванию.
+ *
+ * Revision 1.14  88/04/04  13:50:59  avg
+ * Исправлены некоторые мелкие ошибки.
+ *
+ * Revision 1.13  88/01/30  17:18:35  avg
+ * Сделан режим on-line print (без копирования файла в спулинг).
+ *
+ * Revision 1.12  88/01/26  15:00:01  avg
+ * Правлена обработка tstr и istr.
+ *
+ * Revision 1.11  88/01/18  19:13:35  avg
+ * Теперь для линий типа T ставится EXCLUSIVE USE.
+ *
+ * Revision 1.10  87/04/14  14:43:11  avg
+ * Небольшие правки в использовании setpgrp.
+ *
+ * Revision 1.9  87/03/21  18:39:11  avg
+ * Сделана запись в файл бюджетов после завершения печати.
+ * Записывается число использованных листов бумаги.
+ *
+ * Revision 1.8  87/03/19  22:45:15  avg
+ * Исправлено зацикливание на длинных именах файлов при устанвке
+ * FILE  в environ.
+ *
+ * Revision 1.7  87/02/06  18:50:52  avg
+ * Добавлен режим 'O' и исправлены повторения при наличии фильтра.
+ *
+ * Revision 1.6  87/01/06  10:43:05  avg
+ * Разделено имя физического устройсва печати и логического
+ * устройства спулинга.
+ *
+ * Revision 1.5  86/07/16  20:46:37  avg
+ * Перед TELLOP-ом не всегда закрывается lp_fd.
+ *
+ * Revision 1.4  86/05/19  15:12:37  avg
+ * Исправлена ошибка с вызовом sh для фильтра.
+ *
+ * Revision 1.3  86/05/19  14:46:36  avg
+ * Неправильно ставился PATH для печати через фильтр.
+ *
+ * Revision 1.2  86/05/17  22:55:30  avg
+ * Неправильно выдавалось сообщение 'ФАЙЛ НАПЕЧАТАН', если был указан
+ * флаг XF_WRITE.
+ * (В случае, когда не было XF_NOSPOOL).
+ *
+ * Revision 1.1  86/05/17  22:04:41  avg
+ * Initial revision
+ *
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: lp_daemon.c,v 1.17 88/10/05 18:25:23 root Exp $";
+#endif
+
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <dir.h>
+#include <signal.h>
+#include <stat.h>
+#include <sgtty.h>
+#include <utmp.h>
+#include <ediag.h>
+#include <bud.h>
+
+#include "lpspool.h"
+#include "getlp.h"
+
+#define TELLUSER        /* Tell user about offline (insetead of system op) */
+
+#define MAIL    "mail"
+#define CONSOLE "/dev/console"
+#define UTMPF   "/etc/utmp"
+#define BUDGET  "/usr/adm/budget"
+
+int bufd;          /* для работы с бюджетом */
+int buncopy;       /* число копий для бюджета, в структуре оно портиться */
+struct USER B;
+
+char    e_path[] = "PATH=/bin:/usr/local/bin:/usr/bin:/usr/ucb/bin:/usr/new/bin";
+char    x_msg[]  = "MSG=x";
+char   *m_env[] = { e_path, x_msg, NULL };
+
+#ifndef ONLINE
+#define NPF     100
+int     ldes;
+int     spd;
+int     console;
+long    lseek();
+char   *prfiles[NPF];   /* Имена заголовков уже печатаемых файлов - по lpslot-ам */
+			/* Если prfiles[i] != NULL, то эта печаталка занята */
+int     cpids[NPF];     /* Идентификаторы процессов- сыновей */
+char   *pdev[NPF];      /* имена физ. файлов устройств печати */
+
+long    nt;             /* Битовая маска проверенных АЦПУ */
+
+int alflg;
+onalrm() { signal( SIGALRM, onalrm ); alflg++; }
+int     myprocs = 0;
+
+
+/*
+ * Подпрограмма сравнения двух входов каталога
+ */
+dc( d1, d2 )
+struct direct *d1, *d2;
+{
+	return( strncmp( d1->d_name, d2->d_name, DIRSIZ ) );
+}
+
+/*
+ * Главная программа - читает каталог спулинга, файл состояния
+ * спулинга и сортирует файлы спулинга.
+ */
+main()
+{
+	struct stat stb;
+	unsigned dsize, maxdsize;
+	struct direct *d, *qd, *pd;
+	struct LP_QUEUE lpq;
+	int    wfd, nfiles;
+	register char **pf;
+	int     dpid;
+	register i;
+	extern char **environ;
+	long     time(), curtime;
+
+	/*
+	 * Проверить на наличие файла LP_LOCK
+	 */
+	if( stat( LP_LOCK, &stb ) != -1 ) {
+		curtime = time(0);
+		if( curtime - (4*3600l) > stb.st_mtime )
+			unlink(LP_LOCK);
+		else
+			exit(0);
+	}
+	setuid(1);      /* The devil himself */
+	signal( SIGINT,  SIG_IGN );
+	signal( SIGQUIT, SIG_IGN );
+	openconsole();
+	x_msg[4] = ediag( 'e', 'r' );
+	environ = m_env;
+	if( (ldes = creat( LP_LOCK, 0444 )) == -1 )
+		error( "CAN'T CREATE LOCK FILE",
+		       "не могу создать файл lock", NULL );
+
+	/*
+	 * Читать каталог спулинга
+	 */
+	if( (spd = open( LP_DIR, 0 )) == -1 )
+		error( "CAN'T READ SPOOL DIRECTORY",
+		       "не могу прочитать каталог спулинга" , NULL );
+	maxdsize = dsize = (unsigned)lseek( spd, 0L, 2 );
+	if( (d = (struct direct *)malloc( dsize )) == NULL )
+		error( "NOT ENOUGH CORE",
+		       "не хватает памяти", NULL );
+Rloop:
+	nt = 0l;
+	lseek( spd, 0L, 0 );
+	read( spd, d, dsize );
+
+	curtime = time(0);
+	for( pd = d, qd = d ; pd < (struct direct *)((char *)d + dsize) ; pd++ ) {
+		if( pd->d_ino == 0 )
+			continue;
+		if( pd->d_name[0] == 'H' ) {
+			*qd++ = *pd;
+			continue;
+		}
+
+		/*
+		 * Если файл лежит более двух дней, снести его
+		 */
+		if( stat(pd->d_name, &stb) < 0 &&
+		    curtime - (48*3600l) > stb.st_mtime )
+			unlink(pd->d_name);
+
+	}
+
+	if( qd == d ) {         /* Файлов в спулинге больше нет */
+Nofiles:
+		if( myprocs > 0 )
+			goto Sleeping;
+		unlink( LP_LOCK );
+		exit(0);
+	}
+
+	qsort( d, qd-d, sizeof(struct direct), dc );
+
+	chdir( LP_DIR );
+	for( pd = d; pd < qd ; pd++ ) {
+		for( pf = prfiles ; pf < &prfiles[NPF] ; pf++ ) {
+			if( *pf != NULL && !strcmp( *pf, pd->d_name ) ) {
+				nfiles++;
+				goto CONT;
+			}
+		}
+		if( (wfd = open( pd->d_name, 0 )) < 0 )
+			continue;
+		if( read( wfd, &lpq, sizeof lpq ) == sizeof lpq ) {
+			close(wfd);
+
+			buncopy = lpq.lpq_ncopy;
+			print(&lpq, pd->d_name);
+			nfiles++;
+		} else {
+			/*
+			 * Если H-файл с плохим размером лежит более 1 дня,
+			 * удалить его и соответствующий S-файл
+			 */
+			curtime = time(0);
+			if( stat(pd->d_name, &stb) < 0 ||
+			    curtime - (24*3600l) > stb.st_mtime ) {
+				unlink(pd->d_name);
+				pd->d_name[0] = 'S';
+				unlink(pd->d_name);
+			}
+			close(wfd);
+		}
+CONT:           ;
+	}
+	if( nfiles == 0 )
+		goto Nofiles;
+
+Sleeping:
+	signal( SIGALRM, onalrm );
+	alflg = 0;
+	alarm(30);
+	if( myprocs > 0 ) {
+		dpid = wait( &nfiles );
+		if( dpid == -1 && !alflg )
+			goto Pause;
+		alarm(0);
+
+		/* Отметить конец печати процессом dpid */
+		for( i = 0; i < NPF ; i++ ) {
+			if( cpids[i] == dpid ) {
+				cpids[i] = 0;
+				free( prfiles[i] );
+				prfiles[i] = NULL;
+				free( pdev[i] );
+				pdev[i] = NULL;
+				myprocs--;
+				break;
+			}
+		}
+	} else {
+Pause:
+		pause();
+	}
+
+	dsize = (unsigned)lseek( spd, 0L, 2 );
+	if( dsize > maxdsize ) {
+		if( (d = (struct direct *)realloc( d, dsize )) == NULL )
+			error( "NOT ENOUGH CORE",
+			       "не хватает памяти", NULL );
+		maxdsize = dsize;
+	}
+	goto Rloop;
+}
+#endif ONLINE
+
+/*
+ * Конвертировать целое в последовательность символов
+ */
+char *cvtd( i )
+register i;
+{
+	static char XX[8];
+	register char *p;
+
+	p = &XX[7];
+	*p-- = 0;
+	while ( i > 0 ) {
+		*p-- = '0' + (i%10);
+		i /= 10;
+	}
+	return( ++p );
+}
+
+struct lpmodes SLPM;    /* Saved LP modes */
+struct sgttya  STTYM;   /* Saved TTY modes */
+int            Sld;     /* Saved line discipline */
+int            lp_fd;
+
+#ifdef ONLINE
+int RemTempValid = 0;   /* Нужно ли восстанавливать параметры? */
+#endif
+
+/*
+ * Печатать файл с именем заголовка hname
+ */
+#ifdef ONLINE
+print( l, ifile )
+int              ifile;  /* Дескриптор файла */
+#else
+print( l, hname )
+char            *hname;
+#endif ONLINE
+struct LP_QUEUE *l;
+{
+	struct lpmodes LPM;
+	struct sgttya  TTYM;
+	int            ld;
+	int     npid, i;
+	int     strcnt, len, fails;
+	int     pcnt = 0;
+	long    msk;
+	char    buf[BUFSIZ], *qq;
+	struct LP_SPOOL LPS;
+	register char *p;
+#ifndef ONLINE
+	int     ifile;
+
+	/* Проверить занятость печ. у-ва */
+	msk = 1l<<(l->lpq_slot);
+	if( nt & msk )
+		return;
+	if( prfiles[ l->lpq_slot ] != NULL )
+		return;
+	for( i = 0 ; i < NPF ; i++ ) {
+		if( pdev[i] != NULL && !strcmp(pdev, l->lpq_dev) )
+			return;
+	}
+#endif ONLINE
+
+/* LPC_REMOTE ????? */
+	if( l->lpq_class == LPC_LOCAL ) {
+		if( (lp_fd = open( l->lpq_dev, 0 )) == -1 )
+			goto TELLOP;
+		ioctl( lp_fd, LPIOGETP, &SLPM );
+		close( lp_fd );
+		lp_fd = -1;
+		if( (SLPM.lpm_flags & (LPON|LPOPEN)) != LPON )
+			goto TELLOP;
+	}
+
+#ifndef ONLINE
+	/* Открыть файл печати */
+	if( l->lpq_xflags & XF_NOSPOOL ) {
+		if( (ifile = open( l->lpq_filename, 0 )) == -1 ) {
+		       char pe[200], pr[200];
+
+		       strcpy( pe, "Can't read your file " );
+		       strcpy( pr, "Не могу прочитать Ваш файл " );
+		       strcat( pe, l->lpq_filename );
+		       strcat( pr, l->lpq_filename );
+		       message( pe, pr, l );
+		       goto EXIT;
+	       }
+	} else {
+		if( (ifile = open( l->lpq_spoolfile, 0 )) == -1 ) {
+			error( "CAN'T READ SPOOL FILE ",
+			       "не могу прочитать файл спулинга ",
+				 l->lpq_spoolfile );
+		  EXIT:
+			close( lp_fd );
+			unlink( hname );
+			return;
+	       }
+	}
+#endif ONLINE
+
+	/* Открыть печатающее у-во */
+Try_open:
+	if( (lp_fd = open( l->lpq_dev, 1 )) == -1 ) {
+		if( l->lpq_class == LPC_TTY ) {
+			/* May be just if EXCL use raised up */
+			sleep(2);
+			goto Try_open;
+		}
+TELLOP:
+#ifdef ONLINE
+		error( "can't open device %s (busy?)",
+		       "не могу открыть устройство %s (занято?)", l->lpq_dev );
+#else
+		nt |= msk;
+		tellop( l );
+		if( lp_fd > 0 )
+			close( lp_fd );
+		return;
+#endif ONLINE
+	}
+	if( l->lpq_class == LPC_TTY )
+		ioctl(lp_fd, TIOCEXCL, NULL);
+
+/*---- Печатающее у-во свободно и включено, файл можно печатать ! ----*/
+
+	fails = 0;
+#ifndef ONLINE
+	nt |= msk;
+	/* Создать новый процесс */
+	if( npid = fork() ) {
+/* OLD PROCESS */
+		close( lp_fd );
+		close( ifile );
+		if( npid == -1 )
+			return;         /* No more processes - try again */
+		setpgrp( npid, npid );
+		cpids[l->lpq_slot] = npid;
+		strcpy( prfiles[l->lpq_slot] = (char *)malloc(strlen(hname) + 1), hname );
+		strcpy( pdev[l->lpq_slot] = (char *)malloc(strlen(l->lpq_dev)+1), l->lpq_dev);
+		myprocs++;
+		return;
+	}
+/* NEW PROCESS */
+#endif ONLINE
+
+	/* Установить параметры АЦПУ */
+	switch( l->lpq_class ) {
+	    case LPC_LOCAL:
+		LPM.lpm_flags  = l->lpq_flags;
+		LPM.lpm_maxcol = l->lpq_width;
+		LPM.lpm_ejline = l->lpq_length;
+		ioctl( lp_fd, LPIOSETP, &LPM );
+		break;
+
+	    case LPC_TTY:
+		ioctl( lp_fd, TIOCGETD, &Sld );
+		ioctl( lp_fd, TIOCGETA, &STTYM );
+		TTYM.sg_ispeed = TTYM.sg_ospeed = l->lpq_speed;
+		TTYM.sg_erase  = TTYM.sg_kill   = TTYM.sg_intrc  = 0377;
+		TTYM.sg_quitc  = TTYM.sg_eofc   = TTYM.sg_brkc   = 0377;
+		TTYM.sg_suspc  = TTYM.sg_dsuspc = TTYM.sg_rprntc = 0377;
+		TTYM.sg_flushc = TTYM.sg_werasc = TTYM.sg_lnextc = 0377;
+		TTYM.sg_width  = TTYM.sg_length = 0;
+		TTYM.sg_flags  = l->lpq_flags;
+		TTYM.sg_nldly  = l->lpq_nldly;
+		TTYM.sg_crdly  = l->lpq_crdly;
+		TTYM.sg_htdly  = l->lpq_htdly;
+		TTYM.sg_vtdly  = l->lpq_vtdly;
+		TTYM.sg_local  = l->lpq_local;
+		TTYM.sg_startc = l->lpq_startc;
+		TTYM.sg_stopc  = l->lpq_stopc;
+		ld = l->lpq_ldisc;
+		ioctl( lp_fd, TIOCSETD, &ld );
+		ioctl( lp_fd, TIOCSETA, &TTYM );
+		break;
+
+	    case LPC_OTHER:
+		break;  /* Not handle all of parameters */
+
+	    case LPC_REMOTE:
+		/* Not known yet */
+	    ;
+	}
+
+	LPS.lps_pages = 0;
+#ifndef ONLINE
+	strcpy( LPS.lps_file, hname );
+#else
+	RemTempValid = 1;
+#endif
+	pcnt = 0;
+Repeat:
+
+	/*
+	 * Вывести строку начальной установки
+	 */
+	if( i = strlen(l->lpq_istr) )
+		write(lp_fd, l->lpq_istr, i);
+
+	/* Если есть фильтр, запустить его */
+	if( l->lpq_filter[0] != '\0' ) {
+		static char e_type[] = "TYPE=\0xxxxxxxxxxxxxxxxxxxxxx";
+		static char e_dev[]  = "DEV=\0xxxxxxxxxxxxxxxxxxxxxxx";
+		static char e_width[]= "WIDTH=\0xxxxxxxx";
+		static char e_leng[] = "LENGTH=\0xxxxxxx";
+		static char e_msg[]  = "MSG=e";
+		static char e_user[] = "USER=\0xxxxxxxxxxxxxxxxx";
+		static char e_slot[] = "SLOT=\0xxxx";
+		static char e_file[] = "FILE=\0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+		static char *nenv[] = { e_type, e_dev, e_width, e_leng, e_user, e_path, e_file, NULL };
+
+		e_msg[4] = ediag('e', 'r');
+		strcpy( &e_type[5], l->lpq_type );
+		strcpy( &e_dev[4],  l->lpq_dev );
+		strcpy( &e_width[6], cvtd( l->lpq_width ) );
+		strcpy( &e_leng[7],  cvtd( l->lpq_length ) );
+		strcpy( &e_user[5], l->lpq_user );
+		strcpy( &e_slot[5],  cvtd( l->lpq_slot) );
+		if( strlen( l->lpq_filename ) > 30 ) {
+			strcat( e_file, "?" );
+			p = rindex( qq = l->lpq_filename, '/' );
+			if( p == NULL ) {
+				qq = &(qq[strlen(qq)-20]);
+			} else  {
+				while( strlen(p) < 15 )
+					while( --p > qq && *p != '/' );
+				qq = p;
+			}
+			strcat( e_file, qq );
+		} else
+			strcpy( &e_file[5], l->lpq_filename );
+
+Again:
+		if( !(npid = fork()) ) {
+			dup2(ifile, 0);
+			dup2(lp_fd, 1);
+#ifndef ONLINE
+			dup2(console, 2);
+#endif
+			for( len = 3 ; len < 20 ; len++ )
+				close( len );
+			execle( "/bin/sh", "sh", "-c", l->lpq_filter, 0, nenv );
+			error(
+#ifdef ONLINE
+			       "can not exec /bin/sh",
+#else
+			       "CAN NOT EXEC /BIN/SH",
+#endif
+			       "не могу запустить /bin/sh", NULL );
+		}
+		if( npid == -1 ) {
+			sleep( 30 );
+			goto Again;
+		}
+#ifndef ONLINE
+		setpgrp(npid, npid);
+		if( pcnt == 0 ) {
+			lseek( ldes, (long)(sizeof(struct LP_SPOOL)*(l->lpq_slot)), 0 );
+			LPS.lps_pid = npid;
+			write( ldes, &LPS, sizeof LPS );
+		}
+#endif ONLINE
+		wait( &len );
+		if( len )
+			fails++ ; /* Облом на печати */
+		pcnt++;
+	} else {
+		int     len, strcnt = 0;
+
+#ifndef ONLINE
+		if( pcnt == 0 ) {
+			lseek( ldes, (long)(sizeof(struct LP_SPOOL)*(l->lpq_slot)), 0 );
+			LPS.lps_pid = getpid();
+			write( ldes, &LPS, sizeof LPS );
+		}
+#endif ONLINE
+
+		/* Просто копировать файл на вывод */
+
+		while( (len = read( ifile, buf, sizeof buf )) > 0 ) {
+			p = buf;
+			while( p < &buf[len] ) {
+				if( *p == '\n' ) {
+					if( ++strcnt == l->lpq_length ) {
+						strcnt = 0;
+						goto Newp;
+					}
+				} else if ( *p == '\f' ) {
+
+				  Newp:
+					pcnt++;
+#ifndef ONLINE
+					lseek( ldes, (long)(
+					       sizeof(struct LP_SPOOL)*(l->lpq_slot)+
+						 ((char *)&(LPS.lps_pages) - (char *)&LPS) ),
+						0 );
+					write( ldes, &pcnt, sizeof pcnt );
+#endif ONLINE
+				}
+				p++;
+			}
+			if( write( lp_fd, buf, len ) != len )
+				fails++;
+		}
+	}
+
+	/*
+	 * Вывести строку сброса
+	 */
+	if( i = strlen(l->lpq_tstr) )
+		write(lp_fd, l->lpq_tstr, i);
+
+#ifndef ONLINE
+	/* Еще одна копия */
+
+	if( --(l->lpq_ncopy) > 0 ) {
+		lseek( ifile, 0L, 0 );
+		if( strcnt < l->lpq_length ) {
+			pcnt++;
+			write( lp_fd, "\f", 1 );
+		}
+		lseek( ldes, (long)(
+		     sizeof(struct LP_SPOOL)*(l->lpq_slot)+
+			 ((char *)&(LPS.lps_pages) - (char *)&LPS) ),
+			0 );
+		write( ldes, &pcnt, sizeof pcnt );
+		goto Repeat;
+	}
+
+	unlink( hname );
+	close( ifile );
+	if( !(l->lpq_xflags & XF_NOSPOOL) )
+		unlink( l->lpq_spoolfile );
+#else
+	close( ifile );
+#endif ONLINE
+
+	/*
+	 * Восстановить режимы АЦПУ/линии
+	 */
+	switch( l->lpq_class ) {
+	    case LPC_LOCAL:
+		ioctl( lp_fd, LPIOSETP, &SLPM );
+		break;
+
+	    case LPC_TTY:
+		sleep(1);       /* For flushing output queue */
+		ioctl( lp_fd, TIOCSETP, &TTYM );
+		ioctl( lp_fd, TIOCSETD, &Sld );
+		ioctl( lp_fd, TIOCSETA, &STTYM );
+		ioctl( lp_fd, TIOCNXCL, NULL );
+		break;
+
+	    case LPC_REMOTE:
+		/* Not known yet */
+		;
+	}
+	close( lp_fd );
+#ifndef ONLINE
+	lseek( ldes, (long)(sizeof(struct LP_SPOOL)*(l->lpq_slot)), 0 );
+	LPS.lps_pid   = 0;
+	LPS.lps_pages = 0;
+	LPS.lps_file[0] = 0;
+	write( ldes, &LPS, sizeof LPS );
+	close( ldes );
+#else
+	RemTempValid = 0;
+#endif ONLINE
+
+	/* --- OK, файл напечатан, сообщить пользователю  ---
+	 *
+	 * Запись использованных листов бумаги в бюджет
+	 */
+
+	if( (bufd = open(BUDGET,2)) != -1 ) {
+		while( read(bufd, &B, sizeof B) == (sizeof B) ) {
+			if( !strcmp(l->lpq_user, B.B_name) ) {
+				lseek(bufd, -((long) sizeof B), 1);
+				B.B_lpused += buncopy * l->lpq_npages;
+				write(bufd, &B, sizeof B);
+				break;
+			}
+		}
+		close(bufd);
+	}
+
+#ifndef ONLINE
+	if( l->lpq_xflags & (XF_WRITE|XF_MAIL) ) {
+		char   pr[200], pe[200], *f;
+
+		/* Имитировать окончание процесса */
+		if( (len = fork()) && len != -1 ) _exit(0);
+
+		strcpy( pr, fails? "ПРИ ПЕЧАТИ ФАЙЛА "
+				 : "Файл " );
+		strcpy( pe, fails? "PRINTING FILE "
+				 : "File " );
+		strcat( pr, l->lpq_filename );
+		strcat( pe, l->lpq_filename );
+		strcat( pr, fails? " БЫЛИ ОШИБКИ."
+				 : " напечатан." );
+		strcat( pe, fails? " FAILS."
+				 : " was printed successfully." );
+
+		message( pe, pr, l );
+	}
+#endif ONLINE
+	_exit(0);
+}
+
+#ifndef ONLINE
+/*
+ * Послать сообщение пользователю
+ */
+message( pe, pr, l )
+char    *pr, *pe;
+struct LP_QUEUE *l;
+{
+	int     utmpf = -1;
+	struct utmp Utmp;
+	int         tty;
+	static char tname[32] = "/dev/";
+	int         len;
+	char       *f;
+	int         ppd[2];
+	long        Xtime;
+	struct sgttyb TTYM;
+	int         ed = 0;
+
+	if( l->lpq_xflags & XF_WRITE ) {
+
+		/* Проверить, работает ли пользователь */
+
+		if( (utmpf = open( UTMPF, 0 )) == -1 )
+			goto Mailing;
+		len = 0;
+		while( read( utmpf, &Utmp, sizeof Utmp ) == sizeof Utmp ) {
+			if( !strncmp( Utmp.ut_name, l->lpq_user, 8 ) ) {
+
+				/* Write to user */
+				strncpy( &tname[5], Utmp.ut_line, 8 );
+				if( (tty = open( tname, 1 )) != -1 ) {
+					ioctl( tty, TIOCGETP, &TTYM );
+					ed = !(l->lpq_xflags & XF_RUS);
+					if( !(TTYM.sg_flags & CYRILL ) )
+						ed = 1;
+					f = ed ? "\n\rMESSAGE FROM LP_DAEMON:\007\n\r"
+					       : "\n\rСООБЩЕНИЕ ОТ LP_DAEMON:\007\n\r";
+					alarm(45);
+					if( write(tty, f, strlen(f)) == -1 )
+						goto Wdone;
+					f = ed ? pe : pr;
+					if( write(tty, f, strlen(f)) == -1 )
+						goto Wdone;
+					write( tty, "\n\r", 3 );
+				Wdone:
+					close ( tty );
+
+					len++;
+				}
+			}
+		}
+		if( len > 0 )
+			return;
+	}
+Mailing:
+	if ( utmpf != -1 )
+		close( utmpf );
+	if( l->lpq_xflags & XF_MAIL ) {
+		f = (l->lpq_xflags & XF_RUS) ? pr : pe;
+		pipe( ppd );
+		if( fork() == 0 ) {
+			dup2( ppd[0], 0 );
+			dup2( console, 1 );
+			dup2( console, 2 );
+			close( ppd[0] );
+			close( ppd[1] );
+			execlp( MAIL, MAIL, l->lpq_user, 0 );
+			error( "CAN'T EXEC MAIL",
+			       "не могу запустить mail", NULL );
+		}
+		close( ppd[0] );
+		write( ppd[1], f, strlen( f ) );
+		write( ppd[1], "\n\n", 2 );
+		close( ppd[1] );
+		wait( &len );
+	}
+}
+
+/*
+ * Открыть консольный терминал
+ */
+openconsole()
+{
+	if( (console = open( CONSOLE, 1 )) == -1 )
+		dup2( console, 2 );
+}
+
+/*
+ * Выдать сообщение об ошибке на консольный терминал
+ */
+error( e, r, a )
+char *e, *r, *a;
+{
+	struct sgttyb X;
+	char *p;
+
+	_ediag = 1;
+	if( ioctl( console, TIOCGETP, &X ) != -1 && (X.sg_flags&CYRILL) )
+		_ediag = 0;
+	p = ediag(e,r);
+	write( console, "LP_DAEMON: ", 11 );
+	write( console, p, strlen(p) );
+	if( a != NULL )
+		write( console, a, strlen(a) );
+	write( console, "\r\n", 2 );
+	unlink( LP_LOCK );
+	_exit(1);
+}
+
+/*
+ * Выдать сообщение о неготовности АЦПУ
+ */
+tellop( l )
+struct LP_QUEUE *l;
+{
+#ifdef TELLUSER
+	char eb[90], rb[90];
+	static long tutime = 0l, tt;
+	int xfs;
+	long time();
+
+	time(&tt);
+	if( tt < tutime + 120l )
+		return;
+	strcpy( eb, l->lpq_dev );
+	strcpy( rb, l->lpq_dev );
+	strcat( eb, ": offline, switch it on" );
+	strcat( rb, ": выключено, включите!" );
+
+	xfs = l->lpq_xflags;
+	l->lpq_xflags &= ~(XF_MAIL|XF_WRITE);
+	l->lpq_xflags |= XF_WRITE;
+	message(eb, rb, l);
+	l->lpq_xflags = xfs;
+	tutime = tt;
+#else
+	char  b[40], *q, *a = l->lpq_dev;
+	struct sgttyb X;
+	char *p;
+
+	_ediag = 1;
+	if( ioctl( console, TIOCGETP, &X ) != -1 && (X.sg_flags&CYRILL) )
+		_ediag = 0;
+	p = ediag( ": OFFLINE, SWITCH IT ON\n\r",
+		   ": выключено, включите его\r\n");
+	q = a;
+	if( _ediag ) {
+		q = b;
+		while( *a ) {
+			*q++ = ('a'<=*a && *a<='z') ? *a-040 : *a;
+			a++;
+		}
+		*q = 0;
+		q = b;
+	}
+	write( console, q, strlen(q) );
+	write( console, p, strlen(p) );
+#endif TELLUSER
+}
+#endif ONLINE
+
+#ifdef ONLINE
+/*
+ * Восстановить режимы АЦПУ/линии
+ */
+remtemp()
+{
+	extern struct LP_QUEUE lpq;
+	register i;
+
+	if( !RemTempValid )
+		return;
+	/*
+	 * Вывести строку сброса
+	 */
+	if( i = strlen(lpq.lpq_tstr) )
+		write(lp_fd, lpq.lpq_tstr, i);
+	switch( lpq.lpq_class ) {
+	    case LPC_LOCAL:
+		ioctl( lp_fd, LPIOSETP, &SLPM );
+		break;
+
+	    case LPC_TTY:
+		ioctl( lp_fd, TIOCSETD, &Sld );
+		ioctl( lp_fd, TIOCSETA, &STTYM );
+		ioctl( lp_fd, TIOCNXCL, NULL );
+		break;
+	}
+	close(lp_fd);
+	exit(1);
+}
+#endif ONLINE
+@
+
+
+1.17
+log
+@*** empty log message ***
+@
+text
+@d6 3
+d65 1
+a65 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.16 88/09/22 13:19:59 korotaev Exp $";
+d97 1
+d102 1
+a102 1
+char   *prfiles[20];    /* Имена заголовков уже печатаемых файлов - по lpslot-ам */
+d104 2
+a105 1
+int     cpids[20];      /* Идентификаторы процессов- сыновей */
+d138 1
+d143 7
+a149 2
+	if( stat( LP_LOCK, &stb ) != -1 )
+		exit(0);
+d175 5
+a179 2
+	for( pd = d, qd = d ; pd < (struct direct *)((char *)d + dsize) ; pd++ )
+		if( pd->d_ino != 0 && pd->d_name[0] == 'H' )
+d181 2
+d184 9
+a203 1
+	nfiles++;
+d205 1
+a205 1
+		for( pf = prfiles ; pf < &prfiles[20] ; pf++ ) {
+d214 2
+d218 14
+a232 2
+		nfiles++;
+		close( wfd );
+d249 1
+a249 1
+		for( i = 0; i < 20 ; i++ ) {
+d254 2
+d334 4
+d415 1
+@
+
+
+1.16
+log
+@Исправлен PATH.
+@
+text
+@d5 4
+a8 1
+ * $Log:	lp_daemon.c,v $
+d11 1
+a11 1
+ * 
+d62 1
+a62 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.15 88/04/20 18:45:05 avg Exp $";
+d83 1
+a83 1
+#define BUJET   "/usr/adm/budget"
+d85 2
+a86 2
+int yfd;                /* для работы с бюджетом  */
+int yncopy;             /* число копий для бюджета, в структуре оно портиться */
+d190 1
+a190 1
+			yncopy=lpq.lpq_ncopy;    /* запомнить число копий */
+d602 4
+a605 2
+	/* --- OK, файл напечатан, сообщить пользователю  --- */
+/* запись использованных листов бумаги в бюджет  */
+d607 6
+a612 6
+	if((yfd=open(BUJET,2)) != -1) {
+		while( read(yfd,&B, sizeof B) == (sizeof B)) {
+			if(!strcmp(l->lpq_user,B.B_name)) {
+				lseek(yfd,( -((long) sizeof B)), 1);
+				B.B_lpused += yncopy*l->lpq_npages;
+				write(yfd,&B,(sizeof B));
+d616 1
+a616 1
+		close(yfd);
+a617 1
+/* end работы с бюджетом  */
+@
+
+
+1.15
+log
+@Исправлено восстановление параметров линии по прерыванию.
+@
+text
+@d5 4
+a8 1
+ * $Log:        lp_daemon.c,v $
+d59 1
+a59 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.14 88/04/04 13:50:59 avg Exp $";
+d86 1
+a86 1
+char    e_path[] = "PATH=/usr/ucb:/bin:/usr/bin";
+@
+
+
+1.14
+log
+@Исправлены некоторые мелкие ошибки.
+@
+text
+@d6 3
+d56 1
+a56 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.13 88/01/30 17:18:35 avg Exp $";
+d253 4
+d364 1
+a364 2
+		strcpy( prfiles[l->lpq_slot] = (char *)malloc(strlen(hname) + 1),
+			hname );
+d413 2
+d592 2
+d805 1
+d807 7
+@
+
+
+1.13
+log
+@Сделан режим on-line print (без копирования файла в спулинг).
+@
+text
+@d6 3
+d53 1
+a53 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.12 88/01/26 15:00:01 avg Exp $";
+d69 2
+d95 2
+a96 1
+onalrm() { signal( SIGALRM, onalrm ); }
+d182 1
+a182 1
+			print( &lpq, pd->d_name );
+d193 1
+d197 2
+d211 2
+a212 1
+	} else
+d214 1
+d245 5
+d262 3
+a264 4
+	struct lpmodes LPM, SLPM;
+	struct sgttyb1 TTYM, STTYM;
+	int            ld, Sld;
+	int     lp_fd;
+d334 1
+a334 1
+		tellop( l->lpq_dev );
+d345 1
+a347 2
+#endif
+	fails = 0;
+a350 3
+#ifndef ONLINE
+		setpgrp( npid, npid );
+#endif
+d355 1
+a355 1
+#ifndef ONLINE
+a359 1
+#endif ONLINE
+d363 1
+d474 1
+d662 12
+a673 10
+					if( fork()==0 ) {
+						f = ed ? "\nMESSAGE FROM LP_DAEMON:\007\n\n"
+						       : "\nСООБЩЕНИЕ ОТ LP_DAEMON:\007\n\n";
+						write( tty, f, strlen(f) );
+						f = ed ? pe : pr;
+						write( tty, f, strlen(f) );
+						write( tty, "\n\n\n", 3 );
+						_exit(0);
+					}
+					close ( tty );  /* Not wait */
+d739 2
+a740 2
+tellop( a )
+char *a;
+d742 22
+a763 1
+	char  b[40], *q;
+d784 25
+@
+
+
+1.12
+log
+@Правлена обработка tstr и istr.
+@
+text
+@d6 3
+d50 1
+a50 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.11 88/01/18 19:13:35 avg Exp $";
+d79 1
+d93 1
+d214 1
+d237 4
+d242 2
+a244 1
+char            *hname;
+d249 1
+a249 1
+	int     lp_fd, ifile;
+d257 2
+d266 2
+d279 1
+d303 1
+d314 4
+d323 1
+d330 1
+d332 1
+d337 1
+d339 1
+d344 1
+d349 1
+d394 1
+d396 1
+d444 1
+d446 1
+d450 6
+a455 1
+			error( "CANNOT EXEC /BIN/SH",
+d462 1
+d468 1
+d476 1
+d482 1
+d498 1
+d504 1
+d519 1
+d540 3
+d565 1
+d572 1
+d590 1
+d610 1
+d614 1
+d750 1
+@
+
+
+1.11
+log
+@Теперь для линий типа T ставится EXCLUSIVE USE.
+@
+text
+@d6 3
+d47 1
+a47 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.10 87/04/14 14:43:11 avg Exp $";
+d239 1
+a239 1
+	int     npid;
+d370 6
+d435 1
+a435 1
+		int     len, strcnt;
+d470 6
+d481 1
+a482 1
+			pcnt++;
+@
+
+
+1.10
+log
+@Небольшие правки в использовании setpgrp.
+@
+text
+@d6 3
+d44 1
+a44 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.9 87/03/21 18:39:11 avg Exp $";
+d286 1
+d288 5
+d300 2
+d491 2
+d495 1
+@
+
+
+1.9
+log
+@Сделана запись в файл бюджетов после завершения печати.
+Записывается число использованных листов бумаги.
+@
+text
+@d6 4
+d41 1
+a41 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.8 87/03/19 22:45:15 avg Exp $";
+d299 1
+a310 2
+
+	setpgrp( 0, getpid() );
+@
+
+
+1.8
+log
+@Исправлено зацикливание на длинных именах файлов при устанвке
+FILE  в environ.
+@
+text
+@d6 4
+d37 1
+a37 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.7 87/02/06 18:50:52 avg Exp $";
+d48 1
+d56 1
+d58 4
+d159 2
+a160 1
+		if( read( wfd, &lpq, sizeof lpq ) == sizeof lpq )
+d162 1
+d494 14
+@
+
+
+1.7
+log
+@Добавлен режим 'O' и исправлены повторения при наличии фильтра.
+@
+text
+@d6 3
+d33 1
+a33 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.6 87/01/06 10:43:05 avg Exp $";
+d295 2
+d363 1
+a363 1
+			p = rindex( l->lpq_filename, '/' );
+d365 1
+a365 1
+				qq = &(l->lpq_filename[strlen(l->lpq_filename)-20]);
+d367 2
+a369 4
+				while( strlen(p) < 14 ) {
+					qq = p;
+					p = rindex( p-1, '/' );
+				}
+@
+
+
+1.6
+log
+@Разделено имя физического устройсва печати и логического
+устройства спулинга.
+@
+text
+@d6 4
+d30 1
+a30 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.5 86/07/16 20:46:37 avg Exp $";
+d218 1
+a218 1
+	char    buf[BUFSIZ];
+d323 3
+d345 1
+d347 1
+a347 2
+		static
+		char *nenv[] = { e_type, e_dev, e_width, e_leng, e_user, e_path, NULL };
+d356 15
+a429 1
+		lseek( ifile, 0L, 0 );
+d435 1
+@
+
+
+1.5
+log
+@Перед TELLOP-ом не всегда закрывается lp_fd.
+@
+text
+@d6 3
+d26 1
+a26 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.4 86/05/19 15:12:37 avg Exp $";
+d226 1
+a226 1
+		if( (lp_fd = open( l->lpq_printer, 0 )) == -1 )
+d260 1
+a260 1
+	if( (lp_fd = open( l->lpq_printer, 1 )) == -1 ) {
+d263 1
+a263 1
+		tellop( l->lpq_printer );
+d344 1
+a344 1
+		strcpy( &e_dev[4],  l->lpq_printer );
+@
+
+
+1.4
+log
+@Исправлена ошибка с вызовом sh для фильтра.
+@
+text
+@d6 3
+d23 1
+a23 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.3 86/05/19 14:46:36 avg Exp $";
+d227 1
+d261 2
+@
+
+
+1.3
+log
+@Неправильно ставился PATH для печати через фильтр.
+@
+text
+@d6 3
+d20 1
+a20 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.2 86/05/17 22:55:30 avg Exp $";
+d348 1
+a348 1
+			execle( "/bin/sh", "-c", l->lpq_filter, 0, nenv );
+@
+
+
+1.2
+log
+@Неправильно выдавалось сообщение 'ФАЙЛ НАПЕЧАТАН', если был указан
+флаг XF_WRITE.
+(В случае, когда не было XF_NOSPOOL).
+@
+text
+@d6 5
+d17 1
+a17 1
+static char rcsid[] = "$Header: lp_daemon.c,v 1.1 86/05/17 22:04:41 avg Exp $";
+d36 1
+a36 1
+char    e_path[] = "/usr/ucb:/bin:/usr/bin";
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 4
+a8 1
+ * $Log$
+d12 1
+a12 1
+static char rcsid[] = "$Header$";
+a446 2
+		f = (l->lpq_flags & XF_NOSPOOL) ? l->lpq_filename
+						: l->lpq_spoolfile;
+d451 2
+a452 2
+		strcat( pr, f );
+		strcat( pe, f );
+@

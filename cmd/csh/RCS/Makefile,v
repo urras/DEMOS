@@ -1,0 +1,1208 @@
+head     1.12;
+access   ;
+symbols  BSD29:1.1.2.9 SEPID:1 VAX:2;
+locks    ;
+comment  @#	@;
+
+
+1.12
+date     90.11.12.01.46.09;  author root;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     90.09.19.16.50.56;  author root;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.11.23.16.02.23;  author abs;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.05.06.17.02.11;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.03.16.11.55.53;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.11.17.16.40.33;  author ache;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.09.29.22.28.07;  author dvolodin;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     87.07.06.22.31.57;  author alex;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.09.28.18.57.02;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.22.21.53.11;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.07.22.20.00.23;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.13.47;  author dmitry;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.05.12.20.43.06;  author dmitry;  state Exp;
+branches 1.0.1.1 1.0.2.1;
+next     0.0;
+
+0.0
+date     86.04.20.22.26.08;  author root;  state Exp;
+branches 0.0.0.1 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.0.1
+date     86.06.01.20.08.10;  author root;  state Exp;
+branches ;
+next     ;
+
+0.0.1.0
+date     86.04.20.22.29.33;  author root;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.04.20.22.27.22;  author root;  state Exp;
+branches ;
+next     ;
+
+1.0.1.1
+date     86.05.15.16.41.33;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+1.0.2.1
+date     86.05.15.16.46.43;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Makefile
+@
+
+
+1.12
+log
+@separate makefile
+@
+text
+@#
+#       $Header: Makefile,v 1.11 90/09/19 16:50:56 root Exp $
+#
+# C Shell с управлением процессами
+# Makefile для оверлейной версии
+#
+#       $Log:	Makefile,v $
+#	Revision 1.11  90/09/19  16:50:56  root
+#	???
+#	
+#	Revision 1.10  89/11/23  16:02:23  abs
+#	флаг -DFUNC_ON для включения механизма функций в выражениях.
+#	
+#       Revision 1.9  89/05/06  17:02:11  avg
+#       Теперь perror вместе со всеми текстами засовывается в оверлейный сегмент.
+#
+#       Revision 1.8  89/03/16  11:55:53  avg
+#       Внесены изменения для экранной версии csh.
+#
+#       Revision 1.7  88/11/17  16:40:33  ache
+#       Сборка с новым механизмом сигналов и новым загрузчиком.
+#
+#       Revision 1.6  88/09/29  22:28:07  dvolodin
+#       Поскольку теперь препроцессор работает цивилизованно,
+#       фокусы с sedом не нужны.
+#
+#       Revision 1.5  87/07/06  22:31:57  alex
+#       Исправлены ключи для CPP
+#
+#       Revision 1.4  86/09/28  18:57:02  avg
+#       Теперь остается неотstripленная версия csh - для анализа разных
+#       свалившихся core.
+#
+#       Revision 1.3  86/07/22  21:53:11  avg
+#       Добавлено определение для СУБД РУБИН и
+#       сделан вход CLRSRC.
+#
+#       Revision 1.2  86/07/22  20:00:23  avg
+#       небольшие правки под RCS.
+#
+#       Revision 1.1  86/06/01  20:13:47  dmitry
+#       DEMOS & MNOS 2 version
+#
+#       Revision 1.0  86/05/12  20:43:06  dmitry
+#       Добавлена работа через RCS.
+#
+#       Revision 0.0  86/04/20  22:26:08  root
+#       Версия из BSD 2.9 (оверлейная).
+#
+
+# Для версии исх. текстов без архивов RCS установите R=X
+R=
+RCS=RCS
+CO=-co -q
+COFLAGS=
+
+CFLAGS=-O -DRUBIN
+CPPFLAGS= -DDOBUGS -DKOI8 # -DFUNC_ON
+#CFLAGS70= -O -DRUBIN
+#CFLAGSVAX= -O -DU42 -DRUBIN
+
+AOVFLG=-Q
+LDFLAGS=-i             # 11/70
+#LDFLAGS=-n             # vax
+LIBES=-ltermcap
+
+XSTR=   xstr
+ED=     -ed
+AS=     as -V
+RM=     -rm
+CPP=    /lib/cpp -E -C $(CPPFLAGS)
+
+# uncomment next line to use smaller local routines instead of stdio routines
+PW=     getpwent.o getpwnam.o getpwuid.o
+
+# strings.o must be last in OBJS since it can change when previous files compiled
+OBJS=  sh.lex.o
+XOBJS= sh.init.o sh.proc.o sh.dir.o sh.time.o sh.edline.o sh.prompt.o\
+       sh.screen.o alloc.o printf.o ovdoprnt.o ${PW} perror.o\
+       sh.hist.o sh.misc.o sh.parse.o sh.print.o sh.sem.o sh.set.o\
+       sh.o sh.dol.o sh.err.o sh.exec.o sh.exp.o sh.func.o sh.glob.o
+
+all: csh
+
+install: csh
+	cp csh newcsh
+	-strip csh
+	-chmod u-t /bin/csh
+	-/bin/csh /dev/null
+	mv /bin/csh /bin/cshold
+	cp csh ${DESTDIR}/bin/csh
+	chmod u+t /bin/csh
+
+csh: ${OBJS} ${XOBJS} sh.local.h strings.o
+	$(CC) -o csh $(LDFLAGS) $(XOBJS) $(AOVFLG) $(OBJS) strings.o $(LIBES)
+	size csh
+
+# Special massaging of C files for sharing of strings
+.c.o:
+	${CPP} $*.c | ${XSTR} -c -
+	${CC} -c ${CFLAGS} x.c
+	mv x.o $*.o
+	rm -f x.c
+
+# strings.o and sh.init.o are specially processed to be shared
+# strings.o: %rofix
+strings.o: strings
+	${XSTR}
+	${CC} -S xs.c
+# to undo comment out next line.
+#       ${ED} - <%rofix xs.s
+	${AS} -u -o strings.o xs.s
+	${RM} xs.s xs.c
+
+strings: ${OBJS} ${XOBJS}
+
+perror.o: perror.c
+	${CC} -S perror.c
+#        ${ED} - <%rofix perror.s
+	${AS} -u -o perror.o perror.s
+	${RM} perror.s
+
+$(OBJS):   sh.h sh.local.h
+sh.sem.o : sh.proc.h
+sh.proc.o: sh.dir.h
+
+sh.init.o: %rofix
+	${CPP} sh.init.c | ${XSTR} -c -
+	${CC} ${CFLAGS} -S x.c
+# to undo comment out next line.
+#       ${ED} - <%rofix x.s
+	${AS} -u -o sh.init.o x.s
+	${RM} x.s
+
+csh.prof: ${OBJS} strings.o ${XOBJS} sh.prof.o sh.local.h mcrt0.o
+	$(CC) -p -o csh.prof $(LDFLAGS) sh.prof.o $(OBJS) strings.o \
+			     $(LDFLAGS2) $(XOBJS) ${LIBES}
+
+sh.prof.o:
+	cp sh.c sh.prof.c
+	cc -c ${CFLAGS} -DPROF sh.prof.c
+
+lint:
+	lint ${CFLAGS} sh*.c
+
+clean clear:
+	${RM} -f a.out strings x.c xs.c csh sh.prof.c
+	${RM} -f *.[ob]
+
+sizes:  $(OBJS) $(XOBJS) strings.o
+	size $(OBJS) strings.o $(XOBJS) >sizes
+
+CLRSRC: clean
+	${RM} -f *.[csh] %rofix sizes
+
+$(R)%rofix:         $(RCS)/%rofix,v;           $(CO) $(COFLAGS) %rofix
+$(R)alloc.c:        $(RCS)/alloc.c,v;          $(CO) $(COFLAGS) alloc.c
+$(R)doprnt.s:       $(RCS)/doprnt.s,v;         $(CO) $(COFLAGS) doprnt.s
+$(R)errlst.c:       $(RCS)/errlst.c,v;         $(CO) $(COFLAGS) errlst.c
+$(R)getpwent.c:     $(RCS)/getpwent.c,v;       $(CO) $(COFLAGS) getpwent.c
+$(R)getpwnam.c:     $(RCS)/getpwnam.c,v;       $(CO) $(COFLAGS) getpwnam.c
+$(R)getpwuid.c:     $(RCS)/getpwuid.c,v;       $(CO) $(COFLAGS) getpwuid.c
+$(R)malloc.c:       $(RCS)/malloc.c,v;         $(CO) $(COFLAGS) malloc.c
+$(R)ovdoprnt.s:     $(RCS)/ovdoprnt.s,v;       $(CO) $(COFLAGS) ovdoprnt.s
+$(R)printf.c:       $(RCS)/printf.c,v;         $(CO) $(COFLAGS) printf.c
+$(R)sh.c:           $(RCS)/sh.c,v;             $(CO) $(COFLAGS) sh.c
+$(R)sh.dir.c:       $(RCS)/sh.dir.c,v;         $(CO) $(COFLAGS) sh.dir.c
+$(R)sh.dir.h:       $(RCS)/sh.dir.h,v;         $(CO) $(COFLAGS) sh.dir.h
+$(R)sh.dol.c:       $(RCS)/sh.dol.c,v;         $(CO) $(COFLAGS) sh.dol.c
+$(R)sh.err.c:       $(RCS)/sh.err.c,v;         $(CO) $(COFLAGS) sh.err.c
+$(R)sh.exec.c:      $(RCS)/sh.exec.c,v;        $(CO) $(COFLAGS) sh.exec.c
+$(R)sh.exp.c:       $(RCS)/sh.exp.c,v;         $(CO) $(COFLAGS) sh.exp.c
+$(R)sh.func.c:      $(RCS)/sh.func.c,v;        $(CO) $(COFLAGS) sh.func.c
+$(R)sh.glob.c:      $(RCS)/sh.glob.c,v;        $(CO) $(COFLAGS) sh.glob.c
+$(R)sh.h:           $(RCS)/sh.h,v;             $(CO) $(COFLAGS) sh.h
+$(R)sh.hist.c:      $(RCS)/sh.hist.c,v;        $(CO) $(COFLAGS) sh.hist.c
+$(R)sh.init.c:      $(RCS)/sh.init.c,v;        $(CO) $(COFLAGS) sh.init.c
+$(R)sh.lex.c:       $(RCS)/sh.lex.c,v;         $(CO) $(COFLAGS) sh.lex.c
+$(R)sh.local.h:     $(RCS)/sh.local.h,v;       $(CO) $(COFLAGS) sh.local.h
+$(R)sh.misc.c:      $(RCS)/sh.misc.c,v;        $(CO) $(COFLAGS) sh.misc.c
+$(R)sh.parse.c:     $(RCS)/sh.parse.c,v;       $(CO) $(COFLAGS) sh.parse.c
+$(R)sh.print.c:     $(RCS)/sh.print.c,v;       $(CO) $(COFLAGS) sh.print.c
+$(R)sh.proc.c:      $(RCS)/sh.proc.c,v;        $(CO) $(COFLAGS) sh.proc.c
+$(R)sh.proc.h:      $(RCS)/sh.proc.h,v;        $(CO) $(COFLAGS) sh.proc.h
+$(R)sh.sem.c:       $(RCS)/sh.sem.c,v;         $(CO) $(COFLAGS) sh.sem.c
+$(R)sh.set.c:       $(RCS)/sh.set.c,v;         $(CO) $(COFLAGS) sh.set.c
+$(R)sh.time.c:      $(RCS)/sh.time.c,v;        $(CO) $(COFLAGS) sh.time.c
+$(R)sh.screen.c:    $(RCS)/sh.screen.c,v;      $(CO) $(COFLAGS) sh.screen.c
+$(R)sh.edline.c:    $(RCS)/sh.edline.c,v;      $(CO) $(COFLAGS) sh.edline.c
+$(R)sh.prompt.c:    $(RCS)/sh.prompt.c,v;      $(CO) $(COFLAGS) sh.prompt.c
+@
+
+
+1.11
+log
+@???
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.10 89/11/23 16:02:23 abs Exp $
+d8 3
+d58 1
+a58 1
+CPPFLAGS= -DDOBUGS -DFUNC_ON
+d62 1
+a62 2
+#LDFLAGS=-n
+OVFLG=-Q
+d77 5
+a81 5
+OBJS=   sh.o sh.dol.o sh.err.o sh.exec.o sh.exp.o sh.func.o sh.glob.o \
+	sh.hist.o sh.lex.o sh.misc.o sh.parse.o sh.print.o sh.sem.o sh.set.o \
+	sh.proc.o sh.dir.o sh.time.o sh.edline.o sh.prompt.o sh.screen.o \
+	alloc.o printf.o ovdoprnt.o ${PW} perror.o
+XOBJS= sh.init.o strings.o
+d94 2
+a95 2
+csh: ${OBJS} ${XOBJS} sh.local.h
+	$(CC) -o csh $(LDFLAGS) $(XOBJS) $(OVFLG) $(OBJS) $(LIBES)
+d115 2
+d119 1
+a119 1
+	${ED} - <%rofix perror.s
+d135 2
+a136 2
+csh.prof: ${OBJS} ${XOBJS} sh.prof.o sh.local.h mcrt0.o
+	$(CC) -p -o csh.prof $(LDFLAGS) sh.prof.o $(OBJS) \
+d150 2
+a151 2
+sizes:  $(OBJS) $(XOBJS)
+	size $(OBJS) $(XOBJS) >sizes
+@
+
+
+1.10
+log
+@флаг -DFUNC_ON для включения механизма функций в выражениях.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.9 89/05/06 17:02:11 avg Exp $
+d7 4
+a10 1
+#       $Log:   Makefile,v $
+d59 1
+a59 1
+LDFLAGS=-n
+d61 1
+a61 1
+#LDFLAGS=-i             # 11/70
+@
+
+
+1.9
+log
+@Теперь perror вместе со всеми текстами засовывается в оверлейный сегмент.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.8 89/03/16 11:55:53 avg Exp $
+d8 3
+d52 1
+a52 1
+CPPFLAGS= -DDOBUGS
+@
+
+
+1.8
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.7 88/11/17 16:40:33 ache Exp $
+d8 3
+d53 5
+a57 4
+LDFLAGS=-n -Q   # overlaid
+#LDFLAGS70=-i
+#LDFLAGSVAX=-n
+LIBES=-ltermcap -L
+d72 1
+a72 1
+	alloc.o printf.o ovdoprnt.o ${PW}
+d87 1
+a87 1
+	$(CC) -o csh $(LDFLAGS) $(OBJS) $(LIBES) $(XOBJS)
+d95 1
+d98 2
+a99 1
+strings.o: strings %rofix
+d103 1
+a103 1
+	${ED} - <%rofix xs.s
+d105 7
+a111 1
+	${RM} xs.s
+@
+
+
+1.7
+log
+@Сборка с новым механизмом сигналов и новым загрузчиком.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.6 88/09/29 22:28:07 dvolodin Exp $
+d7 8
+a14 5
+#       $Log:	Makefile,v $
+#	Revision 1.6  88/09/29  22:28:07  dvolodin
+#	Поскольку теперь препроцессор работает цивилизованно,
+#	фокусы с sedом не нужны.
+#	
+d45 1
+a45 1
+CFLAGS= -V -O -DRUBIN
+d49 6
+a58 3
+LIBES=  -lovjobs -lovc
+#LIBES70=  -ljobs  -lc
+#LIBESVAX= -lc
+d64 1
+a64 1
+# strings.o must be last in OBJS since it can change when previous files compil
+d67 3
+a69 2
+	sh.proc.o sh.dir.o sh.time.o sh.init.o alloc.o printf.o ovdoprnt.o \
+	${PW} strings.o
+d82 2
+a83 9
+csh: ${OBJS} sh.local.h
+	cc -n -v -o csh strings.o sh.init.o\
+	-Q2 sh.dol.o sh.exp.o sh.func.o \
+	    sh.glob.o sh.time.o \
+	    sh.hist.o sh.lex.o sh.misc.o \
+	    sh.parse.o sh.sem.o sh.set.o \
+	    sh.proc.o sh.dir.o sh.o sh.err.o sh.exec.o sh.print.o \
+	    $(PW) printf.o ovdoprnt.o alloc.o \
+	-L
+d109 1
+a109 1
+	${ED} - <%rofix x.s
+d113 3
+a115 3
+csh.prof: ${OBJS} sh.prof.o sh.local.h mcrt0.o
+	rm -f csh.prof
+	ld -X mcrt0.o ${OBJS} -o csh.prof ${LIBES} -lc
+d117 1
+a117 1
+sh.o.prof:
+d128 2
+a129 2
+sizes:  $(OBJS)
+	size $(OBJS) >sizes
+d132 1
+a132 1
+	${RM} -f *.[csh] %rofix
+a133 1
+
+d166 3
+@
+
+
+1.6
+log
+@Поскольку теперь препроцессор работает цивилизованно,
+фокусы с sedом не нужны.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.5 87/07/06 22:31:57 alex Exp $
+d7 5
+a11 1
+#       $Log:   Makefile,v $
+d61 2
+a62 2
+	sh.proc.o sh.dir.o sh.time.o alloc.o sh.init.o printf.o \
+	ovdoprnt.o ${PW} strings.o
+d76 8
+a83 7
+	ld -n -X -o csh /lib/crt0.o strings.o sh.init.o\
+	-Z sh.dol.o sh.exp.o sh.func.o \
+	   sh.glob.o sh.time.o \
+	-Z sh.hist.o sh.lex.o sh.misc.o \
+	   sh.parse.o sh.sem.o sh.set.o \
+	-Z sh.proc.o sh.dir.o sh.o sh.err.o sh.exec.o sh.print.o\
+	-L alloc.o printf.o ovdoprnt.o ${PW} ${LIBES}
+@
+
+
+1.5
+log
+@Исправлены ключи для CPP
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.4 86/09/28 18:57:02 avg Exp $
+d8 3
+d39 1
+d49 1
+a49 1
+CPP=    /lib/cpp -E -C
+d83 1
+a83 1
+	${CPP} $*.c | sed "s/^# /#line /" | ${XSTR} -c -
+d96 3
+a98 1
+$(OBJS): sh.h sh.local.h
+a161 14
+
+sh.o sh.dir.o sh.err.o sh.exec.o sh.exp.o sh.glob.o:            sh.h
+sh.hist.o sh.misc.o sh.print.o sh.sem.o sh.time.o:              sh.h
+sh.dol.o sh.func.o sh.lex.o sh.parse.o sh.proc.o sh.set.o:      sh.h
+
+alloc.o:        sh.local.h
+sh.h:           sh.local.h
+sh.init.o:      sh.local.h
+
+sh.proc.o:      sh.proc.h
+sh.sem.o:       sh.proc.h
+
+sh.dir.o:       sh.dir.h
+sh.proc.o:      sh.dir.h
+@
+
+
+1.4
+log
+@Теперь остается неотstripленная версия csh - для анализа разных 
+свалившихся core.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.3 86/07/22 21:53:11 avg Exp $
+d8 4
+d45 1
+a45 1
+CPP=    /lib/cpp -P -C
+a65 1
+	-rm csh *.o
+d70 2
+a71 2
+	   sh.glob.o sh.print.o sh.time.o \
+	-Z alloc.o sh.hist.o sh.lex.o sh.misc.o \
+d73 2
+a74 2
+	-Z sh.proc.o sh.dir.o sh.o sh.err.o sh.exec.o\
+	-L printf.o ovdoprnt.o ${PW} ${LIBES}
+d79 1
+a79 1
+	${CPP} $*.c | ${XSTR} -c -
+d91 2
+@
+
+
+1.3
+log
+@Добавлено определение для СУБД РУБИН и
+сделан вход CLRSRC.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.2 86/07/22 20:00:23 avg Exp $
+d8 4
+d28 1
+a28 1
+CO=co
+d31 2
+a32 2
+CFLAGS= -V -O -Dnotdef -DRUBIN
+#CFLAGS70= -O -Dnotdef -DRUBIN
+d55 1
+@
+
+
+1.2
+log
+@небольшие правки под RCS.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.1 86/06/01 20:13:47 dmitry Exp $
+d4 2
+a5 2
+# C Shell with process control
+# PDP11 overlay (nonseparate I/D) Makefile
+d8 3
+d27 3
+a29 3
+CFLAGS= -V -O -Dnotdef
+#CFLAGS70= -O -Dnotdef
+#CFLAGSVAX= -O -DU42
+a41 2
+
+
+d103 3
+a105 3
+clean:
+	${RM} -f a.out strings x.c xs.c
+	${RM} -f *.o sh.prof.c
+d109 4
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 1.0 86/05/12 20:43:06 dmitry Exp $
+d8 3
+d17 10
+a26 2
+CC=     cc -V
+CFLAGS= -O
+d31 3
+a33 5
+CXREF=  /usr/ucb/cref
+VGRIND= csh /usr/ucb/vgrind
+CTAGS=  /usr/ucb/ctags
+LIBES=  -lovjobs
+CO=     co -q
+d39 2
+d49 1
+a49 1
+cp: csh
+d51 3
+d55 1
+a57 5
+cmp: csh
+	cmp csh ${DESTDIR}/bin/csh
+	rm *.o
+
+
+d59 2
+a60 2
+	ld -n -X -o csh /lib/crt0.o \
+	-Z sh.dol.o sh.exec.o sh.exp.o sh.func.o \
+d62 1
+a62 1
+	-Z alloc.o sh.err.o sh.hist.o sh.lex.o sh.misc.o \
+d64 2
+a65 3
+	-Z sh.proc.o sh.dir.o \
+	-L sh.o sh.init.o printf.o ovdoprnt.o ${PW} \
+	   strings.o ${LIBES} -lovc
+a101 19
+print:
+	@@pr READ_ME
+	@@pr makefile makefile.*
+	@@(size -l a.out; size *.o) | pr -h SIZES
+	@@ls -l | pr
+	@@pr sh*.h sh*.c alloc.c
+
+vprint:
+	@@pr -l132 makefile
+	@@(size -l a.out; size *.o) | pr -l84 -h SIZES
+	@@ls -l | pr -l132
+	@@pr -l132 sh*.h [a-rt-z]*.h sh*.c alloc.c
+
+vgrind:
+	@@cp /dev/null index
+	@@for i in *.h; do vgrind -t -h "C Shell" $$i >/crp/bill/csh/$$i.t; done
+	@@for i in *.c; do vgrind -t -h "C Shell" $$i >/crp/bill/csh/$$i.t; done
+	@@vgrind -t -x -h Index index >/crp/bill/csh/index.t
+
+d106 2
+a107 2
+tags:   /tmp
+	${CTAGS} sh*.c
+d109 32
+a140 32
+%rofix:         RCS/%rofix,v;           $(CO) %rofix
+alloc.c:        RCS/alloc.c,v;          $(CO) alloc.c
+doprnt.s:       RCS/doprnt.s,v;         $(CO) doprnt.s
+errlst.c:       RCS/errlst.c,v;         $(CO) errlst.c
+getpwent.c:     RCS/getpwent.c,v;       $(CO) getpwent.c
+getpwnam.c:     RCS/getpwnam.c,v;       $(CO) getpwnam.c
+getpwuid.c:     RCS/getpwuid.c,v;       $(CO) getpwuid.c
+malloc.c:       RCS/malloc.c,v;         $(CO) malloc.c
+ovdoprnt.s:     RCS/ovdoprnt.s,v;       $(CO) ovdoprnt.s
+printf.c:       RCS/printf.c,v;         $(CO) printf.c
+sh.c:           RCS/sh.c,v;             $(CO) sh.c
+sh.dir.c:       RCS/sh.dir.c,v;         $(CO) sh.dir.c
+sh.dir.h:       RCS/sh.dir.h,v;         $(CO) sh.dir.h
+sh.dol.c:       RCS/sh.dol.c,v;         $(CO) sh.dol.c
+sh.err.c:       RCS/sh.err.c,v;         $(CO) sh.err.c
+sh.exec.c:      RCS/sh.exec.c,v;        $(CO) sh.exec.c
+sh.exp.c:       RCS/sh.exp.c,v;         $(CO) sh.exp.c
+sh.func.c:      RCS/sh.func.c,v;        $(CO) sh.func.c
+sh.glob.c:      RCS/sh.glob.c,v;        $(CO) sh.glob.c
+sh.h:           RCS/sh.h,v;             $(CO) sh.h
+sh.hist.c:      RCS/sh.hist.c,v;        $(CO) sh.hist.c
+sh.init.c:      RCS/sh.init.c,v;        $(CO) sh.init.c
+sh.lex.c:       RCS/sh.lex.c,v;         $(CO) sh.lex.c
+sh.local.h:     RCS/sh.local.h,v;       $(CO) sh.local.h
+sh.misc.c:      RCS/sh.misc.c,v;        $(CO) sh.misc.c
+sh.parse.c:     RCS/sh.parse.c,v;       $(CO) sh.parse.c
+sh.print.c:     RCS/sh.print.c,v;       $(CO) sh.print.c
+sh.proc.c:      RCS/sh.proc.c,v;        $(CO) sh.proc.c
+sh.proc.h:      RCS/sh.proc.h,v;        $(CO) sh.proc.h
+sh.sem.c:       RCS/sh.sem.c,v;         $(CO) sh.sem.c
+sh.set.c:       RCS/sh.set.c,v;         $(CO) sh.set.c
+sh.time.c:      RCS/sh.time.c,v;        $(CO) sh.time.c
+@
+
+
+1.0
+log
+@Добавлена работа через RCS.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 0.0 86/04/20 22:26:08 root Exp $
+d8 3
+d75 1
+a75 1
+	${CPP} ${CFLAGS} sh.init.c | ${XSTR} -c -
+@
+
+
+1.0.2.1
+log
+@Добавлена работа через RCS.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 0.0.2.0 86/04/20 22:27:22 root Exp $
+d4 2
+a5 2
+# C Shell with process control; VM/UNIX VAX Makefile
+# Bill Joy UC Berkeley; Jim Kulp IIASA, Austria
+d8 2
+a9 2
+#       Revision 0.0.2.0  86/04/20  22:27:22  root
+#       Версия из BSD 2.9 (для VAX).
+d11 3
+a13 1
+CFLAGS= -O -DTELL -DVMUNIX -Ddebug -DVFORK
+d15 1
+a15 1
+AS=     -as
+d17 1
+a17 1
+CXREF=  /usr/ucb/cxref
+d20 1
+a20 2
+LIBES=  -ljobs
+SCCS=   /usr/local/sccs
+d22 1
+a22 1
+XSTR=   xstr
+d24 4
+a27 1
+# strings.o must be last in OBJS since it can change when previous files compile
+d31 1
+a31 1
+	strings.o doprnt.o
+d33 23
+d58 1
+a58 1
+	${CC} -E ${CFLAGS} $*.c | ${XSTR} -c -
+d62 8
+a69 3
+csh: ${OBJS} sh.local.h
+	rm -f csh
+	cc ${OBJS} -o csh ${LIBES}
+d71 8
+a86 20
+.DEFAULT:
+	${SCCS} get $<
+
+# need an old doprnt, whose output we can trap
+doprnt.o: doprnt.c
+	cc -E doprnt.c > doprnt.s
+	as -o doprnt.o doprnt.s
+	rm -f doprnt.s
+
+# strings.o and sh.init.o are specially processed to be shared
+strings.o: strings
+	${XSTR}
+	${CC} -c -R xs.c
+	mv xs.o strings.o
+
+sh.init.o:
+	${CC} -E ${CFLAGS} sh.init.c | ${XSTR} -c -
+	${CC} ${CFLAGS} -c -R x.c
+	mv x.o sh.init.o
+
+a93 1
+	@@${CXREF} sh*.c | pr -h XREF
+d95 1
+a95 1
+	@@pr sh*.h [a-rt-z]*.h sh*.c alloc.c
+d98 1
+a98 2
+	@@pr -l84 READ_ME TODO
+	@@pr -l84 makefile makefile.*
+d100 2
+a101 4
+	@@${CXREF} sh*.c | pr -l84 -h XREF
+	@@ls -l | pr -l84
+	@@${CXREF} sh*.c | pr -l84 -h XREF
+	@@pr -l84 sh*.h [a-rt-z]*.h sh*.c alloc.c
+a108 3
+install: csh sh.local.h
+	install -s csh ${DESTDIR}/bin/csh
+
+d110 1
+a110 1
+	${RM} -f a.out strings x.c xs.c csh
+d116 1
+d124 1
+a124 1
+doprnt.s:       RCS/doprnt.s,v;         $(CO) doprnt.s
+@
+
+
+1.0.1.1
+log
+@Добавлена работа через RCS.
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 0.0.1.0 86/04/20 22:29:33 root Exp $
+d4 2
+a5 2
+# C Shell with process control; PDP-11 separate I/D Makefile
+# Bill Joy UC Berkeley; Jim Kulp IIASA, Austria
+d8 2
+a9 2
+#       Revision 0.0.1.0  86/04/20  22:29:33  root
+#       Версия из BSD 2.9 (для машин с SEPID).
+d11 1
+d13 1
+d15 1
+a15 1
+AS=     -as
+d20 1
+a20 1
+LIBES=  -ljobs
+d22 1
+a22 1
+XSTR=   xstr
+d24 4
+a27 1
+# strings.o must be last in OBJS since it can change when previous files compile
+d31 1
+a31 1
+	doprnt.o strings.o
+d36 3
+a38 4
+	-rm -f $DESTDIR/bin/csh $DESTDIR/bin/oldcsh
+	cp csh $DESTDIR/bin/csh
+	ln $DESTDIR/bin/csh $DESTDIR/bin/oldcsh
+	rm csh *.o
+d41 1
+a41 1
+	cmp csh $DESTDIR/bin/csh
+d44 1
+d46 9
+a54 2
+	rm -f csh
+	cc -i -s ${OBJS} -o csh ${LIBES}
+d58 1
+a58 1
+	${CC} -E ${CFLAGS} $*.c | ${XSTR} -c -
+d62 2
+a63 1
+strings.o: strings
+d65 4
+a68 2
+	${CC} -c xs.c
+	mv xs.o strings.o
+d71 8
+a108 3
+install: csh sh.local.h
+	install -s csh ${DESTDIR}/bin/csh
+
+d124 1
+a124 1
+doprnt.s:       RCS/doprnt.s,v;         $(CO) doprnt.s
+@
+
+
+0.0
+log
+@Версия из BSD 2.9 (оверлейная).
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 0.0.1.0 86/04/20 22:13:49 root Exp $
+d8 3
+d13 1
+a13 1
+XSTR=   /usr/ucb/xstr
+d21 2
+d27 1
+a27 1
+# strings.o must be last in OBJS since it can change when previous files compile
+d58 2
+a59 2
+	${CC} -E ${CFLAGS} $*.c | ${XSTR} -c -
+	${CC} -c ${CFLAGS} x.c 
+d63 1
+a63 1
+strings.o: strings
+d67 1
+a67 1
+	${ED} - <:rofix xs.s
+d71 2
+a72 2
+sh.init.o:
+	${CC} -E ${CFLAGS} sh.init.c | ${XSTR} -c -
+d75 1
+a75 1
+	${ED} - <:rofix x.s
+d78 1
+a78 1
+	
+d94 1
+a94 1
+	@@ls -l | pr 
+d98 1
+a98 1
+	@@pr -l132 makefile 
+d113 1
+a113 1
+tags:	/tmp
+d115 47
+@
+
+
+0.0.0.1
+log
+@Версия из МНОС 1.2
+@
+text
+@a0 15
+######################################################################
+#                                                                    #
+#                                   *                                #
+#                        ****  **** *                                #
+#                       *     *     ****                             #
+#                       *      ***  *   *                            #
+#                       *         * *   *                            #
+#                        **** ****  *   *                            #
+#                                                                    #
+#                    Версия csh для МНОС РЛ 1.2                      #
+#                                                                    #
+#                            МНОС РЛ 1.2                             #
+#                                                                    #
+######################################################################
+
+d2 1
+a2 4
+# $Log:	Makefile,v $
+# Revision 1.1  86/02/24  20:56:17  sys
+# Initial revision
+# 
+d4 14
+d19 2
+a20 5
+XSTR=   xstr
+RM=     -rm -f
+CFLAGS1=-DEDIAG -DTELL -DHZ=50 -Dpdp11 -C
+CFLAGS2=-O -a
+BIN=    /bin
+d22 5
+a26 4
+OBJS=sh.o sh.dol.o sh.err.o sh.exec.o sh.exp.o sh.func.o sh.glob.o sh.hist.o \
+	sh.lex.o sh.misc.o sh.parse.o sh.print.o sh.sem.o sh.set.o \
+	sh.wait.o sh.init.o printf.o perror.o errlst.o \
+	strings.o
+d28 24
+d53 2
+a54 2
+	${CC} -E ${CFLAGS1} $*.c | ${XSTR} -c -
+	${CC} -c ${CFLAGS2} x.c
+d57 8
+d66 11
+a76 2
+####
+all:    csh
+d78 3
+a80 2
+csh:    ${OBJS} sh.local.h
+	${CC} -n ${OBJS} -o csh
+d82 2
+a83 3
+stripped:       csh
+	strip csh
+	date > stripped
+d85 6
+a90 4
+strings.o:      strings
+	$(XSTR)
+	$(CC) -a -c xs.c
+	mv xs.o strings.o
+d92 5
+a96 1
+$(OBJS):        sh.h sh.local.h
+d98 5
+a102 5
+######
+clear:
+	${RM} a.out strings x.c xs.c stripped csh
+	${RM} *.[ob]
+	${RM} *.[ch]
+d104 3
+d108 2
+a109 32
+########
+install:        stripped
+	chmod a-t ${BIN}/csh
+	@@${BIN}/csh -f -c 'echo Good bye, all of you. Le csh est mort. Vive le csh.'
+	${RM} ${BIN}/csh
+	copy csh ${BIN}
+	chmod a+t ${BIN}/csh
+
+# Выборка исходных файлов из архива RCS
+
+sh.c:       RCS/sh.c,v;             co $(COFLAGS) sh.c
+sh.dol.c:   RCS/sh.dol.c,v;         co $(COFLAGS) sh.dol.c
+sh.err.c:   RCS/sh.err.c,v;         co $(COFLAGS) sh.err.c
+sh.exec.c:  RCS/sh.exec.c,v;        co $(COFLAGS) sh.exec.c
+sh.exp.c:   RCS/sh.exp.c,v;         co $(COFLAGS) sh.exp.c
+sh.func.c:  RCS/sh.func.c,v;        co $(COFLAGS) sh.func.c
+sh.glob.c:  RCS/sh.glob.c,v;        co $(COFLAGS) sh.glob.c
+sh.hist.c:  RCS/sh.hist.c,v;        co $(COFLAGS) sh.hist.c
+sh.lex.c:   RCS/sh.lex.c,v;         co $(COFLAGS) sh.lex.c
+sh.misc.c:  RCS/sh.misc.c,v;        co $(COFLAGS) sh.misc.c
+sh.parse.c: RCS/sh.parse.c,v;       co $(COFLAGS) sh.parse.c
+sh.print.c: RCS/sh.print.c,v;       co $(COFLAGS) sh.print.c
+sh.sem.c:   RCS/sh.sem.c,v;         co $(COFLAGS) sh.sem.c
+sh.set.c:   RCS/sh.set.c,v;         co $(COFLAGS) sh.set.c
+sh.wait.c:  RCS/sh.wait.c,v;        co $(COFLAGS) sh.wait.c
+sh.init.c:  RCS/sh.init.c,v;        co $(COFLAGS) sh.init.c
+printf.c:   RCS/printf.c,v;         co $(COFLAGS) printf.c
+perror.c:   RCS/perror.c,v;         co $(COFLAGS) perror.c
+errlst.c:   RCS/errlst.c,v;         co $(COFLAGS) errlst.c
+sh.h:       RCS/sh.h,v;             co $(COFLAGS) sh.h
+sh.local.h: RCS/sh.local.h,v;       co $(COFLAGS) sh.local.h
+Makefile:   RCS/Makefile,v;         co $(COFLAGS) Makefile
+@
+
+
+0.0.1.0
+log
+@Версия из BSD 2.9 (для машин с SEPID).
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 0.0 86/04/20 22:07:48 root Exp $
+d4 2
+a5 2
+# C Shell with process control; PDP-11 separate I/D Makefile
+# Bill Joy UC Berkeley; Jim Kulp IIASA, Austria
+d8 1
+d12 1
+a12 1
+AS=     -as
+d17 1
+a17 1
+LIBES=  -ljobs
+d19 3
+d26 1
+a26 1
+	doprnt.o strings.o
+d31 3
+a33 4
+	-rm -f $DESTDIR/bin/csh $DESTDIR/bin/oldcsh
+	cp csh $DESTDIR/bin/csh
+	ln $DESTDIR/bin/csh $DESTDIR/bin/oldcsh
+	rm csh *.o
+d36 1
+a36 1
+	cmp csh $DESTDIR/bin/csh
+d39 1
+d41 9
+a49 2
+	rm -f csh
+	cc -i -s ${OBJS} -o csh ${LIBES}
+d57 1
+d60 4
+a63 2
+	${CC} -c xs.c
+	mv xs.o strings.o
+d66 8
+a102 3
+
+install: csh sh.local.h
+	install -s csh ${DESTDIR}/bin/csh
+@
+
+
+0.0.2.0
+log
+@Версия из BSD 2.9 (для VAX).
+@
+text
+@d2 1
+a2 1
+#       $Header: Makefile,v 0.0.2.0 86/04/20 22:15:11 root Exp $
+d4 2
+a5 2
+# C Shell with process control; VM/UNIX VAX Makefile
+# Bill Joy UC Berkeley; Jim Kulp IIASA, Austria
+d8 2
+a9 1
+CFLAGS= -O -DTELL -DVMUNIX -Ddebug -DVFORK
+d12 1
+a12 1
+AS=     -as
+d14 1
+a14 1
+CXREF=  /usr/ucb/cxref
+d17 1
+a17 2
+LIBES=  -ljobs
+SCCS=   /usr/local/sccs
+d19 3
+d26 1
+a26 1
+	strings.o doprnt.o
+d28 23
+d57 8
+a64 3
+csh: ${OBJS} sh.local.h
+	rm -f csh
+	cc ${OBJS} -o csh ${LIBES}
+d66 8
+a81 20
+.DEFAULT:
+	${SCCS} get $<
+
+# need an old doprnt, whose output we can trap
+doprnt.o: doprnt.c
+	cc -E doprnt.c > doprnt.s
+	as -o doprnt.o doprnt.s
+	rm -f doprnt.s
+
+# strings.o and sh.init.o are specially processed to be shared
+strings.o: strings
+	${XSTR}
+	${CC} -c -R xs.c
+	mv xs.o strings.o
+
+sh.init.o:
+	${CC} -E ${CFLAGS} sh.init.c | ${XSTR} -c -
+	${CC} ${CFLAGS} -c -R x.c
+	mv x.o sh.init.o
+	
+a88 1
+	@@${CXREF} sh*.c | pr -h XREF
+d90 1
+a90 1
+	@@pr sh*.h [a-rt-z]*.h sh*.c alloc.c
+d93 1
+a93 2
+	@@pr -l84 READ_ME TODO
+	@@pr -l84 makefile makefile.*
+d95 2
+a96 4
+	@@${CXREF} sh*.c | pr -l84 -h XREF
+	@@ls -l | pr -l84
+	@@${CXREF} sh*.c | pr -l84 -h XREF
+	@@pr -l84 sh*.h [a-rt-z]*.h sh*.c alloc.c
+a103 3
+install: csh sh.local.h
+	install -s csh ${DESTDIR}/bin/csh
+
+d105 1
+a105 1
+	${RM} -f a.out strings x.c xs.c csh
+@

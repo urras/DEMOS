@@ -1,0 +1,25 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.06.05.17.16.56;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@char version[] = "DEMOS 2.1   суб июн 4 22:42:31 MSD 1988";
+@

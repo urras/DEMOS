@@ -1,9 +1,7 @@
 #ifndef _sys_fcntl_h_
 #       define  _sys_fcntl_h_
 
-#ifndef _sys_types_h_
 #include <sys/types.h>
-#endif _sys_types_h_
 
 /* flags supplied to access call */
 #define FACCESS_EXISTS  0x0     /* does file exist? */
@@ -43,8 +41,6 @@
 #define O_CREAT         FATT_CREAT
 #define O_TRUNC         FATT_TRUNC
 #define O_EXCL          FATT_EXCL
-
-/* Здесь были LOCK_XX для flock. Теперь в sys/file.h --P3 */
 
 /* for fcntl sV.2 */
 

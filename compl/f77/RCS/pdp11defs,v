@@ -1,0 +1,80 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.1
+date     87.03.09.22.23.38;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@#ifndef TARGET
+TARGET NOT DEFINED !!!
+#endif
+#if TARGET!=PDP11
+Target= TARGET OUT OF RANGE!!
+#endif
+
+#ifndef FAMILY
+FAMILY NOT DEFINED!!!
+#endif
+#if FAMILY!=SCJ && FAMILY!=DMR
+Family = FAMILY OUT OF RANGE
+#endif
+
+#define TYLENG	TYLONG
+
+#define TYINT	TYSHORT
+#define SZADDR	2
+#define SZSHORT	2
+#define SZINT	2
+
+#define SZLONG	4
+#define SZLENG	SZLONG
+
+#define ALIADDR SZADDR
+#define ALISHORT SZSHORT
+#define ALILONG 2
+#define ALIDOUBLE 2
+#define ALIINT	ALILONG
+#define ALILENG	ALILONG
+
+
+#define AUTOREG 5
+#define ARGREG 4
+#define NSAVESPACE 6
+#define OSAVESPACE 8
+extern short SAVESPACE;
+
+#define FUDGEOFFSET 1
+#define BITSPERCHAR 8
+#define XL 8
+
+#define USETEXT	"\t.text"
+#define USECONST	"\t.data"
+#define USEBSS	"\t.bss"
+#define USEINIT	"\t.data"
+
+#define BLANKCOMMON "_BLNK_"
+
+#define LABELFMT "%s:\n"
+#define MAXSHORT 32767
+
+#define MAXREGVAR 2
+#define TYIREG TYSHORT
+#define MSKIREG  M(TYSHORT)
+@

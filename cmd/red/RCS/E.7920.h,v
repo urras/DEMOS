@@ -1,0 +1,300 @@
+head     3.4;
+access   ;
+symbols  RED_4:3.1.2 DEMOS_2:3.3 COMMON3:3.2 ES:3.1.1;
+locks    ;
+comment  @ * @;
+
+
+3.4
+date     86.09.19.19.47.42;  author alex;  state Exp;
+branches ;
+next     3.3;
+
+3.3
+date     86.08.04.20.49.46;  author alex;  state Exp;
+branches ;
+next     3.2;
+
+3.2
+date     86.07.24.00.21.24;  author alex;  state Exp;
+branches ;
+next     3.1;
+
+3.1
+date     86.05.25.23.11.05;  author alex;  state Exp;
+branches 3.1.1.1;
+next     ;
+
+3.1.1.1
+date     86.06.05.00.02.52;  author alex;  state Exp;
+branches ;
+next     3.1.1.2;
+
+3.1.1.2
+date     86.06.05.18.52.25;  author alex;  state Exp;
+branches ;
+next     3.1.1.3;
+
+3.1.1.3
+date     86.06.06.00.12.38;  author alex;  state Exp;
+branches ;
+next     3.1.1.4;
+
+3.1.1.4
+date     86.06.16.21.50.29;  author alex;  state Stab;
+branches ;
+next     3.1.1.5;
+
+3.1.1.5
+date     86.06.16.22.15.30;  author alex;  state Exp;
+branches ;
+next     3.1.1.6;
+
+3.1.1.6
+date     86.06.16.23.36.06;  author alex;  state Stab;
+branches ;
+next     3.1.1.7;
+
+3.1.1.7
+date     86.06.17.19.26.30;  author alex;  state Stab;
+branches ;
+next     ;
+
+
+desc
+@  Полиэкранный редактор RED
+  Версия 3.
+  ИАЭ им. Курчатова, Москва.
+@
+
+
+3.4
+log
+@Версия для СМ-1700
+@
+text
+@/*
+ *      Редактор RED. ИАЭ им. И.В. Курчатова, ОС ДЕМОС
+ *      r.7920.h  - определения для работы с терминалом ЕС7920
+ *                  (физический уровень).
+ *      $Header: E.7920.h,v 3.3 86/08/04 20:49:46 alex Exp $
+ *      $Log:	E.7920.h,v $
+ * Revision 3.3  86/08/04  20:49:46  alex
+ * Bepqh dk LMNQ/DELNQ 2
+ * 
+ * Revision 3.2  86/07/24  00:21:24  alex
+ * Об'единены версии текстов для ЕС и СМ
+ * 
+ * Revision 3.1.1.7  86/06/17  19:26:30  alex
+ * Правки.
+ * 
+ * Revision 3.1.1.5  86/06/16  22:15:30  alex
+ * Первая версия с повтором сеанса (пока грязная)
+ * 
+ * Revision 3.1.1.3  86/06/06  00:12:38  alex
+ * Введена установка ключей
+ * 
+ * Revision 3.1.1.2  86/06/05  18:52:25  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1.1.1  86/06/05  00:02:52  alex
+ * Отлажено_на_модели
+ * 
+ * Revision 3.1  86/05/25  23:11:05  alex
+ * *** empty log message ***
+ * 
+ * Revision 3.1  86/04/20  23:40:23  alex
+ * Базовая версия для ЕС.
+ * 
+ * Revision 3.1  86/04/20  23:40:23  alex
+ * *** empty log message ***
+ * 
+ */
+#include "E.qsdefs.h"
+/*
+ * Весь экран. Текущий символ.
+ */
+char *oscreen, *otchar;
+struct oslines {
+  char sl_mod;     /* 1 - изменилась строка */
+  char *sl_line;   /* Ссылка на начало */
+  char *sl_mline;  /* Модфицируемое поле */
+  int  sl_mleng;  /* Длина этого поля   */
+} *oslines, *otline;
+/*
+ * Флаги управления выводом:
+ */
+int omod, obell, oclearmod, oclrmdt, olock;
+/*
+ * Для "editwind".
+ */
+int (*curedit)();
+struct viewport *cureport;
+int nozerows;
+int qstrim, qsodbl;
+@
+
+
+3.3
+log
+@Bepqh dk LMNQ/DELNQ 2
+@
+text
+@d5 1
+a5 1
+ *      $Header: E.7920.h,v 3.2 86/07/24 00:21:24 alex Exp $
+d7 3
+@
+
+
+3.2
+log
+@Об'единены версии текстов для ЕС и СМ
+@
+text
+@d5 5
+a9 2
+ *      $Header: r.7920.h,v 3.1.1.7 86/06/17 19:26:30 alex Exp $
+ *      $Log:	r.7920.h,v $
+@
+
+
+3.1
+log
+@*** empty log message ***
+@
+text
+@d5 20
+a24 2
+ *      $Header: r.tele.h,v 3.1 86/04/20 23:40:23 alex Exp $
+ *      $Log:	r.tele.h,v $
+d32 1
+a32 2
+#include "qsdefs.h"
+
+d41 1
+a41 1
+  char *sl_mleng;  /* Длина этого поля   */
+d46 1
+a46 1
+char omod, obell, oclearmod, oclrmdt, olock;
+d53 1
+@
+
+
+3.1.1.1
+log
+@Отлажено_на_модели
+@
+text
+@d5 2
+a6 5
+ *      $Header: r.7920.h,v 3.1 86/05/25 23:11:05 alex Exp $
+ *      $Log:	r.7920.h,v $
+ * Revision 3.1  86/05/25  23:11:05  alex
+ * *** empty log message ***
+ * 
+a35 1
+int qstrim, qsodbl;
+@
+
+
+3.1.1.2
+log
+@Отлажено_на_модели
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.7920.h,v 3.1.1.1 86/06/05 00:02:52 alex Exp $
+a6 3
+ * Revision 3.1.1.1  86/06/05  00:02:52  alex
+ * Отлажено_на_модели
+ * 
+d27 1
+a27 1
+  int  *sl_mleng;  /* Длина этого поля   */
+@
+
+
+3.1.1.3
+log
+@Введена установка ключей
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.7920.h,v 3.1.1.2 86/06/05 18:52:25 alex Exp $
+a6 3
+ * Revision 3.1.1.2  86/06/05  18:52:25  alex
+ * Отлажено_на_модели
+ * 
+d30 1
+a30 1
+  int  sl_mleng;  /* Длина этого поля   */
+@
+
+
+3.1.1.4
+log
+@Отлажено на ЕС без режима восстановления и без макро
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.7920.h,v 3.1.1.3 86/06/06 00:12:38 alex Exp $
+a6 3
+ * Revision 3.1.1.3  86/06/06  00:12:38  alex
+ * Введена установка ключей
+ * 
+a22 1
+#ifdef QSEMULATE
+d24 1
+a24 3
+#else
+#include "libq/qsdefs.h"
+#endif
+d38 1
+a38 1
+int omod, obell, oclearmod, oclrmdt, olock;
+@
+
+
+3.1.1.5
+log
+@Первая версия с повтором сеанса (пока грязная)
+@
+text
+@@
+
+
+3.1.1.6
+log
+@Отлажена эмуляция на СМ (уже работающего на ЕС).
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.7920.h,v 3.1.1.4 86/06/16 21:50:29 alex Stab $
+a6 3
+ * Revision 3.1.1.4  86/06/16  21:50:29  alex
+ * Отлажено на ЕС без режима восстановления и без макро
+ * 
+d26 1
+d28 3
+@
+
+
+3.1.1.7
+log
+@Правки.
+@
+text
+@d5 1
+a5 1
+ *      $Header: r.7920.h,v 3.1.1.5 86/06/16 22:15:30 alex Exp $
+d7 2
+a8 2
+ * Revision 3.1.1.5  86/06/16  22:15:30  alex
+ * Первая версия с повтором сеанса (пока грязная)
+@

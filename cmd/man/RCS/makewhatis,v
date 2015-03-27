@@ -1,0 +1,139 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.4
+date     89.04.08.22.09.32;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.04.08.19.57.31;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.12.24.16.15.45;  author ache;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.09.12.20.41.07;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Прграмма сборки краткого справочника по компонентам системы.
+@
+
+
+1.4
+log
+@Немного правлено.
+@
+text
+@#! /bin/csh
+# makewhatis
+# $Header: makewhatis,v 1.3 89/04/08 19:57:31 avg Exp $
+unalias *
+set TOOLS = /usr/man/man0
+
+if ( ! $?MAN) then
+set MAN=/usr/man
+endif
+if ( ! $?WHATIS) then
+set WHATIS=/usr/lib/whatis
+endif
+if( $?NOCOLLECT ) goto nocollect
+
+set nonomatch
+rm -f /tmp/whatis
+
+cd $MAN
+# manu is removed from here to avoid confusing
+foreach i (man1 man2 man3 man4 man5 man6 man7 man8 manl mann manp manr)
+	if ( -e $i ) then
+		cd $i
+		set j = ( *.[1-8r]{,?} )
+		set noglob
+		if ( $j[1] != '*.[1-8r]{,?}' ) then
+			${TOOLS}/getNAME $j >>! /tmp/whatis
+		endif
+		unset noglob
+		cd $MAN
+	endif
+end
+
+nocollect:
+sort /tmp/whatis | mm ${TOOLS}/mm.prog | \
+/usr/bin/expand -24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100 >! $WHATIS
+rm -f /tmp/whatis
+@
+
+
+1.3
+log
+@Добавлен раздел rubin.
+@
+text
+@d3 1
+a3 1
+# $Header: makewhatis,v 1.2 88/12/24 16:15:45 ache Exp $
+d21 1
+a21 1
+	if -e $i then
+d25 3
+a27 1
+		if $j[1] != '*.[1-8r]{,?}' ${TOOLS}/getNAME $j >>! /tmp/whatis
+d29 1
+a29 1
+		cd ..
+@
+
+
+1.2
+log
+@Добавлен каталог mann и убран manu
+@
+text
+@d3 1
+a3 1
+# $Header: makewhatis,v 1.1 88/09/12 20:41:07 avg Exp $
+d20 1
+a20 1
+foreach i (man1 man2 man3 man4 man5 man6 man7 man8 manl mann manp)
+d23 1
+a23 1
+		set j = ( *.[1-8]{,?} )
+d25 1
+a25 1
+		if $j[1] != '*.[1-8]{,?}' ${TOOLS}/getNAME $j >>! /tmp/whatis
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+# $Header$
+d20 1
+a20 1
+foreach i (man1 man2 man3 man4 man5 man6 man7 man8 manl manp)
+d23 1
+a23 1
+		set j = ( *.[1-8lup]{,?} )
+d25 1
+a25 1
+		if $j[1] != '*.[1-8lup]{,?}' ${TOOLS}/getNAME $j >>! /tmp/whatis
+d34 1
+a34 1
+rm /tmp/whatis
+@

@@ -1,0 +1,599 @@
+#!/bin/sh
+#       командный файл создания каталога для конфигурации ядра.
+#
+# $Log:	config,v $
+#Revision 1.10  88/09/26  22:30:45  korotaev
+#Стираются ненужные ключи -Z.
+#
+#Revision 1.9  88/09/01  14:43:06  korotaev
+#Вставлена обработка процессора 100 (Эл-ка 100/25 или pdp-11/40).
+#(для совместимости с рук. сист. программиста).
+#
+#Revision 1.8  88/06/26  15:22:40  korotaev
+#Создан единый исходный Makefile для разных машин и для создания
+#оверлейного и неоверлейного ядра. Соответсвенно "разбух" и 
+#стал более интеллектуальным config (следующий шаг для него -
+#это создание командного файла задающего вопросы по конфигурации).
+#
+#Revision 1.7  88/06/13  19:45:48  korotaev
+#Стараниями AVG убран параметр настройки bootdev и всякие *boot.s
+#Остался один только boot.s
+#
+#Revision 1.6  88/04/08  15:14:07  korotaev
+#Некоторая описка.
+#
+#Revision 1.5  88/03/23  14:19:48  korotaev
+#Состояние после слияния с АЗЛК, Э-85 и Бурковским планировщиком
+#
+# Revision 1.4  88/01/04  20:36:58  korotaev
+# Слияние версий с АЗЛК.
+#
+# Revision 1.3  86/12/11  21:01:18  alex
+# Добавлены параметры NRUBIN и NRKC.
+#
+# Revision 1.2  86/11/23  22:48:40  alex
+# Добавлен dj
+#
+# Revision 1.1  86/04/19  15:01:58  avg
+# Initial revision
+#
+#
+#       Вызов:  config идентификатор_установки
+
+
+case $# in
+    1) ;;
+
+    *) echo 'Вызов:  config <conf_name>'
+	echo " при этом создается каталог ../<confname>"
+	echo " в соответствии с файлом ./<confname>"
+	echo " и в него копируются необходимые файлы"
+	exit 1
+	;;
+esac
+
+#
+
+# умолчания
+#
+cpu="GENERIC"
+ident="UNKNOWN"
+maxusers=3
+timezone=8
+dst=1
+rootdev="nulldev"
+swapdev="nulldev"
+dumpdev="nulldev"
+pipedev="nulldev"
+swplo="0"
+nswap="0"
+dumplo="UNSPECIFIED"
+dumproutine="nulldev"
+
+NBK=0 NDH=0 NDM=0 LOWDM=0 NDHU=0 NDJ=0 NDN=0 NDZ=0 NDVHP=0 NFD=0
+NHK=0 NHP=0 NHS=0 NHT=0 NKL=0 NKX=0 NKY=0 NLP=0 NPC=0 NPTY=0 NRA=0
+NRK=0 NRKC=1 NRL=0 NRM=0 NRP=0 NRUBIN=0 NRW=0 NRX=0 NTM=0
+NTMC=1 NTS=0 NVI=0 NVD=0 NXP=0 NXP_CONTROLLER=1
+
+machine=$1
+
+#
+# read in specification file
+#
+awk '/^#/{next}$1!=""{printf "%s=\"%s\"\n",$1,$2}' $machine > \#00 && . \#00 && rm \#00
+
+case $cpu in
+    4) cpu=40;;
+    100) cpu=40;;
+    1421) cpu=24;;
+    1420) cpu=34;;
+    1600) cpu=34;;
+    79)   cpu=70;;
+*);;
+esac
+
+pdp11=$cpu
+
+case $cpu in
+    GENERIC|40|60) splfix=:splfix.movb ;;
+    34|23|24)      splfix=:splfix.mtps ;;
+    44|45|70|73)   splfix=:splfix.spl ;;
+    *)
+	echo "Не распознан тип ЦП"
+	exit 1
+	;;
+esac
+
+if [ $cpu -eq 44 -o $cpu -eq 45 -o $cpu -eq 70 -o $cpu -eq 73 ]
+then
+	echo '/^## FOR NONOVERLAY KERNEL:.*$/,/^$/s/#//' > \#edmake
+	echo '/^CC =.*/s/^.*$/CC =   cc/' >> \#edmake
+	echo '/^AS =.*/s/^.*$/AS =   as/' >> \#edmake
+	echo '/^## FOR OVERLAY KERNEL:.*$/,/^$/d' >> \#edmake
+	echo '/-Z/s/-Z//' >> \#edmake
+else
+	echo '/^## FOR OVERLAY KERNEL:.*$/,/^$/s/#//' > \#edmake
+	echo '/^## FOR NONOVERLAY KERNEL:.*$/,/^$/d' >> \#edmake
+fi
+
+if [ $NKL -lt 1 -a $cpu -ne 23 ]
+then
+	echo "NKL должно быть не менее 1 (для консоли)"
+	exit 1
+fi
+
+#
+# Проверка на согласованность устройств с шиной
+#
+if [ $NDJ -gt 0 -o $NDN -gt 0 -o $NDZ -gt 0 -o $NHK -gt 0 -o \
+     $NHP -gt 0 -o $NHS -gt 0 -o $NHT -gt 0 -o $NLP -gt 0 -o \
+     $NPC -gt 0 -o $NRK -gt 0 -o $NRM -gt 0 -o $NRP -gt 0 -o \
+     $NRX -gt 0 -o $NTM -gt 0 -o $NXP -gt 0 ]
+then
+    if [ $cpu = "23" -o $cpu = "73" ]
+    then
+	echo "ERR: устройства DJ, DN, DZ, HK, HP, HS, HT, LP, PC, RK,"
+	echo "RM, RP, RX, TM и XP не могут быть с 23 или 73 процессорами"
+	exit 1
+    fi
+    echo '/^D85=.*/d' >> \#edmake
+    echo '/^DQBUS=.*/d' >> \#edmake
+    echo '/^DEV=.*/s/^.*$/DEV= \${DCOMMON} \${DUNIBUS}/' >> \#edmake
+fi
+if [ $NRW -gt 0 -o $NVI -gt 0 -o $NKX -gt 0 -o $NKY -gt 0 ]
+then
+    if [ $cpu != "23" ]
+    then
+	echo "ERR: устройства KX, KY, RW и VIDEO могут быть только с 23 процессором"
+	exit 1
+    fi
+    echo '/^DUNIBUS=.*/d' >> \#edmake
+    echo '/^DQBUS=.*/d' >> \#edmake
+    echo '/^DEV=.*/s/^.*$/DEV= \${DCOMMON} \${D85}/' >> \#edmake
+fi
+if [ $NDHU -gt 0 -o $NRA -gt 0 ]
+then
+    if [ $cpu != "73" -a $cpu != "23" -a $cpu != "GENERIC" ]
+    then
+	echo "ERR: устройства DHU и RA могут быть только с 23 или 73 процессорами"
+	exit 1
+    fi
+    echo '/^D85=.*/d' >> \#edmake
+    echo '/^DUNIBUS=.*/d' >> \#edmake
+    echo '/^DEV=.*/s/^.*$/DEV= \${DCOMMON} \${DQBUS}/' >> \#edmake
+fi
+
+if [ -d ../$machine ]
+then
+	echo "../$machine: каталог уже существует"
+	rm -f \#edmake
+	exit 1
+fi
+echo "Создаем ../$machine."
+mkdir ../$machine
+
+#
+# копируем стандартные файлы и т.д.
+#
+echo "Копируем файлы конфигурации"
+cp c.c genassym.c ioconf.c l.s param.c whoami.h localopts.h ../$machine
+cp bk.h dh.h dhu.h dj.h dn.h dvhp.h dz.h fd.h hk.h hp.h hs.h ht.h ../$machine
+cp kl.h kx.h ky.h lp.h pc.h pty.h ra.h rk.h rl.h rm.h rp.h rubin.h ../$machine
+cp rw.h rx.h tm.h ts.h vd.h video.h xp.h :comm-to-bss $splfix ../$machine
+cp newvers.sh checksys.c param.h ../$machine
+chmod 664 ../$machine/*.h ../$machine/*.c ../$machine/*.sh
+
+#
+# стирание ненужных правил и зависимостей в Makefile
+#
+echo "Подготовка и создание ../$machine/Makefile"
+if [ $NDH -lt 1 ]
+then
+	echo '/^dh\.o:.*/,/^$/d' >> \#edmake
+	echo '1,$s/ dh\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/dh\.c??g' >> \#edmake
+fi
+if [ $NDHU -lt 1 ]
+then
+	echo '/^dhu\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ dhu\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/dhu\.c??g' >> \#edmake
+fi
+if [ $NDJ -lt 1 ]
+then
+	echo '/^dj\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ dj\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/dj\.c??g' >> \#edmake
+fi
+if [ $NDN -lt 1 ]
+then
+	echo '/^dn\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ dn\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/dn\.c??g' >> \#edmake
+fi
+if [ $NDZ -lt 1 ]
+then
+	echo '/^dz\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ dz\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/dz\.c??g' >> \#edmake
+fi
+if [ $NDVHP -lt 1 ]
+then
+	echo '/^dvhp\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ dvhp\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/dvhp\.c??g' >> \#edmake
+fi
+if [ $NFD -lt 1 ]
+then
+	echo '/^fd\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ fd\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/fd\.c??g' >> \#edmake
+fi
+if [ $NHK -lt 1 ]
+then
+	echo '/^hk\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ hk\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/hk\.c??g' >> \#edmake
+fi
+if [ $NHP -lt 1 ]
+then
+	echo '/^hp\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ hp\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/hp\.c??g' >> \#edmake
+fi
+if [ $NHS -lt 1 ]
+then
+	echo '/^hs\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ hs\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/hs\.c??g' >> \#edmake
+fi
+if [ $NHT -lt 1 ]
+then
+	echo '/^ht\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ ht\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/ht\.c??g' >> \#edmake
+fi
+if [ $NKX -lt 1 ]
+then
+	echo '/^kx\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ kx\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/kx\.c??g' >> \#edmake
+fi
+if [ $NKY -lt 1 ]
+then
+	echo '/^ky\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ ky\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/ky\.c??g' >> \#edmake
+fi
+if [ $NLP -lt 1 ]
+then
+	echo '/^lp\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ lp\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/lp\.c??g' >> \#edmake
+fi
+if [ $NPC -lt 1 ]
+then
+	echo '/^pc\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ pc\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/pc\.c??g' >> \#edmake
+fi
+if [ $NPTY -lt 1 ]
+then
+	echo '/^pty\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ pty\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/pty\.c??g' >> \#edmake
+fi
+if [ $NRA -lt 1 ]
+then
+	echo '/^uda\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ uda\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/uda\.c??g' >> \#edmake
+fi
+if [ $NRK -lt 1 ]
+then
+	echo '/^rk\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ rk\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/rk\.c??g' >> \#edmake
+fi
+if [ $NRL -lt 1 ]
+then
+	echo '/^rl\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ rl\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/rl\.c??g' >> \#edmake
+fi
+if [ $NRM -lt 1 ]
+then
+	echo '/^rm\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ rm\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/rm\.c??g' >> \#edmake
+fi
+if [ $NRP -lt 1 ]
+then
+	echo '/^rp\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ rp\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/rp\.c??g' >> \#edmake
+fi
+if [ $NRUBIN -lt 1 ]
+then
+	echo '/^rubin\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ rubin\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/rubin\.c??g' >> \#edmake
+fi
+if [ $NRW -lt 1 ]
+then
+	echo '/^rw\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ rw\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/rw\.c??g' >> \#edmake
+fi
+if [ $NRX -lt 1 ]
+then
+	echo '/^rx\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ rx\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/rx\.c??g' >> \#edmake
+fi
+if [ $NTM -lt 1 ]
+then
+	echo '/^tm\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ tm\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/tm\.c??g' >> \#edmake
+fi
+if [ $NTS -lt 1 ]
+then
+	echo '/^ts\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ ts\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/ts\.c??g' >> \#edmake
+fi
+if [ $NVD -lt 1 ]
+then
+	echo '/^vd\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ vd\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/vd\.c??g' >> \#edmake
+fi
+if [ $NVI -lt 1 ]
+then
+	echo '/^graph\.o.*/,/^$/d' >> \#edmake
+	echo '/^font[12]\.o.*/,/^$/d' >> \#edmake
+	echo '/^vi[dk]e[oy]\.o.*/,/^$/d' >> \#edmake
+	echo '/^ildl\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ graph\.o//g' >> \#edmake
+	echo '1,$s/ font[12]\.o//g' >> \#edmake
+	echo '1,$s/ vi[dk]e[oy]\.o//g' >> \#edmake
+	echo '1,$s/ ildl\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/graph\.c??g' >> \#edmake
+	echo '1,$s?\.\./dev/vi[dk]e[oy]\.c??g' >> \#edmake
+	echo '1,$s?\.\./dev/ildl\.c??g' >> \#edmake
+fi
+if [ $NXP -lt 1 ]
+then
+	echo '/^xp\.o.*/,/^$/d' >> \#edmake
+	echo '1,$s/ xp\.o//g' >> \#edmake
+	echo '1,$s?\.\./dev/xp\.c??g' >> \#edmake
+fi
+if [ $cpu -ne 44 -a $cpu -ne 45 -a $cpu -ne 70 -a $cpu -ne 73 ]
+then
+	echo '/^OV[0-9][ ]*=[ ]*-Z[ ]*$/s/-Z//' >> \#edmake
+fi
+sed -f \#edmake < Makefile | unexpand > ../$machine/Makefile
+rm -f \#edmake
+chmod 664 ../$machine/Makefile
+
+ed - ../$machine/Makefile << EOF
+/%SPLFIX%/s//$splfix/
+/%MAXUSERS%/s//$maxusers/
+w
+q
+EOF
+
+#
+# редактирование файлов конфигурации
+#
+ed - ../$machine/whoami.h << EOF
+/%PDP%/s//$pdp11/
+/%IDENT%/s//$ident/
+/%ident%/s//\L$ident/
+w
+q
+EOF
+
+ed - ../$machine/param.c << EOF
+/%TIMEZONE%/s//$timezone/
+/%DST%/s//$dst/
+w
+q
+EOF
+
+ed - ../$machine/ioconf.c << EOF
+/%ROOTDEV%/s//$rootdev/
+/%SWAPDEV%/s//$swapdev/
+/%PIPEDEV%/s//$pipedev/
+/%DUMPDEV%/s//$dumpdev/
+/%NSWAP%/s//$nswap/
+/%SWPLO%/s//$swplo/
+/%DUMPLO%/s//$dumplo/
+g/%DUMPROUTINE%/s//$dumproutine/
+w
+q
+EOF
+
+#
+# Редактируем имя версии
+#
+ed - ../$machine/newvers.sh << EOF
+/%IDENT%/s//$ident/
+w
+q
+EOF
+
+#
+# Теперь отредактируем заголовки драйверов.
+#
+echo "Создаем заголовки драйверов."
+ed - ../$machine/bk.h << EOF
+/%NBK%/s//$NBK/
+w
+q
+EOF
+ed - ../$machine/dh.h << EOF
+/%NDH%/s//$NDH/
+/%NDM%/s//$NDM/
+/%LOWDM%/s//$LOWDM/
+w
+q
+EOF
+ed - ../$machine/dhu.h << EOF
+/%NDHU%/s//$NDHU/
+/%NDM%/s//$NDM/
+/%LOWDM%/s//$LOWDM/
+w
+q
+EOF
+ed - ../$machine/dj.h << EOF
+/%NDJ%/s//$NDJ/
+w
+q
+EOF
+ed - ../$machine/dn.h << EOF
+/%NDN%/s//$NDN/
+w
+q
+EOF
+ed - ../$machine/dz.h << EOF
+/%NDZ%/s//$NDZ/
+w
+q
+EOF
+ed - ../$machine/dvhp.h << EOF
+/%NDVHP%/s//$NDVHP/
+w
+q
+EOF
+ed - ../$machine/fd.h << EOF
+/%NFD%/s//$NFD/
+w
+q
+EOF
+ed - ../$machine/hk.h << EOF
+/%NHK%/s//$NHK/
+w
+q
+EOF
+ed - ../$machine/hp.h << EOF
+/%NHP%/s//$NHP/
+w
+q
+EOF
+ed - ../$machine/hs.h << EOF
+/%NHS%/s//$NHS/
+w
+q
+EOF
+ed - ../$machine/ht.h << EOF
+/%NHT%/s//$NHT/
+w
+q
+EOF
+ed - ../$machine/kl.h << EOF
+/%NKL%/s//$NKL/
+w
+q
+EOF
+ed - ../$machine/kx.h << EOF
+/%NKX%/s//$NKX/
+w
+q
+EOF
+ed - ../$machine/ky.h << EOF
+/%NKY%/s//$NKY/
+w
+q
+EOF
+ed - ../$machine/lp.h << EOF
+/%NLP%/s//$NLP/
+w
+q
+EOF
+ed - ../$machine/pc.h << EOF
+/%NPC%/s//$NPC/
+w
+q
+EOF
+ed - ../$machine/pty.h << EOF
+/%NPTY%/s//$NPTY/
+w
+q
+EOF
+ed - ../$machine/ra.h << EOF
+/%NRA%/s//$NRA/
+w
+q
+EOF
+ed - ../$machine/rk.h << EOF
+/%NRK%/s//$NRK/
+/%NRKC%/s//$NRKC/
+w
+q
+EOF
+ed - ../$machine/rl.h << EOF
+/%NRL%/s//$NRL/
+w
+q
+EOF
+ed - ../$machine/rm.h << EOF
+/%NRM%/s//$NRM/
+w
+q
+EOF
+ed - ../$machine/rp.h << EOF
+/%NRP%/s//$NRP/
+w
+q
+EOF
+ed - ../$machine/rubin.h << EOF
+/%NRUBIN%/s//$NRUBIN/
+w
+q
+EOF
+ed - ../$machine/rw.h << EOF
+/%NRW%/s//$NRW/
+w
+q
+EOF
+ed - ../$machine/rx.h << EOF
+/%NRX%/s//$NRX/
+w
+q
+EOF
+ed - ../$machine/tm.h << EOF
+/%NTM%/s//$NTM/
+/%NTMC%/s//$NTMC/
+w
+q
+EOF
+ed - ../$machine/ts.h << EOF
+/%NTS%/s//$NTS/
+w
+q
+EOF
+ed - ../$machine/vd.h << EOF
+/%NVD%/s//$NVD/
+w
+q
+EOF
+ed - ../$machine/video.h << EOF
+/%NVI%/s//$NVI/
+w
+q
+EOF
+ed - ../$machine/xp.h << EOF
+/%NXP%/s//$NXP/
+/%NXP_CONTROLLER%/s//$NXP_CONTROLLER/
+w
+q
+EOF
+
+echo ""
+echo "Для более тонкой настройки отредактируйте следующие файлы в"
+echo "../$machine: localopts.h, param.c и заголовки драйверов."
+echo "Если Вы добавляете в систему новые драйверы, не забудьте"
+echo "вставить их в параметр OPTIONAL в Makefile и запустить команду"
+echo "\"make depend\"."

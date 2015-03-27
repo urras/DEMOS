@@ -1,0 +1,80 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     87.03.21.18.41.29;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+include -файл для программы adm
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Администратор - обслуживание бюджетов
+ *  Автор: Антонов В.Г. ( ВМК МГУ, ИПК Минавтопрома )
+ *  Последнее изменение: 28.06.85
+ *
+ */
+
+#include <stdio.h>
+#include <pwd.h>
+#include <ctype.h>
+#include <grp.h>
+#include <time.h>
+#include <bud.h>
+#include <utmp.h>
+#include <stat.h>
+#include <ediag.h>
+
+struct USER  user;
+
+#define BUDF      "/usr/adm/budget"
+#define UTMPF     "/etc/utmp"
+#define DOSTAT    "/etc/dostat"
+#define PASSWD    "/etc/passwd"
+#define GROUP     "/etc/group"
+#define TMP       "/etc/adm.tmp"  /* Должен быть на том же носителе, где и PASSWD и GROUP */
+#define OLDGROUP  "/etc/group.old"
+#define OLDPASSWD "/etc/passwd.old"
+#define DFLTSHELL "/bin/sh"
+
+#define YES     1
+#define NO      0
+
+#define SKIPSPACES( p ) while( *p == ' ' || *p == '\t' ) p++
+#define SKIPTOSP( p )   while( *p != ' ' && *p != '\t' && *p != '\n' ) p++
+
+#define max( a, b )     ((a)>(b)?(a):(b))
+
+int     budf;
+struct passwd *upass;
+struct group  *gpass, XGROUP;
+FILE   *OPR;
+long    timey;  /* Текущая дата */
+char   *ctime();
+int     Npage;
+char    *Dtime(), *Ggrp(), *GFIO();
+long    CTTYU();
+int     onint();
+int     Wint;
+char   *SYSTEM;
+char    XRR1[16];
+extern int Utmp;
+FILE   *admtmp;
+extern int TMPcreated;
+char    nameS[32];
+@

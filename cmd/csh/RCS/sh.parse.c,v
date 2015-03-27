@@ -1,0 +1,1197 @@
+head     1.5;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     88.10.03.16.50.46;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.08.03.18.23.10;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.21.14.54.28;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.19.44.04;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.23.11;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.19.31;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.45.39;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.21.14.49.38;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.38.14;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.5
+log
+@правлены диагностики, которые говорили "Слишком много {"
+вместо "Слишком много ("
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.parse.c,v 1.4 88/08/03 18:23:10 abs Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.parse.c,v $
+ * Revision 1.4  88/08/03  18:23:10  abs
+ * Добавлена отладочная печать дерева разбора.
+ * Это происходит при 1) компиляции с -DDOBUGS1
+ *                    2) при установленной переменной Verbose
+ *
+ * Revision 1.3  86/07/21  14:54:28  avg
+ * Слита с версией alex-а из 4.2.
+ *
+ * Revision 1.2  86/06/02  19:44:04  dmitry
+ * Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+ *
+ * Revision 1.1  86/06/01  20:23:11  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+
+/*
+ * Perform aliasing on the word list lex
+ * Do a (very rudimentary) parse to separate into commands.
+ * If word 0 of a command has an alias, do it.
+ * Repeat a maximum of 20 times.
+ */
+alias(lex)
+	register struct wordent *lex;
+{
+	int aleft = 21;
+	jmp_buf osetexit;
+
+	getexit(osetexit);
+	setexit();
+	if (haderr) {
+		resexit(osetexit);
+		reset();
+	}
+	if (--aleft == 0)
+		error(ediag("Alias loop",
+			    "Цикл в alias"));
+	asyntax(lex->next, lex);
+	resexit(osetexit);
+}
+
+asyntax(p1, p2)
+	register struct wordent *p1, *p2;
+{
+
+	while (p1 != p2)
+		if (any(p1->word[0], ";&\n"))
+			p1 = p1->next;
+		else {
+			asyn0(p1, p2);
+			return;
+		}
+}
+
+asyn0(p1, p2)
+	struct wordent *p1;
+	register struct wordent *p2;
+{
+	register struct wordent *p;
+	register int l = 0;
+
+	for (p = p1; p != p2; p = p->next)
+		switch (p->word[0]) {
+
+		case '(':
+			l++;
+			continue;
+
+		case ')':
+			l--;
+			if (l < 0)
+				error(ediag("Too many )'s",
+					    "Слишком много )"));
+			continue;
+
+		case '>':
+			if (p->next != p2 && eq(p->next->word, "&"))
+				p = p->next;
+			continue;
+
+		case '&':
+		case '|':
+		case ';':
+		case '\n':
+			if (l != 0)
+				continue;
+			asyn3(p1, p);
+			asyntax(p->next, p2);
+			return;
+		}
+	if (l == 0)
+		asyn3(p1, p2);
+}
+
+asyn3(p1, p2)
+	struct wordent *p1;
+	register struct wordent *p2;
+{
+	register struct varent *ap;
+	struct wordent alout;
+	register bool redid;
+
+	if (p1 == p2)
+		return;
+	if (p1->word[0] == '(') {
+		for (p2 = p2->prev; p2->word[0] != ')'; p2 = p2->prev)
+			if (p2 == p1)
+				return;
+		if (p2 == p1->next)
+			return;
+		asyn0(p1->next, p2);
+		return;
+	}
+	ap = adrof1(p1->word, &aliases);
+	if (ap == 0)
+		return;
+	alhistp = p1->prev;
+	alhistt = p2;
+	alvec = ap->vec;
+	redid = lex(&alout);
+	alhistp = alhistt = 0;
+	alvec = 0;
+	if (err) {
+		freelex(&alout);
+		error(err);
+	}
+	if (p1->word[0] && eq(p1->word, alout.next->word)) {
+		char *cp = alout.next->word;
+
+		alout.next->word = strspl("\200", cp);
+		xfree(cp);
+	}
+	p1 = freenod(p1, redid ? p2 : p1->next);
+	if (alout.next != &alout) {
+		p1->next->prev = alout.prev->prev;
+		alout.prev->prev->next = p1->next;
+		alout.next->prev = p1;
+		p1->next = alout.next;
+		xfree(alout.prev->word);
+		xfree((char *)(alout.prev));
+	}
+	reset();                /* throw! */
+}
+
+struct wordent *
+freenod(p1, p2)
+	register struct wordent *p1, *p2;
+{
+	register struct wordent *retp = p1->prev;
+
+	while (p1 != p2) {
+		xfree(p1->word);
+		p1 = p1->next;
+		xfree((char *)(p1->prev));
+	}
+	retp->next = p2;
+	p2->prev = retp;
+	return (retp);
+}
+
+#define PHERE   1
+#define PIN     2
+#define POUT    4
+#define PDIAG   8
+
+/*
+ * syntax
+ *      empty
+ *      syn0
+ */
+struct command *
+syntax(p1, p2, flags)
+	register struct wordent *p1, *p2;
+	int flags;
+{
+
+	while (p1 != p2)
+		if (any(p1->word[0], ";&\n"))
+			p1 = p1->next;
+		else
+#ifdef DOBUGS1
+		{
+			struct command *TREE;
+
+			TREE =  syn0(p1, p2, flags);
+			if( adrof( "Verbose") )
+			    prntree( TREE,0 );
+			return TREE;
+		}
+#else
+			return (syn0(p1, p2, flags));
+#endif DOBUGS1
+	return (0);
+}
+
+/*
+ * syn0
+ *      syn1
+ *      syn1 & syntax
+ */
+struct command *
+syn0(p1, p2, flags)
+	struct wordent *p1, *p2;
+	int flags;
+{
+	register struct wordent *p;
+	register struct command *t, *t1;
+	int l;
+
+	l = 0;
+	for (p = p1; p != p2; p = p->next)
+		switch (p->word[0]) {
+
+		case '(':
+			l++;
+			continue;
+
+		case ')':
+			l--;
+			if (l < 0)
+				seterr(ediag("Too many )'s",
+					     "Слишком много )"));
+			continue;
+
+		case '|':
+			if (p->word[1] == '|')
+				continue;
+			/* fall into ... */
+
+		case '>':
+			if (p->next != p2 && eq(p->next->word, "&"))
+				p = p->next;
+			continue;
+
+		case '&':
+			if (l != 0)
+				break;
+			if (p->word[1] == '&')
+				continue;
+			t1 = syn1(p1, p, flags);
+			if (t1->t_dtyp == TLST) {
+				t = (struct command *) calloc(1, sizeof (*t));
+				t->t_dtyp = TPAR;
+				t->t_dflg = FAND|FINT;
+				t->t_dspr = t1;
+				t1 = t;
+			} else
+				t1->t_dflg |= FAND|FINT;
+			t = (struct command *) calloc(1, sizeof (*t));
+			t->t_dtyp = TLST;
+			t->t_dflg = 0;
+			t->t_dcar = t1;
+			t->t_dcdr = syntax(p, p2, flags);
+			return(t);
+		}
+	if (l == 0)
+		return (syn1(p1, p2, flags));
+	seterr(ediag("Too many ('s",
+		     "Слишком много ("));
+	return (0);
+}
+
+/*
+ * syn1
+ *      syn1a
+ *      syn1a ; syntax
+ */
+struct command *
+syn1(p1, p2, flags)
+	struct wordent *p1, *p2;
+	int flags;
+{
+	register struct wordent *p;
+	register struct command *t;
+	int l;
+
+	l = 0;
+	for (p = p1; p != p2; p = p->next)
+		switch (p->word[0]) {
+
+		case '(':
+			l++;
+			continue;
+
+		case ')':
+			l--;
+			continue;
+
+		case ';':
+		case '\n':
+			if (l != 0)
+				break;
+			t = (struct command *) calloc(1, sizeof (*t));
+			t->t_dtyp = TLST;
+			t->t_dcar = syn1a(p1, p, flags);
+			t->t_dcdr = syntax(p->next, p2, flags);
+			if (t->t_dcdr == 0)
+				t->t_dcdr = t->t_dcar, t->t_dcar = 0;
+			return (t);
+		}
+	return (syn1a(p1, p2, flags));
+}
+
+/*
+ * syn1a
+ *      syn1b
+ *      syn1b || syn1a
+ */
+struct command *
+syn1a(p1, p2, flags)
+	struct wordent *p1, *p2;
+	int flags;
+{
+	register struct wordent *p;
+	register struct command *t;
+	register int l = 0;
+
+	for (p = p1; p != p2; p = p->next)
+		switch (p->word[0]) {
+
+		case '(':
+			l++;
+			continue;
+
+		case ')':
+			l--;
+			continue;
+
+		case '|':
+			if (p->word[1] != '|')
+				continue;
+			if (l == 0) {
+				t = (struct command *) calloc(1, sizeof (*t));
+				t->t_dtyp = TOR;
+				t->t_dcar = syn1b(p1, p, flags);
+				t->t_dcdr = syn1a(p->next, p2, flags);
+				t->t_dflg = 0;
+				return (t);
+			}
+			continue;
+		}
+	return (syn1b(p1, p2, flags));
+}
+
+/*
+ * syn1b
+ *      syn2
+ *      syn2 && syn1b
+ */
+struct command *
+syn1b(p1, p2, flags)
+	struct wordent *p1, *p2;
+	int flags;
+{
+	register struct wordent *p;
+	register struct command *t;
+	register int l = 0;
+
+	l = 0;
+	for (p = p1; p != p2; p = p->next)
+		switch (p->word[0]) {
+
+		case '(':
+			l++;
+			continue;
+
+		case ')':
+			l--;
+			continue;
+
+		case '&':
+			if (p->word[1] == '&' && l == 0) {
+				t = (struct command *) calloc(1, sizeof (*t));
+				t->t_dtyp = TAND;
+				t->t_dcar = syn2(p1, p, flags);
+				t->t_dcdr = syn1b(p->next, p2, flags);
+				t->t_dflg = 0;
+				return (t);
+			}
+			continue;
+		}
+	return (syn2(p1, p2, flags));
+}
+
+/*
+ * syn2
+ *      syn3
+ *      syn3 | syn2
+ *      syn3 |& syn2
+ */
+struct command *
+syn2(p1, p2, flags)
+	struct wordent *p1, *p2;
+	int flags;
+{
+	register struct wordent *p, *pn;
+	register struct command *t;
+	register int l = 0;
+	int f;
+
+	for (p = p1; p != p2; p = p->next)
+		switch (p->word[0]) {
+
+		case '(':
+			l++;
+			continue;
+
+		case ')':
+			l--;
+			continue;
+
+		case '|':
+			if (l != 0)
+				continue;
+			t = (struct command *) calloc(1, sizeof (*t));
+			f = flags | POUT;
+			pn = p->next;
+			if (pn != p2 && pn->word[0] == '&') {
+				f |= PDIAG;
+				t->t_dflg |= FDIAG;
+			}
+			t->t_dtyp = TFIL;
+			t->t_dcar = syn3(p1, p, f);
+			if (pn != p2 && pn->word[0] == '&')
+				p = pn;
+			t->t_dcdr = syn2(p->next, p2, flags | PIN);
+			return (t);
+		}
+	return (syn3(p1, p2, flags));
+}
+
+char    *RELPAR =       "<>()";
+
+/*
+ * syn3
+ *      ( syn0 ) [ < in  ] [ > out ]
+ *      word word* [ < in ] [ > out ]
+ *      KEYWORD ( word* ) word* [ < in ] [ > out ]
+ *
+ *      KEYWORD = (@@ exit foreach if set switch test while)
+ */
+struct command *
+syn3(p1, p2, flags)
+	struct wordent *p1, *p2;
+	int flags;
+{
+	register struct wordent *p;
+	struct wordent *lp, *rp;
+	register struct command *t;
+	register int l;
+	char **av;
+	int n, c;
+	bool specp = 0;
+
+	if (p1 != p2) {
+		p = p1;
+again:
+		switch (srchx(p->word)) {
+
+		case ZELSE:
+			p = p->next;
+			if (p != p2)
+				goto again;
+			break;
+
+		case ZEXIT:
+		case ZFOREACH:
+		case ZIF:
+		case ZLET:
+		case ZSET:
+		case ZSWITCH:
+		case ZWHILE:
+			specp = 1;
+			break;
+		}
+	}
+	n = 0;
+	l = 0;
+	for (p = p1; p != p2; p = p->next)
+		switch (p->word[0]) {
+
+		case '(':
+			if (specp)
+				n++;
+			l++;
+			continue;
+
+		case ')':
+			if (specp)
+				n++;
+			l--;
+			continue;
+
+		case '>':
+		case '<':
+			if (l != 0) {
+				if (specp)
+					n++;
+				continue;
+			}
+			if (p->next == p2)
+				continue;
+			if (any(p->next->word[0], RELPAR))
+				continue;
+			n--;
+			continue;
+
+		default:
+			if (!specp && l != 0)
+				continue;
+			n++;
+			continue;
+		}
+	if (n < 0)
+		n = 0;
+	t = (struct command *) calloc(1, sizeof (*t));
+	av = (char **) calloc(n + 1, sizeof (char **));
+	t->t_dcom = av;
+	n = 0;
+	if (p2->word[0] == ')')
+		t->t_dflg = FPAR;
+	lp = 0;
+	rp = 0;
+	l = 0;
+	for (p = p1; p != p2; p = p->next) {
+		c = p->word[0];
+		switch (c) {
+
+		case '(':
+			if (l == 0) {
+				if (lp != 0 && !specp)
+					seterr(ediag("Badly placed (",
+						     "( не на месте"));
+				lp = p->next;
+			}
+			l++;
+			goto savep;
+
+		case ')':
+			l--;
+			if (l == 0)
+				rp = p;
+			goto savep;
+
+		case '>':       /* перенаправление вывода */
+			if (l != 0)
+				goto savep;
+			if (p->word[1] == '>')
+				t->t_dflg |= FCAT;
+			if (p->next != p2 && eq(p->next->word, "&")) {
+				t->t_dflg |= FDIAG, p = p->next;
+				if (flags & (POUT|PDIAG))
+					goto badout;
+			}
+			if (p->next != p2 && eq(p->next->word, "!"))
+				t->t_dflg |= FANY, p = p->next;
+			if (p->next == p2) {
+missfile:
+				seterr(ediag("Missing name for redirect",
+					     "Нет имени для перенаправления"));
+				continue;
+			}
+			p = p->next;
+			if (any(p->word[0], RELPAR))
+				goto missfile;
+			if ((flags & POUT) && (flags & PDIAG) == 0 || t->t_drit)
+badout:
+				seterr(ediag("Ambiguous output redirect",
+					     "Неоднозначное перенаправление вывода"));
+			else
+				t->t_drit = savestr(p->word);
+			continue;
+
+		case '<':  /* перенаправление ввода */
+			if (l != 0)
+				goto savep;
+			if (p->word[1] == '<')
+				t->t_dflg |= FHERE;
+			if (p->next == p2)
+				goto missfile;
+			p = p->next;
+			if (any(p->word[0], RELPAR))
+				goto missfile;
+			if ((flags & PHERE) && (t->t_dflg & FHERE))
+				seterr(ediag("Can't << within ()'s",
+					     "Нельзя использовать << в ()"));
+			else if ((flags & PIN) || t->t_dlef)
+				seterr(ediag("Ambiguous input redirect",
+					     "Неоднозначное перенаправление ввода"));
+			else
+				t->t_dlef = savestr(p->word);
+			continue;
+
+savep:
+			if (!specp)
+				continue;
+		default:
+			if (l != 0 && !specp)
+				continue;
+			if (err == 0)
+				av[n] = savestr(p->word);
+			n++;
+			continue;
+		}
+	}
+	if (lp != 0 && !specp) {
+		if (n != 0)
+			seterr(ediag("Badly placed ()'s",
+				     "() не на месте"));
+		t->t_dtyp = TPAR;
+		t->t_dspr = syn0(lp, rp, PHERE);
+	} else {
+		if (n == 0)
+			seterr(ediag("Invalid null command",
+				     "Недопустимая пустая команда"));
+		t->t_dtyp = TCOM;
+	}
+	return (t);
+}
+
+freesyn(t)
+	register struct command *t;
+{
+	register char **v;
+
+	if (t == 0)
+		return;
+	switch (t->t_dtyp) {
+
+	case TCOM:
+		for (v = t->t_dcom; *v; v++)
+			xfree(*v);
+		xfree((char *)(t->t_dcom));
+		goto lr;
+
+	case TPAR:
+		freesyn(t->t_dspr);
+		/* fall into ... */
+
+lr:
+		xfree(t->t_dlef), xfree(t->t_drit);
+		break;
+
+	case TAND:
+	case TOR:
+	case TFIL:
+	case TLST:
+		freesyn(t->t_dcar), freesyn(t->t_dcdr);
+		break;
+	}
+	xfree((char *)t);
+}
+
+#ifdef DOBUGS1
+/* печать дерева синтаксического разбора */
+static char *prtsym[] = { "|" , ";", "||", "&&", 0 };
+
+static prtshift( level ){
+	for( ; level > 0 ; --level ) printf( "\t");
+}
+
+prntree( t, l )
+register struct command *t;
+/* вызов: prntree( &tree, 0 );  */
+{
+	char **v;
+	char *OUTMARK = ">";
+	char *INMARK  = "<";
+	char *CLOB    = "";
+	char *STDERR  = "";
+	char *ASYNC   = "";
+
+	if( t==0) return;
+	switch( t-> t_dtyp ){
+	case TCOM:
+		prtshift( l);
+		printf("    ");
+		printf("[%d:", l);
+
+		/* разбор флагов */
+		if( t->t_dflg & FAND )
+			ASYNC = " &";
+		if( t->t_dflg & FCAT )
+			OUTMARK= ">>";
+		if( t->t_dflg & FPIN )
+			printf( "<PIPE ");
+		if( t->t_dflg & FPOU )
+			printf( ">PIPE ");
+		if( t->t_dflg & FPAR )
+			printf( "don't_fork&last() ");
+		if( t->t_dflg & FINT)
+			printf( "no_intrs ");
+		if( t->t_dflg & FDIAG )
+			/* stderr тоже перенаправлен на выводе */
+			STDERR = "&";
+		if( t->t_dflg & FANY )
+			CLOB = "!";
+		if( t->t_dflg & FHERE )
+			INMARK = "<<";
+		if( t->t_dflg & FREDO )
+			printf( "repeat ");
+		if( t->t_dflg & FNICE )
+			printf( "nice ");
+		if( t->t_dflg & FNOHUP )
+			printf( "nohup ");
+		if( t->t_dflg & FTIME )
+			printf( "time ");
+
+		printf( "] ");
+
+		for( v=t-> t_dcom ; *v ; v++ )
+			printf( "%s ", *v );
+LiR:
+		if( t-> t_dlef )printf("%s%s ", INMARK, t-> t_dlef );
+		if( t-> t_drit )printf("%s%s%s%s ",
+		     OUTMARK, STDERR, CLOB, t-> t_drit );
+		printf( "%s\n", ASYNC );
+		return;
+	case TPAR:
+		prtshift( l );
+		printf( "(\n");
+		prntree( t-> t_dspr, l+1 );
+		prtshift( l);
+		printf( ") ");
+		goto LiR;
+	default: /* прочие флаги */
+		if( t-> t_dcar != t )prntree( t-> t_dcar , l);
+		prtshift( l);
+		printf( "%s\n", prtsym[ (t-> t_dtyp)- TFIL ] );
+		if( t-> t_dcdr != t )prntree( t-> t_dcdr , l);
+	}
+}
+#endif
+@
+
+
+1.4
+log
+@Добавлена отладочная печать дерева разбора.
+Это происходит при 1) компиляции с -DDOBUGS1
+		      2) при установленной переменной Verbose
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.parse.c,v 1.3 86/07/21 14:54:28 avg Exp $";
+d9 5
+d83 1
+a83 1
+					    "Слишком много }"));
+d232 1
+a232 1
+					     "Слишком много }"));
+@
+
+
+1.3
+log
+@Слита с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.parse.c,v 1.2 86/06/02 19:44:04 dmitry Exp $";
+d9 3
+d186 10
+d197 1
+d550 1
+a550 1
+		case '>':
+d579 1
+a579 1
+		case '<':
+d658 81
+@
+
+
+1.2
+log
+@Слиянием с версией для МНОС 1.2 добавлены русские диагностики.
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.parse.c,v 1.1 86/06/01 20:23:11 dmitry Exp $";
+
+d9 3
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.parse.c,v 0.0 86/04/20 21:24:56 root Exp $";
+d10 4
+a13 1
+ * $Log$
+a18 4
+ * C shell
+ */
+
+/*
+d37 2
+a38 1
+		error("Alias loop");
+d73 2
+a74 1
+				error("Too many )'s");
+d143 1
+a143 1
+	reset();		/* throw! */
+d162 4
+a165 4
+#define	PHERE	1
+#define	PIN	2
+#define	POUT	4
+#define	PDIAG	8
+d169 2
+a170 2
+ *	empty
+ *	syn0
+d188 2
+a189 2
+ *	syn1
+ *	syn1 & syntax
+d211 2
+a212 1
+				seterr("Too many )'s");
+d248 2
+a249 1
+	seterr("Too many ('s");
+d255 2
+a256 2
+ *	syn1a
+ *	syn1a ; syntax
+d296 2
+a297 2
+ *	syn1b
+ *	syn1b || syn1a
+d337 2
+a338 2
+ *	syn2
+ *	syn2 && syn1b
+d377 3
+a379 3
+ *	syn3
+ *	syn3 | syn2
+ *	syn3 |& syn2
+d422 1
+a422 1
+char	*RELPAR =	"<>()";
+d426 3
+a428 3
+ *	( syn0 ) [ < in  ] [ > out ]
+ *	word word* [ < in ] [ > out ]
+ *	KEYWORD ( word* ) word* [ < in ] [ > out ]
+d430 1
+a430 1
+ *	KEYWORD = (@@ exit foreach if set switch test while)
+d522 2
+a523 1
+					seterr("Badly placed (");
+d549 2
+a550 1
+				seterr("Missing name for redirect");
+d558 2
+a559 1
+				seterr("Ambiguous output redirect");
+d575 2
+a576 1
+				seterr("Can't << within ()'s");
+d578 2
+a579 1
+				seterr("Ambiguous input redirect");
+d598 2
+a599 1
+			seterr("Badly placed ()'s");
+d604 2
+a605 1
+			seterr("Invalid null command");
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 11
+a11 1
+static	char *sccsid = "@@(#)sh.parse.c 4.1 10/9/80";
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.parse.c  2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+a32 4
+#ifdef ALDEBUG
+	prlex(lex);
+	printf("\n");
+#endif
+a119 10
+#ifdef ALDEBUG
+	printf("applying: %s --> ", p1->word);
+	blkpr(ap->vec);
+	printf("\n");
+	printf("to: ");
+	{ struct wordent *wp; for (wp = alhistp; wp != alhistt; wp = wp->next)
+		printf("%s ", wp->word);
+	  printf("\n");
+	}
+#endif
+d140 1
+a140 1
+		xfree(alout.prev);
+d142 1
+a142 1
+	reset();                /* throw! */
+d154 1
+a154 1
+		xfree(p1->prev);
+d161 4
+a164 4
+#define PHERE   1
+#define PIN     2
+#define POUT    4
+#define PDIAG   8
+d168 2
+a169 2
+ *      empty
+ *      syn0
+d187 2
+a188 2
+ *      syn1
+ *      syn1 & syntax
+d232 1
+a232 1
+				t->t_dflg = FAND|FPRS|FINT;
+d236 1
+a236 1
+				t1->t_dflg |= FAND|FPRS|FINT;
+d252 2
+a253 2
+ *      syn1a
+ *      syn1a ; syntax
+d293 2
+a294 2
+ *      syn1b
+ *      syn1b || syn1a
+d334 2
+a335 2
+ *      syn2
+ *      syn2 && syn1b
+d374 3
+a376 3
+ *      syn3
+ *      syn3 | syn2
+ *      syn3 |& syn2
+d419 1
+a419 1
+char    *RELPAR =       "<>()";
+d423 3
+a425 3
+ *      ( syn0 ) [ < in  ] [ > out ]
+ *      word word* [ < in ] [ > out ]
+ *      KEYWORD ( word* ) word* [ < in ] [ > out ]
+d427 1
+a427 1
+ *      KEYWORD = (@@ exit foreach if set switch test while)
+d613 1
+a613 1
+		xfree(t->t_dcom);
+d631 1
+a631 1
+	xfree(t);
+@
+
+
+0.0.2.0
+log
+@VAX BSD4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* $Header: sh.parse.c,v 1.1 86/01/04 20:06:53 alex Stab $ */
+
+d23 4
+d114 10
+d144 1
+a144 1
+		xfree((char *)(alout.prev));
+d146 1
+a146 1
+	reset();		/* throw! */
+d158 1
+a158 1
+		xfree((char *)(p1->prev));
+d165 4
+a168 4
+#define	PHERE	1
+#define	PIN	2
+#define	POUT	4
+#define	PDIAG	8
+d172 2
+a173 2
+ *	empty
+ *	syn0
+d191 2
+a192 2
+ *	syn1
+ *	syn1 & syntax
+d236 1
+a236 1
+				t->t_dflg = FAND|FINT;
+d240 1
+a240 1
+				t1->t_dflg |= FAND|FINT;
+d256 2
+a257 2
+ *	syn1a
+ *	syn1a ; syntax
+d297 2
+a298 2
+ *	syn1b
+ *	syn1b || syn1a
+d338 2
+a339 2
+ *	syn2
+ *	syn2 && syn1b
+d378 3
+a380 3
+ *	syn3
+ *	syn3 | syn2
+ *	syn3 |& syn2
+d423 1
+a423 1
+char	*RELPAR =	"<>()";
+d427 3
+a429 3
+ *	( syn0 ) [ < in  ] [ > out ]
+ *	word word* [ < in ] [ > out ]
+ *	KEYWORD ( word* ) word* [ < in ] [ > out ]
+d431 1
+a431 1
+ *	KEYWORD = (@@ exit foreach if set switch test while)
+d617 1
+a617 1
+		xfree((char *)(t->t_dcom));
+d635 1
+a635 1
+	xfree((char *)t);
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.parse.c,v $
+ * Revision 1.1  86/02/24  20:23:41  sys
+ * Initial revision
+ * 
+d32 1
+a32 2
+		error(ediag("Alias loop",
+			    "Цикл в alias"));
+d67 1
+a67 2
+				error(ediag("Too many )'s",
+					    "Слишком много }"));
+d214 1
+a214 2
+				seterr(ediag("Too many )'s",
+					     "Слишком много }"));
+d250 1
+a250 2
+	seterr(ediag("Too many ('s",
+		     "Слишком много ("));
+d523 1
+a523 2
+					seterr(ediag("Badly placed (",
+						     "( не на месте"));
+d549 1
+a549 2
+				seterr(ediag("Missing name for redirect",
+					     "Нет имени для перенаправления"));
+d557 1
+a557 2
+				seterr(ediag("Ambiguous output redirect",
+					     "Неоднозначное перенаправление вывода"));
+d573 1
+a573 2
+				seterr(ediag("Can't << within ()'s",
+					     "Нельзя использовать << в ()"));
+d575 1
+a575 2
+				seterr(ediag("Ambiguous input redirect",
+					     "Неоднозначное перенаправление ввода"));
+d594 1
+a594 2
+			seterr(ediag("Badly placed ()'s",
+				     "() не на месте"));
+d599 1
+a599 2
+			seterr(ediag("Invalid null command",
+				     "Недопустимая пустая команда"));
+@

@@ -1,0 +1,85 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     90.09.24.16.45.08;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.02.16.07.01;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.2
+log
+@???
+@
+text
+@/* $Header: subr.c,v 1.1 88/02/02 16:07:01 dvolodin Exp $
+ * $Log:	subr.c,v $
+ * Revision 1.1  88/02/02  16:07:01  dvolodin
+ * Initial revision
+ * 
+ */
+
+#include <stdio.h>
+
+float obotx = 0.;
+float oboty = 0.;
+float botx = 0.;
+float boty = 0.;
+float scalex = 1.;
+float scaley = 1.;
+
+cont(x,y)
+short x, y ;
+{
+    _convert( &x, &y );
+    printf( "%04d %04d", 1000+x, 1000+y );
+}
+
+_convert(x, y)
+int *x, *y;
+{
+	register ix, iy;
+
+	ix = (*x-obotx)*scalex + botx;
+	iy = (*y-oboty)*scaley + boty;
+	if( ix < 0 )    ix = 0;
+	if( ix > 1023 ) ix = 1023 ;
+	if( iy < 0 )     iy = 0;
+	if( iy > 1023 ) iy = 1023;
+	*x = ix;
+	*y = iy;
+}
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header$
+ * $Log$
+d31 4
+a34 4
+	if( ix < 0 )     x = 0;
+	if( ix > 1023 ) x = 1023 ;
+	if( iy < 0 )     y = 0;
+	if( iy > 1023 ) y = 1023;
+@

@@ -1,0 +1,596 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.12.28.20.29.00;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.28.18.49.16;  author avg;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.12.28.18.42.07;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Построитель лексических анализатров LEX.
+@
+
+
+1.2
+log
+@Версия для ДЕМОС 2.0
+@
+text
+@/*
+ * $Log$
+ */
+
+#include <ediag.h>
+#include "ldefs.h"
+#include "once.h"
+
+/*NOXSTR*/
+#ifndef lint
+static char rcsid[] = "$Header$";
+static char orcsid[] = ONCEHDR;
+#endif
+/*YESXSTR*/
+
+	/* lex [-[drcyvntf]] [file] ... [file] */
+
+main( argc, argv )
+int      argc;
+char   **argv;
+{
+	register int i;
+	char     Xpushc[TOKENSIZE];
+	pushptr = pushc = Xpushc;
+
+#ifdef DEBUG
+	signal( 10, buserr  );
+	signal( 11, segviol );
+#endif DEBUG
+	while( argc > 1 && argv[1][0] == '-' ){
+		i = 0;
+		while( argv[1][++i] ){
+			switch( argv[1][i] ){
+#ifdef DEBUG
+			  case 'd':
+					debug++;
+					break;
+			  case 'y':
+					yydebug = TRUE;
+					break;
+#endif
+			  case 'c':
+			  case 'C':
+					break;
+			  case 't':
+			  case 'T':
+					fout = stdout;
+					errorf = stderr;
+					break;
+			  case 'v':
+			  case 'V':
+					report = 1;
+					break;
+			  case 'f':
+			  case 'F':
+					optim = FALSE;
+					break;
+			  case 'n':
+			  case 'N':
+					report = 0;
+					break;
+			  default:
+					warning( "Unknown key %c", "Неизвестный ключ %c", argv[1][i] );
+			}
+		}
+		argc--;
+		argv++;
+	}
+#ifdef SMALL
+	if( fout == NULL )
+		setbuf( stdout, NULL );
+#endif
+	sargc = argc;
+	sargv = argv;
+	if( argc > 1 ){
+#ifdef SMALL
+		extern char _sibuf[];
+
+		setbuf( stdin, NULL );
+#endif
+		fclose( stdin );
+		fin = fopen( argv[++fptr], "r" );         /* open argv[1] */
+#ifdef SMALL
+		setbuf( fin, _sibuf );
+#endif
+		sargc--;
+		sargv++;
+	}else
+		fin = stdin;
+	if( fin == NULL ){
+		if( argc > 1 )
+			error( "Can't read input file %s", "Не могу прочитать входной файл %s", argv[1] );
+		else
+			error( "Can't read stdin", "Не могу прочитать станд. ввод" );
+	}
+	gch();
+		/* may be gotten: def, subs, sname, schar, ccl, dchar */
+	get1core();
+		/* may be gotten: name, left, right, nullstr, parent */
+	scopy( "INITIAL", sp );
+	sname[0] = sp;
+	sp =+ slength( "INITIAL" ) + 1;
+	sname[1] = 0;
+	if( yyparse( 0 ) )
+		exit( 1 ); /* error return code */
+		/* may be disposed of: def, subs, dchar */
+	free1core();
+		/* may be gotten: tmpstat, foll, positions, gotof, nexts, nchar, state, atable, sfall, cpackflg */
+	get2core();
+	ptail();
+	mkmatch();
+#ifdef DEBUG
+	if( debug )
+		pccl();
+#endif
+	sect  = ENDSECTION;
+	if( tptr > 0 )
+		cfoll( tptr - 1 );
+#ifdef DEBUG
+	if( debug )
+		pfoll();
+#endif
+	cgoto();
+#ifdef DEBUG
+	if( debug ){
+		printf( ediag( "Print %d states:\n","Печать %d состояний:\n"), stnum + 1 );
+		for( i = 0; i <= stnum; i++ )
+			stprt( i );
+	}
+#endif
+		/* may be disposed of: positions, tmpstat, foll, state, name, left, right, parent, ccl, schar, sname */
+		/* may be gotten: verify, advance, stoff */
+	free2core();
+	get3core();
+	layout();
+		/* may be disposed of: verify, advance, stoff, nexts, nchar,
+			gotof, atable, ccpackflg, sfall */
+#ifdef DEBUG
+	free3core();
+#endif
+	if( ZCH > NCH )
+		cname = "/usr/lib/lex/ebcform";
+	drivercopy( cname );
+	fclose( fout );
+	if(
+#ifdef DEBUG
+		debug   ||
+#endif
+			report == 1 )
+		statistics();
+
+	fclose( stdout );
+	fclose( stderr );
+	exit( 0 );        /* success return code */
+}
+
+drivercopy(s)
+char *s;
+{
+	register i;
+#ifdef SMALL
+	char XB[BUFSIZ];
+#endif
+
+	fother = fopen( s, "r" );
+	if( fother == NULL )
+		error( "No lex driver, file %s", "Нет драйвера Lex, файл %s", cname );
+#ifdef SMALL
+	setbuf( fother, XB );
+#endif
+	while( ( i = getc( fother ) ) != EOF )
+		putc( i, fout );
+
+	fclose( fother );
+}
+
+get1core()
+{
+	ccptr =
+	ccl   = myalloc( CCLSIZE,   sizeof( *ccl   ) );
+	pcptr =
+	pchar = myalloc( pchlen,    sizeof( *pchar ) );
+	def   = myalloc( DEFSIZE,   sizeof( *def   ) );
+	subs  = myalloc( DEFSIZE,   sizeof( *subs  ) );
+	dp    =
+	dchar = myalloc( DEFCHAR,   sizeof( *dchar ) );
+	sname = myalloc( STARTSIZE, sizeof( *sname ) );
+	sp    =
+	schar = myalloc( STARTCHAR, sizeof( *schar ) );
+	if( ccl == 0   || def == 0 || subs == 0 || dchar == 0 ||
+	    sname == 0 || schar == 0                            )
+		error( "Too small memory to start", "Слишком мало памяти для начала" );
+}
+
+free1core()
+{
+	cfree( def,   DEFSIZE, sizeof( *def   ) );
+	cfree( subs,  DEFSIZE, sizeof( *subs  ) );
+	cfree( dchar, DEFCHAR, sizeof( *dchar ) );
+}
+
+get2core()
+{
+	register int     i;
+
+	gotof     = myalloc( nstates,  sizeof( *gotof     ));
+	nexts     = myalloc( ntrans,   sizeof( *nexts     ));
+	nchar     = myalloc( ntrans,   sizeof( *nchar     ));
+	state     = myalloc( nstates,  sizeof( *state     ));
+	atable    = myalloc( nstates,  sizeof( *atable    ));
+	sfall     = myalloc( nstates,  sizeof( *sfall     ));
+	cpackflg  = myalloc( nstates,  sizeof( *cpackflg  ));
+	tmpstat   = myalloc( tptr + 1, sizeof( *tmpstat   ));
+	foll      = myalloc( tptr + 1, sizeof( *foll      ));
+	nxtpos    =
+	positions = myalloc( maxpos,   sizeof( *positions ));
+	if( tmpstat == 0 || foll   == 0 || positions == 0 ||
+	    gotof   == 0 || nexts  == 0 || nchar     == 0 ||
+	    state   == 0 || atable == 0 || sfall     == 0 ||
+	    cpackflg == 0                                    )
+		error( "Not enough memory for states generation", "Слишком мало памяти для генерации состояний" );
+	for( i = 0; i <= tptr; i++ )
+		foll[i] = 0;
+}
+
+free2core()
+{
+	cfree( positions, maxpos,    sizeof( *positions ) );
+	cfree( tmpstat,   tptr + 1,  sizeof( *tmpstat   ) );
+	cfree( foll,      tptr + 1,  sizeof( *foll      ) );
+	cfree( name,      treesize,  sizeof( *name      ) );
+	cfree( left,      treesize,  sizeof( *left      ) );
+	cfree( right,     treesize,  sizeof( *right     ) );
+	cfree( parent,    treesize,  sizeof( *parent    ) );
+	cfree( nullstr,   treesize,  sizeof( *nullstr   ) );
+	cfree( state,     nstates,   sizeof( *state     ) );
+	cfree( sname,     STARTSIZE, sizeof( *sname     ) );
+	cfree( schar,     STARTCHAR, sizeof( *schar     ) );
+	cfree( ccl,       CCLSIZE,   sizeof( *ccl       ) );
+}
+
+get3core()
+{
+	verify  = myalloc( outsize,   sizeof( *verify  ) );
+	advance = myalloc( outsize,   sizeof( *advance ) );
+	stoff   = myalloc( stnum + 2, sizeof( *stoff   ) );
+	if( verify == 0 || advance == 0 || stoff == 0 )
+		error( "Not enough memory for final packing", "Мало памяти для конечной упаковки" );
+}
+
+#ifdef DEBUG
+free3core()
+{
+	cfree( advance,  outsize, sizeof( *advance  ) );
+	cfree( verify,   outsize, sizeof( *verify   ) );
+	cfree( stoff,    stnum+1, sizeof( *stoff    ) );
+	cfree( gotof,    nstates, sizeof( *gotof    ) );
+	cfree( nexts,    ntrans,  sizeof( *nexts    ) );
+	cfree( nchar,    ntrans,  sizeof( *nchar    ) );
+	cfree( atable,   nstates, sizeof( *atable   ) );
+	cfree( sfall,    nstates, sizeof( *sfall    ) );
+	cfree( cpackflg, nstates, sizeof( *cpackflg ) );
+}
+#endif
+
+char *myalloc( a, b )
+int      a;
+int      b;
+{
+	register int     i;
+
+	i = calloc( a, b );
+	if( i == 0 )
+		warning( "calloc returns 0", "calloc возвратил 0" );
+	else if( i == -1 ){
+#ifdef DEBUG
+		warning("calloc returns -1", "calloc возвратил -1");
+#endif
+		return( 0 );
+	}
+	return( i );
+}
+
+#ifdef DEBUG
+buserr()
+{
+	fflush( errorf );
+	fflush( fout );
+	fflush( stdout );
+	fprintf( errorf, ediag("Bus error\n", "Ошибка шины\n") );
+	if( report == 1 )
+		statistics();
+	fflush( errorf );
+}
+
+segviol()
+{
+	fflush( errorf );
+	fflush( fout );
+	fflush( stdout );
+	fprintf( errorf, ediag( "Segmentation violation\n", "Нарушение сегментации\n") );
+	if( report == 1 )
+		statistics();
+	fflush( errorf );
+}
+#endif
+
+yyerror( s )
+char *s;
+{
+	fprintf( stderr, "%s\n", s );
+}
+@
+
+
+1.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d2 1
+a2 5
+ * МНОС РЛ 1.2
+ * lex - построитель лексических анализаторов
+ *      Версия для СМ-4 и т.п. - Антонов В.Г.
+ *                              ( ИПК Минавтопрома, ВМК МГУ )
+ * Последнее изменение: 03.09.85
+d8 7
+@
+
+
+1.0
+log
+@Initial revision
+@
+text
+@d1 7
+a7 2
+# include "ldefs.c"
+# include "once.c"
+d9 4
+d15 7
+a21 2
+	/* Copyright 1976, Bell Telephone Laboratories, Inc.,
+	    written by Eric Schmidt, August 27, 1976   */
+d23 5
+a27 9
+main(argc,argv)
+  int argc;
+  char **argv; {
+	register int i;
+# ifdef DEBUG
+	signal(10,buserr);
+	signal(11,segviol);
+# endif
+	while (argc > 1 && argv[1][0] == '-' ){
+d29 15
+a43 11
+		while(argv[1][++i]){
+			switch (argv[1][i]){
+# ifdef DEBUG
+				case 'd': debug++; break;
+				case 'y': yydebug = TRUE; break;
+# endif
+				case 'r': case 'R':
+					ratfor=TRUE; break;
+				case 'c': case 'C':
+					ratfor=FALSE; break;
+				case 't': case 'T':
+d47 2
+a48 1
+				case 'v': case 'V':
+d51 2
+a52 1
+				case 'f': case 'F':
+d55 2
+a56 1
+				case 'n': case 'N':
+d59 2
+a60 3
+				default:
+					warning("Unknown option %c",argv[1][i]);
+				}
+d62 1
+d65 5
+a69 1
+		}
+d72 11
+a82 2
+	if (argc > 1){
+		fin = fopen(argv[++fptr], "r");		/* open argv[1] */
+d85 8
+a92 4
+		}
+	else fin = stdin;
+	if(fin == NULL)
+		error ("Can't read input file %s",argc>1?argv[1]:"standard input");
+d97 1
+a97 1
+	scopy("INITIAL",sp);
+d99 1
+a99 1
+	sp =+ slength("INITIAL") + 1;
+d101 2
+a102 1
+	if(yyparse(0)) exit(1);	/* error return code */
+d109 4
+a112 3
+# ifdef DEBUG
+	if(debug) pccl();
+# endif
+d114 6
+a119 4
+	if(tptr>0)cfoll(tptr-1);
+# ifdef DEBUG
+	if(debug)pfoll();
+# endif
+d121 7
+a127 6
+# ifdef DEBUG
+	if(debug){
+		printf("Print %d states:\n",stnum+1);
+		for(i=0;i<=stnum;i++)stprt(i);
+		}
+# endif
+d135 1
+a135 1
+# ifdef DEBUG
+d137 5
+a141 10
+# endif
+	if (ZCH>NCH) cname="/usr/lib/lex/ebcform";
+	fother = fopen(ratfor?ratname:cname,"r");
+	if(fother == NULL)
+		error("Lex driver missing, file %s",ratfor?ratname:cname);
+	while ( (i=getc(fother)) != EOF)
+		putc(i,fout);
+
+	fclose(fother);
+	fclose(fout);
+d143 1
+a143 1
+# ifdef DEBUG
+d145 132
+a276 5
+# endif
+			report == 1)statistics();
+	fclose(stdout);
+	fclose(stderr);
+	exit(0);	/* success return code */
+d278 2
+a279 104
+get1core(){
+	register int i, val;
+	register char *p;
+ccptr =	ccl = myalloc(CCLSIZE,sizeof(*ccl));
+pcptr = pchar = myalloc(pchlen, sizeof(*pchar));
+	def = myalloc(DEFSIZE,sizeof(*def));
+	subs = myalloc(DEFSIZE,sizeof(*subs));
+dp =	dchar = myalloc(DEFCHAR,sizeof(*dchar));
+	sname = myalloc(STARTSIZE,sizeof(*sname));
+sp = 	schar = myalloc(STARTCHAR,sizeof(*schar));
+	if(ccl == 0 || def == 0 || subs == 0 || dchar == 0 || sname == 0 || schar == 0)
+		error("Too little core to begin");
+	}
+free1core(){
+	cfree(def,DEFSIZE,sizeof(*def));
+	cfree(subs,DEFSIZE,sizeof(*subs));
+	cfree(dchar,DEFCHAR,sizeof(*dchar));
+	}
+get2core(){
+	register int i, val;
+	register char *p;
+	gotof = myalloc(nstates,sizeof(*gotof));
+	nexts = myalloc(ntrans,sizeof(*nexts));
+	nchar = myalloc(ntrans,sizeof(*nchar));
+	state = myalloc(nstates,sizeof(*state));
+	atable = myalloc(nstates,sizeof(*atable));
+	sfall = myalloc(nstates,sizeof(*sfall));
+	cpackflg = myalloc(nstates,sizeof(*cpackflg));
+	tmpstat = myalloc(tptr+1,sizeof(*tmpstat));
+	foll = myalloc(tptr+1,sizeof(*foll));
+nxtpos = positions = myalloc(maxpos,sizeof(*positions));
+	if(tmpstat == 0 || foll == 0 || positions == 0 ||
+		gotof == 0 || nexts == 0 || nchar == 0 || state == 0 || atable == 0 || sfall == 0 || cpackflg == 0 )
+		error("Too little core for state generation");
+	for(i=0;i<=tptr;i++)foll[i] = 0;
+	}
+free2core(){
+	cfree(positions,maxpos,sizeof(*positions));
+	cfree(tmpstat,tptr+1,sizeof(*tmpstat));
+	cfree(foll,tptr+1,sizeof(*foll));
+	cfree(name,treesize,sizeof(*name));
+	cfree(left,treesize,sizeof(*left));
+	cfree(right,treesize,sizeof(*right));
+	cfree(parent,treesize,sizeof(*parent));
+	cfree(nullstr,treesize,sizeof(*nullstr));
+	cfree(state,nstates,sizeof(*state));
+	cfree(sname,STARTSIZE,sizeof(*sname));
+	cfree(schar,STARTCHAR,sizeof(*schar));
+	cfree(ccl,CCLSIZE,sizeof(*ccl));
+	}
+get3core(){
+	register int i, val;
+	register char *p;
+	verify = myalloc(outsize,sizeof(*verify));
+	advance = myalloc(outsize,sizeof(*advance));
+	stoff = myalloc(stnum+2,sizeof(*stoff));
+	if(verify == 0 || advance == 0 || stoff == 0)
+		error("Too little core for final packing");
+	}
+# ifdef DEBUG
+free3core(){
+	cfree(advance,outsize,sizeof(*advance));
+	cfree(verify,outsize,sizeof(*verify));
+	cfree(stoff,stnum+1,sizeof(*stoff));
+	cfree(gotof,nstates,sizeof(*gotof));
+	cfree(nexts,ntrans,sizeof(*nexts));
+	cfree(nchar,ntrans,sizeof(*nchar));
+	cfree(atable,nstates,sizeof(*atable));
+	cfree(sfall,nstates,sizeof(*sfall));
+	cfree(cpackflg,nstates,sizeof(*cpackflg));
+	}
+# endif
+char *myalloc(a,b)
+  int a,b; {
+	register int i;
+	i = calloc(a, b);
+	if(i==0)
+		warning("OOPS - calloc returns a 0");
+	else if(i == -1){
+# ifdef DEBUG
+		warning("calloc returns a -1");
+# endif
+		return(0);
+		}
+	return(i);
+	}
+# ifdef DEBUG
+buserr(){
+	fflush(errorf);
+	fflush(fout);
+	fflush(stdout);
+	fprintf(errorf,"Bus error\n");
+	if(report == 1)statistics();
+	fflush(errorf);
+	}
+segviol(){
+	fflush(errorf);
+	fflush(fout);
+	fflush(stdout);
+	fprintf(errorf,"Segmentation violation\n");
+	if(report == 1)statistics();
+	fflush(errorf);
+	}
+# endif
+d281 25
+a305 1
+yyerror(s)
+d308 1
+a308 1
+	fprintf(stderr, "%s\n", s);
+@

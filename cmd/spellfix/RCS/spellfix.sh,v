@@ -1,0 +1,202 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.3
+date     90.09.19.17.39.58;  author root;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.07.09.21.45.50;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.07.09.20.35.59;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Интеракивное исправление ошибок при помощи spell.
+Командный файл.
+@
+
+
+1.3
+log
+@???
+@
+text
+@#! /bin/sh
+# spellfix - interactive spelling checker and fixer
+# $Header: spellfix.sh,v 1.2 88/07/09 21:45:50 avg Exp $
+# made by avg & ache
+#
+# $Log: spellfix.sh,v $
+# Revision 1.2  88/07/09  21:45:50  avg
+# Немножко исправлено построение словаря.
+#
+# Revision 1.1  88/07/09  20:35:59  avg
+# Initial revision
+#
+case ${MSG-e} in
+r) ERR="Вызов: spellfix [ключи spell] [-E редактор] [-A словарь] файл";;
+*) ERR="Usage: spellfix [spellkeys] [-E editor] [-A dict] filename";;
+esac
+if [ $# -lt 1 ]
+then
+  echo $ERR >&2
+  exit 1
+fi
+SPFIX=${SPFIX-/usr/lib/spellFIX}
+SPFIX=$SPFIX
+K=""
+F=""
+A=${DICTIONARY-}
+while [ "$1" ]
+do
+  case $1 in
+  -A) A=$2;shift;;
+  -E) EDITOR=$2;shift;;
+  -[rdsh]) K="$K $1 $2";shift;;
+  -*) K="$K $1";;
+   *) F=$1
+      if [ "$2" ]
+      then
+	echo $ERR >&2
+	exit 1
+      fi
+      ;;
+  esac
+  shift
+done
+if [ ! "$F" ]
+then
+  echo $ERR >&2
+  exit 1
+fi
+
+eee=${EDITOR-/bin/red}
+i=`basename $eee`
+case $i in
+le|more|vi) S="+/###/";;
+*) S="";;
+esac
+
+t1=/tmp/SFX$$1
+t2=/tmp/SFX$$2
+t3=/tmp/SFX$$3
+trap 'rm -f $t1 $t1.b* $t2 $t3 $t2.b*; exit 2' 1 2 15
+
+case ${MSG-e} in
+r) echo "Поиск ошибочных слов в $F ...";;
+*) echo "Checking spelling errors in $F ...";;
+esac
+spell $K $F > $t1
+
+if [ "$A" ]
+then
+  cat /dev/null >> $A
+  sort $A | comm -13 $t1 - > $t3
+  cp $t3 $t1
+  mv $t3 $t1.b
+fi
+
+CNT=`wc -w <$t1`
+if [ $CNT = 0 ]
+then
+  rm -f $t1 $t1.b
+  case ${MSG-e} in
+    r) echo "... не найдено";;
+    *) echo "... not found";;
+  esac
+  exit 0
+fi
+
+case ${MSG-e} in
+r) echo Просмотрите $CNT "непонятных слов и оставьте только ошибочные...";;
+*) echo Editing $CNT "misspelled words - leave only truly misspelled words...";;
+esac
+sleep 2
+$eee $t1
+if [ `wc -w < $t1` = 0 ]
+then
+  rm -f $t1 $t2 $t3 $t1.b* $t2.b*
+  case ${MSG-e} in
+    r) echo "... ошибок в тексте нет. OK";;
+    *) echo "... no misspelled words. OK";;
+  esac
+  exit 0
+fi
+if [ "$A" ]
+then
+  cp $A $t3
+  comm -23 $t1.b $t1 >> $t3
+  sort -u $t3 > $A
+fi
+case ${MSG-e} in
+r) echo "Исправьте ошибки во временной копии $F ...";;
+*) echo "Editing a temporary copy of $F - fix spelling errors...";;
+esac
+if ${SPFIX} $t1 <$F >$t2
+then
+  $eee $S $t2
+  sed -e '/^\.\\\" ### spell: .* %%%$/d' $t2 > $t3
+  cp -i $t3 $F
+else
+  case ${MSG-e} in
+  r) echo "spellfix: ошибка при работе $SPFIX - файл $F не изменился affected." >&2 ;;
+  *) echo "spellfix: error processing misspelled words - file $F not affected." >&2 ;;
+  esac
+  rm -f $t1 $t2 $t3 $t1.b* $t2.b*
+  exit 1
+fi
+rm -f $t1 $t2 $t3 $t1.b* $t2.b*
+exit 0
+@
+
+
+1.2
+log
+@Немножко исправлено построение словаря.
+@
+text
+@d3 1
+a3 1
+# $Header: spellfix.sh,v 1.1 88/07/09 20:35:59 avg Exp $
+d7 3
+d76 2
+a77 1
+if [ ! -s $t1 ]
+d88 2
+a89 2
+r) echo Просмотрите `wc -l <$t1` "непонятных слов и оставьте только ошибочные...";;
+*) echo Editing `wc -l <$t1` "misspelled words - leave only truly misspelled words...";;
+d93 9
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+# $Header$
+d6 4
+a9 1
+# $Log$
+d68 1
+a68 1
+  sort $t1 | comm -23 - $A > $t3
+d75 1
+a75 1
+  rm -f $t1 $t1.b $t3
+@

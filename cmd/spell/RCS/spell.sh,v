@@ -1,0 +1,130 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     88.09.21.22.41.40;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.10.22.14.27;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@NEW
+@
+text
+@#! /bin/sh
+#
+#  By KOI & FOX
+#
+: V data for -v, B flags, D dictionary, S stop, H history, F files, T temp
+DICTE=/usr/lib/dict
+DICTR=/usr/lib/dict
+LIB=/usr/lib
+V=/dev/null             B=                      F=
+S=${DICTE}/hstop       H=/dev/null             T=/tmp/spell.$$
+next="F=$F@@"
+DER=/usr/bin/deroff
+trap "rm -f $T ${T}a ; exit" 0
+for A in $*
+do
+	case $A in
+	-v)     B="$B@@-v"
+		V=${T}a ;;
+	-x)     B="$B@@-x" ;;
+	-b)     D=${D-/usr/lib/dict/hlistb}
+		DICTE=
+		B="$B@@-b" ;;
+	-d)     next="D="
+		DICTE="";;
+	-r)     next="R="
+		DICTR="";;
+	-s)     next="S=" ;;
+	-h)     next="H=" ;;
+	-n)     DER=/bin/cat;;
+	-*)     echo "Bad flag for spell: $A"
+		echo "Usage: spell [-v] [-b] [-r hlist] [-d hlist] [-s hstop] [-h spellhist]"
+		exit ;;
+	*)      eval $next"$A"
+		next="F=$F@@" ;;
+	esac
+done
+IFS=@@
+case $H in
+/dev/null)      ${DER} $F | tr -cs 'ю-чъЮ-Чa-zA-Z' '\012'|
+		sort -u | ${LIB}/spell $S $T |
+		${LIB}/spell ${DICTE}${D-/hlista} $V $B |
+		${LIB}/spell ${DICTR}${R-/hlistr} /dev/null $B |
+		sort -u +0f +0 - $T ;;
+*)              who am i >> $H 2> /dev/null
+		echo  '(' $F ')'  >> $H 2> /dev/null
+		${DER} $F | tr -cs 'ю-чъЮ-Чa-zA-Z' '\012'|
+		sort -u | ${LIB}/spell $S $T |
+		${LIB}/spell ${DICTE}${D-/hlista} $V $B |
+		${LIB}/spell ${DICTR}${R-/hlistr} /dev/null $B |
+		sort -u +0f +0 - $T | tee -a $H ;;
+esac
+case $V in
+/dev/null)      exit ;;
+esac
+sed '/^\./d' $V | sort -u +1f +0
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@a1 4
+
+
+# Эта штука добавляется в исходный файл перед
+# запуском rcs               Давидов 04.28.88
+d3 1
+a3 3
+# $Header$
+# $Log$
+
+d6 3
+d10 1
+a10 1
+S=/usr/dict/hstop       H=/dev/null             T=/tmp/spell.$$
+d12 1
+d20 2
+a21 1
+	-b)     D=${D-/usr/dict/hlistb}
+d23 4
+a26 1
+	-d)     next="D=" ;;
+d29 1
+d31 1
+a31 1
+		echo "Usage:  spell [ -v ] [ -b ] [ -d hlist ] [ -s hstop ] [ -h spellhist ]"
+d39 4
+a42 2
+/dev/null)	deroff -w $F | sort -u | /usr/lib/spell $S $T |
+		/usr/lib/spell ${D-/usr/dict/hlista} $V $B |
+d44 7
+a50 4
+*)		deroff -w $F | sort -u | /usr/lib/spell $S $T |
+		/usr/lib/spell ${D-/usr/dict/hlista} $V $B |
+		sort -u +0f +0 - $T | tee -a $H
+		who am i >> $H 2> /dev/null ;;
+d53 1
+a53 1
+/dev/null)	exit ;;
+@

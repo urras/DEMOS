@@ -1,0 +1,835 @@
+head     0.4;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.4
+date     86.09.29.18.29.22;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.53.46;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.41.59;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.16.55;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.4
+log
+@Версия, слитая из 2.9 и ДЕМОС без русских диагностик
+@
+text
+@#
+/*
+ * KIAE  shell
+ */
+
+#include	"defs.h"
+
+PROC BOOL	chkid();
+
+
+NAMNOD	ps2nod	= {	NIL,		NIL,		ps2name},
+	fngnod	= {	NIL,		NIL,		fngname},
+	pathnod = {	NIL,		NIL,		pathname},
+	ifsnod	= {	NIL,		NIL,		ifsname},
+	ps1nod	= {	&pathnod,	&ps2nod,	ps1name},
+	homenod = {	&fngnod,	&ifsnod,	homename},
+	mailnod = {	&homenod,	&ps1nod,	mailname};
+
+NAMPTR		namep = &mailnod;
+
+
+/* ========	variable and string handling	======== */
+
+syslook(w,syswds)
+	STRING		w;
+	SYSTAB		syswds;
+{
+	REG CHAR	first;
+	REG STRING	s;
+	REG SYSPTR	syscan;
+
+	syscan=syswds; first = *w;
+
+	WHILE s=syscan->sysnam
+	DO  IF first == *s
+		ANDF eq(w,s)
+	    THEN return(syscan->sysval);
+	    FI
+	    syscan++;
+	OD
+	return(0);
+}
+
+setlist(arg,xp)
+	REG ARGPTR	arg;
+	INT		xp;
+{
+	WHILE arg
+	DO REG STRING	s=mactrim(arg->argval);
+	   setname(s, xp);
+	   arg=arg->argnxt;
+	   IF flags&execpr
+	   THEN prs(s);
+		IF arg THEN blank(); ELSE newline(); FI
+	   FI
+	OD
+}
+
+VOID	setname(argi, xp)
+	STRING		argi;
+	INT		xp;
+{
+	REG STRING	argscan=argi;
+	REG NAMPTR	n;
+
+	IF letter(*argscan)
+	THEN	WHILE alphanum(*argscan) DO argscan++ OD
+		IF *argscan=='='
+		THEN	*argscan = 0;
+			n=lookup(argi);
+			*argscan++ = '=';
+			attrib(n, xp);
+			IF xp&N_ENVNAM
+			THEN	n->namenv = n->namval = argscan;
+			ELSE	assign(n, argscan);
+			FI
+			return;
+		FI
+	FI
+	failed(argi,notid);
+}
+
+replace(a, v)
+	REG STRING	*a;
+	STRING		v;
+{
+	free(*a); *a=make(v);
+}
+
+dfault(n,v)
+	NAMPTR		n;
+	STRING		v;
+{
+	IF n->namval==0
+	THEN	assign(n,v)
+	FI
+}
+
+assign(n,v)
+	NAMPTR		n;
+	STRING		v;
+{
+	IF n->namflg&N_RDONLY
+	THEN	failed(n->namid,wtfailed);
+	ELSE	replace(&n->namval,v);
+	FI
+}
+
+INT	readvar(names)
+	STRING		*names;
+{
+	FILEBLK		fb;
+	REG FILE	f = &fb;
+	REG CHAR	c;
+	REG INT		rc=0;
+	NAMPTR		n=lookup(*names++); /* done now to avoid storage mess */
+	STKPTR		rel=relstak();
+
+	push(f); initf(dup(0));
+	IF lseek(0,0L,1)==-1
+	THEN	f->fsiz=1;
+	FI
+
+	LOOP	c=nextc(0);
+		IF (*names ANDF any(c, ifsnod.namval)) ORF eolchar(c)
+		THEN	zerostak();
+			assign(n,absstak(rel)); setstak(rel);
+			IF *names
+			THEN	n=lookup(*names++);
+			ELSE	n=0;
+			FI
+			IF eolchar(c)
+			THEN	break;
+			FI
+		ELSE	pushstak(c);
+		FI
+	POOL
+	WHILE n
+	DO assign(n, nullstr);
+	   IF *names THEN n=lookup(*names++); ELSE n=0; FI
+	OD
+
+	IF eof THEN rc=1 FI
+	lseek(0, (long)(f->fnxt-f->fend), 1);
+	pop();
+	return(rc);
+}
+
+assnum(p, i)
+	STRING		*p;
+	INT		i;
+{
+	itos(i); replace(p,numbuf);
+}
+
+STRING	make(v)
+	STRING		v;
+{
+	REG STRING	p;
+
+	IF v
+	THEN	movstr(v,p=alloc(length(v)));
+		return(p);
+	ELSE	return(0);
+	FI
+}
+
+
+NAMPTR		lookup(nam)
+	REG STRING	nam;
+{
+	REG NAMPTR	nscan=namep;
+	REG NAMPTR	*prev;
+	INT		LR;
+
+	IF !chkid(nam)
+	THEN	failed(nam,notid);
+	FI
+	WHILE nscan
+	DO	IF (LR=cf(nam,nscan->namid))==0
+		THEN	return(nscan);
+		ELIF LR<0
+		THEN	prev = &(nscan->namlft);
+		ELSE	prev = &(nscan->namrgt);
+		FI
+		nscan = *prev;
+	OD
+
+	/* add name node */
+	nscan=alloc(sizeof *nscan);
+	nscan->namlft=nscan->namrgt=NIL;
+	nscan->namid=make(nam);
+	nscan->namval=0; nscan->namflg=N_DEFAULT; nscan->namenv=0;
+	return(*prev = nscan);
+}
+
+LOCAL BOOL	chkid(nam)
+	STRING		nam;
+{
+	REG CHAR *	cp=nam;
+
+	IF !letter(*cp)
+	THEN	return(FALSE);
+	ELSE	WHILE *++cp
+		DO IF !alphanum(*cp)
+		   THEN	return(FALSE);
+		   FI
+		OD
+	FI
+	return(TRUE);
+}
+
+LOCAL VOID (*namfn)();
+namscan(fn)
+	VOID		(*fn)();
+{
+	namfn=fn;
+	namwalk(namep);
+}
+
+LOCAL VOID	namwalk(np)
+	REG NAMPTR	np;
+{
+	IF np
+	THEN	namwalk(np->namlft);
+		(*namfn)(np);
+		namwalk(np->namrgt);
+	FI
+}
+
+VOID	printnam(n)
+	NAMPTR		n;
+{
+	REG STRING	s;
+
+	sigchk();
+	IF s=n->namval
+	THEN	prs(n->namid);
+		prc('='); prs(s);
+		newline();
+	FI
+}
+
+LOCAL STRING	staknam(n)
+	REG NAMPTR	n;
+{
+	REG STRING	p;
+
+	p=movstr(n->namid,staktop);
+	p=movstr("=",p);
+	p=movstr(n->namval,p);
+	return(getstak(p+1-ADR(stakbot)));
+}
+
+VOID	exname(n)
+	REG NAMPTR	n;
+{
+	IF n->namflg&N_EXPORT
+	THEN	free(n->namenv);
+		n->namenv = make(n->namval);
+	ELSE	free(n->namval);
+		n->namval = make(n->namenv);
+	FI
+}
+
+VOID	printflg(n)
+	REG NAMPTR		n;
+{
+	IF n->namflg&N_EXPORT
+	THEN	prs(export); blank();
+	FI
+	IF n->namflg&N_RDONLY
+	THEN	prs(readonly); blank();
+	FI
+	IF n->namflg&(N_EXPORT|N_RDONLY)
+	THEN	prs(n->namid); newline();
+	FI
+}
+
+VOID	getenv()
+{
+	REG STRING	*e=environ;
+
+	WHILE *e
+	DO setname(*e++, N_ENVNAM) OD
+}
+
+LOCAL INT	namec;
+
+VOID	countnam(n)
+	NAMPTR		n;
+{
+	namec++;
+}
+
+LOCAL STRING 	*argnam;
+
+VOID	pushnam(n)
+	NAMPTR		n;
+{
+	IF n->namval
+	THEN	*argnam++ = staknam(n);
+	FI
+}
+
+STRING	*setenv()
+{
+	REG STRING	*er;
+
+	namec=0;
+	namscan(countnam);
+	argnam = er = getstak(namec*BYTESPERWORD+BYTESPERWORD);
+	namscan(pushnam);
+	*argnam++ = 0;
+	return(er);
+}
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d3 1
+a3 3
+ * МНОС РЛ 1.2 shell
+ *
+ *
+d6 1
+a6 1
+#include        "defs.h"
+d8 1
+a8 1
+PROC BOOL       chkid();
+d11 7
+a17 7
+NAMNOD  ps2nod  = {     NIL,            NIL,            ps2name},
+	fngnod  = {     NIL,            NIL,            fngname},
+	pathnod = {     NIL,            NIL,            pathname},
+	ifsnod  = {     NIL,            NIL,            ifsname},
+	ps1nod  = {     &pathnod,       &ps2nod,        ps1name},
+	homenod = {     &fngnod,        &ifsnod,        homename},
+	mailnod = {     &homenod,       &ps1nod,        mailname};
+d19 1
+a19 1
+NAMPTR          namep = &mailnod;
+d22 1
+a22 1
+/* ========     variable and string handling    ======== */
+d25 2
+a26 2
+	STRING          w;
+	SYSTAB          syswds;
+d28 3
+a30 3
+	REG CHAR        first;
+	REG STRING      s;
+	REG SYSPTR      syscan;
+d45 2
+a46 2
+	REG ARGPTR      arg;
+	INT             xp;
+d49 1
+a49 1
+	DO REG STRING   s=mactrim(arg->argval);
+d59 3
+a61 3
+VOID    setname(argi, xp)
+	STRING          argi;
+	INT             xp;
+d63 2
+a64 2
+	REG STRING      argscan=argi;
+	REG NAMPTR      n;
+d67 1
+a67 1
+	THEN    WHILE alphanum(*argscan) DO argscan++ OD
+d69 1
+a69 1
+		THEN    *argscan = 0;
+d74 2
+a75 2
+			THEN    n->namenv = n->namval = argscan;
+			ELSE    assign(n, argscan);
+a76 3
+			IF eq( n->namid, meslang ) THEN
+				initmess( *argscan != 'r' );
+			FI
+d84 2
+a85 2
+	REG STRING      *a;
+	STRING          v;
+d91 2
+a92 2
+	NAMPTR          n;
+	STRING          v;
+d95 1
+a95 1
+	THEN    assign(n,v)
+d100 2
+a101 2
+	NAMPTR          n;
+	STRING          v;
+d104 2
+a105 2
+	THEN    failed(n->namid,wtfailed);
+	ELSE    replace(&n->namval,v);
+d109 2
+a110 2
+INT     readvar(names)
+	STRING          *names;
+d112 6
+a117 6
+	FILEBLK         fb;
+	REG FILE        f = &fb;
+	REG CHAR        c;
+	REG INT         rc=0;
+	NAMPTR          n=lookup(*names++); /* done now to avoid storage mess */
+	STKPTR          rel=relstak();
+d121 1
+a121 1
+	THEN    f->fsiz=1;
+d124 1
+a124 1
+	LOOP    c=nextc(0);
+d126 1
+a126 1
+		THEN    zerostak();
+d129 2
+a130 2
+			THEN    n=lookup(*names++);
+			ELSE    n=0;
+d133 1
+a133 1
+			THEN    break;
+d135 1
+a135 1
+		ELSE    pushstak(c);
+d150 2
+a151 2
+	STRING          *p;
+	INT             i;
+d156 2
+a157 2
+STRING  make(v)
+	STRING          v;
+d159 1
+a159 1
+	REG STRING      p;
+d162 1
+a162 1
+	THEN    movstr(v,p=alloc(length(v)));
+d164 1
+a164 1
+	ELSE    return(0);
+d169 2
+a170 2
+NAMPTR          lookup(nam)
+	REG STRING      nam;
+d172 3
+a174 3
+	REG NAMPTR      nscan=namep;
+	REG NAMPTR      *prev;
+	INT             LR;
+d177 1
+a177 1
+	THEN    failed(nam,notid);
+d180 2
+a181 2
+	DO      IF (LR=cf(nam,nscan->namid))==0
+		THEN    return(nscan);
+d183 2
+a184 2
+		THEN    prev = &(nscan->namlft);
+		ELSE    prev = &(nscan->namrgt);
+d197 2
+a198 2
+LOCAL BOOL      chkid(nam)
+	STRING          nam;
+d200 1
+a200 1
+	REG CHAR *      cp=nam;
+d203 2
+a204 2
+	THEN    return(FALSE);
+	ELSE    WHILE *++cp
+d206 1
+a206 1
+		   THEN return(FALSE);
+d215 1
+a215 1
+	VOID            (*fn)();
+d221 2
+a222 2
+LOCAL VOID      namwalk(np)
+	REG NAMPTR      np;
+d225 1
+a225 1
+	THEN    namwalk(np->namlft);
+d231 2
+a232 2
+VOID    printnam(n)
+	NAMPTR          n;
+d234 1
+a234 1
+	REG STRING      s;
+d238 1
+a238 1
+	THEN    prs(n->namid);
+d244 2
+a245 2
+LOCAL STRING    staknam(n)
+	REG NAMPTR      n;
+d247 1
+a247 1
+	REG STRING      p;
+d255 2
+a256 2
+VOID    exname(n)
+	REG NAMPTR      n;
+d259 1
+a259 1
+	THEN    free(n->namenv);
+d261 1
+a261 1
+	ELSE    free(n->namval);
+d266 2
+a267 2
+VOID    printflg(n)
+	REG NAMPTR              n;
+d270 1
+a270 1
+	THEN    prs(export); blank();
+d273 1
+a273 1
+	THEN    prs(readonly); blank();
+d276 1
+a276 1
+	THEN    prs(n->namid); newline();
+d280 1
+a280 1
+VOID    getuenv()
+d282 1
+a282 1
+	REG STRING      *e=environ;
+d288 2
+a289 1
+LOCAL INT       namec;
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d3 1
+a3 1
+ * UNIX shell
+a4 2
+ * S. R. Bourne
+ * Bell Telephone Laboratories
+d8 1
+a8 1
+#include	"defs.h"
+d10 1
+a10 1
+PROC BOOL	chkid();
+d13 7
+a19 7
+NAMNOD	ps2nod	= {	NIL,		NIL,		ps2name},
+	fngnod	= {	NIL,		NIL,		fngname},
+	pathnod = {	NIL,		NIL,		pathname},
+	ifsnod	= {	NIL,		NIL,		ifsname},
+	ps1nod	= {	&pathnod,	&ps2nod,	ps1name},
+	homenod = {	&fngnod,	&ifsnod,	homename},
+	mailnod = {	&homenod,	&ps1nod,	mailname};
+d21 1
+a21 1
+NAMPTR		namep = &mailnod;
+d24 1
+a24 1
+/* ========	variable and string handling	======== */
+d27 2
+a28 2
+	STRING		w;
+	SYSTAB		syswds;
+d30 3
+a32 3
+	REG CHAR	first;
+	REG STRING	s;
+	REG SYSPTR	syscan;
+d47 2
+a48 2
+	REG ARGPTR	arg;
+	INT		xp;
+d51 1
+a51 1
+	DO REG STRING	s=mactrim(arg->argval);
+d61 3
+a63 3
+VOID	setname(argi, xp)
+	STRING		argi;
+	INT		xp;
+d65 2
+a66 2
+	REG STRING	argscan=argi;
+	REG NAMPTR	n;
+d69 1
+a69 1
+	THEN	WHILE alphanum(*argscan) DO argscan++ OD
+d71 1
+a71 1
+		THEN	*argscan = 0;
+d76 2
+a77 2
+			THEN	n->namenv = n->namval = argscan;
+			ELSE	assign(n, argscan);
+d79 3
+d89 2
+a90 2
+	REG STRING	*a;
+	STRING		v;
+d96 2
+a97 2
+	NAMPTR		n;
+	STRING		v;
+d100 1
+a100 1
+	THEN	assign(n,v)
+d105 2
+a106 2
+	NAMPTR		n;
+	STRING		v;
+d109 2
+a110 2
+	THEN	failed(n->namid,wtfailed);
+	ELSE	replace(&n->namval,v);
+d114 2
+a115 2
+INT	readvar(names)
+	STRING		*names;
+d117 6
+a122 6
+	FILEBLK		fb;
+	REG FILE	f = &fb;
+	REG CHAR	c;
+	REG INT		rc=0;
+	NAMPTR		n=lookup(*names++); /* done now to avoid storage mess */
+	STKPTR		rel=relstak();
+d126 1
+a126 1
+	THEN	f->fsiz=1;
+d129 1
+a129 1
+	LOOP	c=nextc(0);
+d131 1
+a131 1
+		THEN	zerostak();
+d134 2
+a135 2
+			THEN	n=lookup(*names++);
+			ELSE	n=0;
+d138 1
+a138 1
+			THEN	break;
+d140 1
+a140 1
+		ELSE	pushstak(c);
+d155 2
+a156 2
+	STRING		*p;
+	INT		i;
+d161 2
+a162 2
+STRING	make(v)
+	STRING		v;
+d164 1
+a164 1
+	REG STRING	p;
+d167 1
+a167 1
+	THEN	movstr(v,p=alloc(length(v)));
+d169 1
+a169 1
+	ELSE	return(0);
+d174 2
+a175 2
+NAMPTR		lookup(nam)
+	REG STRING	nam;
+d177 3
+a179 3
+	REG NAMPTR	nscan=namep;
+	REG NAMPTR	*prev;
+	INT		LR;
+d182 1
+a182 1
+	THEN	failed(nam,notid);
+d185 2
+a186 2
+	DO	IF (LR=cf(nam,nscan->namid))==0
+		THEN	return(nscan);
+d188 2
+a189 2
+		THEN	prev = &(nscan->namlft);
+		ELSE	prev = &(nscan->namrgt);
+d202 2
+a203 2
+LOCAL BOOL	chkid(nam)
+	STRING		nam;
+d205 1
+a205 1
+	REG CHAR *	cp=nam;
+d208 2
+a209 2
+	THEN	return(FALSE);
+	ELSE	WHILE *++cp
+d211 1
+a211 1
+		   THEN	return(FALSE);
+d220 1
+a220 1
+	VOID		(*fn)();
+d226 2
+a227 2
+LOCAL VOID	namwalk(np)
+	REG NAMPTR	np;
+d230 1
+a230 1
+	THEN	namwalk(np->namlft);
+d236 2
+a237 2
+VOID	printnam(n)
+	NAMPTR		n;
+d239 1
+a239 1
+	REG STRING	s;
+d243 1
+a243 1
+	THEN	prs(n->namid);
+d249 2
+a250 2
+LOCAL STRING	staknam(n)
+	REG NAMPTR	n;
+d252 1
+a252 1
+	REG STRING	p;
+d260 2
+a261 2
+VOID	exname(n)
+	REG NAMPTR	n;
+d264 1
+a264 1
+	THEN	free(n->namenv);
+d266 1
+a266 1
+	ELSE	free(n->namval);
+d271 2
+a272 2
+VOID	printflg(n)
+	REG NAMPTR		n;
+d275 1
+a275 1
+	THEN	prs(export); blank();
+d278 1
+a278 1
+	THEN	prs(readonly); blank();
+d281 1
+a281 1
+	THEN	prs(n->namid); newline();
+d285 1
+a285 1
+VOID	getenv()
+d287 1
+a287 1
+	REG STRING	*e=environ;
+d293 1
+a293 2
+LOCAL INT	namec;
+
+d321 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d3 5
+a7 1
+ * KIAE  shell
+a320 1
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@

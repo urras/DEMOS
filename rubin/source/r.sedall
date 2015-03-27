@@ -1,0 +1,13 @@
+file=`pwd`/$1
+for i in ctlmod dbu decomp equel gutil h iutil libq monitor ovqp parser qrymod support
+do
+ echo "GOTO $i"
+ cd $i
+ for j in Makefile *.[chy]
+ do
+  echo -n $j started"  "
+echo "y" |( sed -f $file $j > tmp.$1 && mv tmp.$1 $j && echo $j done)
+ done
+ echo $i DONE
+ cd ..
+done

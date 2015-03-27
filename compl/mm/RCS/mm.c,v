@@ -1,0 +1,893 @@
+head     0.6;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+0.6
+date     88.10.27.19.29.22;  author abs;  state Exp;
+branches ;
+next     0.5;
+
+0.5
+date     88.10.24.20.59.51;  author abs;  state Exp;
+branches ;
+next     0.4;
+
+0.4
+date     88.10.24.20.31.07;  author abs;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     88.10.24.19.29.20;  author abs;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     88.10.24.19.12.27;  author abs;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.08.03.20.02.17;  author avg;  state Exp;
+branches ;
+next     0.0;
+
+0.0
+date     86.08.03.19.49.15;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Макропроцессор Мини-Макро.
+Главная программа.
+@
+
+
+0.6
+log
+@очередная ревизия режима отладки.
+Теперь есть более подробная трассировка по --d --d 
+(два ключа), перевод строки теперь печатается как \N.
+@
+text
+@/* МИНИАТЮРНЫЙ МАКРОПРОЦЕССОР */
+
+/*
+ * $Log:        mm.c,v $
+ * Revision 0.5  88/10/24  20:59:51  abs
+ * Еще кое-что про отладку.
+ *
+ * Revision 0.4  88/10/24  20:31:07  abs
+ * Сообщение, более соответствующее смыслу операции.
+ *
+ * Revision 0.3  88/10/24  19:29:20  abs
+ * Еще чуть косметики по поводу отладки.
+ *
+ * Revision 0.2  88/10/24  19:12:27  abs
+ * Добавлен ключ для трассировки работы.
+ * Формат вызова:
+ *      mm programm.m --d < input
+ *
+ * Revision 0.1  86/08/03  20:02:17  avg
+ * Правлена плюха: #ifdef lint на #ifndef lint.
+ *
+ * Revision 0.0  86/08/03  19:49:15  avg
+ * Макропроцессор Мини-Макро. Автор: Флеров М.Н.
+ * Версия для ДЕМОС 2.0 by @@VG.
+ *
+ */
+#ifndef lint
+static char rcsid[] = "$Header: mm.c,v 0.5 88/10/24 20:59:51 abs Exp $";
+#endif
+
+#define MAXLINE      500                        /* макс. длина строк     */
+#define WORKSPACE   1000                        /* квант выдел. памяти   */
+
+struct param { int lgt; char *adr;};            /* параметры для 'MATCH' */
+#define MAXPAR         9                        /* макс.число пар. ср.   */
+#define ERROR        (-2)                       /* ошибка в образце      */
+#define UNMATCHABLE  (-1)                       /* не сравнилось         */
+
+int line_number=0;                              /* номер текущей строки  */
+int work_lgt=0;  char work_adr[MAXLINE];        /* раб. строка:адр,длина */
+
+struct param table[MAXPAR];  int nparam;        /* для вызова 'match'    */
+
+int ind_lgt; char *ind_adr;                     /* индекс в таблице      */
+
+#ifdef DEBUGGING
+static char *Message[]={
+		"#ИЗ ФАЙЛА:",           /* 0 */
+		"#МАРКЕР:'",            /* 1 */
+		"#ИЗ НОВЫХ:",           /* 2 */
+		"#СОПОСТАВЛЕНО:",       /* 3 */
+		"#СГЕНЕРИТЬ:",          /* 4 */
+		"#В СТЕК:",             /* 5 */
+};
+
+/* Вывод текста отладки */
+writetxt( from, how ) char *from;{
+	register i, ctr;
+
+	i = 0; ctr = 0;
+	while( i < how ){
+		if( from[ctr] == '\n' ){
+			write( 2, from, ctr );
+			from += ctr+1;  /* len(текст)+1 на \n */
+			ctr = 0;
+			write( 2, "\\N\n", 3 );
+			/* \N чтоб отличать от СИ-шного \n */
+		} else ctr++;
+		i++;
+	}
+
+	write( 2, from, ctr );
+	write( 2, "\\@@\n", 3 );
+}
+#endif
+
+/* СТРУКТУРА БУФЕРА МАКРОПРОЦЕССОРА
+
+	bufbeg     ->    !=====================!
+			 ! макро-программа     !
+	end_prog   ->    !---------------------!
+			 ! генерируемые строки !
+	end_lines  ->    !---------------------!
+			 ! свободное место     !
+	beg_stack  ->    !---------------------!
+			 ! стек                !
+	buf_end    ->    !=====================!
+*/
+
+char *bufbeg, *end_prog, *end_lines, *beg_stack, *bufend;
+
+
+main(argc,argv)
+    char **argv; int argc;
+{
+    register int i, length;                     /* рабочие переменные    */
+    register char *ptr;
+    static int program;                         /* файл программы        */
+    static char *debug;
+    int debugging=0;                            /* фЛаг отладки          */
+    int macro_lgt; char *macro_adr;             /* текущ.макро:адр,длина */
+    int str_lgt; register char *str_adr;        /* рабочая стр:адр,длина */
+    static char *(marker_table[256]);           /* табл. начал макросов  */
+    char marker;                                /* текущий маркер        */
+    char ch1, ch2, *p;
+    static int flag, waspr;                     /* начало, конец файла   */
+    static int z_flag, z_counter;               /* для генерации меток   */
+    char *from, *str_end, *line_beg, *toadd;    /* для генерации строк   */
+    char *eqn_adr;
+    int  istty;                                 /* проверка tty или нет  */
+
+
+/* ПРОВЕРКА ВХОДНЫХ ПАРАМЕТРОВ */
+
+    if( argc >= 3 ){
+	  if( !strcmp( argv[2], "--d" ))debugging += argc - 2;
+	  else                          debug = argv[2];
+    }
+    if( argc >= 2  &&  *(argv[1]) != '-' ) {
+	if( (program=open(argv[1],0)) <0  ) error(13);
+    }
+    istty = isatty(0);
+
+
+/* ВВОД МАКРО-ПРОГРАММЫ */
+/* внутреннее представление макро-программы (все длины в 1 байте):
+
+	группа-макросов-1       на начало групп макросов показывают
+	группа-макросов-2       указатели из 'marker_table'
+	...
+	группа-макросов-N
+
+   каждая группа макросов имеет вид:
+
+	макро-1
+	макро-2
+	...
+	макро-N
+	0
+
+   каждый макро состоит из:
+
+	(длина макро)
+	(длина образца)    образец
+	выходная-строка-1  (длина вых-стр-1)
+	выходная-строка-2  (длина вых-стр-2)
+	...
+	выходная-строка-N  (длина вых-стр-N)
+*/
+
+
+#ifdef SCREEN
+    write(2,"Ввод макропрограммы\n",20);
+#endif
+
+    bufend=bufbeg=end_prog=end_lines=beg_stack=sbrk(0);
+    get_free_memory(WORKSPACE);
+    macro_adr = end_prog++;
+    lini(0,0,0);
+    if( !program )  goto INP_INI;
+
+PROG_INP:
+    while( (work_lgt=lini(program,work_adr,MAXLINE)) >= 0
+    &&    (*work_adr!='%' || work_adr[1]!='%' || work_lgt!=2 || program) ){
+	waspr = ++line_number;
+
+#ifdef SCREEN
+	if( !(line_number%200) ) {              /* мигалка числа строк   */
+	    write(2,conv(line_number,5,10,' '),5);
+	    write(2,"\r",1);
+	}
+#endif
+
+	if(work_lgt && *work_adr!='*' && *work_adr!='#'   /*не коментарий*/
+	&&             *work_adr!='%' ) {
+	    end_lines = end_prog;
+	    get_free_memory(work_lgt);
+	    if( work_lgt < 2 ) error(8);        /* неверный образец      */
+
+	    if( *work_adr == '/' ) {            /* начало нового макро   */
+		*macro_adr = end_prog - macro_adr;    /* длина старого   */
+
+		if( work_adr[1] != marker ) {   /* новая группа макросов */
+		    *end_prog++ = 0;            /* ... конец старой гр.  */
+		    marker = work_adr[1];
+		    i = marker&0377;
+		    if( marker_table[i] ) error(10);
+		    marker_table[i] = end_prog; /* адр.начала группы макр*/
+		}
+
+		macro_adr = end_prog++;         /* пересылка образца */
+		*end_prog++ = work_lgt - 1;
+		for(i=1; i<work_lgt; ++i) *end_prog++ = work_adr[i];
+
+	    } else if( line_number==1  ||  *work_adr != ' ' ) {
+		error(8);
+
+	    } else {                            /* выходная строка N */
+		for(i=1; i<work_lgt; ++i) *end_prog++ = work_adr[i];
+		*end_prog++ = work_lgt - 1;
+	    }
+	}
+    }
+    *macro_adr  = end_prog - macro_adr;         /* конец всех макросов */
+    macro_adr   = end_prog;
+    *end_prog++ = 0;
+
+
+/* ИНИЦИАЛИЗАЦИЯ ОБРАБОТКИ ВХОДНОГО ФАЙЛА */
+
+INP_INI:
+
+#ifdef SCREEN
+    write(2,"\nОбработка входного файла\n",26);
+#endif
+
+    if( work_lgt<0 ) {
+	if( !program )  error(11);
+	program = line_number = 0;
+	lini(0,0,0);
+    }
+    end_lines = end_prog;
+
+
+/* ВВОД ОЧЕРЕДНОЙ СТРОКИ В 'work_adr, work_lgt' */
+
+LINE_INPUT:
+
+    if( !flag && waspr ) {              /* НА СТАРТЕ => "." СТРОКА    */
+	flag = work_lgt = 1;  *work_adr = '.';
+
+    } else if ( end_lines<=end_prog ) { /* СТЕК ПУСТ => ВВОД ИЗ ФАЙЛА */
+	if ( flag<0 )  {                /* конец файла */
+	    lino(0,0);                  /*      закрыть выходной файл */
+#ifdef DEBUGGING
+	    if( debugging ) write( 2, "#EOF\n", 5 );
+#endif
+	    exit(0);
+	}
+	if( istty ) {
+	    lino(0,0);                          /* сброс буфера на экран */
+	    write(2,conv(line_number+1,3,10,' '),3);    /* приглашение */
+	    write(2,"> ",2);
+	}
+	work_lgt = lini(program,&work_adr[1],MAXLINE-1) + 1;
+#ifdef DEBUGGING
+	if( debugging ){
+	    /* эхо - печать обрабатываемой строки */
+	    write( 2, Message[0], strlen( Message[0]));
+	    writetxt( work_adr+1, work_lgt );
+	}
+#endif
+	if( work_lgt <=0 ){
+	    flag = -1;
+	    work_lgt=1;  *work_adr='>';     /* КОНЕЦ => ">" СТРОКА */
+
+	} else if( work_adr[1]=='%' && work_adr[2]=='%' && work_lgt==3
+	&&         !program ) {
+	    goto PROG_INP;
+
+	} else {                            /* ОЧЕРЕДНАЯ СТРОКА ИЗ ФАЙЛА */
+	    *work_adr = ' ';
+	    ++line_number;
+
+#ifdef SCREEN
+	    if( !istty && !(line_number%10) ) {   /* мигалка числа строк */
+	       write(2,conv(line_number,5,10,' '),5);
+	       write(2,"\r",1);
+	    }
+#endif
+#ifdef DEBUGGING
+	    if( debugging ){
+		write( 2, Message[1], strlen( Message[1]));
+		write( 2, work_adr, 1 );
+		write( 2, "'\n", 2 );
+	    }
+#endif
+
+	}
+
+    } else {                            /* ВВОД СТРОКИ ИЗ СТЕКА */
+	work_lgt  = ((*--end_lines)&0377);
+	work_lgt |= ((*--end_lines)<<8);
+	end_lines -= work_lgt;
+	for(i=0; i<work_lgt; ++i)  work_adr[i] = end_lines[i];
+#ifdef DEBUGGING
+	if( debugging ){
+		/* эхо - печать обрабатываемой строки */
+		write( 2, Message[2], strlen( Message[2]));
+		writetxt( work_adr, work_lgt );
+	}
+#endif
+	if( from=debug ) {              /* отладочный режим ==> вывод */
+	    while( *from ) {                   /* некоторых строк на tty */
+		if( *from++ == *work_adr ) {
+		    write(2,"=> ",3);
+		    writetxt ( work_adr,work_lgt);
+		    break;
+		}
+	    }
+	}
+
+	switch( *work_adr ) {      /* особ.обраб. для некоторых маркеров */
+
+	    case '.':                   /* сразу вывести в файл */
+pout:           lino(work_adr+1,work_lgt-1);
+		goto LINE_INPUT;
+
+	    case ',':                   /* сразу вывести в файл без lf */
+		linon(work_adr+1,work_lgt-1);
+		goto LINE_INPUT;
+
+	    case '>':                   /* запись строки в стек */
+#ifdef DEBUGGING
+		if( debugging ){
+			write( 2, Message[5], strlen( Message[5]));
+			writetxt( work_adr, work_lgt );
+		}
+#endif
+		get_free_memory(work_lgt+1);
+		beg_stack -= work_lgt;
+		for(i=1; i<work_lgt; ++i)  beg_stack[i] = work_adr[i];
+		*beg_stack-- = ((work_lgt-1) & 0377);
+		*beg_stack   = ((work_lgt-1) >> 8);
+		goto LINE_INPUT;
+
+	    case '!':                   /* выдать сообщение об ошибке */
+		lino(0,0);
+		write(2,"\n",1);
+		write(2,conv(line_number,5,10,' '),5);
+		write(2,": ",2);
+		write(2,work_adr+1,work_lgt-1);
+		write(2,"\n",1);
+		exit(100);
+
+	    case '"':                   /* выдать сообщение на экран */
+		write(2,work_adr+1,work_lgt-1);
+		write(2,"\n",1);
+		goto LINE_INPUT;
+	}
+    }
+
+
+/* СРАВНЕНИЕ СТРОКИ ПО ОЧЕРЕДИ СО ВСЕМИ МАКРОСАМИ ДАННОЙ ГРУППЫ */
+
+    ptr = marker_table [(*work_adr)&0377];
+
+    if( ptr ) {
+	while( *ptr ) {
+	    i = (*(ptr+1))&0377;
+	    nparam = match(ptr+2, i, work_adr, work_lgt, table);
+	    if( nparam == ERROR ) error(0);
+	    if( nparam != UNMATCHABLE )  goto MATCHED;
+	    ptr += (*ptr)&0377;
+	}
+	if( *work_adr!=' ' )  error(6);                 /* не сравнилось */
+	goto pout;
+    }
+
+    if( *work_adr=='.' || *work_adr=='>' ) goto LINE_INPUT;
+    if( !waspr )  goto pout;
+    error(1);                                  /* нет такой группы макро */
+
+
+/* СТРОКА СОПОСТАВИЛАСЬ ==> РЕЗУЛЬТИРУЮЩИЕ СТРОКИ ПОМЕСТИТЬ В СТЕК */
+
+MATCHED:
+
+#ifdef DEBUGGING
+	if( debugging ){
+		write( 2, Message[3], strlen( Message[3]));
+		writetxt( ptr+2 , i );
+	}
+#endif
+
+    z_flag = 0;
+    from = ptr + i + 1;                 /* 1-ая выходная строка */
+    ptr += ((*ptr)&0377) - 1;           /* N-ая выходная строка */
+    while( ptr > from ) {
+	ind_adr = eqn_adr = 0;
+	str_lgt = (*ptr)&0377;
+	str_adr = ptr - str_lgt;
+	str_end = str_adr + str_lgt;
+#ifdef DEBUGGING
+	if( debugging ){
+		write( 2, Message[4], strlen( Message[4]) );
+		writetxt( str_adr, str_lgt );
+	}
+#endif
+	line_beg = end_lines;
+	get_free_memory(MAXLINE+1);
+	while( str_adr<str_end ) {
+	    if( *str_adr == '~' ) {             /* МАКРОПЕРЕМЕННАЯ */
+		if( ++str_adr >= str_end ) error(0);
+		switch( *str_adr ) {
+
+		    case 'z':                   /* генератор меток */
+			if( !z_flag ) z_flag = ++z_counter;
+			toadd  = conv(z_flag,length=4,10,'0');
+			break;
+
+		    case 'n':                   /* номер текущей строки */
+			toadd  = conv(line_number,length=4,10,' ');
+			break;
+
+		    case 's':                   /* верхний элемент стека */
+			if( beg_stack>=bufend ) error(3); /*стек пуст*/
+			length=(*beg_stack<<8)|((*(beg_stack+1))&0377);
+			toadd = beg_stack+2;
+			beg_stack += length+2;
+			break;
+
+		    case 'l':                   /* длина переменной */
+			if( ++str_adr >= str_end ) error(0);
+			if( (i = *str_adr) == 's' ) {
+			    if( beg_stack>=bufend ) error(3); /*стек пуст*/
+			    length=(*beg_stack<<8)|((*(beg_stack+1))&0377);
+			} else if( i=='n'  ||  i=='z' ) {
+			    length = 4;
+			} else {
+			    if( (i-='1') <0 || i>=MAXPAR ) error(4);
+			    if( i >= nparam) error(5);
+			    length = table[i].lgt;
+			}
+			toadd  = conv10( (long)length );
+			length = strlen( toadd );
+			break;
+
+		    default:                    /* ~1 - ~9 переменная */
+			if( (i = *str_adr-'1') <0 || i>=MAXPAR ) error(4);
+			if( i >= nparam) error(5);
+			toadd  = table[i].adr;
+			length = table[i].lgt;
+		}
+#ifdef DEBUGGING
+		if( debugging > 1 ){
+			static char mes[]="~?: ";
+
+			mes[1] = *str_adr;
+			write( 2, mes, 4 );
+			writetxt( toadd, length );
+		}
+#endif
+		for(i=0; i<length; ++i) *end_lines++ = toadd[i];
+
+	    } else if( *str_adr == '\\' ) {     /* 1 СПЕЦСИМВОЛ */
+		if( ++str_adr >= str_end ) error(0);
+		switch( *str_adr ) {
+		    case 'n':   *end_lines = '\n';  break;
+		    case 't':   *end_lines = '\t';  break;
+		    case 'f':   *end_lines = '\f';  break;
+		    case 'r':   *end_lines = '\r';  break;
+		    case 'b':   *end_lines = '\b';  break;
+
+		    default:
+			if( *str_adr>='0' && *str_adr<='7' ) {
+			    if( str_adr+2 >= str_end ) error(0);
+			    *end_lines = (*str_adr  -'0')*0100
+				       + (str_adr[1]-'0')*0010
+				       + (str_adr[2]-'0')      ;
+			    str_adr += 2;
+			} else {
+			    *end_lines = *str_adr;
+			}
+		}
+		++end_lines;
+
+	    } else {                            /* ОБЫЧНЫЙ СИМВОЛ */
+		*end_lines++ = *str_adr;
+
+		if( *str_adr=='/' ) {
+		    if( !ind_adr )      /* запомнить нач. индекса в табл.*/
+			ind_adr = end_lines;
+		    else {              /* поиск образца в стеке */
+			ind_lgt   = end_lines - ind_adr - 1;
+			end_lines = ind_adr - 1;
+			look_in_table();
+			for(i=0; i<ind_lgt; ++i)
+			    *end_lines++ = ind_adr[i];
+			ind_adr = 0;
+		    }
+		} else if( *str_adr=='=' ) {    /* выражение */
+		    if( !eqn_adr )                   /* запомнить начало */
+			eqn_adr = end_lines;
+		    else {                           /* оценка выражения */
+			ind_lgt   = end_lines - eqn_adr - 1;
+			end_lines = eqn_adr - 1;
+			eqn_adr = expr( eqn_adr, ind_lgt );
+			while( *eqn_adr != 0 )  *end_lines++ = *eqn_adr++;
+			eqn_adr = 0;
+		    }
+		}
+	    }
+	    ++str_adr;
+	}
+	i = end_lines-line_beg;
+	*end_lines++ = (i>>8);
+	*end_lines++ = (i&0377);
+	ptr -= str_lgt + 1;
+    }
+    goto LINE_INPUT;
+}
+
+
+/* ПОИСК ОБРАЗЦА В СТЕКЕ *
+ * на входе:  глобальные переменные 'ind_adr' и 'ind_lgt' - "индекс" в табл
+ *            ищет в стеке образец вида: /?/индекс.
+ * на выходе: 'ind_adr' и 'ind_lgt' - значение 1-ого метасимвола, т.е.
+ *            значение элемента таблицы с данным индексом.
+ *            если элемент не найден - возвращает пустую строку.
+ */
+
+look_in_table()
+{
+    struct param tab2 [MAXPAR];  int npar;      /* для поиска по стеку   */
+    char ch1, ch2, ch3;
+    register char *ptr;
+    register int   lgt;
+
+    ch1 = *(ind_adr-1);                         /* сформировать образец */
+    ch2 = *(ind_adr-2);
+    ch3 = *(ind_adr-3);
+    *(ind_adr-3) = '/';
+    *(ind_adr-2) = '?';
+    *(ind_adr-1) = '/';
+
+    for( ptr=beg_stack; ptr<bufend; ptr += lgt+2 ) {
+	lgt = (*ptr<<8) | ((*(ptr+1))&0377);
+	npar = match(ind_adr-3, ind_lgt+3, ptr+2, lgt, tab2);
+	if( npar == ERROR )  error(8);
+	if( npar >= 0 ) {                       /* элемент найден в табл */
+	    *(ind_adr-3) = ch3;
+	    *(ind_adr-2) = ch2;
+	    *(ind_adr-1) = ch1;
+	    ind_adr = tab2[0].adr;
+	    ind_lgt = tab2[0].lgt;
+	    return;
+	}
+    }
+    *(ind_adr-3) = ch3;
+    *(ind_adr-2) = ch2;
+    *(ind_adr-1) = ch1;
+    ind_lgt = 0;
+}
+
+
+/* ДИСПЕТЧЕР ПАМЯТИ */
+/* обеспечивает, чтобы в буфере было не менее 'size' свободного места */
+
+get_free_memory(size)
+    int size;
+{
+    register char *from, *to;
+    from=end_lines;
+    if( beg_stack-from < size ) {
+	size += WORKSPACE;
+	if(sbrk(size)==-1) error(2);            /* удлинняет буфер */
+	from=bufend-1; to=from+size;            /* пересылает стек */
+	while(from>=beg_stack)  *to-- = *from--;
+	beg_stack += size;  bufend += size;
+    }
+}
+
+
+/* ВЫДАЧА СООБЩЕНИЯ ОБ ОШИБКЕ НОМЕР 'n' И КОНЕЦ РАБОТЫ */
+
+error(n)
+{
+    register char *ptr;
+    static char *message[] = {
+	/* 0 */  "ошибка в образце",
+	/* 1 */  "не существует группа макросов",
+	/* 2 */  "не хватает памяти",
+	/* 3 */  "стек исчерпан",
+	/* 4 */  "неверная ~x переменная",
+	/* 5 */  "неопределенная ~1 - ~9 переменная",
+	/* 6 */  "строка не сравнилась ни с одним из макросов",
+	/* 7 */  "неверные входные параметры",
+	/* 8 */  "неверный образец",
+	/* 9 */  "слишком длинная строка во входном файле",
+	/* 10 */ "образцы с одинаковым маркером должны идти подряд",
+	/* 11 */ "нет обрабатываемого потока",
+	/* 12 */ "слишком длинная генерируемая строка",
+	/* 13 */ "неверно задан файл с макропрограммой",
+    };
+
+    lino(0,0);
+    ptr = message[n];
+    while( *ptr ) ++ptr;
+    write(2,"\n",1);
+    write(2,conv(line_number,5,10,' '),5);
+    write(2,": ",2);
+    write(2,message[n],ptr-message[n]);
+    write(2,"\n",1);
+    if(work_lgt>0) {
+	write(2,work_adr,work_lgt);
+	write(2,"\n",1);
+    }
+    exit(n+1);
+}
+
+
+/* ВЫВОД СТРОКИ 'adr' ДЛИНЫ 'lgt' ДОПОЛНЕННОЙ '\n' НА СТАНДАРТНЫЙ ВЫВОД */
+/* если adr==0, то сбросить буфер файл */
+
+#define BUFSIZ       512                        /* длина буфера I\O      */
+
+static int lf_flag;
+
+lino(adr,lgt)
+    register char *adr;
+    register int  lgt;
+{
+    static char buffer[BUFSIZ];                 /* для буферизации       */
+    static int  xout=0;
+
+    if(adr) {                                   /* вывод строки в файл   */
+	while( lgt ) {
+	    buffer[xout++] = *adr++;  --lgt;
+	    if( xout >= BUFSIZ )  {write(1,buffer,BUFSIZ); xout=0;}
+	}
+	if( !lf_flag )  buffer[xout++] = '\n';
+	if( xout >= BUFSIZ )  {write(1,buffer,BUFSIZ); xout=0;}
+
+    } else {                                    /* сбросить буфер */
+	if( xout )  {write(1,buffer,xout);  xout=0;}
+    }
+}
+
+linon(adr,lgt) {lf_flag++; lino(adr,lgt); lf_flag=0;}
+
+
+/* ВВОД СТРОКИ ПО АДРЕСУ 'adr' ДЛИНЫ 'lgt' ИЗ ФАЙЛА 'fd' */
+/* возврат: длина введенной строки (без '/n') или -1 если конец файла */
+/* если adr==0, то инициализировать чтение файла */
+
+lini(fd,adr,lgt)
+    register char *adr;
+    register int  lgt;
+    int           fd;
+{
+    static char buffer[BUFSIZ];                 /* для буферизации  */
+    static int  xint,  buflgt;
+    char *from;
+    register int pos;                           /* позиция в строке */
+
+    if( (from=adr) ) {
+	pos = 0;
+	while( lgt ) {
+	    if( xint >= buflgt ) {              /* конец буфера */
+		if( !(buflgt=read(fd,buffer,BUFSIZ)) )  return(-1);
+		xint = 0;
+	    }
+	    *adr = buffer[xint++];  ++pos;
+	    if( *adr == '\t' ) {                /* преобразует '\t'->' ' */
+		*adr = ' ';
+		while ( pos&07 ) {
+		    *++adr = ' ';  ++pos;
+		    if( !(--lgt) ) error(9);
+		}
+	    }
+	    if( *adr == '\n' ) return(adr-from);
+	    ++adr;  --lgt;
+	}
+	error(9);                               /* слишком длинная стр.  */
+
+    } else {                                    /* инициализировать ввод */
+	buflgt = xint = BUFSIZ;
+    }
+}
+@
+
+
+0.5
+log
+@Еще кое-что про отладку.
+@
+text
+@d5 3
+d28 1
+a28 1
+static char rcsid[] = "$Header: mm.c,v 0.4 88/10/24 20:31:07 abs Exp $";
+d56 18
+a73 2
+writeend(){
+	write( 2, "\\n\n", 3 );
+d115 3
+a117 4
+    if( argc >= 5 )  error(7);
+    if( argc == 3 ){
+	  if( !strcmp( argv[2], "--d" ))debugging++;
+	  else                         debug = argv[2];
+d250 1
+a250 2
+	    write( 2, work_adr+1, work_lgt );
+	    writeend();
+d290 1
+a290 2
+		write( 2, work_adr, work_lgt );
+		writeend();
+d297 1
+a297 2
+		    write(2,work_adr,work_lgt);
+		    writeend();
+d317 1
+a317 2
+			write( 2, work_adr, work_lgt );
+			writeend();
+d372 1
+a372 2
+		write( 2, ptr+2 , i );
+		writeend();
+d387 1
+a387 2
+		write( 2, str_adr, str_lgt );
+		writeend();
+d435 9
+@
+
+
+0.4
+log
+@Сообщение, более соответствующее смыслу операции.
+@
+text
+@d5 3
+d25 1
+a25 1
+static char rcsid[] = "$Header: mm.c,v 0.3 88/10/24 19:29:20 abs Exp $";
+d50 1
+d52 4
+d233 1
+a233 1
+	    write( 2, "\n", 1 );
+d274 1
+a274 1
+		write( 2, "\n", 1 );
+d282 1
+a282 1
+		    write(2,"\n",1);
+d299 7
+d359 1
+a359 1
+		write( 2, "\n", 1 );
+d375 1
+a375 1
+		write( 2, "\n", 1 );
+@
+
+
+0.3
+log
+@Еще чуть косметики по поводу отладки.
+@
+text
+@d5 3
+d22 1
+a22 1
+static char rcsid[] = "$Header: mm.c,v 0.2 88/10/24 19:12:27 abs Exp $";
+d44 1
+a44 1
+		"#ИЗ СТЕКА:",           /* 2 */
+@
+
+
+0.2
+log
+@Добавлен ключ для трассировки работы.
+Формат вызова:
+	mm programm.m --d < input
+@
+text
+@d5 5
+d19 1
+a19 1
+static char rcsid[] = "$Header: mm.c,v 0.1 86/08/03 20:02:17 avg Exp $";
+d39 5
+a43 5
+		"ИЗ ФАЙЛА:",           /* 0 */
+		"МАРКЕР:'",            /* 1 */
+		"ИЗ СТЕКА:",           /* 2 */
+		"СОПОСТАВЛЕНО:",       /* 3 */
+		"СГЕНЕРИТЬ:",          /* 4 */
+d206 3
+@
+
+
+0.1
+log
+@Правлена плюха: #ifdef lint на #ifndef lint.
+@
+text
+@d5 3
+d14 1
+a14 1
+static char rcsid[] = "$Header: mm.c,v 0.0 86/08/03 19:49:15 avg Exp $";
+d32 9
+d63 3
+a65 1
+    static int program, debug;                  /* файл программы и флаг */
+d80 5
+a84 2
+    if( argc >= 4 )  error(7);
+    if( argc == 3 )  debug = argv[2];
+d86 1
+a86 1
+	if( (program=open(argv[1],0)) == -1 ) error(13);
+d208 10
+a217 1
+	if( (work_lgt=lini(program,&work_adr[1],MAXLINE-1)+1) <= 0 ) {
+d235 8
+d250 8
+a257 1
+
+d329 8
+d345 7
+d534 1
+a534 1
+	/* 10 */ "чередуются макросы с разными маркерами",
+@
+
+
+0.0
+log
+@Макропроцессор Мини-Макро. Автор: Флеров М.Н.
+Версия для ДЕМОС 2.0 by @@VG.
+@
+text
+@d4 5
+a8 1
+ * $Log$
+d10 2
+a11 2
+#ifdef lint
+static char rcsid[] = "$Header$";
+@

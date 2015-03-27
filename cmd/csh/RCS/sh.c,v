@@ -1,0 +1,2739 @@
+head     1.15;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.6 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.15
+date     89.05.06.15.51.49;  author avg;  state Exp;
+branches ;
+next     1.14;
+
+1.14
+date     89.05.03.20.02.59;  author avg;  state Exp;
+branches ;
+next     1.13;
+
+1.13
+date     89.03.22.17.34.34;  author avg;  state Exp;
+branches ;
+next     1.12;
+
+1.12
+date     89.03.16.11.56.48;  author avg;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     88.09.18.19.59.08;  author avg;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     87.07.10.20.43.02;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     87.07.06.22.26.46;  author alex;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     86.09.28.17.40.22;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     86.09.24.12.14.22;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     86.07.20.20.34.05;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.06.02.21.06.07;  author dmitry;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.06.02.20.32.21;  author dmitry;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.06.02.18.04.54;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.15.02.35;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.18.09;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.16.17;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.37.52;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.06.34;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.32.05;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.15
+log
+@Вынесен в static большой массив.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char rcsid[] = "$Header: sh.c,v 1.14 89/05/03 20:02:59 avg Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:	sh.c,v $
+ * Revision 1.14  89/05/03  20:02:59  avg
+ * Сделана подстановка переменных в prompt.
+ * 
+ * Revision 1.13  89/03/22  17:34:34  avg
+ * Правлена работа с .logout.
+ *
+ * Revision 1.12  89/03/16  11:56:48  avg
+ * Внесены изменения для экранной версии csh.
+ *
+ * Revision 1.11  88/09/18  19:59:08  avg
+ * Убрана лишняя выдача prompt-ов.
+ *
+ * Revision 1.10  87/07/10  20:43:02  avg
+ * Добавлен ключ -h у команды eval -
+ * по нему в history запоминается не сама команда eval..., а
+ * команда - аргумент eval.
+ *
+ * Revision 1.9  87/07/06  22:26:46  alex
+ * Внесены правки для уменьшения занимаемой памяти
+ *
+ * Revision 1.8  86/09/28  17:40:22  avg
+ * Неправильно обрабатывался sigint в неинтерактивном режиме.
+ *
+ * Revision 1.7  86/09/24  12:14:22  avg
+ * Добавлен ifdef U42 при обращении к time0.
+ *
+ * Revision 1.6  86/07/20  20:34:05  avg
+ * Версия, слитая с версией из 4.2 (alex) by avg.
+ *
+ * Revision 1.5  86/06/02  21:06:07  dmitry
+ * *** empty log message ***
+ *
+ * Revision 1.4  86/06/02  20:32:21  dmitry
+ * *** empty log message ***
+ *
+ * Revision 1.3  86/06/02  18:04:54  dmitry
+ * Добавлены пропущенные в 1.2 русские диагностики.
+ *
+ * Revision 1.2  86/06/02  15:02:35  dmitry
+ * Слит с версией для МНОС 1.2, т.о. добавлены русские буквы
+ * и обработка переменной chktime.
+ *
+ * Revision 1.1  86/06/01  20:18:09  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+#include <sys/ioctl.h>
+
+#ifdef COMMANDEDIT
+#include <sgtty.h>
+#endif
+
+int     m_prompt = 1;
+char    *pathlist[] =   { ".", "/usr/ucb", "/bin", "/usr/bin", 0 };
+char    *dumphist[] =   { "history", "-h", 0, 0 };
+char    *loadhist[] =   { "source", "-h", "~/.history", 0 };
+char    HIST = '!';
+char    HISTSUB = '^';
+bool    nofile;
+bool    reenter;
+bool    nverbose;
+bool    nexececho;
+bool    quitit;
+bool    fast;
+bool    prompt = 1;
+bool    enterhist = 0;
+
+long     sulog, cTIM, chkTIME;
+
+main(c, av)
+	int c;
+	char **av;
+{
+	register char **v, *cp;
+	register int f;
+	struct ltchars ltc;
+
+	settimes();                     /* Immed. estab. timing base */
+	v = av;
+	if (eq(v[0], "a.out"))          /* A.out's are quittable */
+		quitit = 1;
+	uid = getuid();
+	loginsh = **v == '-';
+	if (loginsh)
+		time(&chktim);
+
+	/*
+	 * Move the descriptors to safe places.
+	 * The variable didfds is 0 while we have only FSH* to work with.
+	 * When didfds is true, we have 0,1,2 and prefer to use these.
+	 */
+	initdesc();
+
+	/*
+	 * Initialize the shell variables.
+	 * ARGV and PROMPT are initialized later.
+	 * STATUS is also munged in several places.
+	 * CHILD is munged when forking/waiting
+	 */
+
+	InitialTimeSet();
+	set("status", "0");
+	dinit(cp = getenv("HOME"));     /* dinit thinks that HOME == cwd in a
+					 * login shell */
+	if (cp == NOSTR)
+		fast++;                 /* No home -> can't read scripts */
+	else
+		set("home", savestr(cp));
+
+	/*
+	 * Grab other useful things from the environment.
+	 * Should we grab everything??
+	 */
+	if ((cp = getenv("USER")) != NOSTR)
+		set("user", savestr(cp));
+	if ((cp = getenv("TERM")) != NOSTR)
+		set("term", savestr(cp));
+
+	{
+		extern TCQuiet;
+
+		TCQuiet = 1;
+		get_term();
+		TCQuiet = 0;
+	}
+
+	/*
+	 * Re-initialize path if set in environment
+	 */
+	if (uid == 0)
+		pathlist[0] = "/etc";
+
+	if ((cp = getenv("PATH")) == NOSTR)
+		set1("path", saveblk(pathlist), &shvhed);
+	else {
+		register unsigned i = 0;
+		register char *dp;
+		register char **pv;
+
+		for (dp = cp; *dp; dp++)
+			if (*dp == ':')
+				i++;
+		pv = (char **)calloc(i+2, sizeof (char **));
+		for (dp = cp, i = 0; ;)
+			if (*dp == ':') {
+				*dp = 0;
+				pv[i++] = savestr(*cp ? cp : ".");
+				*dp++ = ':';
+				cp = dp;
+			} else if (*dp++ == 0) {
+				pv[i++] = savestr(*cp ? cp : ".");
+				break;
+			}
+		pv[i] = 0;
+		set1("path", pv, &shvhed);
+	}
+	set("shell", SHELLPATH);
+
+	doldol = putn(getpid());                /* For $$ */
+	shtemp = strspl("/tmp/sh", doldol);     /* For << */
+
+	/*
+	 * Record the interrupt states from the parent process.
+	 * If the parent is non-interruptible our hand must be forced
+	 * or we (and our children) won't be either.
+	 * Our children inherit termination from our parent.
+	 * We catch it only if we are the login shell.
+	 */
+	parintr = signal(SIGINT, SIG_IGN);      /* parents interruptibility */
+	sigset(SIGINT, parintr);                        /* ... restore */
+	parterm = signal(SIGTERM, SIG_IGN);     /* parents terminability */
+	signal(SIGTERM, parterm);                       /* ... restore */
+	if (loginsh) {
+		signal(SIGHUP, phup);           /* exit processing on HUP */
+#ifdef U42
+		signal(SIGXCPU, phup);          /* ...and on XCPU */
+		signal(SIGXFSZ, phup);          /* ...and on XFSZ */
+#endif U42
+	}
+
+	/*
+	 * Process the arguments.
+	 *
+	 * Note that processing of -v/-x is actually delayed till after
+	 * script processing.
+	 *
+	 * We set the first character of our name to be '-' if we are
+	 * a shell running interruptible commands.  Many programs which
+	 * examine ps'es use this to filter such shells out.
+	 */
+	c--, v++;
+	while (c > 0 && (cp = v[0])[0] == '-') {
+		do switch (*cp++) {
+
+		case 0:                 /* -    Interruptible, no prompt */
+			prompt = 0;
+			setintr++;
+			nofile++;
+			break;
+
+		case 'c':               /* -c   Command input from arg */
+			if (c == 1)
+				exit(0);
+			c--, v++;
+			arginp = v[0];
+			prompt = 0;
+			nofile++;
+			break;
+
+		case 'e':               /* -e   Exit on any error */
+			exiterr++;
+			break;
+
+		case 'f':               /* -f   Fast start */
+			fast++;
+			break;
+
+		case 'i':               /* -i   Interactive, even if !intty */
+			intact++;
+			nofile++;
+			break;
+
+		case 'n':               /* -n   Don't execute */
+			noexec++;
+			break;
+
+		case 'q':               /* -q   (Undoc'd) ... die on quit */
+			quitit = 1;
+			break;
+
+		case 's':               /* -s   Read from std input */
+			nofile++;
+			break;
+
+		case 't':               /* -t   Read one line from input */
+			onelflg = 2;
+			prompt = 0;
+			nofile++;
+			break;
+
+		case 'v':               /* -v   Echo hist expanded input */
+			nverbose = 1;                   /* ... later */
+			break;
+
+		case 'x':               /* -x   Echo just before execution */
+			nexececho = 1;                  /* ... later */
+			break;
+
+		case 'V':               /* -V   Echo hist expanded input */
+			setNS("verbose");               /* NOW! */
+			break;
+
+		case 'X':               /* -X   Echo just before execution */
+			setNS("echo");                  /* NOW! */
+			break;
+
+		} while (*cp);
+		v++, c--;
+	}
+
+	if (quitit)                     /* With all due haste, for debugging */
+		signal(SIGQUIT, SIG_DFL);
+
+	/*
+	 * Unless prevented by -, -c, -i, -s, or -t, if there
+	 * are remaining arguments the first of them is the name
+	 * of a shell file from which to read commands.
+	 */
+	if (nofile == 0 && c > 0) {
+		nofile = open(v[0], 0);
+		if (nofile < 0) {
+			child++;                /* So this ... */
+			Perror(v[0]);           /* ... doesn't return */
+		}
+		file = v[0];
+		SHIN = dmove(nofile, FSHIN);    /* Replace FSHIN */
+		prompt = 0;
+		c--, v++;
+	}
+	/*
+	 * Consider input a tty if it really is or we are interactive.
+	 */
+	intty = intact || isatty(SHIN);
+#ifdef COMMANDEDIT
+	if( intty ) {
+		save_tty(&tsave);  /* сохраним состояние терминала */
+		ttysaved = 1;
+	}
+#endif
+
+	/*
+	 * Decide whether we should play with signals or not.
+	 * If we are explicitly told (via -i, or -) or we are a login
+	 * shell (arg0 starts with -) or the input and output are both
+	 * the ttys("csh", or "csh</dev/ttyx>/dev/ttyx")
+	 * Note that in only the login shell is it likely that parent
+	 * may have set signals to be ignored
+	 */
+	if (loginsh || intact || intty && isatty(SHOUT))
+		setintr = 1;
+#ifdef TELL
+	settell();
+#endif
+	/*
+	 * Save the remaining arguments in argv.
+	 */
+	setq("argv", v, &shvhed);
+
+	/*
+	 * Set up the prompt.
+	 */
+	if (prompt)
+		set("prompt", uid == 0 ? "# " : "% ");
+
+	/*
+	 * If we are an interactive shell, then start fiddling
+	 * with the signals; this is a tricky game.
+	 */
+	shpgrp = getpgrp(0);
+	opgrp = tpgrp = -1;
+	oldisc = -1;
+	if (setintr) {
+		**av = '-';
+		if (!quitit)            /* Wary! */
+			signal(SIGQUIT, SIG_IGN);
+		sigset(SIGINT, pintr);
+		sighold(SIGINT);
+		signal(SIGTERM, SIG_IGN);
+		if (quitit == 0 && arginp == 0) {
+			signal(SIGTSTP, SIG_IGN);
+			signal(SIGTTIN, SIG_IGN);
+			signal(SIGTTOU, SIG_IGN);
+			/*
+			 * Wait till in foreground, in case someone
+			 * stupidly runs
+			 *      csh &
+			 * dont want to try to grab away the tty.
+			 */
+			if (isatty(FSHDIAG))
+				f = FSHDIAG;
+			else if (isatty(FSHOUT))
+				f = FSHOUT;
+			else if (isatty(OLDSTD))
+				f = OLDSTD;
+			else
+				f = -1;
+retry:
+			if (ioctl(f, TIOCGPGRP, &tpgrp) == 0 && tpgrp != -1) {
+				int ldisc;
+				if (tpgrp != shpgrp) {
+					int (*old)() = sigsys(SIGTTIN, SIG_DFL);
+					kill(0, SIGTTIN);
+					sigsys(SIGTTIN, old);
+					goto retry;
+				}
+				if (ioctl(f, TIOCGETD, &oldisc) != 0)
+					goto notty;
+				if (oldisc != NTTYDISC) {
+					if (!loginsh)
+#ifdef DEBUG
+				    printf(ediag("Switching to new tty driver...\n",
+						 "Используется новый терминальный драйвер...\n"));
+#endif DEBUG
+					ldisc = NTTYDISC;
+					ioctl(f, TIOCSETD, &ldisc);
+				} else
+					oldisc = -1;
+				if ((ioctl(f, TIOCGLTC, &ltc) == 0) &&
+				   (ltc.t_suspc != '\377'))
+					setstop = 1;
+				opgrp = shpgrp;
+				shpgrp = getpid();
+				tpgrp = shpgrp;
+				ioctl(f, TIOCSPGRP, &shpgrp);
+				setpgrp(0, shpgrp);
+				dcopy(f, FSHTTY);
+				ioctl(FSHTTY, FIOCLEX, 0);
+			} else {
+notty:
+  printf(ediag("Warning: no access to tty; thus no job control in this shell...\n",
+	       "Внимание: терминал недоступен; поэтому управление задачами невозможно.\n"));
+				tpgrp = -1;
+			}
+		}
+	}
+	if (setintr == 0 && parintr == SIG_DFL) {
+		sigset(SIGINT, pintr);  /* BUG fixed by @@VG: if setintr is set */
+		setintr++;              /* must be force assignment action into caction ( see lib/jobs ) */
+	}
+	sigset(SIGCHLD, pchild);                /* while signals not ready */
+
+	/*
+	 * Set an exit here in case of an interrupt or error reading
+	 * the shell start-up scripts.
+	 */
+	setexit();
+	haderr = 0;             /* In case second time through */
+	if (!fast && reenter == 0) {
+		reenter++;
+		/* Will have value("home") here because set fast if don't */
+		srccat(value("home"), "/.cshrc");
+		if (!fast && !arginp && !onelflg)
+			dohash();
+		dosource(loadhist);
+		if (loginsh) {
+			srccat(value("home"), "/.login");
+		}
+	}
+
+	/*
+	 * Now are ready for the -v and -x flags
+	 */
+	if (nverbose)
+		setNS("verbose");
+	if (nexececho)
+		setNS("echo");
+
+	/*
+	 * All the rest of the world is inside this call.
+	 * The argument to process indicates whether it should
+	 * catch "error unwinds".  Thus if we are a interactive shell
+	 * our call here will never return by being blown past on an error.
+	 */
+	process(setintr);
+
+	/*
+	 * Mop-up.
+	 */
+	if (loginsh) {
+		extern int closein;
+
+		printf(ediag("logout\n", "конец работы\n"));
+		close(SHIN);
+		closein = 1;
+		child++;
+		goodbye();
+	}
+	rechist();
+	exitstat();
+}
+
+untty()
+{
+
+	if (tpgrp > 0) {
+		setpgrp(0, opgrp);
+		ioctl(FSHTTY, TIOCSPGRP, &opgrp);
+		if (oldisc != -1 && oldisc != NTTYDISC) {
+#ifdef DEBUG
+			printf(ediag("\nReverting to old tty driver...\n",
+				     "\nИспользуется старый терминальный драйвер...\n"));
+#endif DEBUG
+			ioctl(FSHTTY, TIOCSETD, &oldisc);
+		}
+	}
+}
+
+importpath(cp)
+char *cp;
+{
+	register int i = 0;
+	register char *dp;
+	register char **pv;
+	int c;
+	static char dot[2] = {'.', 0};
+
+	for (dp = cp; *dp; dp++)
+		if (*dp == ':')
+			i++;
+	/*
+	 * i+2 where i is the number of colons in the path.
+	 * There are i+1 directories in the path plus we need
+	 * room for a zero terminator.
+	 */
+	pv = (char **) calloc(i+2, sizeof (char **));
+	dp = cp;
+	i = 0;
+	if (*dp)
+	for (;;) {
+		if ((c = *dp) == ':' || c == 0) {
+			*dp = 0;
+			pv[i++] = savestr(*cp ? cp : dot);
+			if (c) {
+				cp = dp + 1;
+				*dp = ':';
+			} else
+				break;
+		}
+		dp++;
+	}
+	pv[i] = 0;
+	set1("path", pv, &shvhed);
+}
+
+/*
+ * Source to the file which is the catenation of the argument names.
+ */
+srccat(cp, dp)
+	char *cp, *dp;
+{
+	register char *ep = strspl(cp, dp);
+	register int unit = dmove(open(ep, 0), -1);
+
+	/* ioctl(unit, FIOCLEX, NULL); */
+	xfree(ep);
+#ifdef RUBIN
+	srcunit(unit, 0, 0);
+#else
+	srcunit(unit, 1, 0);
+#endif
+}
+
+/*
+ * Source to a unit.  If onlyown it must be our file or our group or
+ * we don't chance it.  This occurs on ".cshrc"s and the like.
+ */
+srcunit(unit, onlyown, hflg)
+	register int unit;
+	bool onlyown;
+	bool hflg;
+{
+	/* We have to push down a lot of state here */
+	/* All this could go into a structure */
+	int oSHIN = -1, oldintty = intty;
+	struct whyle *oldwhyl = whyles;
+	char *ogointr = gointr, *oarginp = arginp;
+	char *oevalp = evalp, **oevalvec = evalvec;
+	int oonelflg = onelflg;
+	bool oenterhist = enterhist;
+	char OHIST = HIST;
+#ifdef TELL
+	bool otell = cantell;
+#endif
+	struct Bin saveB;
+
+	/* The (few) real local variables */
+	jmp_buf oldexit;
+	int reenter;
+
+	if (unit < 0)
+		return;
+	if (didfds)
+		donefds();
+	if (onlyown) {
+		struct stat stb;
+
+		if (fstat(unit, &stb) < 0 ||
+		    (stb.st_uid != uid && stb.st_gid != getgid())) {
+			close(unit);
+			return;
+		}
+	}
+
+	/*
+	 * There is a critical section here while we are pushing down the
+	 * input stream since we have stuff in different structures.
+	 * If we weren't careful an interrupt could corrupt SHIN's Bin
+	 * structure and kill the shell.
+	 *
+	 * We could avoid the critical region by grouping all the stuff
+	 * in a single structure and pointing at it to move it all at
+	 * once.  This is less efficient globally on many variable references
+	 * however.
+	 */
+	getexit(oldexit);
+	reenter = 0;
+	if (setintr)
+		sighold(SIGINT);
+	setexit();
+	reenter++;
+	if (reenter == 1) {
+		/* Setup the new values of the state stuff saved above */
+		copy((char *)&saveB, (char *)&B, sizeof saveB);
+		fbuf = (char **) 0;
+		fseekp = feobp = fblocks = 0;
+		oSHIN = SHIN, SHIN = unit, arginp = 0, onelflg = 0;
+		intty = isatty(SHIN), whyles = 0, gointr = 0;
+		evalvec = 0; evalp = 0;
+		enterhist = hflg;
+		if (enterhist)
+			HIST = '\0';
+		/*
+		 * Now if we are allowing commands to be interrupted,
+		 * we let ourselves be interrupted.
+		 */
+		if (setintr)
+			sigrelse(SIGINT);
+#ifdef TELL
+		settell();
+#endif
+		process(0);             /* 0 -> blow away on errors */
+	}
+	if (setintr)
+		sigrelse(SIGINT);
+	if (oSHIN >= 0) {
+		register int i;
+
+		/* We made it to the new state... free up its storage */
+		/* This code could get run twice but xfree doesn't care */
+		for (i = 0; i < fblocks; i++)
+			xfree(fbuf[i]);
+		xfree((char *)fbuf);
+
+		/* Reset input arena */
+		copy((char *)&B, (char *)&saveB, sizeof B);
+
+		close(SHIN), SHIN = oSHIN;
+		arginp = oarginp, onelflg = oonelflg;
+		evalp = oevalp, evalvec = oevalvec;
+		intty = oldintty, whyles = oldwhyl, gointr = ogointr;
+		if (enterhist)
+			HIST = OHIST;
+		enterhist = oenterhist;
+#ifdef TELL
+		cantell = otell;
+#endif
+	}
+
+	resexit(oldexit);
+	/*
+	 * If process reset() (effectively an unwind) then
+	 * we must also unwind.
+	 */
+	if (reenter >= 2)
+		error(NOSTR);
+}
+
+rechist()
+{
+	char buf[BUFSIZ];
+	int fp, ftmp, oldidfds;
+
+	if (!fast) {
+		if (value("savehist")[0] == '\0')
+			return;
+		strcpy(buf, value("home"));
+		strcat(buf, "/.history");
+		fp = creat(buf, 0777);
+		if (fp == -1)
+			return;
+		oldidfds = didfds;
+		didfds = 0;
+		ftmp = SHOUT;
+		SHOUT = fp;
+		strcpy(buf, value("savehist"));
+		dumphist[2] = buf;
+		dohist(dumphist);
+		close(fp);
+		SHOUT = ftmp;
+		didfds = oldidfds;
+	}
+}
+
+goodbye()
+{
+	if (loginsh) {
+		signal(SIGQUIT, SIG_IGN);
+		sigset(SIGINT, SIG_IGN);
+		signal(SIGTERM, SIG_IGN);
+		setintr = 0;            /* No interrupts after "logout" */
+		if (adrof("home"))
+			srccat(value("home"), "/.logout");
+	}
+	rechist();
+	exitstat();
+}
+
+exitstat()
+{
+#ifdef COMMANDEDIT
+	extern int closein;
+
+	if( ttysaved && intty && !closein)
+		reset_tty(&tsave);   /* восстановим состояние терминала */
+#endif
+
+	/*
+	 * Note that if STATUS is corrupted (i.e. getn bombs)
+	 * then error will exit directly because we poke child here.
+	 * Otherwise we might continue unwarrantedly (sic).
+	 */
+	child++;
+	exit(getn(value("status")));
+}
+
+/*
+ * in the event of a HUP we want to save the history
+ */
+phup()
+{
+	rechist();
+	exit(1);
+}
+
+char    *jobargv[2] = { "jobs", 0 };
+/*
+ * Catch an interrupt, e.g. during lexical input.
+ * If we are an interactive shell, we reset the interrupt catch
+ * immediately.  In any case we drain the shell output,
+ * and finally go through the normal error mechanism, which
+ * gets a chance to make the shell go away.
+ */
+
+pintr()
+{
+	pintr1(1);
+}
+
+pintr1(wantnl)
+	bool wantnl;
+{
+	register char **v;
+
+	if (setintr) {
+		sigrelse(SIGINT);
+		if (pjobs) {
+			pjobs = 0;
+			printf("\n");
+			dojobs(jobargv);
+			bferr(ediag("Interrupted","Прерван"));
+		}
+		sighold(SIGINT);
+	}
+	sigrelse(SIGCHLD);
+	draino();
+
+	/*
+	 * If we have an active "onintr" then we search for the label.
+	 * Note that if one does "onintr -" then we shan't be interruptible
+	 * so we needn't worry about that here.
+	 */
+	if (gointr) {
+		search(ZGOTO, 0, gointr);
+		timflg = 0;
+		if (v = pargv)
+			pargv = 0, blkfree(v);
+		if (v = gargv)
+			gargv = 0, blkfree(v);
+		reset();
+	} else if (intty && wantnl)
+		printf("\n");           /* Some like this, others don't */
+	error(NOSTR);
+}
+
+int evalHIST = 0;       /* Save the history whe eval occurs (@@VG) */
+
+/*
+ * Process is the main driving routine for the shell.
+ * It runs all command processing, except for those within { ... }
+ * in expressions (which is run by a routine evalav in sh.exp.c which
+ * is a stripped down process), and `...` evaluation which is run
+ * also by a subset of this code in sh.glob.c in the routine backeval.
+ *
+ * The code here is a little strange because part of it is interruptible
+ * and hence freeing of structures appears to occur when none is necessary
+ * if this is ignored.
+ *
+ * Note that if catch is not set then we will unwind on any error.
+ * If an end-of-file occurs, we return.
+ */
+process(catch)
+	bool catch;
+{
+	register char *cp;
+	jmp_buf osetexit;
+	struct command *t;
+#ifdef COMMANDEDIT
+	int needreset;
+#endif
+
+	getexit(osetexit);
+	for (;;) {
+		pendjob();
+		paraml.next = paraml.prev = &paraml;
+		paraml.word = "";
+		t = 0;
+#ifdef COMMANDEDIT
+		if( intty && ScrFlag ) {
+			save_tty(&tsave);        /* сохраним состояние терминала */
+			ttysaved = 1;
+		}
+		needreset = 0;
+		setexit();
+		if( intty && ScrFlag && needreset ) {
+			reset_tty(&tsave);        /* восстановим состояние терминала */
+						  /* после прерывания */
+		}
+		needreset = 1;
+#else
+		setexit();
+#endif COMMANDEDIT
+		justpr = enterhist;     /* execute if not entering history */
+
+		/*
+		 * Interruptible during interactive reads
+		 */
+		if (setintr)
+			sigrelse(SIGINT);
+
+		/*
+		 * For the sake of reset()
+		 */
+		freelex(&paraml), freesyn(t), t = 0;
+
+		if (haderr) {
+			if (!catch) {
+				/* unwind */
+				doneinp = 0;
+				resexit(osetexit);
+				reset();
+			}
+			haderr = 0;
+			/*
+			 * Every error is eventually caught here or
+			 * the shell dies.  It is at this
+			 * point that we clean up any left-over open
+			 * files, by closing all but a fixed number
+			 * of pre-defined files.  Thus routines don't
+			 * have to worry about leaving files open due
+			 * to deeper errors... they will get closed here.
+			 */
+			closem();
+			continue;
+		}
+		if (doneinp) {
+			doneinp = 0;
+			break;
+		}
+		if (chkstop)
+			chkstop--;
+		if (neednote)
+			pnote();
+
+		if (intty && evalvec == 0) {
+#ifdef COMMANDEDIT
+	    /*
+	     *  Проверим - не установлен ли режим экранного редактирования
+	     */
+			if(adrof("shistory") != 0 && (MaxHist=getn(value("shistory"))) > 0 ) {
+				if( ScrFlag == 0 ) {
+					ScrFlag = 1;
+					get_term();
+					if( ScrFlag == 0 )
+						unsetvq("shistory");
+				}
+			} else
+				ScrFlag = 0;
+#endif
+			mailchk();
+			/*
+			 * If we are at the end of the input buffer
+			 * then we are going to read fresh stuff.
+			 * Otherwise, we are rereading input and don't
+			 * need or want to prompt.
+			 */
+			if (fseekp == feobp)
+				if (!whyles) {
+#ifdef pdp11
+	/*
+	 * Для экономии памяти - забудем старый ввод
+	 *   Сопля by @@АР
+	 */
+					bfree();
+#endif pdp11
+					m_prompt = 1;
+					putprompt();
+				} else {
+					/*
+					 * Prompt for forward reading loop
+					 * body content.
+					 */
+					m_prompt = 0;
+					putprompt();
+				}
+			flush();
+		}
+		err = 0;
+
+		/*
+		 * Echo not only on VERBOSE, but also with history expansion.
+		 * If there is a lexical error then we forego history echo.
+		 */
+		if (lex(&paraml) && !err && intty || adrof("verbose")) {
+			haderr = 1;
+			prlex(&paraml);
+			haderr = 0;
+		}
+
+		/*
+		 * The parser may lose space if interrupted.
+		 */
+		if (setintr)
+			sighold(SIGINT);
+
+		/*
+		 * Save input text on the history list if
+		 * reading in old history, or it
+		 * is from the terminal at the top level and not
+		 * in a loop.
+		 * When goes processing eval with key -h, evalHIST
+		 * means that args of eval stored in history.
+		 */
+		if (enterhist || evalHIST || catch && intty && !whyles)
+			savehist(&paraml);
+
+		/*
+		 * Print lexical error messages, except when sourcing
+		 * history lists.
+		 */
+		if (!enterhist && err)
+			error(err);
+
+		/*
+		 * If had a history command :p modifier then
+		 * this is as far as we should go
+		 */
+		if (justpr)
+			reset();
+
+		alias(&paraml);
+
+		/*
+		 * Parse the words of the input into a parse tree.
+		 */
+		t = syntax(paraml.next, &paraml, 0);
+		if (err)
+			error(err);
+
+		/*
+		 * Execute the parse tree
+		 */
+		if( sulog != 0l && adrof( "chktime" ) ) {
+			time( &chkTIME );
+			cTIM = getn(value( "chktime" ));
+			if( (chkTIME - sulog) > (cTIM*60l) )
+				goodbye();
+			sulog = 0l;
+		}
+		execute(t, tpgrp);
+
+		/*
+		 * Made it!
+		 */
+		freelex(&paraml), freesyn(t);
+		time( &sulog );
+	}
+	resexit(osetexit);
+}
+
+dosource(t)
+	register char **t;
+{
+	register char *f;
+	register int u;
+	bool hflg = 0;
+	static char buf[256];
+
+	t++;
+	if (*t && eq(*t, "-h")) {
+		t++;
+		hflg++;
+	}
+	strcpy(buf, *t);
+	f = globone(buf);
+	u = dmove(open(f, 0), -1);
+	xfree(f);
+	if (u < 0 && !hflg)
+		Perror(f);
+	srcunit(u, 0, hflg);
+}
+
+/*
+ * Check for mail.
+ * If we are a login shell, then we don't want to tell
+ * about any mail file unless its been modified
+ * after the time we started.
+ * This prevents us from telling the user things he already
+ * knows, since the login program insists on saying
+ * "You have mail."
+ */
+mailchk()
+{
+	register struct varent *v;
+	register char **vp;
+	time_t t;
+	int intvl, cnt;
+	struct stat stb;
+	bool new;
+
+	v = adrof("mail");
+	if (v == 0)
+		return;
+	time(&t);
+	vp = v->vec;
+	cnt = blklen(vp);
+	intvl = (cnt && number(*vp)) ? (--cnt, getn(*vp++)) : MAILINTVL;
+	if (intvl < 1)
+		intvl = 1;
+	if (chktim + intvl > t)
+		return;
+	for (; *vp; vp++) {
+		if (stat(*vp, &stb) < 0)
+			continue;
+#ifdef U42
+		new = stb.st_mtime > time0.tv_sec;
+#else
+		new = stb.st_mtime > time0;
+#endif
+		if (stb.st_size == 0 || stb.st_atime > stb.st_mtime ||
+		    (stb.st_atime < chktim && stb.st_mtime < chktim) ||
+		    loginsh && !new)
+			continue;
+		if (cnt == 1)
+			printf(ediag("You have %smail.\n",
+				     "Вам пришла %sпочта.\n"),
+				new ? ediag("new ", "новая ") : "");
+		else
+			printf(ediag("%s in %s.\n", "%s в %s.\n"),
+				ediag(new ? "New mail" : "Mail",
+				      new ? "Новая почта" : "Почта"), *vp);
+	}
+	chktim = t;
+}
+
+#include <pwd.h>
+/*
+ * Extract a home directory from the password file
+ * The argument points to a buffer where the name of the
+ * user whose home directory is sought is currently.
+ * We write the home directory of the user back there.
+ */
+gethdir(home)
+	char *home;
+{
+	register struct passwd *pp = getpwnam(home);
+
+	if (pp == 0)
+		return (1);
+	strcpy(home, pp->pw_dir);
+	return (0);
+}
+
+/*
+ * Move the initial descriptors to their eventual
+ * resting places, closin all other units.
+ */
+initdesc()
+{
+
+	didcch = 0;                     /* Havent closed for child */
+	didfds = 0;                     /* 0, 1, 2 aren't set up */
+	SHIN = dcopy(0, FSHIN);
+	SHOUT = dcopy(1, FSHOUT);
+	SHDIAG = dcopy(2, FSHDIAG);
+	OLDSTD = dcopy(SHIN, FOLDSTD);
+	closem();
+}
+
+exit(i)
+	int i;
+{
+
+	untty();
+#ifdef PROF
+	IEH3exit(i);
+#else
+	_exit(i);
+#endif
+}
+@
+
+
+1.14
+log
+@Сделана подстановка переменных в prompt.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.13 89/03/22 17:34:34 avg Exp $";
+d8 4
+a11 1
+ * $Log:        sh.c,v $
+d966 1
+a966 1
+	char buf[BUFSIZ];
+@
+
+
+1.13
+log
+@Правлена работа с .logout.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.12 89/03/16 11:56:48 avg Exp $";
+d8 4
+a11 1
+ * $Log:	sh.c,v $
+d14 1
+a14 1
+ * 
+d108 1
+@
+
+
+1.12
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.11 88/09/18 19:59:08 avg Exp $";
+d8 4
+a11 1
+ * $Log:        sh.c,v $
+d433 2
+d437 1
+@
+
+
+1.11
+log
+@Убрана лишняя выдача prompt-ов.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.10 87/07/10 20:43:02 avg Exp $";
+d9 3
+d50 5
+d118 9
+d284 7
+d667 2
+d670 4
+d764 3
+d774 6
+d781 8
+d830 16
+a845 1
+		if (intty && evalvec == 0 && prompt) {
+d862 3
+a864 9
+					for (cp = value("prompt"); *cp; cp++)
+						if (*cp == HIST)
+							printf("%d", eventno + 1);
+						else {
+							if (*cp == '\\' && cp[1] == HIST)
+								cp++;
+							putqchar(*cp);
+						}
+				} else
+d869 3
+a871 1
+					printf("? ");
+@
+
+
+1.10
+log
+@Добавлен ключ -h у команды eval -
+по нему в history запоминается не сама команда eval..., а
+команда - аргумент eval.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.9 87/07/06 22:26:46 alex Exp $";
+d9 5
+d783 1
+a783 1
+		if (intty && evalvec == 0) {
+@
+
+
+1.9
+log
+@Внесены правки для уменьшения занимаемой памяти
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.8 86/09/28 17:40:22 avg Exp $";
+d8 4
+a11 1
+ * $Log:	sh.c,v $
+d14 1
+a14 1
+ * 
+d707 2
+d834 2
+d837 1
+a837 1
+		if (enterhist || catch && intty && !whyles)
+@
+
+
+1.8
+log
+@Неправильно обрабатывался sigint в неинтерактивном режиме.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.7 86/09/24 12:14:22 avg Exp $";
+d8 4
+a11 1
+ * $Log:        sh.c,v $
+d782 8
+a789 1
+				if (!whyles)
+d798 1
+a798 1
+				else
+@
+
+
+1.7
+log
+@Добавлен ifdef U42 при обращении к time0.
+@
+text
+@d3 1
+a3 1
+static  char rcsid[] = "$Header: sh.c,v 1.6 86/07/20 20:34:05 avg Exp $";
+d9 3
+a144 1
+#ifdef U42
+d147 1
+d150 1
+a152 1
+#endif U42
+d351 4
+a354 2
+	if (setintr == 0 && parintr == SIG_DFL)
+		setintr++;
+d678 1
+a679 2
+	if (setintr)
+		sighold(SIGINT);
+@
+
+
+1.6
+log
+@Версия, слитая с версией из 4.2 (alex) by avg.
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.c,v 1.5 86/06/02 21:06:07 dmitry Exp $";
+d9 3
+d917 3
+d921 1
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.c,v 1.4 86/06/02 20:32:21 dmitry Exp $";
+
+d9 3
+a28 9
+/*
+ * C Shell
+ *
+ * Bill Joy, UC Berkeley, California, USA
+ * October 1978, May 1980
+ *
+ * Jim Kulp, IIASA, Laxenburg, Austria
+ * April 1980
+ */
+d30 3
+d42 1
+a43 2
+
+char    *pathlist[] =   { SRCHPATH, 0 };
+a45 1
+
+a54 1
+	erf = open("/tmp/errors",2);    /* open error file */
+d139 8
+a281 1
+er("intr\n");
+d283 1
+a283 1
+		if (!quitit)
+d310 1
+a310 1
+					int old = sigsys(SIGTTIN, SIG_DFL);
+d319 1
+d322 1
+d345 2
+d361 1
+a362 1
+			int ldisc;
+d392 1
+d403 1
+d406 1
+d458 1
+d460 5
+a464 1
+	srcunit(unit, 0);
+d466 1
+d471 1
+a471 1
+srcunit(unit, onlyown)
+d474 1
+d483 2
+d489 1
+d501 2
+a502 1
+		if (fstat(unit, &stb) < 0 || (stb.st_uid != uid && stb.st_gid != getgid())) {
+d533 3
+d565 3
+a577 1
+
+d582 26
+a609 1
+
+d618 1
+d634 9
+d722 1
+a722 1
+		justpr = 0;                     /* A chance to execute */
+d771 1
+a771 1
+			if ((fseekp == feobp) && prompt)
+d808 2
+a809 1
+		 * Save input text on the history list if it
+d813 1
+a813 1
+		if (catch && intty && !whyles)
+d817 2
+a818 1
+		 * Print lexical error messages.
+d820 1
+a820 1
+		if (err)
+d846 1
+a846 1
+				_exit(1);
+d865 2
+d869 6
+a874 1
+	f = globone(*t);
+d877 1
+a877 1
+	if (u < 0)
+d879 1
+a879 1
+	srcunit(u, 0);
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.c,v 1.3 86/06/02 18:04:54 dmitry Exp $";
+d11 3
+a544 2
+		evalvec = oevalvec;
+		evalp   = oevalp;
+d724 1
+a724 1
+				} else
+a729 1
+			}
+d776 1
+a776 1
+		t = syntax(paraml.next, &paraml);
+@
+
+
+1.3
+log
+@Добавлены пропущенные в 1.2 русские диагностики.
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.c,v 1.2 86/06/02 15:02:35 dmitry Exp $";
+d11 3
+d396 1
+a396 1
+			printf(ediag("\nReverting to old tty driver...\n"
+@
+
+
+1.2
+log
+@Слит с версией для МНОС 1.2, т.о. добавлены русские буквы
+и обработка переменной chktime.
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.c,v 1.1 86/06/01 20:18:09 dmitry Exp $";
+d11 4
+a31 1
+char    *pathlist[] =   { ".", "/usr/ucb", "/bin", "/usr/bin", 0 };
+d314 2
+a315 1
+				    printf("Switching to new tty driver...\n");
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.c,v 0.0 86/04/20 21:23:54 root Exp $";
+d10 4
+a13 1
+ * $Log$
+d39 5
+d83 1
+d95 3
+a137 1
+
+d328 2
+a329 1
+  printf("Warning: no access to tty; thus no job control in this shell...\n");
+d374 1
+a374 1
+		printf("logout\n");
+d389 2
+a390 1
+			printf("\nReverting to old tty driver...\n");
+a441 1
+	/* ioctl(unit, FIOCLEX, NULL); */
+a444 1
+
+a463 1
+
+d535 2
+d547 1
+d586 1
+d603 1
+a603 1
+			bferr("Interrupted");
+d714 1
+a714 1
+							putchar(*cp | QUOTE);
+d716 1
+a716 1
+				else
+d722 1
+d769 1
+a769 1
+		t = syntax(paraml.next, &paraml, 0);
+d776 7
+d789 1
+d847 3
+a849 1
+			printf("You have %smail.\n", new ? "new " : "");
+d851 3
+a853 1
+			printf("%s in %s.\n", new ? "New mail" : "Mail", *vp);
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.c 4.2 3/11/81";
+d4 9
+d25 10
+a34 10
+char	*pathlist[] =	{ ".", "/usr/ucb", "/bin", "/usr/bin", 0 };
+char	HIST = '!';
+char	HISTSUB = '^';
+bool	nofile;
+bool	reenter;
+bool	nverbose;
+bool	nexececho;
+bool	quitit;
+bool	fast;
+bool	prompt = 1;
+d44 2
+a45 2
+	settimes();			/* Immed. estab. timing base */
+	erf = open("/tmp/errors",2);	/* open error file */
+d47 1
+a47 1
+	if (eq(v[0], "a.out"))		/* A.out's are quittable */
+d69 1
+a69 1
+	dinit(cp = getenv("HOME"));	/* dinit thinks that HOME == cwd in a
+d72 1
+a72 1
+		fast++;			/* No home -> can't read scripts */
+d112 2
+a113 2
+	doldol = putn(getpid());		/* For $$ */
+	shtemp = strspl("/tmp/sh", doldol);	/* For << */
+d122 4
+a125 4
+	parintr = signal(SIGINT, SIG_IGN);	/* parents interruptibility */
+	sigset(SIGINT, parintr);			/* ... restore */
+	parterm = signal(SIGTERM, SIG_IGN);	/* parents terminability */
+	signal(SIGTERM, parterm);			/* ... restore */
+d141 1
+a141 1
+		case 0:			/* -	Interruptible, no prompt */
+d147 1
+a147 1
+		case 'c':		/* -c	Command input from arg */
+d156 1
+a156 1
+		case 'e':		/* -e	Exit on any error */
+d160 1
+a160 1
+		case 'f':		/* -f	Fast start */
+d164 1
+a164 1
+		case 'i':		/* -i	Interactive, even if !intty */
+d169 1
+a169 1
+		case 'n':		/* -n	Don't execute */
+d173 1
+a173 1
+		case 'q':		/* -q	(Undoc'd) ... die on quit */
+d177 1
+a177 1
+		case 's':		/* -s	Read from std input */
+d181 1
+a181 1
+		case 't':		/* -t	Read one line from input */
+d187 2
+a188 2
+		case 'v':		/* -v	Echo hist expanded input */
+			nverbose = 1;			/* ... later */
+d191 2
+a192 2
+		case 'x':		/* -x	Echo just before execution */
+			nexececho = 1;			/* ... later */
+d195 2
+a196 2
+		case 'V':		/* -V	Echo hist expanded input */
+			setNS("verbose");		/* NOW! */
+d199 2
+a200 2
+		case 'X':		/* -X	Echo just before execution */
+			setNS("echo");			/* NOW! */
+d207 1
+a207 1
+	if (quitit)			/* With all due haste, for debugging */
+d218 2
+a219 2
+			child++;		/* So this ... */
+			Perror(v[0]);		/* ... doesn't return */
+d222 1
+a222 1
+		SHIN = dmove(nofile, FSHIN);	/* Replace FSHIN */
+d276 1
+a276 1
+			 *	csh &
+d296 1
+a296 1
+				if (ioctl(f, TIOCGETD, &oldisc) != 0) 
+d322 1
+a322 1
+	sigset(SIGCHLD, pchild);		/* while signals not ready */
+d329 1
+a329 1
+	haderr = 0;		/* In case second time through */
+d436 1
+a436 1
+ * we don't chance it.	This occurs on ".cshrc"s and the like.
+d505 1
+a505 1
+		process(0);		/* 0 -> blow away on errors */
+d546 1
+a546 1
+		setintr = 0;		/* No interrupts after "logout" */
+d565 1
+a565 1
+char	*jobargv[2] = { "jobs", 0 };
+d611 1
+a611 1
+		printf("\n");		/* Some like this, others don't */
+d643 1
+a643 1
+		justpr = 0;			/* A chance to execute */
+d856 2
+a857 2
+	didcch = 0;			/* Havent closed for child */
+	didfds = 0;			/* 0, 1, 2 aren't set up */
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 2
+a2 3
+static  char    *sccsid[] =     "@@(#)sh.c       2.1";   /*      SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+#include "sh.h"
+d4 5
+d10 6
+d18 5
+a22 2
+ * Bill Joy, UC Berkeley
+ * October, 1978
+d25 10
+a34 1
+char    *pathlist[] =   { SRCHPATH, 0 };
+d41 2
+a42 4
+	int nofile = 0;
+	int reenter = 0;
+	bool nverbose = 0, nexececho = 0, quitit = 0, fast = 0, prompt = 1;
+	char *hp;
+d45 1
+a45 1
+	hp = getenv("HOME");
+a49 3
+#ifdef V6
+	loginsh = eq(*v, "-");          /* To do .login/.logout */
+#else
+a50 1
+#endif
+d69 3
+a71 5
+
+	/* Default history characters */
+	HIST = '!'; HISTSUB = '^';
+
+	if (hp == 0)
+d74 1
+a74 4
+		set("home", hp);
+	if (uid == 0)
+		pathlist[0] = "/etc";
+	set1("path", saveblk(pathlist), &shvhed);
+d76 8
+d86 23
+a108 3
+	cp = getenv("PATH");
+	if (cp != 0) {
+		importpath(cp);
+a109 1
+
+d123 1
+a123 1
+	signal(SIGINT, parintr);                        /* ... restore */
+d143 1
+a143 1
+			**av = '-';
+a165 1
+			**av = '-';
+a178 2
+			if (isatty(SHIN))
+				**v = '-';
+a182 2
+			if (isatty(SHIN))
+				**v = '-';
+a225 1
+
+d230 10
+d244 1
+a244 2
+	 * Commands are interruptible if we are interactive
+	 * or the process which created us was.
+d246 1
+a246 2
+	if (intact || parintr == SIG_DFL)
+		**av = '-';
+a248 19
+	 * Save the remaining arguments in ARGV.
+	 * Normally the system-supplied argument list is ok as
+	 * a zero terminated value block.
+	 * On some version 6 systems, it is -1 terminated and setting it
+	 * to zero messes up "ps" so we change it to zero, copy
+	 * the block of pointers, and put it back the way it was.
+	 */
+/*
+	if (c == 0)
+		set("argv", 0);
+	else
+ */
+	if ((int) v[c] == -1) {
+		/* ick */
+		v[c] = 0, setq("argv", copyblk(v), &shvhed), v[c] = (char *) -1;
+	} else
+		setq("argv", v, &shvhed);
+
+	/*
+d258 7
+a264 3
+	if (**av == '-') {
+		setintr++;
+		if (!quitit)            /* Wary! */
+d266 2
+a267 1
+		signal(SIGINT, SIG_IGN);
+d269 52
+d322 1
+d336 2
+a337 4
+		if (loginsh)
+#ifdef NOHELP
+			srccat("", ".login");
+#else
+d339 1
+a339 1
+#endif
+d370 13
+d403 1
+a417 1
+	dohash();
+d435 1
+a435 1
+ * Source to a unit.  If onlyown it must be our file or
+d447 1
+a456 1
+	register int (*oldint)();
+d460 2
+a464 3
+#ifdef V69
+		if (fstat(unit, &stb) < 0 || (stb.st_uid != uid && stb.st_uid != (uid &~ 0377))) {
+#else
+a465 1
+#endif
+d484 2
+a485 1
+	oldint = signal(SIGINT, SIG_IGN);
+d490 1
+a490 1
+		copy(&saveB, &B, sizeof saveB);
+d495 1
+d500 2
+a501 1
+		signal(SIGINT, setintr ? pintr : oldint);
+d507 2
+a508 1
+	signal(SIGINT, oldint);
+d516 1
+a516 1
+		xfree(fbuf);
+d519 1
+a519 1
+		copy(&B, &saveB, sizeof B);
+d523 1
+d536 1
+a536 1
+		error(0);
+d544 1
+a544 1
+		signal(SIGINT, SIG_IGN);
+d565 1
+d575 6
+d583 9
+d593 2
+a594 1
+		signal(SIGINT, SIG_IGN);
+d610 1
+a610 1
+	} else if (intty)
+d612 1
+a612 1
+	error(0);
+d627 1
+a627 1
+ * In an end-of-file occurs, we return.
+d638 1
+d649 1
+a649 1
+			signal(SIGINT, pintr);
+d680 5
+a684 1
+		if (intty) {
+d692 1
+a692 1
+			if (fseekp == feobp)
+d726 1
+a726 1
+			signal(SIGINT, SIG_IGN);
+d761 1
+a761 1
+		execute(t);
+a782 1
+	didfds = 0;
+d801 2
+a815 3
+		bool new;
+		struct stat stb;
+
+a817 8
+		/*
+		 * We assume that a file has been read if the access time is
+		 * greater than the mod time.
+		 */
+		if (stb.st_size == 0)
+			continue;
+		if (stb.st_atime > stb.st_mtime || (stb.st_atime < chktim && stb.st_mtime < chktim))
+			continue;
+d819 3
+a821 1
+		if (loginsh && !new)
+d841 1
+a841 1
+	register struct passwd *pp;
+a842 1
+	pp = getpwnam(home);
+a864 1
+#ifndef V6
+d869 4
+d874 1
+a875 1
+#endif
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 4
+ /*NOXSTR*/
+ char *sccsid="@@(#) CSH - DEMOS v.$Header: sh.c,v 2.2 86/03/13 00:28:15 alex Exp $";
+ /*YESXSTR*/
+
+a3 14
+#include <sys/ioctl.h>
+char	*pathlist[] =	{ ".", "/usr/ucb", "/bin", "/usr/bin", 0 };
+char	*dumphist[] =	{ "history", "-h", 0, 0 };
+char	*loadhist[] =	{ "source", "-h", "~/.history", 0 };
+char	HIST = '!';
+char	HISTSUB = '^';
+bool	nofile;
+bool	reenter;
+bool	nverbose;
+bool	nexececho;
+bool	quitit;
+bool	fast;
+bool	prompt = 1;
+bool	enterhist = 0;
+d5 9
+d19 4
+a22 1
+	register int f;
+d24 2
+a25 1
+	settimes();			/* Immed. estab. timing base */
+d27 1
+a27 1
+	if (eq(v[0], "a.out"))		/* A.out's are quittable */
+d30 3
+d34 1
+d53 6
+a58 4
+	dinit(cp = getenv("HOME"));	/* dinit thinks that HOME == cwd in a
+					 * login shell */
+	if (cp == NOSTR)
+		fast++;			/* No home -> can't read scripts */
+d60 4
+a63 15
+		set("home", savestr(cp));
+       { char *c;
+       if((c=getenv("CSHLANG")) && c[0] == 'o' && c[1] =='\0' )
+	       /*
+		* Преобразование таблиц для работы
+		* без русских букв для совместимости по
+		* тонким эффектам
+		*/
+	       { register int i;
+		 for(i=0;i<256;i++)
+		       { toquot[i] = (i | 0200);
+			 totrim[i] = (i & 0177);
+		       }
+	       }
+       }
+a64 8
+	 * Grab other useful things from the environment.
+	 * Should we grab everything??
+	 */
+	if ((cp = getenv("USER")) != NOSTR)
+		set("user", savestr(cp));
+	if ((cp = getenv("TERM")) != NOSTR)
+		set("term", savestr(cp));
+	/*
+d67 4
+a70 6
+	if ((cp = getenv("PATH")) == NOSTR)
+		set1("path", saveblk(pathlist), &shvhed);
+	else {
+		register unsigned i = 0;
+		register char *dp;
+		register char **pv;
+a71 17
+		for (dp = cp; *dp; dp++)
+			if (*dp == ':')
+				i++;
+		pv = (char **)calloc(i+2, sizeof (char **));
+		for (dp = cp, i = 0; ;)
+			if (*dp == ':') {
+				*dp = 0;
+				pv[i++] = savestr(*cp ? cp : ".");
+				*dp++ = ':';
+				cp = dp;
+			} else if (*dp++ == 0) {
+				pv[i++] = savestr(*cp ? cp : ".");
+				break;
+			}
+		pv[i] = 0;
+		set1("path", pv, &shvhed);
+	}
+d74 2
+a75 2
+	doldol = putn(getpid());		/* For $$ */
+	shtemp = strspl("/tmp/sh", doldol);	/* For << */
+d84 4
+a87 9
+	parintr = signal(SIGINT, SIG_IGN);	/* parents interruptibility */
+	sigset(SIGINT, parintr);			/* ... restore */
+	parterm = signal(SIGTERM, SIG_IGN);	/* parents terminability */
+	signal(SIGTERM, parterm);			/* ... restore */
+	if (loginsh) {
+		signal(SIGHUP, phup);		/* exit processing on HUP */
+		signal(SIGXCPU, phup);		/* ...and on XCPU */
+		signal(SIGXFSZ, phup);		/* ...and on XFSZ */
+	}
+d103 1
+a103 1
+		case 0:			/* -	Interruptible, no prompt */
+d105 1
+a105 1
+			setintr++;
+d109 1
+a109 1
+		case 'c':		/* -c	Command input from arg */
+d118 1
+a118 1
+		case 'e':		/* -e	Exit on any error */
+d122 1
+a122 1
+		case 'f':		/* -f	Fast start */
+d126 1
+a126 1
+		case 'i':		/* -i	Interactive, even if !intty */
+d128 1
+d132 1
+a132 1
+		case 'n':		/* -n	Don't execute */
+d136 1
+a136 1
+		case 'q':		/* -q	(Undoc'd) ... die on quit */
+d140 1
+a140 1
+		case 's':		/* -s	Read from std input */
+d142 2
+d146 1
+a146 1
+		case 't':		/* -t	Read one line from input */
+d148 2
+d154 2
+a155 2
+		case 'v':		/* -v	Echo hist expanded input */
+			nverbose = 1;			/* ... later */
+d158 2
+a159 2
+		case 'x':		/* -x	Echo just before execution */
+			nexececho = 1;			/* ... later */
+d162 2
+a163 2
+		case 'V':		/* -V	Echo hist expanded input */
+			setNS("verbose");		/* NOW! */
+d166 2
+a167 2
+		case 'X':		/* -X	Echo just before execution */
+			setNS("echo");			/* NOW! */
+d174 1
+a174 1
+	if (quitit)			/* With all due haste, for debugging */
+d185 2
+a186 2
+			child++;		/* So this ... */
+			Perror(v[0]);		/* ... doesn't return */
+d189 1
+a189 1
+		SHIN = dmove(nofile, FSHIN);	/* Replace FSHIN */
+d193 1
+a197 10
+	/*
+	 * Decide whether we should play with signals or not.
+	 * If we are explicitly told (via -i, or -) or we are a login
+	 * shell (arg0 starts with -) or the input and output are both
+	 * the ttys("csh", or "csh</dev/ttyx>/dev/ttyx")
+	 * Note that in only the login shell is it likely that parent
+	 * may have set signals to be ignored
+	 */
+	if (loginsh || intact || intty && isatty(SHOUT))
+		setintr = 1;
+d202 2
+a203 1
+	 * Save the remaining arguments in argv.
+d205 2
+a206 1
+	setq("argv", v, &shvhed);
+d209 19
+d237 3
+a239 6
+	shpgrp = getpgrp(0);
+	opgrp = tpgrp = -1;
+	oldisc = -1;
+	if (setintr) {
+		**av = '-';
+		if (!quitit)		/* Wary! */
+d241 1
+a241 2
+		sigset(SIGINT, pintr);
+		sighold(SIGINT);
+a242 50
+		if (quitit == 0 && arginp == 0) {
+			signal(SIGTSTP, SIG_IGN);
+			signal(SIGTTIN, SIG_IGN);
+			signal(SIGTTOU, SIG_IGN);
+			/*
+			 * Wait till in foreground, in case someone
+			 * stupidly runs
+			 *	csh &
+			 * dont want to try to grab away the tty.
+			 */
+			if (isatty(FSHDIAG))
+				f = FSHDIAG;
+			else if (isatty(FSHOUT))
+				f = FSHOUT;
+			else if (isatty(OLDSTD))
+				f = OLDSTD;
+			else
+				f = -1;
+retry:
+			if (ioctl(f, TIOCGPGRP, &tpgrp) == 0 && tpgrp != -1) {
+				int ldisc;
+				if (tpgrp != shpgrp) {
+					int (*old)() = sigsys(SIGTTIN, SIG_DFL);
+					kill(0, SIGTTIN);
+					sigsys(SIGTTIN, old);
+					goto retry;
+				}
+				if (ioctl(f, TIOCGETD, &oldisc) != 0) 
+					goto notty;
+				if (oldisc != NTTYDISC) {
+#ifdef DEBUG
+					printf("Switching to new tty driver...\n");
+#endif DEBUG
+					ldisc = NTTYDISC;
+					ioctl(f, TIOCSETD, &ldisc);
+				} else
+					oldisc = -1;
+				opgrp = shpgrp;
+				shpgrp = getpid();
+				tpgrp = shpgrp;
+				ioctl(f, TIOCSPGRP, &shpgrp);
+				setpgrp(0, shpgrp);
+				dcopy(f, FSHTTY);
+				ioctl(FSHTTY, FIOCLEX, 0);
+			} else {
+notty:
+  printf("Warning: no access to tty; thus no job control in this shell...\n");
+				tpgrp = -1;
+			}
+		}
+a243 3
+	if (setintr == 0 && parintr == SIG_DFL)
+		setintr++;
+	sigset(SIGCHLD, pchild);		/* while signals not ready */
+d250 1
+a250 1
+	haderr = 0;		/* In case second time through */
+d257 4
+a260 2
+		dosource(loadhist);
+		if (loginsh) {
+d262 1
+a262 1
+		}
+a289 1
+	rechist();
+a292 15
+untty()
+{
+
+	if (tpgrp > 0) {
+		setpgrp(0, opgrp);
+		ioctl(FSHTTY, TIOCSPGRP, &opgrp);
+		if (oldisc != -1 && oldisc != NTTYDISC) {
+#ifdef DEBUG
+			printf("\nReverting to old tty driver...\n");
+#endif DEBUG
+			ioctl(FSHTTY, TIOCSETD, &oldisc);
+		}
+	}
+}
+
+d294 1
+a294 1
+	char *cp;
+a312 1
+	if (*dp)
+d327 1
+d341 1
+a341 5
+#ifdef INGRES
+	srcunit(unit, 0, 0);
+#else
+	srcunit(unit, 1, 0);
+#endif
+d345 2
+a346 2
+ * Source to a unit.  If onlyown it must be our file or our group or
+ * we don't chance it.	This occurs on ".cshrc"s and the like.
+d348 1
+a348 1
+srcunit(unit, onlyown, hflg)
+a350 1
+	bool hflg;
+a356 1
+	char *oevalp = evalp, **oevalvec = evalvec;
+a357 2
+	bool oenterhist = enterhist;
+	char OHIST = HIST;
+d366 1
+a369 2
+	if (didfds)
+		donefds();
+d373 5
+a377 2
+		if (fstat(unit, &stb) < 0 ||
+		    (stb.st_uid != uid && stb.st_gid != getgid())) {
+d396 1
+a396 2
+	if (setintr)
+		sighold(SIGINT);
+d401 1
+a401 1
+		copy((char *)&saveB, (char *)&B, sizeof saveB);
+a405 4
+		evalvec = 0; evalp = 0;
+		enterhist = hflg;
+		if (enterhist)
+			HIST = '\0';
+d410 1
+a410 2
+		if (setintr)
+			sigrelse(SIGINT);
+d414 1
+a414 1
+		process(0);		/* 0 -> blow away on errors */
+d416 1
+a416 2
+	if (setintr)
+		sigrelse(SIGINT);
+d424 1
+a424 1
+		xfree((char *)fbuf);
+d427 1
+a427 1
+		copy((char *)&B, (char *)&saveB, sizeof B);
+a430 1
+		evalp = oevalp, evalvec = oevalvec;
+a431 3
+		if (enterhist)
+			HIST = OHIST;
+		enterhist = oenterhist;
+d443 1
+a443 1
+		error(NOSTR);
+d446 1
+a446 1
+rechist()
+a447 2
+	char buf[BUFSIZ];
+	int fp, ftmp, oldidfds;
+a448 23
+	if (!fast) {
+		if (value("savehist")[0] == '\0')
+			return;
+		strcpy(buf, value("home"));
+		strcat(buf, "/.history");
+		fp = creat(buf, 0777);
+		if (fp == -1)
+			return;
+		oldidfds = didfds;
+		didfds = 0;
+		ftmp = SHOUT;
+		SHOUT = fp;
+		strcpy(buf, value("savehist"));
+		dumphist[2] = buf;
+		dohist(dumphist);
+		close(fp);
+		SHOUT = ftmp;
+		didfds = oldidfds;
+	}
+}
+
+goodbye()
+{
+d451 1
+a451 1
+		sigset(SIGINT, SIG_IGN);
+d453 1
+a453 1
+		setintr = 0;		/* No interrupts after "logout" */
+a456 1
+	rechist();
+a472 10
+ * in the event of a HUP we want to save the history
+ */
+phup()
+{
+	rechist();
+	exit(1);
+}
+
+char	*jobargv[2] = { "jobs", 0 };
+/*
+a480 6
+	pintr1(1);
+}
+
+pintr1(wantnl)
+	bool wantnl;
+{
+a482 9
+	if (setintr) {
+		sigrelse(SIGINT);
+		if (pjobs) {
+			pjobs = 0;
+			printf("\n");
+			dojobs(jobargv);
+			bferr("Interrupted");
+		}
+	}
+d484 1
+a484 2
+		sighold(SIGINT);
+	sigrelse(SIGCHLD);
+d500 3
+a502 3
+	} else if (intty && wantnl)
+		printf("\n");		/* Some like this, others don't */
+	error(NOSTR);
+d517 1
+a517 1
+ * If an end-of-file occurs, we return.
+a527 1
+		pendjob();
+d532 1
+a532 1
+		justpr = enterhist;	/* execute if not entering history */
+d538 1
+a538 1
+			sigrelse(SIGINT);
+d569 1
+a569 5
+		if (chkstop)
+			chkstop--;
+		if (neednote)
+			pnote();
+		if (intty && evalvec == 0) {
+d585 1
+a585 1
+						       putqchar(*cp);
+d601 1
+a601 2
+		if (lex(&paraml) && !err && intty ||
+		    adrof("verbose")) {
+d611 1
+a611 1
+			sighold(SIGINT);
+d614 1
+a614 2
+		 * Save input text on the history list if 
+		 * reading in old history, or it
+d618 1
+a618 1
+		if (enterhist || catch && intty && !whyles)
+d622 1
+a622 2
+		 * Print lexical error messages, except when sourcing
+		 * history lists.
+d624 1
+a624 1
+		if (!enterhist && err)
+d646 1
+a646 1
+		execute(t, tpgrp);
+a660 2
+	bool hflg = 0;
+	char buf[BUFSIZ];
+d663 1
+a663 6
+	if (*t && eq(*t, "-h")) {
+		t++;
+		hflg++;
+	}
+	strcpy(buf, *t);
+	f = globone(buf);
+d666 1
+a666 1
+	if (u < 0 && !hflg)
+d668 2
+a669 1
+	srcunit(u, 0, hflg);
+a686 2
+	struct stat stb;
+	bool new;
+d700 3
+d705 5
+a709 4
+		new = stb.st_mtime > time0.tv_sec;
+		if (stb.st_size == 0 || stb.st_atime > stb.st_mtime ||
+		    (stb.st_atime < chktim && stb.st_mtime < chktim) ||
+		    loginsh && !new)
+d711 5
+d734 1
+a734 1
+	register struct passwd *pp = getpwnam(home);
+d736 1
+d750 2
+a751 2
+	didcch = 0;			/* Havent closed for child */
+	didfds = 0;			/* 0, 1, 2 aren't set up */
+d759 1
+a763 4
+	untty();
+#ifdef PROF
+	IEH3exit(i);
+#else
+d765 1
+a766 1
+}
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+d4 1
+d8 2
+a9 3
+ * МНОС РЛ 1.2
+ *    Верс. для СМ-4 etc : Антонов В.Г., Володин Д.В. ( ИПК Минавтопрома )
+ *    Русские буквы : Руднев А.П. ( КИАЭ )
+a11 15
+
+/*
+ * $Log:	sh.c,v $
+ * Revision 1.1  86/02/24  20:22:41  sys
+ * Initial revision
+ * 
+ */
+
+
+static char rcsid[] =
+/*NOXSTR*/
+"$Header: sh.c,v 1.1 86/02/24 20:22:41 sys Rel $";
+/*YESXSTR*/
+
+
+a12 1
+long     sulog, cTIM, chkTIME;
+a13 3
+#define HSHSIZ  511     /* см. sh.exec.c, @@VG */
+char    *xhash;
+
+a22 1
+	char *Xhash[HSHSIZ];
+a23 1
+	xhash = Xhash;
+a50 9
+#ifndef МНОС
+	/*----- DEBUGGING PART -----*/
+	if(getenv("OLDCSH")) {
+		/*
+		 * Преобразование таблиц для работы
+		 * без русских букв для совместимости по
+		 * тонким эффектам
+		 */
+		register int i;
+a51 8
+		for( i = 0 ; i < 256 ; i++ ) {
+			toquot[i] = (i | 0200);
+			totrim[i] = (i & 0177);
+		}
+	}
+	/*-------------------------*/
+#endif МНОС
+
+a53 1
+
+d61 1
+a61 4
+
+#ifndef МНОС
+/* Эти две строки были закомментированы */
+	  if (uid == 0)
+a62 2
+#endif
+
+d72 1
+a72 3
+/*      if( cp = getenv( "SHELL" ))
+		set( "shell", cp ) ;
+	else    */
+a73 3
+
+		set("shell", SHELLPATH);
+
+d88 1
+d205 1
+a205 1
+	if (intty || parintr == SIG_DFL)
+a242 5
+/*
+		signal(SIGTTIN, SIG_IGN);
+		signal(SIGTTOU, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
+*/
+d285 1
+a285 1
+		printf(ediag("logout\n", "конец работы\n"));
+d327 1
+d339 1
+a339 3
+#ifndef МНОС
+	ioctl(unit, FIOCLEX, NULL);
+#endif
+d343 1
+d357 1
+a357 2
+	int  oonelflg = onelflg;
+	char *oevalp = evalp, **oevalvec = evalvec;
+d362 1
+a366 5
+/************* Д. Володин 17 декабря 1984 года ****/
+/**/    struct wordent oparaml ;                /**/
+/**/                                            /**/
+/**/    oparaml = paraml ;                      /**/
+/**************************************************/
+a367 4
+#ifdef  GOGO
+	GG( "Srcunit comes\n" ) ;
+#endif  GOGO
+
+d372 1
+a405 3
+		evalvec = 0;
+		evalp = 0;
+
+a431 2
+		evalvec = oevalvec;
+		evalp   = oevalp;
+a434 3
+/***********  Д. Володин  17 декабря 1984 года ****/
+/**/            paraml = oparaml ;              /**/
+/**************************************************/
+a441 5
+
+#ifdef  GOGO
+	GG("Srcunit goes\n") ;
+#endif  GOGO
+
+a478 1
+
+a527 3
+#ifdef  GOGO
+	GG( "Another one\n", strlen( "Another one\n" )) ;
+#endif  GOGO
+d569 1
+a569 1
+		if (intty && !evalvec) {
+d577 2
+a578 9
+			if (fseekp == feobp) {
+				if (!whyles) {
+#ifdef pdp11
+	/*
+	 * Для экономии памяти - забудем старый ввод
+	 *   Сопля by @@АР
+	 */
+					bfree();
+#endif pdp11
+d585 1
+a585 1
+							putqchar(*cp);
+d587 1
+a587 1
+				} else
+a592 1
+			}
+d639 1
+a639 1
+		t = syntax(paraml.next, &paraml);
+a645 7
+		if( sulog != 0l && adrof( "chktime" ) ) {
+			time( &chkTIME );
+			cTIM = getn(value( "chktime" ));
+			if( (chkTIME - sulog) > (cTIM*60l) )
+				_exit(1);
+			sulog = 0l;
+		}
+a646 3
+#ifdef  GOGO
+	GG("Execute gone\n") ;
+#endif  GOGO
+a651 1
+		time( &sulog );
+a668 1
+
+d717 1
+a717 3
+			printf(ediag("You have %smail.\n",
+				     "Вам пришла %sпочта.\n"),
+				new ? ediag("new ", "новая ") : "");
+d719 1
+a719 3
+			printf(ediag("%s in %s.\n", "%s в %s.\n"),
+				ediag(new ? "New mail" : "Mail",
+				      new ? "Новая почта" : "Почта"), *vp);
+d724 1
+a730 3
+#ifndef МНОС
+#include <pwd.h>
+
+d734 1
+a734 1
+	register struct passwd *pp = getpwnam(home);
+d736 1
+a741 55
+#else МНОС
+
+#define PASSWD "/etc/passwd"
+int     pw_fd;
+char   *pw_buf;
+int     pw_len;
+char   *pw_ptr;
+
+gethdir(home)
+char   *home;
+{
+	char     ib[512];
+	register c;
+	int      i;
+	register char *p;
+
+	pw_ptr = pw_buf = ib;
+	if( (pw_fd = open( PASSWD, 0 )) < 0 )
+		return(1);
+	pw_len = read( pw_fd, ib, 512 );
+	p = home;
+	while( (c = pw_getc()) > 0 ) {
+		if( c == (unsigned)(*p++) )
+			continue;
+		if( c == ':' && *(p-1) == 0 ) {
+			for( i = 0 ; i<4 ; i++ )
+			    while( (c = pw_getc()) > 0 && c != ':' );
+			p = home;
+			while( (c = pw_getc()) > 0 && c != ':' )
+				*p++ = c;
+			*p = 0;
+			close( pw_fd );
+			return(0);
+		}
+		/* FLUSH TAIL OF PASSWD RECORD */
+		while( (c = pw_getc()) > 0 && c != '\n' );
+		p = home;
+	}
+	close( pw_fd );
+	return(1);
+}
+
+pw_getc()
+{
+	if( pw_len == 0 ) {
+		pw_len = read( pw_fd, pw_buf, 512 );
+		if( pw_len <= 0 )
+			return( pw_len = -1 );
+		pw_ptr = pw_buf;
+	} else if( pw_len < 0 )
+		return( -1 );
+	pw_len--;
+	return( (*pw_ptr++) & 0377 );
+}
+#endif МНОС
+@

@@ -1,0 +1,485 @@
+head     0.7;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.7
+date     89.05.22.13.36.37;  author abs;  state Exp;
+branches ;
+next     0.6;
+
+0.6
+date     89.04.09.18.21.05;  author abs;  state Exp;
+branches ;
+next     0.5;
+
+0.5
+date     88.09.20.17.47.09;  author avg;  state Exp;
+branches ;
+next     0.4;
+
+0.4
+date     86.09.29.18.26.59;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.51.32;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.39.40;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.18.10;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -интерпретатор
+@
+
+
+0.7
+log
+@еще одно место по поводу stat(  "" )
+@
+text
+@#
+/*
+ *      KIAE shell
+ *
+ *
+ */
+
+#include        "defs.h"
+#include        <sys/types.h>
+#define DIRSIZ 15
+#include        <sys/stat.h>
+#include        <sys/dir.h>
+
+
+
+/* globals (file name generation)
+ *
+ * "*" in params matches r.e ".*"
+ * "?" in params matches r.e. "."
+ * "[...]" in params matches character class
+ * "[...a-z...]" in params matches a through z.
+ *
+ */
+
+PROC VOID       addg();
+
+
+INT     expand(as,rflg)
+	STRING          as;
+{
+	INT             count, dirf;
+	BOOL            dir=0;
+	STRING          rescan = 0;
+	REG STRING      s, cs;
+	ARGPTR          schain = gchain;
+	struct direct   entry;
+	STATBUF         statb;
+
+	IF trapnote&SIGSET THEN return(0); FI
+
+	s=cs=as; entry.d_name[DIRSIZ-1]=0; /* to end the string */
+
+	/* check for meta chars */
+	BEGIN
+	   REG BOOL slash; slash=0;
+	   WHILE !fngchar(*cs)
+	   DO   IF *cs++==0
+		THEN    IF rflg ANDF slash THEN break; ELSE return(0) FI
+		ELIF *cs=='/'
+		THEN    slash++;
+		FI
+	   OD
+	END
+
+	LOOP    IF cs==s
+		THEN    s=nullstr;
+			break;
+		ELIF *--cs == '/'
+		THEN    *cs=0;
+			IF s==cs THEN s="/" FI
+			break;
+		FI
+	POOL
+	IF stat( *s ? s:"." ,&statb)>=0
+	    ANDF (statb.st_mode&S_IFMT)==S_IFDIR
+	    ANDF (dirf=open( *s ? s : "." ,0))>0
+	THEN    dir++;
+	FI
+	count=0;
+	IF *cs==0 THEN *cs++=0200 FI
+	IF dir
+	THEN    /* check for rescan */
+		REG STRING rs; rs=cs;
+
+		REP     IF *rs=='/' THEN rescan=rs; *rs=0; gchain=0 FI
+		PER     *rs++ DONE
+
+		WHILE read(dirf, &entry, 16) == 16 ANDF (trapnote&SIGSET) == 0
+		DO      IF entry.d_ino==0 ORF
+			    (*entry.d_name=='.' ANDF *cs!='.')
+			THEN    continue;
+			FI
+			IF gmatch(entry.d_name, cs)
+			THEN    addg(s,entry.d_name,rescan); count++;
+			FI
+		OD
+		close(dirf);
+
+		IF rescan
+		THEN    REG ARGPTR      rchain;
+			rchain=gchain; gchain=schain;
+			IF count
+			THEN    count=0;
+				WHILE rchain
+				DO      count += expand(rchain->argval,1);
+					rchain=rchain->argnxt;
+				OD
+			FI
+			*rescan='/';
+		FI
+	FI
+
+	BEGIN
+	   REG CHAR     c;
+	   s=as;
+	   WHILE c = *s
+	   DO   *s++=(smask(c)?c:'/') OD
+	END
+	return(count);
+}
+
+gmatch(s, p)
+	REG STRING      s, p;
+{
+	REG INT         scc;
+	CHAR            c;
+
+	IF scc = cii(*s++)
+	THEN    IF (smask(scc))==0
+		THEN    scc=0200;
+		FI
+	FI
+	SWITCH c = cii(*p++) IN
+
+	    case '[':
+	      BEGIN
+		BOOL ok;
+		INT lc;
+		INT Cs = Ctou(scc);
+
+		ok=0; lc=077777;
+		WHILE c = cii(*p++)
+		DO      IF c==']' THEN
+				return(ok?gmatch(s,p):0);
+			ELIF c==MINUS THEN
+				IF lc <= Cs ANDF Cs <= Ctou(*p++) THEN ok++ FI
+			ELSE
+				IF Cs == (lc = Ctou(ismask(c))) THEN ok++ FI
+			FI
+		OD
+		return(0);
+	      END
+
+	    default:
+		IF (ismask(c))!=scc THEN return(0) FI
+
+	    case '?':
+		return(scc?gmatch(s,p):0);
+
+	    case '*':
+		IF *p==0 THEN return(1) FI
+		--s;
+		WHILE *s
+		DO  IF gmatch(s++,p) THEN return(1) FI OD
+		return(0);
+
+	    case 0:
+		return(scc==0);
+	ENDSW
+}
+
+LOCAL VOID      addg(as1,as2,as3)
+	STRING          as1, as2, as3;
+{
+	REG STRING      s1, s2;
+	REG INT         c;
+
+	s2 = locstak()+BYTESPERWORD;
+
+	s1=as1;
+	WHILE c = cii(*s1++)
+	DO      IF (c = smask(c))==0
+		THEN    *s2++='/';
+			break;
+		FI
+		*s2++=c;
+	OD
+	s1=as2;
+	WHILE *s2 = *s1++ DO s2++ OD
+	IF s1=as3
+	THEN    *s2++='/';
+		WHILE *s2++ = *++s1 DONE
+	FI
+	makearg(endstak(s2));
+}
+
+makearg(args)
+	REG STRING      args;
+{
+	args->argnxt=gchain;
+	gchain=args;
+}
+
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@
+
+
+0.6
+log
+@open( "" ) теперь делает open( "." )
+из ядра это удалено !
+@
+text
+@d64 1
+a64 1
+	IF stat(s,&statb)>=0
+@
+
+
+0.5
+log
+@Починена работа с русскими диапазонами в шаблонах.
+@
+text
+@d66 1
+a66 1
+	    ANDF (dirf=open(s,0))>0
+@
+
+
+0.4
+log
+@Версия, слитая из 2.9 и ДЕМОС без русских диагностик
+@
+text
+@d3 1
+a3 1
+ *	KIAE shell
+d8 2
+a9 2
+#include	"defs.h"
+#include	<sys/types.h>
+d11 2
+a12 2
+#include	<sys/stat.h>
+#include	<sys/dir.h>
+d25 1
+a25 1
+PROC VOID	addg();
+d28 2
+a29 2
+INT	expand(as,rflg)
+	STRING		as;
+d31 7
+a37 7
+	INT		count, dirf;
+	BOOL		dir=0;
+	STRING		rescan = 0;
+	REG STRING	s, cs;
+	ARGPTR		schain = gchain;
+	struct direct	entry;
+	STATBUF		statb;
+d47 2
+a48 2
+	   DO	IF *cs++==0
+		THEN	IF rflg ANDF slash THEN break; ELSE return(0) FI
+d50 1
+a50 1
+		THEN	slash++;
+d55 2
+a56 2
+	LOOP	IF cs==s
+		THEN	s=nullstr;
+d59 1
+a59 1
+		THEN	*cs=0;
+d67 1
+a67 1
+	THEN	dir++;
+d72 1
+a72 1
+	THEN	/* check for rescan */
+d75 2
+a76 2
+		REP	IF *rs=='/' THEN rescan=rs; *rs=0; gchain=0 FI
+		PER	*rs++ DONE
+d79 1
+a79 1
+		DO	IF entry.d_ino==0 ORF
+d81 1
+a81 1
+			THEN	continue;
+d84 1
+a84 1
+			THEN	addg(s,entry.d_name,rescan); count++;
+d90 1
+a90 1
+		THEN	REG ARGPTR	rchain;
+d93 1
+a93 1
+			THEN	count=0;
+d95 1
+a95 1
+				DO	count += expand(rchain->argval,1);
+d104 1
+a104 1
+	   REG CHAR	c;
+d113 1
+a113 1
+	REG STRING	s, p;
+d115 2
+a116 2
+	REG INT		scc;
+	CHAR		c;
+d120 1
+a120 1
+		THEN	scc=0200;
+d126 5
+a130 1
+		{BOOL ok; INT lc; INT Jj;
+d133 6
+a138 5
+		DO	IF c==']'
+			THEN	return(ok?gmatch(s,p):0);
+			ELIF c==MINUS
+			THEN    IF Jj= Rlsort(scc),lc<=Jj ANDF Jj <=(Rlsort(cii(*p++))) THEN ok++ FI
+			ELSE    IF Jj= ismask(c),Jj=Rlsort(Jj), scc==(lc=(Jj)) THEN ok++ FI
+d142 1
+a142 1
+		}
+d162 2
+a163 2
+LOCAL VOID	addg(as1,as2,as3)
+	STRING		as1, as2, as3;
+d165 2
+a166 2
+	REG STRING	s1, s2;
+	REG INT		c;
+d173 1
+a173 1
+		THEN	*s2++='/';
+d181 1
+a181 1
+	THEN	*s2++='/';
+d188 1
+a188 1
+	REG STRING	args;
+@
+
+
+0.3
+log
+@Версия из МНОС
+@
+text
+@d3 1
+a3 1
+ *	МНОС РЛ 1.2 shell
+@
+
+
+0.2
+log
+@Версия из 2.9
+@
+text
+@d3 1
+a3 1
+ *	UNIX shell
+a4 2
+ *	S. R. Bourne
+ *	Bell Telephone Laboratories
+d107 1
+a107 1
+	   DO	*s++=(c&STRIP?c:'/') OD
+d118 2
+a119 2
+	IF scc = *s++
+	THEN	IF (scc &= STRIP)==0
+d123 1
+a123 1
+	SWITCH c = *p++ IN
+d126 1
+a126 1
+		{BOOL ok; INT lc;
+d128 1
+a128 1
+		WHILE c = *p++
+d132 2
+a133 2
+			THEN	IF lc<=scc ANDF scc<=(*p++) THEN ok++ FI
+			ELSE	IF scc==(lc=(c&STRIP)) THEN ok++ FI
+d140 1
+a140 1
+		IF (c&STRIP)!=scc THEN return(0) FI
+d166 2
+a167 2
+	WHILE c = *s1++
+	DO	IF (c &= STRIP)==0
+d189 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 1
+ *	KIAE shell
+d5 2
+d109 1
+a109 1
+	   DO   *s++=(smask(c)?c:'/') OD
+d120 2
+a121 2
+	IF scc = cii(*s++)
+	THEN    IF (smask(scc))==0
+d125 1
+a125 1
+	SWITCH c = cii(*p++) IN
+d128 1
+a128 1
+		{BOOL ok; INT lc; INT Jj;
+d130 1
+a130 1
+		WHILE c = cii(*p++)
+d134 2
+a135 2
+			THEN    IF Jj= Rlsort(scc),lc<=Jj ANDF Jj <=(Rlsort(cii(*p++))) THEN ok++ FI
+			ELSE    IF Jj= ismask(c),Jj=Rlsort(Jj), scc==(lc=(Jj)) THEN ok++ FI
+d142 1
+a142 1
+		IF (ismask(c))!=scc THEN return(0) FI
+d168 2
+a169 2
+	WHILE c = cii(*s1++)
+	DO      IF (c = smask(c))==0
+a190 1
+/* ИАЭ им. И. В. КУРЧАТОВА, МОСКВА, 1984 (КОИ-8) */
+@

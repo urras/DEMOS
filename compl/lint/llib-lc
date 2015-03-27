@@ -1,0 +1,235 @@
+	/*LINTLIBRARY*/
+#define NADDR   1
+#include        <stdio.h>
+#include        <sgtty.h>
+#include        <signal.h>
+#include        <sys/types.h>
+#include        <sys/stat.h>
+#include        <sys/qstat.h>
+#include        <time.h>
+#include        <grp.h>
+#include        <fstab.h>
+#include        <a.out.h>
+#include        <setjmp.h>
+#include        <sys/fperr.h>
+#include        <sys/timeb.h>
+#include        <pwd.h>
+int     errno, etext, edata, end;
+short   _ediag;
+
+/*
+ * Section 2
+ */
+int     access(n, m) char *n; { return(0); }
+int     acct(s) char *s; { return(0); }
+int     alarm(s) { return(0); }
+int     attach(i, x) { return(0); }
+char    *brk(a) char *a; { return(a); }
+int     chan(x) { return(0); }
+int     chdir(s) char *s; { return(0); }
+int     chmod(s, m) char *s; { return(0); }
+int     chown(s, u, g) char *s; { return(0); }
+int     ckill(i, x, s) { return(0); }
+int     close(f) { return(0); }
+int     connect(f, c, e) { return(0); }
+int     creat(s, m) char *s; { return(0); }
+int     detach(i, x) { return(0); }
+int     dup(f) { return(f); }
+int     dup2(f1, f2) { return(0); }
+	/*VARARGS2*/
+	execl(f, a) char *f, *a; {;}
+	/*VARARGS2*/
+	execle(f, a) char *f, *a; {;}
+	execv(s, v) char *s, *v[]; {;}
+	execve(s, a, v) char *s, *a[], *v[]; {;}
+	exit(s) {;}
+	_exit(s) {;}
+int     extract(i, x) { return(0); }
+int     fetchi(a) int *a; { return(0); }
+int     fork() { return(0); }
+int     fperr(f) struct fperr *f; { return(0); }
+int     fstat(f, b) struct stat *b; { return(0); }
+	ftime(t) struct timeb *t; {;}
+int     ftruncate(s, l) char *s; long l; { return(0); }
+int     getgid() { return(1); }
+int     getegid() { return(1); }
+int     getpid() { return(1); }
+int     getuid() { return(1); }
+int     geteuid() { return(1); }
+	gldav(s) short s[]; {;}
+int     gtty(f, b) struct sgttyb *b; { return(0); }
+int     ioctl(f, r, b) struct sgttyb *b; { return(0); }
+int     kill(p, s) { return(0); }
+	killbkg(p, s) {;}
+int     link(a, b) char *a, *b; { return(0); }
+int     lock(f) { return(0); }
+	login(f, c) char c[]; {;}
+long    lseek(f, o, d) long o; { return((long) 0); }
+	lstat(n, b) char *n; struct stat *b; {;}
+int     mknod(n, m, a) char *n; { return(0); }
+int     mount(s, n, f) char *s, *n; { return(0); }
+int     mpx(n, a) char *n; { return(0); }
+int     mpxcall(c, v) int *v; { return(0); }
+int     nice(i) { return(0); }
+int     npgrp(i, x, p) { return(0); }
+int     open(f, m) char *f; { return(0); }
+	pause() {;}
+int     phys(s,i, p) { return(0); }
+int     pipe(f) int f[2]; { return(0); }
+int     pkon(f, s) { return(0); }
+int     pkoff(f) { return(0); }
+	profil(b, s, o, i) short *b; unsigned s, o, i; {;}
+int     ptrace(r, p, a, d) int *a; { return(0); }
+	qfstat(f, b) struct qstat *b; {;}
+	qstat(n, b) char *n; struct qstat *b; {;}
+	quota(n, c, m) char *n; daddr_t c, m; {;}
+int     read(f, b, n) char *b; int n; { return(n); }
+int     readlink(p, b, s) char *p, *b; { return(0); }
+	/*VARARGS1*/
+	reboot(h, d) dev_t d; {;}
+int     renice(p, n) { return(0); }
+char    *rindex(s, c) char *s; char c; { return(&c); }
+	rtp(f) {;}
+char    *sbrk(i) unsigned i; { return((char *)0); }
+int     setgid(g) { return(0); }
+int     setuid(u) { return(0); }
+int     (*signal(c, f))() int (*f)(); { return(f); }
+int     stat(s, b) char *s; struct stat *b; { return(0); }
+int     stime(t) time_t *t; { return(0); }
+int     stty(f, b) struct sgttyb *b; { return(0); }
+	submit(p) {;}
+	symlink(n1, n2) char *n1, *n2; {;}
+	sync() {;}
+long    tell(f) { return((long)0); }
+time_t  time(t) time_t *t; { return((time_t) 0);}
+	times(b) time_t (*b)[4]; {;}
+int     truncate(f, l) long l; { return(0); }
+int     ucall(p, f, a0, a1) caddr_t f; { return(0); }
+int     umask(c) { return(0); }
+int     umount(s) char *s; { return(0); }
+int     unlink(s) char *s; { return(0); }
+	utime(f, t) char *f; time_t *t; {;}
+int     vfork() { return(0); }
+	vhangup() {;}
+int     wait(s) int *s; { return(0); }
+int     write(f, b, l) char *b; int l; { return(l); }
+
+/*
+ * Section 3
+ */
+	abort() {;}
+int     abs(i) { return(0); }
+char    *asctime(t) struct tm *t; { return((char *) 0); }
+double  atof(s) char *s; { return((double) 0); }
+int     atoi(s) char *s; { return(0); }
+long    atol(s) char *s; { return((long) 0); }
+char    *calloc(n, s) unsigned n, s; { return ((char *) 0); }
+double  ceil(x) double x; { return ((double) 0); }
+char    *crypt(k, s) char *k, *s; { return((char *) 0); }
+char    *ctime(c) time_t *c; { return((char *) 0); }
+char    *ecvt(v, n, d, s) double v; int *d, *s; { return((char *) 0); }
+	encrypt(s, i) char *s; {;}
+int     endfsent() { return(0); }
+int     endgrent() { return(0); }
+int     endpwent() { return(0); }
+double  exp(x) double x; { return ((double) 0); }
+double  fabs(x) double x; { return ((double) 0); }
+int     fclose(f) FILE *f; { return(0); }
+char    *fcvt(v, n, d, s) double v; int *d, *s; { return((char *) 0); }
+FILE    *fdopen(fd, m) char *m; { return((FILE *) 0);}
+int     fflush(f) FILE *f; { return(0); }
+int     fgetc(f) FILE *f; { return(0); }
+char    *fgets(s, l, f) char *s; FILE *f; { return(s); }
+double  floor(x) double x; { return ((double) 0); }
+FILE    *fopen(s, m) char *s, *m; { return((FILE *) 0); }
+	free(p) char *p; {;}
+FILE    *freopen(s, m, f) char *s, *m; FILE *f; { return((FILE *) 0); }
+	/*VARARGS1*/
+int     fprintf(f, s) FILE *f; char *s; { return(0); }
+int     fputc(c, s) FILE *s; { return(0); }
+int     fputs(s, f) char *s; FILE *f; { return(0); }
+int     fread( p, s, n, f ) char *p; FILE *f; { return(0); }
+double  frexp(v, e) double v; int *e; { return ((double) 0); }
+	/*VARARGS2*/
+int     fscanf(f, s) FILE *f; char *s; { return(0); }
+int     fseek(f, o, p) FILE *f; long o; { return(0); }
+long    ftell(f) FILE *f; { return((long) 0); }
+int     fwrite(p, s, n, f) char *p; FILE *f; { return(0); }
+char    *gcvt(v, n, b) double v; char *b; { return((char *) 0); }
+char    *getenv(s) char *s; { return ((char *) 0); }
+struct  fstab *getfsent() { return ((struct fstab *) 0); }
+struct  fstab *getfsfile(n) char *n; { return ((struct fstab *) 0); }
+struct  fstab *getfsspec(n) char *n; { return ((struct fstab *) 0); }
+struct  group *getgrent() { return ((struct group *) 0); }
+struct  group *getgrgid(g) { return ((struct group *) 0); }
+struct  group *getgrnam(n) char *n; { return ((struct group *) 0); }
+int     gethostname(n, l) char *n; { return(0); }
+struct  passwd *getpwent() { return ((struct passwd *) 0); }
+struct  passwd *getpwnam(n) char *n; { return ((struct passwd *) 0); }
+struct  passwd *getpwuid(u) { return ((struct passwd *) 0); }
+char    *getlogin() { return ((char *) 0); }
+char    *getpass(p) char *p; { return ((char *) 0); }
+int	getpw(u, b) char *b; { return(0); }
+char	*gets(s) char *s; { return ((char *) 0); }
+int	getw(f) FILE *f; { return(0); }
+struct	tm *gmtime(c) time_t *c; { return ((struct tm *) 0); }
+char	*index(s, c) char *s; char c; { return(&c); }
+int	isatty(f) { return(0); }
+	l3tol(l, c, n) long *l; char *c; {;}
+double	ldexp(v, e) double v; int e; { return ((double) 0); }
+int	loadav(v) double v[]; { return(0); }
+struct	tm *localtime(c) time_t *c; { return ((struct tm *) 0); }
+double	log(x) double x; { return ((double) 0); }
+double	log10(x) double x; { return ((double) 0); }
+int	longjmp(e, v) jmp_buf e; { return(0); }
+	ltol3(c, l, n) char *c; long *l; {;}
+char	*malloc(s) unsigned s; { return ((char *) 0); }
+char	*mktemp(t) char *t; { return ((char *) 0); }
+double	modf(v, i) double v; int *i; { return ((double) 0); }
+	monitor(l, h, b, s, n) int (*l)(), (*h)(); short b[]; {;}
+int	nlist(f, n) char *f; struct nlist n[]; { return(0); }
+int	pclose(s) FILE *s; { return(0); }
+	perror(s) char *s; {;}
+FILE	*popen(c, t) char *c, *t; { return ((FILE *) 0); }
+double	pow(x, y) double x, y; { return ((double) 0); }
+	/*VARARGS1*/
+int	printf(s) char *s; { return(0); }
+	psignal(n, s) unsigned n; char *s; {;}
+int	puts(s) char *s; { return(0); }
+int	putw(w, s) FILE *s; { return(0); }
+	qsort(b, n, w, c) char *b; unsigned n; int (*c)(); {;}
+int	rand() { return(0); }
+char	*realloc(p, n) char *p; unsigned n; { return ((char *) 0); }
+char	*re_comp(s) char *s; { return ((char *) 0); }
+int	re_exec(s) char *s; { return(0); }
+int	rewind(f) FILE *f; { return(0); }
+	/*VARARGS1*/
+	scanf(f) char *f; { return(0); }
+	setbuf( f, b ) FILE *f; char *b; {;}
+int	setfsent() { return(0); }
+int	setgrent() { return(0); }
+int	setjmp(e) jmp_buf e; { return(0); }
+	setkey(k) char *k; {;}
+int	setpwent() { return(0); }
+	sleep(s) unsigned s; {;}
+	/*VARARGS2*/
+char	*sprintf(s, f) char *s, *f; { return ((char *) 0); }
+double	sqrt(x) double x; { return ((double) 0); }
+	srand(s) unsigned s; {;}
+	/*VARARGS2*/
+	sscanf(s, f) char *s, *f; { return(0); }
+char	*strcat(a, b) char *a, *b; { return ((char *) 0); }
+int	strcmp(a, b) char *a, *b; { return(0); }
+char	*strcpy(a, b) char *a, *b; { return ((char *) 0); }
+int	strlen(s) char *s; { return(0); }
+char	*strncat(a, b, n) char *a, *b; int n; { return ((char *) 0); }
+char	*strncpy(a, b, n) char *a, *b; int n; { return ((char *) 0); }
+	swab(f, t, n) char *f, *t; {;}
+int	system(s) char *s; { return(0); }
+char	*ttyname(f) { return ((char *) 0); }
+int	ttyslot() { return(0); }
+int	ungetc(c, f) FILE *f; { return(0); }
+struct	_iobuf _iob[_NFILE];
+char	_ctype_[];
+char	_sibuf[BUFSIZ];
+char	_sobuf[BUFSIZ];

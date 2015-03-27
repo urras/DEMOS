@@ -1,0 +1,39 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.02.02.16.06.35;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/* $Header$
+ * $Log$
+ */
+
+# include <stdio.h>
+
+linemod(s)
+char *s;
+{
+    if( !strcmp( s, "solid" ) ) {
+	printf( "FC" );
+    } else {
+	printf( "FD" );
+    }
+}
+@

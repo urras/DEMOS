@@ -1,0 +1,621 @@
+head     1.4;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.3 VAX:1.1.0.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     87.07.06.22.27.29;  author alex;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.07.21.20.37.10;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.07.20.20.54.38;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.11.01;  author dmitry;  state Exp;
+branches 1.1.0.0 1.1.2.9;
+next     ;
+
+1.1.0.0
+date     86.07.20.19.35.15;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.32.49;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.4
+log
+@Внесены правки для уменьшения занимаемой памяти
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char *rcsid = "$Header: sh.dir.c,v 1.3 86/07/21 20:37:10 avg Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.dir.c,v $
+ * Revision 1.3  86/07/21  20:37:10  avg
+ * Добавлено определение для NULL.
+ *
+ * Revision 1.2  86/07/20  20:54:38  avg
+ * Версия, слитая с версией alex-а из 4.2.
+ * Добавлены русские диагностики.
+ *
+ * Revision 1.1  86/06/01  20:11:01  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+#include "sh.dir.h"
+#ifndef NULL
+# define NULL ((char *)0)
+#endif
+
+/*
+ * C Shell - directory management
+ */
+
+struct  directory *dfind();
+char    *dfollow();
+struct  directory dhead;                /* "head" of loop */
+int     printd;                         /* force name to be printed */
+static  char *fakev[] = { "dirs", NOSTR };
+
+/*
+ * dinit - initialize current working directory
+ */
+dinit(hp)
+	char *hp;
+{
+	register char *cp;
+	register struct directory *dp;
+	char path[BUFSIZ];
+
+	if (loginsh && hp)
+		cp = hp;
+	else {
+		cp = getwd(path);
+		if (cp == NULL) {
+			printf( "csh: %s\n", path );
+			exit(1);
+		}
+	}
+	dp = (struct directory *)calloc(sizeof (struct directory), 1);
+	dp->di_name = savestr(cp);
+	dp->di_count = 0;
+	dhead.di_next = dhead.di_prev = dp;
+	dp->di_next = dp->di_prev = &dhead;
+	printd = 0;
+	dnewcwd(dp);
+}
+
+/*
+ * dodirs - list all directories in directory loop
+ */
+dodirs(v)
+	char **v;
+{
+	register struct directory *dp;
+	bool lflag;
+	char *hp = value("home");
+
+	if (*hp == '\0')
+		hp = NOSTR;
+	if (*++v != NOSTR)
+		if (eq(*v, "-l") && *++v == NOSTR)
+			lflag = 1;
+		else
+			error(ediag("Usage: dirs [-l]",
+				    "Вызов: dirs [-l]"));
+	else
+		lflag = 0;
+	dp = dcwd;
+	do {
+		if (dp == &dhead)
+			continue;
+		if (!lflag && hp != NOSTR) {
+			dtildepr(hp, dp->di_name);
+		} else
+			printf("%s", dp->di_name);
+		printf(" ");
+	} while ((dp = dp->di_prev) != dcwd);
+	printf("\n");
+}
+
+dtildepr(home, dir)
+	register char *home, *dir;
+{
+
+	if (!eq(home, "/") && prefix(home, dir))
+		printf("~%s", dir + strlen(home));
+	else
+		printf("%s", dir);
+}
+
+/*
+ * dochngd - implement chdir command.
+ */
+dochngd(v)
+	char **v;
+{
+	register char *cp;
+	register struct directory *dp;
+
+	printd = 0;
+	if (*++v == NOSTR) {
+		if ((cp = value("home")) == NOSTR || *cp == 0)
+			bferr(ediag("No home directory",
+				    "Нет регистрационного каталога"));
+		if (chdir(cp) < 0)
+			bferr(ediag("Can't change to home directory",
+				    "Не могу перейти в регистрационный каталог"));
+		cp = savestr(cp);
+	} else if ((dp = dfind(*v)) != 0) {
+		printd = 1;
+		if (chdir(dp->di_name) < 0)
+			Perror(dp->di_name);
+		dcwd->di_prev->di_next = dcwd->di_next;
+		dcwd->di_next->di_prev = dcwd->di_prev;
+		goto flushcwd;
+	} else
+		cp = dfollow(*v);
+	dp = (struct directory *)calloc(sizeof (struct directory), 1);
+	dp->di_name = cp;
+	dp->di_count = 0;
+	dp->di_next = dcwd->di_next;
+	dp->di_prev = dcwd->di_prev;
+	dp->di_prev->di_next = dp;
+	dp->di_next->di_prev = dp;
+flushcwd:
+	dfree(dcwd);
+	dnewcwd(dp);
+}
+
+/*
+ * dfollow - change to arg directory; fall back on cdpath if not valid
+ */
+char *
+dfollow(cp)
+	register char *cp;
+{
+	register char **cdp;
+	struct varent *c;
+
+	cp = globone(cp);
+	if (chdir(cp) == 0)
+		goto gotcha;
+	if (cp[0] != '/' && !prefix("./", cp) && !prefix("../", cp)
+	    && (c = adrof("cdpath"))) {
+		for (cdp = c->vec; *cdp; cdp++) {
+			char buf[BUFSIZ];
+
+			strcpy(buf, *cdp);
+			strcat(buf, "/");
+			strcat(buf, cp);
+			if (chdir(buf) >= 0) {
+				printd = 1;
+				xfree(cp);
+				cp = savestr(buf);
+				goto gotcha;
+			}
+		}
+	}
+	if (adrof(cp)) {
+		char *dp = value(cp);
+
+		if (dp[0] == '/' || dp[0] == '.')
+			if (chdir(dp) >= 0) {
+				xfree(cp);
+				cp = savestr(dp);
+				printd = 1;
+				goto gotcha;
+			}
+	}
+	xfree(cp);
+	Perror(cp);
+
+gotcha:
+	if (*cp != '/') {
+		char *dp = calloc(strlen(cp) + strlen(dcwd->di_name) + 2, 1);
+		strcpy(dp, dcwd->di_name);
+		strcat(dp, "/");
+		strcat(dp, cp);
+		xfree(cp);
+		cp = dp;
+	}
+	dcanon(cp);
+	return (cp);
+}
+
+/*
+ * dopushd - push new directory onto directory stack.
+ *      with no arguments exchange top and second.
+ *      with numeric argument (+n) bring it to top.
+ */
+dopushd(v)
+	char **v;
+{
+	register struct directory *dp;
+
+	printd = 1;
+	if (*++v == NOSTR) {
+		if ((dp = dcwd->di_prev) == &dhead)
+			dp = dhead.di_prev;
+		if (dp == dcwd)
+			bferr(ediag("No other directory",
+				    "Тот же каталог?"));
+		if (chdir(dp->di_name) < 0)
+			Perror(dp->di_name);
+		dp->di_prev->di_next = dp->di_next;
+		dp->di_next->di_prev = dp->di_prev;
+		dp->di_next = dcwd->di_next;
+		dp->di_prev = dcwd;
+		dcwd->di_next->di_prev = dp;
+		dcwd->di_next = dp;
+	} else if (dp = dfind(*v)) {
+		if (chdir(dp->di_name) < 0)
+			Perror(dp->di_name);
+	} else {
+		register char *cp;
+
+		cp = dfollow(*v);
+		dp = (struct directory *)calloc(sizeof (struct directory), 1);
+		dp->di_name = cp;
+		dp->di_count = 0;
+		dp->di_prev = dcwd;
+		dp->di_next = dcwd->di_next;
+		dcwd->di_next = dp;
+		dp->di_next->di_prev = dp;
+	}
+	dnewcwd(dp);
+}
+
+/*
+ * dfind - find a directory if specified by numeric (+n) argument
+ */
+struct directory *
+dfind(cp)
+	register char *cp;
+{
+	register struct directory *dp;
+	register int i;
+	register char *ep;
+
+	if (*cp++ != '+')
+		return (0);
+	for (ep = cp; digit(*ep); ep++)
+		continue;
+	if (*ep)
+		return (0);
+	i = getn(cp);
+	if (i <= 0)
+		return (0);
+	for (dp = dcwd; i != 0; i--) {
+		if ((dp = dp->di_prev) == &dhead)
+			dp = dp->di_prev;
+		if (dp == dcwd)
+			bferr(ediag("Directory stack not that deep",
+				    "Стек содержит меньшее число каталогов"));
+	}
+	return (dp);
+}
+
+/*
+ * dopopd - pop a directory out of the directory stack
+ *      with a numeric argument just discard it.
+ */
+dopopd(v)
+	char **v;
+{
+	register struct directory *dp, *p;
+
+	printd = 1;
+	if (*++v == NOSTR)
+		dp = dcwd;
+	else if ((dp = dfind(*v)) == 0)
+		bferr(ediag("Bad directory",
+			    "Плохой каталог"));
+	if (dp->di_prev == &dhead && dp->di_next == &dhead)
+		bferr(ediag("Directory stack empty",
+			    "Стек каталогов пуст"));
+	if (dp == dcwd) {
+		if ((p = dp->di_prev) == &dhead)
+			p = dhead.di_prev;
+		if (chdir(p->di_name) < 0)
+			Perror(p->di_name);
+	}
+	dp->di_prev->di_next = dp->di_next;
+	dp->di_next->di_prev = dp->di_prev;
+	if (dp == dcwd)
+		dnewcwd(p);
+	else
+		dodirs(fakev);
+	dfree(dp);
+}
+
+/*
+ * dfree - free the directory (or keep it if it still has ref count)
+ */
+dfree(dp)
+	register struct directory *dp;
+{
+
+	if (dp->di_count != 0)
+		dp->di_next = dp->di_prev = 0;
+	else
+		xfree(dp->di_name), xfree((char *)dp);
+}
+
+/*
+ * dcanon - canonicalize the pathname, removing excess ./ and ../ etc.
+ *      we are of course assuming that the file system is standardly
+ *      constructed (always have ..'s, directories have links)
+ */
+dcanon(cp)
+	char *cp;
+{
+	register char *p, *sp;
+	register bool slash;
+
+	if (*cp != '/')
+		abort();
+	for (p = cp; *p; ) {            /* for each component */
+		sp = p;                 /* save slash address */
+		while(*++p == '/')      /* flush extra slashes */
+			;
+		if (p != ++sp)
+			strcpy(sp, p);
+		p = sp;                 /* save start of component */
+		slash = 0;
+		while(*++p)             /* find next slash or end of path */
+			if (*p == '/') {
+				slash = 1;
+				*p = 0;
+				break;
+			}
+		if (*sp == '\0')        /* if component is null */
+			if (--sp == cp) /* if path is one char (i.e. /) */
+				break;
+			else
+				*sp = '\0';
+		else if (eq(".", sp)) {
+			if (slash) {
+				strcpy(sp, ++p);
+				p = --sp;
+			} else if (--sp != cp)
+				*sp = '\0';
+		} else if (eq("..", sp)) {
+			if (--sp != cp)
+				while (*--sp != '/')
+					;
+			if (slash) {
+				strcpy(++sp, ++p);
+				p = --sp;
+			} else if (cp == sp)
+				*++sp = '\0';
+			else
+				*sp = '\0';
+		} else if (slash)
+			*p = '/';
+	}
+}
+
+/*
+ * dnewcwd - make a new directory in the loop the current one
+ */
+dnewcwd(dp)
+	register struct directory *dp;
+{
+
+	dcwd = dp;
+	set("cwd", savestr(dcwd->di_name));
+	if (printd)
+		dodirs(fakev);
+}
+@
+
+
+1.3
+log
+@Добавлено определение для NULL.
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dir.c,v 1.2 86/07/20 20:54:38 avg Exp $";
+d9 3
+d52 1
+a52 1
+			write(2, path, strlen(path));
+@
+
+
+1.2
+log
+@Версия, слитая с версией alex-а из 4.2.
+Добавлены русские диагностики.
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dir.c,v 1.1 86/06/01 20:11:01 dmitry Exp $";
+d9 4
+d20 3
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.dir.c,v 0.0 86/04/20 21:24:00 root Exp $";
+
+d8 4
+a11 1
+ * $Log$
+d39 1
+a39 1
+	else
+d41 5
+d71 2
+a72 1
+			error("Usage: dirs [ -l ]");
+d110 2
+a111 1
+			bferr("No home directory");
+d113 2
+a114 1
+			bferr("Can't change to home directory");
+d208 2
+a209 1
+			bferr("No other directory");
+d260 2
+a261 1
+			bferr("Directory stack not that deep");
+d279 2
+a280 1
+		bferr("Bad directory");
+d282 2
+a283 1
+		bferr("Directory stack empty");
+a330 5
+		if (*sp == '\0') {      /* if component is null */
+			if (--sp != cp)
+				*sp = '\0';
+			break;
+		}
+d339 6
+a344 1
+		if (eq(".", sp)) {
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.dir.c 4.1 10/9/80";
+d4 9
+d20 5
+a24 5
+struct	directory *dfind();
+char	*dfollow();
+struct	directory dhead;		/* "head" of loop */
+int	printd;				/* force name to be printed */
+static	char *fakev[] = { "dirs", NOSTR };
+d137 1
+a137 1
+	
+d186 2
+a187 2
+ *	with no arguments exchange top and second.
+ *	with numeric argument (+n) bring it to top.
+d257 1
+a257 1
+ *	with a numeric argument just discard it.
+d301 2
+a302 2
+ *	we are of course assuming that the file system is standardly
+ *	constructed (always have ..'s, directories have links)
+d312 3
+a314 3
+	for (p = cp; *p; ) {		/* for each component */
+		sp = p;			/* save slash address */
+		while(*++p == '/')	/* flush extra slashes */
+d318 1
+a318 1
+		if (*sp == '\0') {	/* if component is null */
+d323 1
+a323 1
+		p = sp;			/* save start of component */
+d325 1
+a325 1
+		while(*++p)		/* find next slash or end of path */
+@
+
+
+1.1.0.0
+log
+@VAX version by alex
+@
+text
+@d1 12
+a12 1
+/*      $Header: sh.dir.c,v 1.2 86/07/20 19:26:51 avg Exp $ / Kiae */
+d20 5
+a24 5
+struct	directory *dfind();
+char	*dfollow();
+struct	directory dhead;		/* "head" of loop */
+int	printd;				/* force name to be printed */
+static	char *fakev[] = { "dirs", NOSTR };
+d38 1
+a38 1
+	else {
+a39 5
+		if (cp == NULL) {
+			write(2, path, strlen(path));
+			exit(1);
+		}
+	}
+d137 1
+a137 1
+	
+d186 2
+a187 2
+ *	with no arguments exchange top and second.
+ *	with numeric argument (+n) bring it to top.
+d257 1
+a257 1
+ *	with a numeric argument just discard it.
+d301 2
+a302 2
+ *	we are of course assuming that the file system is standardly
+ *	constructed (always have ..'s, directories have links)
+d312 3
+a314 3
+	for (p = cp; *p; ) {		/* for each component */
+		sp = p;			/* save slash address */
+		while(*++p == '/')	/* flush extra slashes */
+d318 6
+a323 1
+		p = sp;			/* save start of component */
+d325 1
+a325 1
+		while(*++p)		/* find next slash or end of path */
+d331 1
+a331 6
+		if (*sp == '\0')	/* if component is null */
+			if (--sp == cp)	/* if path is one char (i.e. /) */
+				break;
+			else
+				*sp = '\0';
+		else if (eq(".", sp)) {
+@

@@ -1,0 +1,204 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.11.11.17.52.01;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+/*
+ * $Log$
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 27.08.1985
+ */
+
+#include NAME
+#include "glob.h"
+#include "io.h"
+
+/*
+ * Положить строку в верхний стек
+ */
+putus(l)
+{
+	int i;
+
+	i = llen(l);
+#ifdef UPPERONLY
+	conv_to(line(l), i);
+#endif UPPERONLY
+	putstring(line(l), &wstack, i);
+}
+
+/*
+ * Положить строку в нижний стек
+ */
+putds(l)
+{
+	char *p;
+	register int i, j;
+	extern char eof;
+
+	p = line(l);
+	i = llen(l);
+	j = (i<width) ? i : width1 ;
+	if( bstack.lines == 0 && eof ) {
+		for( i = j ; i>=0 && p[i]==' ' ; i-- );
+		if( i<0 )
+			return;
+	} else
+		i = j;
+#ifdef UPPERONLY
+	conv_to(p, i);
+#endif UPPERONLY
+	putstring(p, &bstack, i);
+}
+
+/*
+ * Взять строку из верхнего стека
+ */
+getus(l)
+{
+	int i;
+
+	i = getstring(line(l), &wstack);
+#ifdef UPPERONLY
+	i += conv_from(line(l), i);
+#endif UPPERONLY
+	llen(l) = (i<width) ? i : width1 ;
+}
+
+/*
+ * Взять строку из нижнего стека, если стек пуст - то из входного файла
+ */
+getds(l)
+{
+	register int  i;
+	register char *p;
+	extern char pline[];
+	extern int  plinfo;
+	int cnt,ress;
+
+	ress = 0;
+	if( bstack.lines == 0 ) {
+		cnt = 0;
+#ifdef UPPERONLY
+		p = pline;
+		for( i = NCOL-1 ; i >= 0 ; i-- ) {
+			if( *p=='\\' || *p=='{' || *p=='}' || *p=='`' ||
+			    *p=='~'  || *p=='|' || (((*p)>='A')&&((*p)<='Z'))
+			    || ((*p)&0340) == 0300 )
+					cnt++;
+			p++;
+		}
+#endif UPPERONLY
+		if( plinfo+cnt > width ) {
+			if( plinfo+cnt > NCOL )
+				cnt = NCOL-plinfo;
+			printx( S_erase );
+#ifdef S_bell
+			printx( S_bell );
+#endif S_bell
+			printx( ediag(
+"\n  *** Input string too long.\r\n\
+  *** Expand screen to ",
+"\n  *** Слишком длинная строка вo входном файле.\r\n\
+  *** Редактировать с расширенным до " ));
+			i = plinfo+cnt;
+			p = "000";
+			p[0] = '0' + i/100;
+			i = i%100;
+			p[1] = '0' + i/10;
+			i = i%10;
+			p[2] = '0' + i;
+			writex( p, 3 );
+			printx( ediag( " columns ? ",
+				       " поз. экраном ? " ));
+			if( ask() )
+				expand( plinfo+cnt );
+			ress = 1;
+		}
+		p = line(l);
+		for( i = 0 ; i < width ; i++ )
+			if( (*p++ = pline[i]) != ' ' )
+				plinfo = i;
+		i = plinfo;
+		plinfo = 0;
+		fillline();
+	} else
+		i = getstring(line(l) ,&bstack);
+	if( i >= NCOL )
+		i = NCOL-1;
+#ifdef UPPERONLY
+	i += conv_from(line(l), i);
+#endif UPPERONLY
+	llen(l) = (i<width) ? i : width1 ;
+	return( ress );
+}
+
+/*
+ * Прочитать ответ на вопрос
+ */
+ask()
+{
+	int     res;
+#ifndef V2
+	extern int  rmode[], tmode[];
+#else
+	extern struct sgttyb1 rmode, tmode;
+#endif V2
+	char    s;
+
+#ifdef SYMSTOP
+	printx( SYMSTOP );
+#endif SYMSTOP
+	fflush( stdout );
+#ifndef V2
+	stty( 0, tmode );
+#else
+	ioctl( 0, TIOCSETA, &tmode );
+#endif V2
+	res = 1;
+	read( 0, &s, 1 );
+	if( s == 'n' || s == 'N'
+#ifndef HPUX
+	 || s == ('н'&0377) || s == ('Н'&0377)
+#endif
+				 )
+		res = 0;
+	while( s != '\n' )
+		read( 0, &s, 1 );
+#ifndef V2
+	stty( 0, rmode );
+#else
+	ioctl( 0, TIOCSETA, &rmode );
+#endif V2
+#ifdef SYMSTRT
+	printx( SYMSTRT );
+#endif SYMSTRT
+	return( res );
+}
+@

@@ -1,0 +1,1398 @@
+head     1.12;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.12
+date     89.05.04.21.29.13;  author tasha;  state Exp;
+branches ;
+next     1.11;
+
+1.11
+date     89.04.25.14.01.12;  author avg;  state Exp;
+branches ;
+next     1.10;
+
+1.10
+date     89.04.08.19.54.34;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     88.12.23.19.23.35;  author ache;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     88.09.28.20.05.40;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     88.09.26.17.39.52;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     88.09.22.12.44.11;  author dvolodin;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.09.13.20.28.24;  author abs;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.09.13.19.16.51;  author abs;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.09.13.16.02.00;  author abs;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.09.12.21.01.47;  author abs;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.09.12.20.58.10;  author abs;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Выдача статьи оперативного руководства.
+@
+
+
+1.12
+log
+@Правлены названия разделов man'а 
+@
+text
+@/*
+ * $Log:        man.c,v $
+ * Revision 1.11  89/04/25  14:01:12  avg
+ * Правлен разбор аргументов в main.
+ *
+ * Revision 1.10  89/04/08  19:54:34  avg
+ * Добавлен раздел 'rubin'.
+ *
+ * Revision 1.9  88/12/23  19:23:35  ache
+ * Не работала выдача списка имеющихся статей, если symlink,
+ * не происходил поиск по manu, manl, manp
+ *
+ * Revision 1.8  88/09/28  20:05:40  avg
+ * Исправлена ошибка с выдачей в трубу.
+ *
+ * Revision 1.7  88/09/26  17:39:52  avg
+ * Заново написан поиск статьи в каталогах.
+ *
+ * Revision 1.6  88/09/22  12:44:11  dvolodin
+ * Выкинуты вызывающие диагностики и исправлено "секция" на "раздел".
+ *
+ * Revision 1.5  88/09/13  20:28:24  abs
+ * F O R C E D .
+ *
+ */
+
+#ifndef lint
+static char rcsid[]    = "$Header: man.c,v 1.11 89/04/25 14:01:12 avg Exp $";
+#endif
+
+#include <whoami.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <sgtty.h>
+#include <sys/types.h>
+#include <stat.h>
+#include <signal.h>
+#include <ediag.h>
+#ifdef vax
+#include <dir.h>
+#else
+#include <ndir.h>
+#endif
+
+/*
+ * man
+ * link also to apropos and whatis
+ * This version uses cat -s for eliminating multiple blank lines,
+ * and more for underlining and paging.
+ */
+
+#define MANDIR  "/usr/man"              /* this is deeply embedded */
+#define NROFF   "/usr/bin/nroff"
+#define MACRO    "-man"                 /* macropackage */
+#define MORE    "/usr/bin/more"                  /* paging filter */
+#define MOREKEYS "-s"
+#define CAT     "/bin/cat"              /* for '-' opt (no more) */
+#define TROFF   "troff"                 /* for -t option */
+#define WHATIS  "/usr/lib/whatis"       /* info-file */
+
+#define ALLSECT "18234657rpunl"  /* order to look through sections */
+#define SECT1   "1nlu"           /* sections to look at if 1 is specified */
+#define SUBSEC1 "$mcg"           /* subsections to look for in sect. 1 */
+#define SUBSEC2 "$jvx"           /* subsections, section 2 */
+#define SUBSEC3 "$jxmsf"         /* subsections, section 3 */
+#define SUBSECR "$qdfe"          /* subsections, section "rubin" */
+#define ALLSUBS "$mcgjvxsfqde"   /* all of subsections */
+
+char MANX[] = "/usr/man/man?";
+
+int     nomore;
+char    *strcpy();
+char    *strcat();
+char    *trim();
+int     remove();
+int     section;
+int     subsec;
+int     troffit;
+
+#define eq(a,b) (strcmp(a,b) == 0)
+
+main(argc, argv)
+	int argc;
+	char *argv[];
+{
+
+	if (signal(SIGINT, SIG_IGN) == SIG_DFL) {
+		signal(SIGINT, remove);
+		signal(SIGQUIT, remove);
+		signal(SIGTERM, remove);
+	}
+	umask(0);
+	if (chdir(MANDIR) < 0) {
+		fprintf(stderr, ediag("Can't chdir to %s.\n",
+			  "Не могу перейти в %s.\n"), MANDIR);
+		exit(1);
+	}
+	if (strcmp(argv[0], "apropos") == 0) {
+		apropos(argc-1, argv+1);
+		exit(0);
+	}
+	if (strcmp(argv[0], "whatis") == 0) {
+		whatis(argc-1, argv+1);
+		exit(0);
+	}
+	if (argc <= 1) {
+	usage:
+		fprintf(stderr, ediag("Usage: man [section] name ...\n",
+				      "Вызов: man [раздел] имя ...\n"));
+		fprintf( stderr, "%s: %s\n", ediag( "sections", "разделы"),
+			"1 2 3 4 5 6 7 8 rubin local new unused\n");
+		exit(1);
+	}
+	argc--, argv++;
+	while (argc > 0 && argv[0][0] == '-') {
+		switch(argv[0][1]) {
+
+		case '\0':
+			nomore++;
+			break;
+
+		case 't':
+			troffit++;
+			break;
+
+		case 'k':
+			apropos(argc-1, argv+1);
+			exit(0);
+
+		case 'f':
+			whatis(argc-1, argv+1);
+			exit(0);
+		}
+		argc--, argv++;
+	}
+	if (troffit == 0 && nomore == 0 && !isatty(1))
+		nomore++;
+	section = 0;
+
+	if( argc > 1 ) {
+		/*
+		 * man sect art
+		 */
+		if (eq(argv[0], "local")) {
+			section = 'l';
+		} else if (eq(argv[0], "rubin")) {
+			section = 'r';
+		} else if (eq(argv[0], "new")) {
+			section = 'n';
+		} else if (eq(argv[0], "public")) {
+			section = 'p';
+		} else if (eq(argv[0], "unused")) {
+			section = 'u';
+		} else if( ((argv[0][0] >= '0' && argv[0][0] <= '9') ||
+			     argv[0][0]=='r'||argv[0][0]=='u'||
+			     argv[0][0]=='l'||argv[0][0]=='n') && (argv[0][1] == 0 || argv[0][2] == 0)) {
+			section = argv[0][0];
+			subsec  = argv[0][1];
+		} else
+			goto usage;
+		argv++;
+	}
+	manual(section, argv[0]);
+	display();
+	exit(0);
+}
+
+manual(sec, name)
+	char sec;
+	char *name;
+{
+	char *csec, *ss;
+	static char exsec[2] = "?", exss[2] = "\0";
+	char s;
+	int nfound = 0;
+	DIR *dir;
+	struct direct *dp;
+	static char mandir[] = "manx";
+	static char catdir[] = "catx";
+	char workman[100], workcat[100];
+	struct stat catstat, manstat;
+	char *docname;
+	int catexist;
+
+	if( !(exss[0] = subsec) )
+		exss[0] = '$';
+	ss = exss;
+
+	if( sec == '1' ) {
+		csec = SECT1;
+	} else if( sec ) {
+		csec = exsec;
+		exsec[0] = sec;
+	} else
+		csec = ALLSECT;
+
+	while( s = *csec++ ) {
+		if( !sec || !subsec ) {
+		    switch(s) {
+			case '1':  ss = SUBSEC1; break;
+			case '2':  ss = SUBSEC2; break;
+			case '3':  ss = SUBSEC3; break;
+			case 'n':       /* see after */
+			case 'l':             /* see  after */
+			case 'u':  ss = ALLSUBS;  break;
+			case 'r':  ss = SUBSECR;  break;
+			default:   ss = "$";    /* no subsections allowed */
+		    }
+		}
+
+		catdir[3] = s;
+		mandir[3] = s;
+
+		if( troffit )
+			goto NotInCat;
+
+	/* Попробуем найти документ в cat-е */
+		catexist = 0;
+		dir = opendir(catdir);
+		if( dir == NULL )
+			goto NotInCat;
+		catexist++;
+		while( (dp = readdir(dir)) != NULL ) {
+			if( manmatch(dp->d_name, name, s, ss) ) {
+				/* Имя найдено, попробуем прочитать его статус */
+
+				strcpy(workcat, catdir);
+				strcat(workcat, "/");
+				strcat(workcat, dp->d_name);
+				if( stat(workcat, &catstat) < 0 )
+					continue;
+				docname = workcat;
+
+				/*
+				 * Если OK, то попробуем прочитать статус
+				 * соотвествующего man-файла и сравним время
+				 */
+				strcpy(workman, mandir);
+				strcat(workman, "/");
+				strcat(workman, dp->d_name);
+				if( stat(workman, &manstat) >= 0 &&
+				    manstat.st_mtime >= catstat.st_mtime ) {
+
+					/*
+					 * Man изменился ...
+					 */
+					if( nomore )
+						docname = workman;
+					else
+						formatman(workman, workcat, 0);
+				}
+				goto found;
+			}
+		}
+		closedir(dir);
+
+	NotInCat:
+	/* Попробуем найти документ в man-e */
+		dir = opendir(mandir);
+		if( dir == NULL )
+			continue;
+		while( (dp = readdir(dir)) != NULL ) {
+			if( manmatch(dp->d_name, name, s, ss) ) {
+				/* Имя найдено, попробуем прочитать его статус */
+
+				strcpy(workman, mandir);
+				strcat(workman, "/");
+				strcat(workman, dp->d_name);
+				if( stat(workman, &manstat) < 0 )
+					continue;
+				docname = workman;
+
+				/*
+				 * Если обычный вызов - то переформатировать
+				 * для cat-а
+				 */
+				if( !nomore && catexist && !troffit ) {
+					strcpy(workcat, catdir);
+					strcat(workcat, "/");
+					strcat(workcat, dp->d_name);
+					formatman(workman, workcat, 1);
+					docname = workcat;
+				}
+				goto found;
+			}
+		}
+		closedir(dir);
+		continue;       /* Не найдено */
+
+	/* Ok. Документ найден */
+	found:
+		closedir(dir);
+		nfound++;
+		if( troffit )
+			troff(docname);
+		else
+			nroff(docname);
+	}
+
+	if( nfound == 0 ) {
+		printf( ediag( "No manual entry for %s",
+			       "Нет описания %s" ),  name);
+		if( sec ) {
+		    if( exss[0] == '$' )
+			    exss[0] = 0;
+		    {
+			struct Sec {
+				char  sec;
+				char  subsec;
+				char *titr;
+				char *tite;
+			};
+			static struct Sec Sec[] = {
+				'1',    'm',    "команды",
+						"commands",
+				'1',    'c',    "сетевые команды",
+						"network commands",
+				'1',    'g',    "графические команды",
+						"graph commands",
+				'1',    0,      "команды",
+						"commands",
+				'2',    'x',    "сетевые системные вызовы",
+						"network system calls",
+				'2',    'j',    "системные вызовы управления задачами",
+						"jobs control system calls",
+				'2',    'v',    "системные вызовы систем с виртуальной памятью",
+						"virtual memory mode system calls",
+				'2',    0,      "системные вызовы",
+						"system calls",
+				'3',    'j',    "библиотека управления задачами",
+						"jobs control library",
+				'3',    'x',    "разные библиотеки",
+						"miscellaneous libraries",
+				'3',    'm',    "математическая библиотека",
+						"math library",
+				'3',    's',    "стандартная библиотека ввода/вывода",
+						"standard i/o library",
+				'3',    'f',    "библиотека Фортрана-77",
+						"Fortran-77 object library",
+				'3',    0,      "библиотечные функции",
+						"object libraries",
+				'4',    0,      "драйверы устройств",
+						"i/o drivers",
+				'5',    0,      "форматы файлов",
+						"file formats",
+				'6',    0,      "игры",
+						"games",
+				'7',    0,      "макропакеты",
+						"macros",
+				'8',    0,      "сопровождение системы",
+						"system maintenance",
+				'r',    'q',    "СУБД Рубин, язык запросов",
+						"Rubin DBMS, query language",
+				'r',    'd',    "СУБД Рубин, команды",
+						"Rubin DBMS, commands",
+				'r',    'f',    "СУБД Рубин, файлы",
+						"Rubin DBMS, files",
+				'r',    'e',    "СУБД Рубин, диагностики",
+						"Rubin DBMS, diagnostics",
+				'r',    0,      "СУБД Pубин",
+						"Rubin DBMS",
+				'n',    0,      "новые команды и библиотеки",
+						"new commands and libraries",
+				'l',    0,      "локальные команды и библиотеки",
+						"local commands and libraries",
+				'u',    0,      "хлам",
+						"unused",
+				0,      0,      NULL, NULL
+			};
+			register struct Sec *scp = Sec;
+
+			printf( ediag( " in section %c%s",
+				       " в разделе %c%s" ), sec, exss);
+			for( scp = Sec ; scp->sec ; scp++ ) {
+				if( scp->sec == sec && (scp->subsec == 0 ||
+							scp->subsec == exss[0]) ) {
+					printf( " \"%s\"", ediag(scp->tite, scp->titr) );
+					break;
+				}
+			}
+
+		    }
+		}
+		printf(".\n");
+	}
+}
+
+formatman(wm, wc, reason)
+char *wm, *wc;
+{
+	char cmdbuf[200];
+
+	printf(ediag("Reformatting %s (%s).  Wait...",
+		     "Переформатирование %s (%s).  Подождите..."), wc,
+	       reason ? ediag("not exist","отсутствует")
+		      : ediag("obsolete","устарел") );
+	fflush(stdout);
+	unlink(wc);
+	sprintf(cmdbuf, "%s %s %s > /tmp/man%d; trap '' 1 15; mv /tmp/man%d %s",
+			NROFF, MACRO, wm, getpid(), getpid(), wc);
+	if (system(cmdbuf)) {
+		printf(ediag( " aborted (sorry)\n",
+			      " прекращено (извините)\n"));
+		remove();
+	       /*NOTREACHED*/
+	} else
+		printf(ediag(" man: done\n", " man: готово\n"));
+}
+
+manmatch(rn, n, s, ss)
+char *rn, *n, *ss;
+char s;
+{
+	register char *p, *q;
+	char c;
+
+	p = rn;
+	q = n;
+	while( *q ) {
+		if( *p++ != *q++ )
+			return 0;
+	}
+	if( *p++ != '.' )
+		return 0;
+	if( isdigit (s) && s != *p )
+		return 0;
+	p++;
+	if( *p != '\0' )
+		c = *p++;
+	else
+		c = '$';
+	q = ss;
+	while( *q ) {
+		if( *q++ == c )
+			goto  found;
+	}
+	return 0;
+found:
+	return *p == '\0';
+}
+
+int ndisfiles = 0;
+char *disfiles[50] ;
+
+nroff(cp)
+	char *cp;
+{
+	char cmd[BUFSIZ];
+	char *arg[10], **ap = arg, *com;
+	int st;
+
+	if( nomore ) {
+		if (cp[0] == 'c') {
+			*ap++ = "cat";
+			com   = CAT;
+		} else {
+			*ap++ = "nroff";
+			com   = NROFF;
+			*ap++ = MACRO;
+		}
+		*ap++ = cp;
+		*ap++ = 0;
+		if( vfork() == 0 ) {
+			execv(com, arg);
+			fprintf(stderr, ediag("man: can't exec %s\n",
+					      "man: не могу выполнить %s\n"), com);
+			exit(1);
+		}
+		wait(&st);
+	} else if( cp[0] == 'c' ) {
+		char *h = malloc(strlen(cp)+1);
+
+		if( h == NULL ) {
+			fprintf(stderr, ediag("man: not enough core\n",
+					      "man: нет памяти\n"));
+			exit(10);
+		}
+
+		disfiles[ndisfiles++ + 2] = h;
+		strcpy(h, cp);
+	} else {
+		sprintf(cmd, "%s %s %s | %s", NROFF, MACRO, cp, MORE, MOREKEYS);
+		system(cmd);
+	}
+}
+
+display()
+{
+	int st;
+
+	if( ndisfiles == 0 )
+		return;
+	disfiles[0] = "more";
+	disfiles[1] = MOREKEYS;
+	disfiles[ndisfiles + 2] = 0;
+	execv(MORE, disfiles);
+	fprintf(stderr, ediag("man: can't exec %s\n",
+			      "man: не могу выполнить %s\n"), MORE);
+	exit(1);
+}
+
+troff(cp)
+	char *cp;
+{
+	char cmdbuf[BUFSIZ];
+
+	sprintf(cmdbuf, "%s %s %s", TROFF, MACRO, cp);
+	system(cmdbuf);
+}
+
+any(c, sp)
+	register int c;
+	register char *sp;
+{
+	register int d;
+
+	while (d = *sp++)
+		if (c == d)
+			return (1);
+	return (0);
+}
+
+remove()
+{
+	char name[15];
+
+	sprintf(name, "/tmp/man%d", getpid());
+	unlink(name);
+	exit(1);
+}
+
+apropos(argc, argv)
+	int argc;
+	char **argv;
+{
+	char buf[BUFSIZ];
+	char *gotit;
+	register char **vp;
+
+	if (argc == 0) {
+		fprintf(stderr, "apropos %s?\n", ediag("what","что"));
+		exit(1);
+	}
+	if (freopen( WHATIS, "r", stdin) == NULL) {
+		perror( WHATIS);
+		exit (1);
+	}
+	gotit = (char *) calloc(1, blklen(argv));
+	while (fgets(buf, sizeof buf, stdin) != NULL)
+		for (vp = argv; *vp; vp++)
+			if (match(buf, *vp)) {
+				printf("%s", buf);
+				gotit[vp - argv] = 1;
+				for (vp++; *vp; vp++)
+					if (match(buf, *vp))
+						gotit[vp - argv] = 1;
+				break;
+			}
+	for (vp = argv; *vp; vp++)
+		if (gotit[vp - argv] == 0)
+			printf("%s: %s\n", *vp, ediag("nothing apropriate","ничего подходящего"));
+}
+
+match(buf, str)
+	char *buf, *str;
+{
+	register char *bp;
+
+	bp = buf;
+	for (;;) {
+		if (*bp == 0)
+			return (0);
+		if (amatch(bp, str))
+			return (1);
+		bp++;
+	}
+}
+
+amatch(cp, dp)
+	register char *cp, *dp;
+{
+
+	while (*cp && *dp && lmatch(*cp, *dp))
+		cp++, dp++;
+	if (*dp == 0)
+		return (1);
+	return (0);
+}
+
+lmatch(c, d)
+	char c, d;
+{
+
+	if (c == d)
+		return (1);
+	if (!isalpha(c) || !isalpha(d))
+		return (0);
+	if (islower(c))
+		c = toupper(c);
+	if (islower(d))
+		d = toupper(d);
+	return (c == d);
+}
+
+blklen(ip)
+	register char **ip;
+{
+	register int i = 0;
+
+	while (*ip++)
+		i++;
+	return (i);
+}
+
+whatis(argc, argv)
+	int argc;
+	char **argv;
+{
+	register char **avp;
+
+	if (argc == 0) {
+		fprintf(stderr, "whatis %s?\n", ediag( "what","что"));
+		exit(1);
+	}
+	if (freopen( WHATIS, "r", stdin) == NULL) {
+		perror( WHATIS );
+		exit (1);
+	}
+	for (avp = argv; *avp; avp++)
+		*avp = trim(*avp);
+	whatisit(argv);
+	exit(0);
+}
+
+whatisit(argv)
+	char **argv;
+{
+	char buf[BUFSIZ];
+	register char *gotit;
+	register char **vp;
+
+	gotit = (char *)calloc(1, blklen(argv));
+	while (fgets(buf, sizeof buf, stdin) != NULL)
+		for (vp = argv; *vp; vp++)
+			if (wmatch(buf, *vp)) {
+				printf("%s", buf);
+				gotit[vp - argv] = 1;
+				for (vp++; *vp; vp++)
+					if (wmatch(buf, *vp))
+						gotit[vp - argv] = 1;
+				break;
+			}
+	for (vp = argv; *vp; vp++)
+		if (gotit[vp - argv] == 0)
+			printf("%s: %s\n", *vp, ediag("not found","не найден"));
+}
+
+wmatch(buf, str)
+	char *buf, *str;
+{
+	register char *bp, *cp;
+
+	bp = buf;
+again:
+	cp = str;
+	while (*bp && *cp && lmatch(*bp, *cp))
+		bp++, cp++;
+	if (*cp == 0 && (*bp == '(' || *bp == ',' || *bp == '\t' || *bp == ' '))
+		return (1);
+	while (isalpha(*bp) || isdigit(*bp))
+		bp++;
+	if (*bp != ',')
+		return (0);
+	bp++;
+	while (isspace(*bp))
+		bp++;
+	goto again;
+}
+
+char *
+trim(cp)
+	register char *cp;
+{
+	register char *dp;
+
+	for (dp = cp; *dp; dp++)
+		if (*dp == '/')
+			cp = dp + 1;
+	if (cp[0] != '.') {
+		if (cp + 3 <= dp && dp[-2] == '.' && any(dp[-1], "cosaylpf12345678"))
+			dp[-2] = 0;
+		if (cp + 4 <= dp && dp[-3] == '.' && any(dp[-2], "13") && isalpha(dp[-1]))
+			dp[-3] = 0;
+	}
+	return (cp);
+}
+
+system(s)
+char *s;
+{
+	int status, pid, w;
+
+	if ((pid = vfork()) == 0) {
+		execl("/bin/sh", "sh", "-c", s, 0);
+		_exit(127);
+	}
+	while ((w = wait(&status)) != pid && w != -1)
+		;
+	if (w == -1)
+		status = -1;
+	return (status);
+}
+@
+
+
+1.11
+log
+@Правлен разбор аргументов в main.
+@
+text
+@d3 3
+d28 1
+a28 1
+static char rcsid[]    = "$Header: man.c,v 1.10 89/04/08 19:54:34 avg Exp $";
+d340 1
+a340 1
+				'3',    0,      "библиотеки",
+d350 1
+a350 1
+				'8',    0,      "администрирование системы",
+@
+
+
+1.10
+log
+@Добавлен раздел 'rubin'.
+@
+text
+@d3 3
+d25 1
+a25 1
+static char rcsid[]    = "$Header: man.c,v 1.9 88/12/23 19:23:35 ache Exp $";
+d104 1
+d108 1
+a108 6
+			"1 2 3 4 5 6 7 8");
+		fprintf( stderr, " rubin\n");
+		fprintf( stderr, " local\n");
+		fprintf( stderr, " public\n");
+		fprintf( stderr, " new\n");
+		fprintf( stderr, " unused\n");
+d136 5
+a140 1
+	do {
+a142 1
+			goto sectin;
+a144 1
+			goto sectin;
+a146 1
+			goto sectin;
+a148 1
+			goto sectin;
+a150 1
+			goto sectin;
+d155 6
+a160 17
+			subsec = argv[0][1];
+sectin:
+			argc--, argv++;
+			if (argc == 0) {
+				fprintf(stderr, ediag(
+		"But what do you want from section %s?\n",
+		"А что вы хотите в разделе %s?\n" ),
+					  argv[-1]);
+				MANX[12] = section;
+				execl( "/bin/ls", "ls", "-Lx", MANX, 0 );
+				exit(1);
+			}
+			continue;
+		}
+		manual(section, argv[0]);
+		argc--, argv++;
+	} while (argc > 0);
+d301 68
+a368 2
+			if( exss[0] == '$' )
+				exss[0] = 0;
+d371 9
+@
+
+
+1.9
+log
+@Не работала выдача списка имеющихся статей, если symlink,
+не происходил поиск по manu, manl, manp
+@
+text
+@d2 5
+a6 1
+ * $Log:	man.c,v $
+d9 1
+a9 1
+ * 
+d22 1
+a22 1
+static char rcsid[]    = "$Header: man.c,v 1.8 88/09/28 20:05:40 avg Exp $";
+d55 1
+a55 1
+#define ALLSECT "18234657punl"   /* order to look through sections */
+d60 2
+a61 1
+#define ALLSUBS "$mcgjvxsf"      /* all of subsections */
+d105 5
+a109 4
+		fprintf( stderr, "\tlocal\n");
+		fprintf( stderr, "\tpublic\n");
+		fprintf( stderr, "\tnew\n");
+		fprintf( stderr, "\tunused\n");
+d141 3
+d153 3
+a155 1
+		} else if (argv[0][0] >= '0' && argv[0][0] <= '9' && (argv[0][1] == 0 || argv[0][2] == 0)) {
+d165 1
+a165 1
+				MANX[ 12] = section;
+d208 1
+a208 1
+		if( !sec ) {
+d216 1
+@
+
+
+1.8
+log
+@Исправлена ошибка с выдачей в трубу.
+@
+text
+@d2 4
+a5 1
+ * $Log:        man.c,v $
+d18 1
+a18 1
+static char rcsid[]    = "$Header: man.c,v 1.7 88/09/26 17:39:52 avg Exp $";
+d110 1
+a110 1
+		case 0:
+d155 1
+a155 1
+				execl( "/bin/ls", "ls", "-x", MANX, 0 );
+d348 1
+a348 1
+	if( s != *p++ )
+d350 1
+d613 1
+a613 1
+		if (cp + 3 <= dp && dp[-2] == '.' && any(dp[-1], "cosa12345678npP"))
+@
+
+
+1.7
+log
+@Заново написан поиск статьи в каталогах.
+@
+text
+@d3 3
+d15 1
+a15 1
+static char rcsid[]    = "$Header: man.c,v 1.6 88/09/22 12:44:11 dvolodin Exp $";
+d368 1
+a368 1
+	char *arg[10], *ap = arg, *com;
+@
+
+
+1.6
+log
+@Выкинуты вызывающие диагностики и исправлено "секция" на "раздел".
+@
+text
+@d2 4
+a5 1
+ * $Log:	man.c,v $
+d8 1
+a8 1
+ * 
+d12 1
+a12 1
+static char rcsid[]    = "$Header: man.c,v 1.5 88/09/13 20:28:24 abs Exp $";
+d23 6
+a35 1
+/* Везде, где написано nroff, раньше стоял pif. ABS. */
+d37 6
+a42 7
+#define NROFFCAT "nroff -man"           /* for nroffing to cat file */
+#define SSP     "cat "                  /* compression for cat file */
+#define NROFF   "nroff -man"            /* for nroffing to tty */
+#define MORE    "more -s"               /* paging filter */
+#define CAT     "cat"                   /* for '-' opt (no more) */
+#define TROFF1  "nroff -man"            /* for -t option */
+#define TROFF2  ""                      /* for troff to pipe to */
+a43 4
+/*  for vtroff:
+  #define TROFF1 "troff -t -man /usr/lib/tmac/tmac.vcat"
+  #define TROFF2 "| /usr/lib/rvsort |/usr/lib/vpr -t"
+*/
+d45 6
+a50 5
+#define ALLSECT "1nl6823457pu"  /* order to look through sections */
+#define SECT1   "1nlu"          /* sections to look at if 1 is specified */
+#define SUBSEC1 "mcg"           /* subsections to look for in sect. 1 */
+#define SUBSEC2 "jvx"           /* subsections, section 2 */
+#define SUBSEC3 "jxmsf"         /* subsections, section 3 */
+a53 4
+#if     !defined(VMUNIX) && !defined(VIRUS_VFORK)
+#define vfork   fork
+#endif
+
+d90 2
+a91 2
+		fprintf(stderr, ediag("Usage: man [ section ] name ...\n",
+				      "Вызов: man [ раздел ] имя ...\n"));
+d157 1
+d165 12
+a176 8
+	char section ;
+	char work[100], work2[100], cmdbuf[150];
+	struct stat stbuf, stbuf2;
+	int last;
+	char *sp, *cp, *rp;
+	int showall;    /* рыть все разделы */
+	int man = 1;    /* искать в man. Если 0 - искать в cat */
+	int nfound=0;     /* ЭВРИКА ! */
+d178 3
+a180 2
+#define RETURN if( !nfound && man){ man=0;goto AGAIN;}else return;
+/* нет в man, поищем в cat only */
+d182 7
+a188 3
+#define AWAY  if( !man || nfound )return
+/* если найдено или сообщение об ошибке уже выдано,
+ * когда было man==1, то сообщение не выдавать */
+d190 12
+a201 22
+	showall = sec ? 0:1;
+AGAIN:
+	sp = ALLSECT;
+	section = sec;
+	strcpy(work, man ? "manx/" : "catx/" );
+	strcat(work, name);
+	strcat(work, ".x");
+	last = strlen(work) - 1;
+	if (section == '1') {
+		sp = SECT1;
+		section = 0;
+	}
+	switch( section ){
+	case 0:
+CONT:
+		for (section = *sp++; section; section = *sp++) {
+			rp = ALLSECT - 1;    /* перед началом этой строки */
+TRYAGAIN:
+			work[3] = section;
+			work[last] = section;
+			work[last+1] = 0;
+			work[last+2] = 0;
+d203 2
+a204 9
+			if( section =='n' || section == 'l' ||
+			    section =='p' || section == 'u' ){
+/* В этих разделах может валяться всевозможнейший хлам:
+ * manl/wm.1 manl/dpi.3x ...
+ */
+			     ++rp;
+			     if( ! *rp )continue;  /* for */
+			     /* все перебрали */
+			     /* не нашли */
+d206 2
+a207 2
+			     work[ last ] = *rp;
+			}else rp = NULL;
+d209 9
+a217 17
+			if (stat(work, &stbuf) >= 0)
+				goto found;
+			if (work[last] >= '1' && work[last] <= '3') {
+search:
+				switch (work[last]) {
+				case '1': cp = SUBSEC1; break;
+				case '2': cp = SUBSEC2; break;
+				case '3': cp = SUBSEC3; break;
+				default:  cp = SUBSEC1; break;
+				}
+				while (*cp) {
+					work[last+1] = *cp++;
+					if (stat(work, &stbuf) >= 0)
+						goto found;
+				}
+				work[last+1] = 0;
+			}
+d219 6
+a224 2
+			if( rp != NULL ) goto TRYAGAIN;
+			/* идет разбирательство с local, new , ... */
+d226 9
+a234 2
+		} /* end for */
+/* not found */
+d236 10
+a245 14
+		if (section == 0 ) {
+		/* нет ни в одной секции */
+			/* повторно не выдавать сообщений об ошибках */
+			AWAY;
+
+			if (sec == 0 && !nfound )
+				printf(ediag(
+  "No manual entry for %s.\n",
+  "В документации нет описания для %s.\n"), name);
+			else
+				printf(ediag(
+  "No entry for %s in section %c of the manual.\n",
+  "Нет описания %s в разделе %c оперативной документации.\n"), name, sec);
+			RETURN;
+d247 1
+a247 4
+		break;
+	case '1':
+	case '2': case '3': case '4': case '5':
+	case '6': case '7': case '8':
+d249 8
+a256 4
+		work[3] = section;
+		work[last] = section;
+		work[last+1] = subsec;
+		work[last+2] = 0;
+d258 18
+a275 25
+		if (stat(work, &stbuf) < 0) {
+			if ((section >= '1' && section <= '3') && subsec == 0) {
+				sp = "\0";
+				goto search;
+			}
+notfound:
+			AWAY;
+			printf(ediag(
+			   "No entry for %s in section %c",
+			   "Нет описания для %s в разделе %c"),
+				name, section);
+			if (subsec)
+				putchar(subsec);
+			printf(ediag(" of the manual.\n",
+				     " оперативной документации.\n"));
+			RETURN;
+		}
+		break;
+	case 'n': case 'l': case 'u': case 'p':
+		work[3] = section;
+		for( cp = ALLSECT ; *cp ; cp++ ){
+			work[ last] = *cp;
+			work[ last+1] = work[ last+2] = 0;
+			if( stat( work, &stbuf ) >= 0 ){
+				showall = 0;
+d279 11
+a289 3
+		/* not found */
+		goto notfound;
+		break;
+a290 3
+found:
+	nfound++;
+	if( !man ){ work[0] = 'c';work[1]='a';work[2]='t';goto hardway; }
+d292 12
+a303 5
+	if (troffit)
+		troff(work);
+	else {
+		FILE *it;
+		char abuf[BUFSIZ];
+d305 4
+a308 7
+		if (!nomore) {
+			it = fopen(work, "r");
+			if (fgets(abuf, BUFSIZ-1, it) &&
+			   abuf[0] == '.' && abuf[1] == 's' &&
+			   abuf[2] == 'o' && abuf[3] == ' ') {
+				register char *cp = abuf+strlen(".so ");
+				char *dp;
+d310 29
+a338 47
+				while (*cp && *cp != '\n')
+					cp++;
+				*cp = 0;
+				while (cp > abuf && *--cp != '/')
+					;
+				dp = ".so /usr/man/man";
+				if (cp != abuf+strlen(dp)+1) {
+tohard:
+					strcpy(work, abuf+4);
+					goto hardway;
+				}
+				for (cp = abuf; *cp == *dp && *cp; cp++, dp++)
+					;
+				if (*dp)
+					goto tohard;
+				strcpy(work, cp-3);
+				(void) stat(abuf+strlen(".so "), &stbuf);
+			}
+			fclose(it);
+			strcpy(work2, "cat");
+			strcpy(work2+3, work+3);
+			work2[4] = 0;
+			if (stat(work2, &stbuf2) < 0)
+				goto hardway;
+			strcpy(work2+3, work+3);
+			if (stat(work2, &stbuf2) < 0
+			    || stbuf2.st_mtime < stbuf.st_mtime) {
+				printf(ediag("Reformatting page.  Wait...",
+				     "Форматирование документа.  Подождите..."));
+				fflush(stdout);
+				unlink(work2);
+				sprintf(cmdbuf,
+			"%s %s > /tmp/man%d; trap '' 1 15; mv /tmp/man%d %s",
+				NROFFCAT, work, getpid(), getpid(), work2);
+				if (system(cmdbuf)) {
+					printf(ediag(
+					     " aborted (sorry)\n",
+					     " выкинуто (извините)\n"));
+					remove();
+					/*NOTREACHED*/
+				}
+				printf(ediag(" man: done\n", " man: готово\n"));
+			}
+			strcpy(work, work2);
+		}
+hardway:
+		nroff(work);
+d340 16
+a355 2
+/* раздел не был задан, поищем и в других разделах ... */
+	if( showall ) goto CONT;
+d358 3
+d365 2
+d368 33
+a400 5
+	if (cp[0] == 'c')
+		sprintf(cmd, "%s %s", nomore? CAT : MORE, cp);
+	else
+		sprintf(cmd, nomore? "%s %s" : "%s %s|%s", NROFF, cp, MORE);
+	system(cmd);
+d403 15
+d423 1
+a423 1
+	sprintf(cmdbuf, "%s %s %s", TROFF1, cp, TROFF2);
+@
+
+
+1.5
+log
+@F O R C E D .
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d9 1
+a9 1
+static char sccsid[]    = "$Header: man.c,v 1.4 88/09/13 19:16:51 abs Exp $";
+a241 4
+			if( !man && !nfound )
+				printf( ediag(
+"No man, no cat...\n", "Нет ни в man, ни в cat...\n"));
+
+d252 1
+a252 1
+  "Нет описания %s в секции %c оперативной документации.\n"), name, sec);
+d274 1
+a274 1
+			   "Нет описания для %s в секции %c"),
+@
+
+
+1.4
+log
+@Еще большая свалка по поводу работы с local, new, etc.
+Причем починено не до конца...
+@
+text
+@d1 4
+d6 1
+a6 1
+static char sccsid[]    = "$Header: man.c,v 1.3 88/09/13 16:02:00 abs Exp $";
+@
+
+
+1.3
+log
+@Накручено лапши.
+Теперь, если номер раздела не задан, то ищутся документы с
+указанным именем во всех разделах, и все они выводятся.
+Второе: если документ не найден в /usr/man/man?,
+он ищется в /usr/man/cat? , однако ругательная диагностика
+все-таки выдается (для поддержания бдительности).
+Накручены и другие хаки, так что с первого взгляда программу
+понять теперь невозможно.
+	Your ABS.
+@
+text
+@d2 1
+a2 1
+static char sccsid[]    = "$Header: man.c,v 1.2 88/09/12 21:01:47 abs Exp $";
+d161 1
+a161 1
+	char *sp;
+d185 2
+a186 1
+	if (section == 0) {
+d189 2
+d195 14
+d210 1
+a210 1
+				break;
+a211 1
+				char *cp;
+d217 1
+d226 4
+d232 1
+d234 1
+a234 1
+
+d252 5
+a256 1
+	} else {
+d261 1
+d267 1
+a267 6
+			if( section == 'u' || section == 'l' ||
+			    section == 'n' || section == 'p' ){
+				sp = ALLSECT;
+				section = 0;
+				goto CONT;
+			}
+d279 14
+d344 2
+a345 2
+			"%s %s |%s> /tmp/man%d; trap '' 1 15; mv /tmp/man%d %s",
+				NROFFCAT, work, SSP, getpid(), getpid(), work2);
+d353 1
+a353 1
+				printf(ediag(" man: done\n", " man: ГОТОВО\n"));
+@
+
+
+1.2
+log
+@переведен на русский язык. Поправлены мелкие несоответствия.
+pif заменен на nroff.
+@
+text
+@d2 1
+a2 1
+static char sccsid[]    = "$Header: man.c,v 1.1 88/09/12 20:58:10 abs Exp $";
+d29 1
+d35 2
+a36 2
+#define ALLSECT "1unl6823457p"  /* order to look through sections */
+#define SECT1   "1unl"          /* sections to look at if 1 is specified */
+d41 2
+d85 6
+d128 1
+a128 1
+		} else if (eq(argv[0], "ucb")) {
+d141 2
+d157 1
+a157 1
+	char section = sec;
+d161 4
+a164 1
+	char *sp = ALLSECT;
+d166 12
+a177 1
+	strcpy(work, "manx/");
+d186 1
+d209 12
+a220 3
+		}
+		if (section == 0) {
+			if (sec == 0)
+d228 1
+a228 1
+			return;
+d240 7
+d255 1
+a255 1
+			return;
+d259 3
+d324 2
+d382 2
+a383 2
+	if (freopen("/usr/lib/whatis", "r", stdin) == NULL) {
+		perror("/usr/lib/whatis");
+d463 2
+a464 2
+	if (freopen("/usr/lib/whatis", "r", stdin) == NULL) {
+		perror("/usr/lib/whatis");
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char sccsid[]    = "$Header$";
+d130 1
+a130 1
+		"А почему вы решили, что это в разделе %s?\n" ),
+@

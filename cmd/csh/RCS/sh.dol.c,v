@@ -1,0 +1,1664 @@
+head     1.10;
+access   ;
+symbols  BSD29:1.1.2.9 AVG1:1.4 VAX:0.0.2.0 MNOS12:0.0.1;
+locks    ;
+comment  @ * @;
+
+
+1.10
+date     89.06.10.11.38.41;  author avg;  state Exp;
+branches ;
+next     1.9;
+
+1.9
+date     89.05.06.18.26.29;  author avg;  state Exp;
+branches ;
+next     1.8;
+
+1.8
+date     89.05.06.15.59.53;  author avg;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.05.03.21.16.29;  author avg;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.03.16.11.58.01;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     86.09.05.18.32.00;  author dmitry;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.07.20.21.09.58;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.06.02.22.11.11;  author dmitry;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.06.02.17.19.25;  author dmitry;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.06.01.20.18.42;  author dmitry;  state Exp;
+branches 1.1.2.9;
+next     0.0;
+
+0.0
+date     86.06.01.19.16.44;  author dmitry;  state Exp;
+branches 0.0.1.0 0.0.2.0;
+next     ;
+
+0.0.1.0
+date     86.06.01.19.38.38;  author dmitry;  state Exp;
+branches ;
+next     ;
+
+0.0.2.0
+date     86.07.20.19.07.47;  author avg;  state Exp;
+branches ;
+next     ;
+
+1.1.2.9
+date     86.09.23.22.33.15;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@@
+
+
+1.10
+log
+@Добавлена обработка переменной _roll.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static  char *rcsid = "$Header: sh.dol.c,v 1.9 89/05/06 18:26:29 avg Exp $";
+/*YESXSTR*/
+#endif  lint
+
+/*
+ * $Log:        sh.dol.c,v $
+ * Revision 1.9  89/05/06  18:26:29  avg
+ * Syntax Error
+ * \
+ *
+ * Revision 1.8  89/05/06  15:59:53  avg
+ * Вынесен в static большой массив.
+ *
+ * Revision 1.7  89/05/03  21:16:29  avg
+ * Сделана подстановка переменных в prompt.
+ *
+ * Revision 1.6  89/03/16  11:58:01  avg
+ * Внесены изменения для экранной версии csh.
+ *
+ * Revision 1.5  86/09/05  18:32:00  dmitry
+ * $< не понимал русских букв.
+ * (правка by @@VG).
+ *
+ * Revision 1.4  86/07/20  21:09:58  avg
+ * Слита с версией alex-а из 4.2.
+ *
+ * Revision 1.3  86/06/02  22:11:11  dmitry
+ * *** empty log message ***
+ *
+ * Revision 1.2  86/06/02  17:19:25  dmitry
+ * Слит с версией для МНОС 1.2, т.о. добавлены русские буквы.
+ *
+ * Revision 1.1  86/06/01  20:18:42  dmitry
+ * DEMOS & MNOS 2 version
+ *
+ */
+
+#include "sh.h"
+
+/*
+ * These routines perform variable substitution and quoting via ' and ".
+ * To this point these constructs have been preserved in the divided
+ * input words.
+ * If the `:q' modifier was applied during history expansion, then
+ * some QUOTEing may have occurred already, so we dont "scan(,&trim)" here.
+ */
+
+int     Dpeekc, Dpeekrd;                /* Peeks for DgetC and Dreadc */
+char    *Dcp, **Dvp;                    /* Input vector for Dreadc */
+
+#define DEOF    -1
+
+#define unDgetC(c)      Dpeekc = c
+
+char    *QUOTES = "\\'`\"";
+
+/*
+ * The following variables give the information about the current
+ * $ expansion, recording the current word position, the remaining
+ * words within this expansion, the count of remaining words, and the
+ * information about any : modifier which is being applied.
+ */
+char    *dolp;                  /* Remaining chars from this word */
+char    *pprompt;               /* Reading char from prompt */
+char    **dolnxt;               /* Further words */
+int     dolcnt;                 /* Count of further words */
+char    dolmod;                 /* : modifier character */
+int     dolmcnt;                /* :gx -> 10000, else 1 */
+
+int     Dtest();                /* Test for \ " ` or ' */
+
+/*
+ * Fix up the $ expansions and quotations in the
+ * argument list to command t.
+ */
+Dfix(t)
+	register struct command *t;
+{
+
+	if (noexec)
+		return;
+	gflag = 0, rscan(t->t_dcom, Dtest);
+	if (gflag == 0)
+		return;
+	Dfix2(t->t_dcom);
+	blkfree(t->t_dcom), t->t_dcom = gargv, gargv = 0;
+}
+
+/*
+ * $ substitute one word, for i/o redirection
+ */
+char *
+Dfix1(cp)
+	register char *cp;
+{
+	char *Dv[2];
+
+	if (noexec)
+		return (0);
+	Dv[0] = cp; Dv[1] = NOSTR;
+	Dfix2(Dv);
+	if (gargc != 1) {
+		setname(cp);
+		bferr(ediag("Ambiguous", "Неоднозначно"));
+	}
+	cp = savestr(gargv[0]);
+	blkfree(gargv), gargv = 0;
+	return (cp);
+}
+
+/*
+ * Subroutine to do actual fixing after state initialization.
+ */
+Dfix2(v)
+	char **v;
+{
+	char *agargv[GAVSIZ];
+
+	ginit(agargv);                  /* Initialize glob's area pointers */
+	Dvp = v; Dcp = "";              /* Setup input vector for Dreadc */
+	unDgetC(0); unDredc(0);         /* Clear out any old peeks (at error) */
+	dolp = 0; dolcnt = 0;           /* Clear out residual $ expands (...) */
+	while (Dword())
+		continue;
+	gargv = copyblk(gargv);
+}
+
+/*
+ * Get a word.  This routine is analogous to the routine
+ * word() in sh.lex.c for the main lexical input.  One difference
+ * here is that we don't get a newline to terminate our expansion.
+ * Rather, DgetC will return a DEOF when we hit the end-of-input.
+ */
+Dword()
+{
+	register int c, c1;
+	char wbuf[BUFSIZ];
+	register char *wp = wbuf;
+	register int i = BUFSIZ - 4;
+	register bool dolflg;
+	bool sofar = 0;
+
+loop:
+	c = DgetC(DODOL);
+	switch (c) {
+
+	case DEOF:
+deof:
+		if (sofar == 0)
+			return (0);
+		/* finish this word and catch the code above the next time */
+		unDredc(c);
+		/* fall into ... */
+
+	case '\n':
+		*wp = 0;
+		goto ret;
+
+	case ' ':
+	case '\t':
+		goto loop;
+
+	case '`':
+		/* We preserve ` quotations which are done yet later */
+		*wp++ = c, --i;
+	case '\'':
+	case '"':
+		/*
+		 * Note that DgetC never returns a QUOTES character
+		 * from an expansion, so only true input quotes will
+		 * get us here or out.
+		 */
+		c1 = c;
+		dolflg = c1 == '"' ? DODOL : 0;
+		for (;;) {
+			c = DgetC(dolflg);
+			if (c == c1)
+				break;
+			if (c == '\n' || c == DEOF)
+				error(ediag("Unmatched %c",
+					    "Не закрыта %c"), c1);
+			if ((c & 0377) == (QUOTEDS('\n')))
+				--wp, ++i;
+			if (--i <= 0)
+				goto toochars;
+			switch (c1) {
+
+			case '"':
+				/*
+				 * Leave any `s alone for later.
+				 * Other chars are all quoted, thus `...`
+				 * can tell it was within "...".
+				 */
+				*wp++ = c == '`' ? '`' : QUOTED(c);
+				break;
+
+			case '\'':
+				/* Prevent all further interpretation */
+				*wp++ = QUOTED(c);
+				break;
+
+			case '`':
+				/* Leave all text alone for later */
+				*wp++ = c;
+				break;
+			}
+		}
+		if (c1 == '`')
+			*wp++ = '`', --i;
+		goto pack;              /* continue the word */
+
+	case '\\':
+		c = DgetC(0);           /* No $ subst! */
+		if (c == '\n' || c == DEOF)
+			goto loop;
+		c = QUOTED(c);
+		break;
+	}
+	unDgetC(c);
+pack:
+	sofar = 1;
+	/* pack up more characters in this word */
+	for (;;) {
+		c = DgetC(DODOL);
+		if (c == '\\') {
+			c = DgetC(0);
+			if (c == DEOF)
+				goto deof;
+			if (c == '\n')
+				c = ' ';
+			else
+				c = QUOTED(c);
+		}
+		if (c == DEOF)
+			goto deof;
+		if (any(c, " '`\"\t\n")) {
+			unDgetC(c);
+			if (any(c, QUOTES))
+				goto loop;
+			*wp++ = 0;
+			goto ret;
+		}
+		if (--i <= 0)
+toochars:
+			error(ediag("Word too long",
+				    "Слишком длинное слово"));
+		*wp++ = c;
+	}
+ret:
+	Gcat("", wbuf);
+	return (1);
+}
+
+/*
+ * Get a character, performing $ substitution unless flag is 0.
+ * Any QUOTES character which is returned from a $ expansion is
+ * QUOTEd so that it will not be recognized above.
+ */
+DgetC(flag)
+	register int flag;
+{
+	register int c;
+
+top:
+	if (c = Dpeekc) {
+		Dpeekc = 0;
+		return (c);
+	}
+	if (lap) {
+		c = (unsigned)(*lap++ & 0377);
+		if (c == 0) {
+			lap = 0;
+			goto top;
+		}
+quotspec:
+		if (!pprompt && any(c, QUOTES))
+			return (QUOTED(c));
+		return (c);
+	}
+	if (dolp) {
+		if (c = (unsigned)(*dolp++ & 0377))
+			goto quotspec;
+		if (dolcnt > 0) {
+			setDolp(*dolnxt++);
+			--dolcnt;
+			return (' ');
+		}
+		dolp = 0;
+	}
+	if (dolcnt > 0) {
+		setDolp(*dolnxt++);
+		--dolcnt;
+		goto top;
+	}
+	c = Dredc();
+	if (c == '$' && flag) {
+		Dgetdol();
+		goto top;
+	}
+	return (c);
+}
+
+char    *nulvec[] = { 0 };
+struct  varent nulargv = { nulvec, "argv", 0 };
+
+/*
+ * Handle the multitudinous $ expansion forms.
+ * Ugh.
+ */
+Dgetdol()
+{
+	register char *np;
+	register struct varent *vp;
+	char name[20];
+	int c, sc;
+	int subscr = 0, lwb = 1, upb = 0;
+	bool dimen = 0, bitset = 0;
+	char wbuf[BUFSIZ];
+	extern int col;         /* current column */
+
+	dolmod = dolmcnt = 0;
+	c = sc = DgetC(0);
+	if (c == '{')
+		c = DgetC(0);           /* sc is { to take } later */
+	if (TRIMED(c) == '#')
+		dimen++, c = DgetC(0);          /* $# takes dimension */
+	else if (c == '?')
+		bitset++, c = DgetC(0);         /* $? tests existence */
+	switch (c) {
+
+	case '$':
+		if (dimen || bitset)
+			goto syntax;            /* No $?$, $#$ */
+		setDolp(doldol);
+		goto eatbrac;
+
+	case QUOTEDS('<'):
+		if (dimen || bitset)
+			goto syntax;            /* No $?<, $#< */
+		for (np = wbuf; read(OLDSTD, np, 1) == 1; np++) {
+			if (np >= &wbuf[BUFSIZ-1])
+				error(ediag("$< line too long",
+					    "слишком длинная строка для $<"));
+			if (*np == 0 || *np == '\n')
+				break;
+		}
+		*np = 0;
+		/*
+		 * KLUDGE: dolmod is set here because it will
+		 * cause setDolp to call domod and thus to copy wbuf.
+		 * Otherwise setDolp would use it directly. If we saved
+		 * it ourselves, no one would know when to free it.
+		 * The actual function of the 'q' causes filename
+		 * expansion not to be done on the interpolated value.
+		 */
+		dolmod = 'q';
+		dolmcnt = 10000;
+		setDolp(wbuf);
+		goto eatbrac;
+
+	case DEOF:
+	case '\n':
+		goto syntax;
+
+	case '*':
+		strcpy(name, "argv");
+		vp = adrof("argv");
+		subscr = -1;                    /* Prevent eating [...] */
+		break;
+
+	default:
+		np = name;
+		if (digit(c)) {
+			if (dimen)
+				goto syntax;    /* No $#1, e.g. */
+			subscr = 0;
+			do {
+				subscr = subscr * 10 + c - '0';
+				c = DgetC(0);
+			} while (digit(c));
+			unDredc(c);
+			if (subscr < 0)
+				goto oob;
+			if (subscr == 0) {
+				if (bitset) {
+					dolp = file ? "1" : "0";
+					goto eatbrac;
+				}
+				if (file == 0)
+					error(ediag("No file for $0",
+						    "Нет файла для $0"));
+				setDolp(file);
+				goto eatbrac;
+			}
+			if (bitset)
+				goto syntax;
+			vp = adrof("argv");
+			if (vp == 0) {
+				vp = &nulargv;
+				goto eatmod;
+			}
+			break;
+		}
+		if (!alnum(c))
+			goto syntax;
+		for (;;) {
+			*np++ = c;
+			c = DgetC(0);
+			if(c == DEOF || !alnum(c))       /* @@VG */
+				break;
+			if (np >= &name[sizeof name - 2])
+syntax:
+				error(ediag("Variable syntax",
+					    "Синтаксис переменной!"));
+		}
+		*np++ = 0;
+		unDredc(c);
+		vp = adrof(name);
+	}
+	if (bitset) {
+		dolp = (vp || getenv(name)) ? "1" : "0";
+			goto eatbrac;
+	}
+	if (vp == 0) {
+		np = getenv(name);
+		if (np) {
+			addla(np);
+			goto eatbrac;
+		}
+		if( ! pprompt )
+			udvar(name);
+		else {
+			if( eq(name, "_pos") || eq(name, "_roll") ) {
+				if( DgetC(0) != '[' )
+					goto syntpos;
+				for(;;) {
+					c = DgetC(DODOL);
+					if( c == ',' || c == ' ' || c == '\t' )
+						continue;
+					if( '0' <= c && c <= '9' )
+						continue;
+					if( c == ']' )
+						break;
+					goto syntpos;
+				}
+			}
+			dolp = "";
+			goto eatbrac;
+		}
+		/*NOTREACHED*/
+	}
+	c = DgetC(0);
+	if( name[0] == '_' ) {
+	    if( eq(name, "_time") )             /* Handle _time by @@VG */
+		SetCurrentTime();
+	    else if( eq(name, "_pos") ) {       /* Handle _pos[v,h] by @@VG */
+		int hpos, vpos;
+		extern char *c_pos();
+
+		if( dimen != 0 || subscr != 0 || c != '[' ) {
+		   syntpos:
+			error(ediag("Syntax error in $_pos[v,h]",
+				    "Синтаксическая ошибка в $_pos[v,h]"));
+		}
+		hpos = vpos = 0;
+		for(;;) {
+			c = DgetC(DODOL);
+			if( c == ',' )
+				break;
+			if( c == ' ' || c == '\t' )
+				continue;
+			if( c < '0' || c > '9' )
+				goto syntpos;
+			vpos = (vpos*10) + (c-'0');
+		}
+		for(;;) {
+			c = DgetC(DODOL);
+			if( c == ']' )
+				break;
+			if( c == ' ' || c == '\t' )
+				continue;
+			if( c < '0' || c > '9' )
+				goto syntpos;
+			hpos = (hpos*10) + (c-'0');
+		}
+		addla(c_pos(vpos, hpos));
+		col = hpos - strlen(c_pos(vpos, hpos));
+		goto eatbrac;
+	    } else if( eq(name, "_roll") ) {       /* Handle _roll[l1,l2] */
+		int roll1,roll2;
+		extern char *c_roll();
+
+		if( dimen != 0 || subscr != 0 || c != '[' ) {
+		   syntroll:
+			error(ediag("Syntax error in $_roll[l1,l2]",
+				    "Синтаксическая ошибка в $_roll[l1,l2]"));
+		}
+		roll1 = roll2 = 0;
+		for(;;) {
+			c = DgetC(DODOL);
+			if( c == ',' )
+				break;
+			if( c == ' ' || c == '\t' )
+				continue;
+			if( c < '0' || c > '9' )
+				goto syntroll;
+			roll1 = (roll1*10) + (c-'0');
+		}
+		for(;;) {
+			c = DgetC(DODOL);
+			if( c == ']' )
+				break;
+			if( c == ' ' || c == '\t' )
+				continue;
+			if( c < '0' || c > '9' )
+				goto syntroll;
+			roll2 = (roll2*10) + (c-'0');
+		}
+		addla(c_roll(roll1, roll2));
+		goto eatbrac;
+	    } else
+		chkscrvar(name);        /* Handle different screen vars */
+	}
+	upb = blklen(vp->vec);
+	if (dimen == 0 && subscr == 0 && c == '[') {
+		np = name;
+		for (;;) {
+			c = DgetC(DODOL);       /* Allow $ expand within [ ] */
+			if (c == ']')
+				break;
+			if (c == '\n' || c == DEOF)
+				goto syntax;
+			if (np >= &name[sizeof name - 2])
+				goto syntax;
+			*np++ = c;
+		}
+		*np = 0, np = name;
+		if (dolp || dolcnt)             /* $ exp must end before ] */
+			goto syntax;
+		if (!*np)
+			goto syntax;
+		if (digit(*np)) {
+			register int i = 0;
+
+			while (digit(*np))
+				i = i * 10 + *np++ - '0';
+			if ((i < 0 || i > upb) && !any(*np, "-*")) {
+oob:
+				setname(vp->name);
+				error(ediag("Subscript out of range",
+					    "Индекс не в диапазоне") );
+			}
+			lwb = i;
+			if (!*np)
+				upb = lwb, np = "*";
+		}
+		if (*np == '*')
+			np++;
+		else if (*np != '-')
+			goto syntax;
+		else {
+			register int i = upb;
+
+			np++;
+			if (digit(*np)) {
+				i = 0;
+				while (digit(*np))
+					i = i * 10 + *np++ - '0';
+				if (i < 0 || i > upb)
+					goto oob;
+			}
+			if (i < lwb)
+				upb = lwb - 1;
+			else
+				upb = i;
+		}
+		if (lwb == 0) {
+			if (upb != 0)
+				goto oob;
+			upb = -1;
+		}
+		if (*np)
+			goto syntax;
+	} else {
+		if (subscr > 0)
+			if (subscr > upb)
+				lwb = 1, upb = 0;
+			else
+				lwb = upb = subscr;
+		unDredc(c);
+	}
+	if (dimen) {
+		char *cp = putn(upb - lwb + 1);
+
+		addla(cp);
+		xfree(cp);
+	} else {
+eatmod:
+		c = DgetC(0);
+		if (c == ':') {
+			c = DgetC(0), dolmcnt = 1;
+			if (c == 'g')
+				c = DgetC(0), dolmcnt = 10000;
+			if (!any(c, "htrqxe"))
+				error(ediag("Bad : mod in $",
+					    "Плохой : модификатор в $"));
+			dolmod = c;
+			if (c == 'q')
+				dolmcnt = 10000;
+		} else
+			unDredc(c);
+		dolnxt = &vp->vec[lwb - 1];
+		dolcnt = upb - lwb + 1;
+	}
+eatbrac:
+	if (sc == '{') {
+		c = Dredc();
+		if (c != '}')
+			goto syntax;
+	}
+}
+
+setDolp(cp)
+	register char *cp;
+{
+	register char *dp;
+
+	if (dolmod == 0 || dolmcnt == 0) {
+		dolp = cp;
+		return;
+	}
+	dp = domod(cp, dolmod);
+	if (dp) {
+		dolmcnt--;
+		addla(dp);
+		xfree(dp);
+	} else
+		addla(cp);
+	dolp = "";
+}
+
+unDredc(c)
+	int c;
+{
+
+	Dpeekrd = c;
+}
+
+Dredc()
+{
+	register unsigned c;
+
+	if (c = Dpeekrd) {
+		Dpeekrd = 0;
+		return (c);
+	}
+#ifdef COMMANDEDIT
+	if (pprompt && *pprompt == 0 )
+		return (DEOF);
+	if (pprompt)
+		return (*pprompt++);
+#endif
+	if (Dcp && (c = (*Dcp++) & 0377) ) /* R: @@VG */
+		return (c);
+	if (*Dvp == 0) {
+		Dcp = 0;
+		return (DEOF);
+	}
+	Dcp = *Dvp++;
+	return (' ');
+}
+
+Dtest(c)
+	register int c;
+{
+
+	/* Note that c isn't trimmed thus !...:q's aren't lost */
+	if (any(c, "$\\'`\""))
+		gflag = 1;
+}
+
+Dtestq(c)
+	register int c;
+{
+
+	if (any(c, "\\'`\""))
+		gflag = 1;
+}
+
+/*
+ * Form a shell temporary file (in unit 0) from the words
+ * of the shell input up to a line the same as "term".
+ * Unit 0 should have been closed before this call.
+ */
+heredoc(term)
+	char *term;
+{
+	register int c;
+	char *Dv[2];
+	char obuf[BUFSIZ], lbuf[BUFSIZ], mbuf[BUFSIZ];
+	int ocnt, lcnt, mcnt;
+	register char *lbp, *obp, *mbp;
+	char **vp;
+	bool quoted;
+
+	if (creat(shtemp, 0600) < 0)
+		Perror(shtemp);
+	close(0);
+	if (open(shtemp, 2) < 0) {
+		int oerrno = errno;
+
+		unlink(shtemp);
+		errno = oerrno;
+		Perror(shtemp);
+	}
+	unlink(shtemp);                 /* 0 0 inode! */
+	Dv[0] = term; Dv[1] = NOSTR; gflag = 0;
+	scan(Dv, trim); rscan(Dv, Dtestq); quoted = gflag;
+	ocnt = BUFSIZ; obp = obuf;
+	for (;;) {
+		/*
+		 * Read up a line
+		 */
+		lbp = lbuf; lcnt = BUFSIZ - 4;
+		for (;;) {
+			c = readc(1);           /* 1 -> Want EOF returns */
+			if (c < 0) {
+				setname(term);
+				bferr(ediag("<< terminator not found",
+					    "Ограничитель << не найден"));
+			}
+			if (c == '\n')
+				break;
+			if ( c = TRIMED(c) ) {
+				*lbp++ = c;
+				if (--lcnt < 0) {
+					setname("<<");
+					error(ediag("Line overflow",
+						    "Переполнение строки"));
+				}
+			}
+		}
+		*lbp = 0;
+
+		/*
+		 * Compare to terminator -- before expansion
+		 */
+		if (eq(lbuf, term)) {
+			write(0, obuf, BUFSIZ - ocnt);
+			lseek(0, 0l, 0);
+			return;
+		}
+
+		/*
+		 * If term was quoted or -n just pass it on
+		 */
+		if (quoted || noexec) {
+			*lbp++ = '\n'; *lbp = 0;
+			for (lbp = lbuf; c = *lbp++;) {
+				*obp++ = c;
+				if (--ocnt == 0) {
+					write(0, obuf, BUFSIZ);
+					obp = obuf; ocnt = BUFSIZ;
+				}
+			}
+			continue;
+		}
+
+		/*
+		 * Term wasn't quoted so variable and then command
+		 * expand the input line
+		 */
+		Dcp = lbuf; Dvp = Dv + 1; mbp = mbuf; mcnt = BUFSIZ - 4;
+		for (;;) {
+			c = DgetC(DODOL);
+			if (c == DEOF)
+				break;
+			if ((c = TRIMED(c)) == 0)
+				continue;
+			/* \ quotes \ $ ` here */
+			if (c =='\\') {
+				c = DgetC(0);
+				if (!any(c, "$\\`"))
+					unDgetC(QUOTED(c)), c = '\\';
+				else
+					c = QUOTED(c);
+			}
+			*mbp++ = c;
+			if (--mcnt == 0) {
+				setname("<<");
+				bferr(ediag("Line overflow",
+					    "Переполнение строки"));
+			}
+		}
+		*mbp++ = 0;
+
+		/*
+		 * If any ` in line do command substitution
+		 */
+		mbp = mbuf;
+		if (any('`', mbp)) {
+			/*
+			 * 1 arg to dobackp causes substitution to be literal.
+			 * Words are broken only at newlines so that all blanks
+			 * and tabs are preserved.  Blank lines (null words)
+			 * are not discarded.
+			 */
+			vp = dobackp(mbuf, 1);
+		} else
+			/* Setup trivial vector similar to return of dobackp */
+			Dv[0] = mbp, Dv[1] = NOSTR, vp = Dv;
+
+		/*
+		 * Resurrect the words from the command substitution
+		 * each separated by a newline.  Note that the last
+		 * newline of a command substitution will have been
+		 * discarded, but we put a newline after the last word
+		 * because this represents the newline after the last
+		 * input line!
+		 */
+		for (; *vp; vp++) {
+			for (mbp = *vp; *mbp; mbp++) {
+				*obp++ = TRIMED(*mbp);
+				if (--ocnt == 0) {
+					write(0, obuf, BUFSIZ);
+					obp = obuf; ocnt = BUFSIZ;
+				}
+			}
+			*obp++ = '\n';
+			if (--ocnt == 0) {
+				write(0, obuf, BUFSIZ);
+				obp = obuf; ocnt = BUFSIZ;
+			}
+		}
+		if (pargv)
+			blkfree(pargv), pargv = 0;
+	}
+}
+@
+
+
+1.9
+log
+@Syntax Error
+\
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dol.c,v 1.8 89/05/06 15:59:53 avg Exp $";
+d8 5
+a12 1
+ * $Log:	sh.dol.c,v $
+d15 1
+a15 1
+ * 
+d435 1
+a435 1
+			if( eq(name, "_pos") ) {
+d490 32
+@
+
+
+1.8
+log
+@Вынесен в static большой массив.
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dol.c,v 1.7 89/05/03 21:16:29 avg Exp $";
+d8 4
+a11 1
+ * $Log:        sh.dol.c,v $
+d428 1
+a428 1
+		if( ! pprompt ) {
+@
+
+
+1.7
+log
+@Сделана подстановка переменных в prompt.
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dol.c,v 1.6 89/03/16 11:58:01 avg Exp $";
+d9 3
+d425 1
+a425 1
+		if( ! pprompt )
+d428 14
+@
+
+
+1.6
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dol.c,v 1.5 86/09/05 18:32:00 dmitry Exp $";
+d9 3
+d56 1
+d268 1
+a268 1
+		if (any(c, QUOTES))
+d311 1
+d422 6
+a427 1
+		udvar(name);
+d431 4
+a434 1
+	if( eq(name, "_pos") ) {        /* Handle _pos[v,h] by @@VG */
+d465 1
+d467 2
+d603 6
+@
+
+
+1.5
+log
+@$< не понимал русских букв.
+(правка by @@VG).
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dol.c,v 1.4 86/07/20 21:09:58 avg Exp $";
+d9 4
+d421 33
+@
+
+
+1.4
+log
+@Слита с версией alex-а из 4.2.
+@
+text
+@d3 1
+a3 1
+static  char *rcsid = "$Header: sh.dol.c,v 1.3 86/06/02 22:11:11 dmitry Exp $";
+d9 3
+d325 3
+a327 2
+				error("$< line too long");
+			if (*np <= 0 || *np == '\n')
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 3
+
+static  char *rcsid = "$Header: sh.dol.c,v 1.2 86/06/02 17:19:25 dmitry Exp $";
+
+d9 3
+d25 1
+a25 2
+ * input words.  Here we expand variables and turn quoting via ' and " into
+ * QUOTE bits on characters (which prevent further interpretation).
+d251 1
+a251 1
+		c = (unsigned)(*lap++);
+d262 1
+a262 1
+		if (c = (unsigned)(*dolp++))
+d298 1
+a298 1
+	bool dimen = 0, isset = 0;
+d308 1
+a308 1
+		isset++, c = DgetC(0);          /* $? tests existence */
+d312 1
+a312 1
+		if (dimen || isset)
+d318 1
+a318 1
+		if (dimen || isset)
+d364 1
+a364 1
+				if (isset) {
+d374 1
+a374 1
+			if (isset)
+d399 4
+a402 1
+	/* This code added by @@VG 06.07.85 */
+d404 3
+a406 4
+		char *cp = getenv(name);
+
+		if (isset) {
+			dolp = cp ? "1" : "0";
+a408 6
+		if (cp) {
+			if(dimen)
+				cp = "1";     /* сопля ! */
+			dolp = cp;
+			goto eatbrac;
+		}
+a409 3
+	} else if (isset) {
+		dolp = "1";
+		goto eatbrac;
+a411 1
+	/* End of added code */
+@
+
+
+1.2
+log
+@Слит с версией для МНОС 1.2, т.о. добавлены русские буквы.
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.dol.c,v 1.1 86/06/01 20:18:42 dmitry Exp $";
+d11 3
+d317 1
+a317 1
+	case '<'|QUOTE:
+@
+
+
+1.1
+log
+@DEMOS & MNOS 2 version
+@
+text
+@d4 1
+a4 1
+static  char *rcsid = "$Header: sh.dol.c,v 0.0 86/04/20 21:24:05 root Exp $";
+d10 4
+a13 1
+ * $Log$
+a18 4
+ * C shell
+ */
+
+/*
+d82 1
+a82 1
+		bferr("Ambiguous");
+d158 3
+a160 2
+				error("Unmatched %c", c1);
+			if ((c & (QUOTE|TRIM)) == ('\n' | QUOTE))
+d172 1
+a172 1
+				*wp++ = c == '`' ? '`' : c | QUOTE;
+d177 1
+a177 1
+				*wp++ = c | QUOTE;
+d194 1
+a194 1
+		c |= QUOTE;
+d210 1
+a210 1
+				c |= QUOTE;
+d223 2
+a224 1
+			error("Word too long");
+d248 1
+a248 1
+		c = *lap++ & (QUOTE|TRIM);
+d255 1
+a255 1
+			return (c | QUOTE);
+d259 1
+a259 1
+		if (c = *dolp++ & (QUOTE|TRIM))
+d302 1
+a302 1
+	if ((c & TRIM) == '#')
+d366 2
+a367 1
+					error("No file for $0");
+d385 1
+a385 1
+			if (!alnum(c))
+d389 2
+a390 1
+				error("Variable syntax");
+d396 1
+a396 4
+	if (isset) {
+		dolp = (vp || getenv(name)) ? "1" : "0";
+		goto eatbrac;
+	}
+d398 4
+a401 3
+		np = getenv(name);
+		if (np) {
+			addla(np);
+d404 6
+d411 3
+d416 1
+d444 2
+a445 1
+				error("Subscript out of range");
+d499 2
+a500 1
+				error("Bad : mod in $");
+d545 1
+a545 1
+	register int c;
+d551 2
+a552 2
+	if (Dcp && (c = *Dcp++))
+		return (c&(QUOTE|TRIM));
+d617 2
+a618 1
+				bferr("<< terminator not found");
+d622 1
+a622 1
+			if (c &= TRIM) {
+d626 2
+a627 1
+					error("Line overflow");
+d666 1
+a666 1
+			if ((c &= TRIM) == 0)
+d672 1
+a672 1
+					unDgetC(c | QUOTE), c = '\\';
+d674 1
+a674 1
+					c |= QUOTE;
+d679 2
+a680 1
+				bferr("Line overflow");
+d711 1
+a711 1
+				*obp++ = *mbp & TRIM;
+@
+
+
+1.1.2.9
+log
+@ORIGINAL 2.9 VERSION
+@
+text
+@d1 2
+a2 1
+static	char *sccsid = "@@(#)sh.dol.c 4.2 5/3/81";
+d4 9
+d28 2
+a29 2
+int	Dpeekc, Dpeekrd;		/* Peeks for DgetC and Dreadc */
+char	*Dcp, **Dvp;			/* Input vector for Dreadc */
+d31 1
+a31 1
+#define	DEOF	-1
+d33 1
+a33 1
+#define	unDgetC(c)	Dpeekc = c
+d35 1
+a35 1
+char	*QUOTES = "\\'`\"";
+d43 5
+a47 5
+char	*dolp;			/* Remaining chars from this word */
+char	**dolnxt;		/* Further words */
+int	dolcnt;			/* Count of further words */
+char	dolmod;			/* : modifier character */
+int	dolmcnt;		/* :gx -> 10000, else 1 */
+d49 1
+a49 1
+int	Dtest();		/* Test for \ " ` or ' */
+d98 4
+a101 4
+	ginit(agargv);			/* Initialize glob's area pointers */
+	Dvp = v; Dcp = "";		/* Setup input vector for Dreadc */
+	unDgetC(0); unDredc(0);		/* Clear out any old peeks (at error) */
+	dolp = 0; dolcnt = 0;		/* Clear out residual $ expands (...) */
+d188 1
+a188 1
+		goto pack;		/* continue the word */
+d191 1
+a191 1
+		c = DgetC(0);		/* No $ subst! */
+d280 2
+a281 2
+char	*nulvec[] = { 0 };
+struct	varent nulargv = { nulvec, "argv", 0 };
+d300 1
+a300 1
+		c = DgetC(0);		/* sc is { to take } later */
+d302 1
+a302 1
+		dimen++, c = DgetC(0);		/* $# takes dimension */
+d304 1
+a304 1
+		isset++, c = DgetC(0);		/* $? tests existence */
+d306 1
+a306 1
+	
+d309 1
+a309 1
+			goto syntax;		/* No $?$, $#$ */
+d315 1
+a315 1
+			goto syntax;		/* No $?<, $#< */
+d343 1
+a343 1
+		subscr = -1;			/* Prevent eating [...] */
+d350 1
+a350 1
+				goto syntax;	/* No $#1, e.g. */
+d411 1
+a411 1
+			c = DgetC(DODOL);	/* Allow $ expand within [ ] */
+d421 1
+a421 1
+		if (dolp || dolcnt)		/* $ exp must end before ] */
+d591 1
+a591 1
+	unlink(shtemp);			/* 0 0 inode! */
+d601 1
+a601 1
+			c = readc(1);		/* 1 -> Want EOF returns */
+d613 1
+a613 1
+				} 
+@
+
+
+0.0
+log
+@Basic version
+@
+text
+@d1 12
+a12 2
+/*      @@(#)sh.dol.c    2.1     SCCS id keyword */
+/* Copyright (c) 1980 Regents of the University of California */
+d247 1
+a247 1
+		c = *lap++;
+d258 1
+a258 1
+		if (c = *dolp++)
+d295 1
+d306 1
+a306 1
+	
+d313 23
+d398 4
+a401 5
+		char *cp = getenv(name);
+
+		if (cp) {
+			addla(cp);
+			return;
+d404 1
+d486 1
+a486 1
+			if (!any(c, "htrqx"))
+d539 1
+a539 1
+		return (c);
+d613 1
+a613 1
+				} 
+@
+
+
+0.0.2.0
+log
+@VAX BSD 4.2 version by alex (8-bits)
+@
+text
+@d1 2
+a2 2
+/* $Header: sh.dol.c,v 2.1 86/03/12 23:47:24 alex Exp $ */
+
+d12 2
+a13 1
+ * input words.
+d18 2
+a19 2
+int	Dpeekc, Dpeekrd;		/* Peeks for DgetC and Dreadc */
+char	*Dcp, **Dvp;			/* Input vector for Dreadc */
+d21 1
+a21 1
+#define	DEOF	-1
+d23 1
+a23 1
+#define	unDgetC(c)	Dpeekc = c
+d25 1
+a25 1
+char	*QUOTES = "\\'`\"";
+d33 5
+a37 5
+char	*dolp;			/* Remaining chars from this word */
+char	**dolnxt;		/* Further words */
+int	dolcnt;			/* Count of further words */
+char	dolmod;			/* : modifier character */
+int	dolmcnt;		/* :gx -> 10000, else 1 */
+d39 1
+a39 1
+int	Dtest();		/* Test for \ " ` or ' */
+d88 4
+a91 4
+	ginit(agargv);			/* Initialize glob's area pointers */
+	Dvp = v; Dcp = "";		/* Setup input vector for Dreadc */
+	unDgetC(0); unDredc(0);		/* Clear out any old peeks (at error) */
+	dolp = 0; dolcnt = 0;		/* Clear out residual $ expands (...) */
+d150 1
+a150 1
+			if ((c & 0377) == (QUOTEDS('\n')))
+d162 1
+a162 1
+				*wp++ = c == '`' ? '`' : QUOTED(c);
+d167 1
+a167 1
+				*wp++ = QUOTED(c);
+d178 1
+a178 1
+		goto pack;		/* continue the word */
+d181 1
+a181 1
+		c = DgetC(0);		/* No $ subst! */
+d184 1
+a184 1
+		c = QUOTED(c);
+d200 1
+a200 1
+				c = QUOTED(c);
+d237 1
+a237 1
+		c = *lap++ & (0377);
+d244 1
+a244 1
+			return (QUOTED(c));
+d248 1
+a248 1
+		if (c = *dolp++ & (0377))
+d270 2
+a271 2
+char	*nulvec[] = { 0 };
+struct	varent nulargv = { nulvec, "argv", 0 };
+d284 1
+a284 2
+	bool dimen = 0, bitset = 0;
+	char wbuf[BUFSIZ];
+d289 3
+a291 3
+		c = DgetC(0);		/* sc is { to take } later */
+	if (TRIMED(c) == '#')
+		dimen++, c = DgetC(0);		/* $# takes dimension */
+d293 1
+a293 1
+		bitset++, c = DgetC(0);		/* $? tests existence */
+d297 2
+a298 2
+		if (dimen || bitset)
+			goto syntax;		/* No $?$, $#$ */
+a301 23
+	case QUOTEDS('<'):
+		if (dimen || bitset)
+			goto syntax;		/* No $?<, $#< */
+		for (np = wbuf; read(OLDSTD, np, 1) == 1; np++) {
+			if (np >= &wbuf[BUFSIZ-1])
+				error("$< line too long");
+			if (*np <= 0 || *np == '\n')
+				break;
+		}
+		*np = 0;
+		/*
+		 * KLUDGE: dolmod is set here because it will
+		 * cause setDolp to call domod and thus to copy wbuf.
+		 * Otherwise setDolp would use it directly. If we saved
+		 * it ourselves, no one would know when to free it.
+		 * The actual function of the 'q' causes filename
+		 * expansion not to be done on the interpolated value.
+		 */
+		dolmod = 'q';
+		dolmcnt = 10000;
+		setDolp(wbuf);
+		goto eatbrac;
+
+d309 1
+a309 1
+		subscr = -1;			/* Prevent eating [...] */
+d316 1
+a316 1
+				goto syntax;	/* No $#1, e.g. */
+d326 1
+a326 1
+				if (bitset) {
+d335 1
+a335 1
+			if (bitset)
+d359 1
+a359 1
+	if (bitset) {
+d364 5
+a368 4
+		np = getenv(name);
+		if (np) {
+			addla(np);
+			goto eatbrac;
+a370 1
+		/*NOTREACHED*/
+d377 1
+a377 1
+			c = DgetC(DODOL);	/* Allow $ expand within [ ] */
+d387 1
+a387 1
+		if (dolp || dolcnt)		/* $ exp must end before ] */
+d452 1
+a452 1
+			if (!any(c, "htrqxe"))
+d505 1
+a505 1
+		return (c&(0377));
+d557 1
+a557 1
+	unlink(shtemp);			/* 0 0 inode! */
+d567 1
+a567 1
+			c = readc(1);		/* 1 -> Want EOF returns */
+d574 1
+a574 1
+			if ( c = TRIMED(c) ) {
+d617 1
+a617 1
+			if ((c = TRIMED(c)) == 0)
+d623 1
+a623 1
+					unDgetC(QUOTED(c)), c = '\\';
+d625 1
+a625 1
+					c = QUOTED(c);
+d661 1
+a661 1
+				*obp++ = TRIMED(*mbp);
+@
+
+
+0.0.1.0
+log
+@MNOS 1.2 version
+@
+text
+@d1 2
+a6 5
+ *
+ * $Log:	sh.dol.c,v $
+ * Revision 1.1  86/02/24  20:22:49  sys
+ * Initial revision
+ * 
+a8 1
+
+d73 1
+a73 1
+		bferr(ediag("Ambiguous", "Неоднозначно"));
+d149 2
+a150 3
+				error(ediag("Unmatched %c",
+					    "Не закрыта %c"), c1);
+			if ((c & 0377) == (QUOTEDS('\n')))
+d162 1
+a162 1
+				*wp++ = c == '`' ? '`' : QUOTED(c);
+d167 1
+a167 1
+				*wp++ = QUOTED(c);
+d184 1
+a184 1
+		c = QUOTED(c);
+d200 1
+a200 1
+				c = QUOTED(c);
+d213 1
+a213 2
+			error(ediag("Word too long",
+				    "Слишком длинное слово"));
+d237 1
+a237 1
+		c = (unsigned)(*lap++);
+d244 1
+a244 1
+			return (QUOTED(c));
+d248 1
+a248 1
+		if (c = (unsigned)(*dolp++))
+d290 1
+a290 1
+	if (TRIMED(c) == '#')
+d295 1
+a295 1
+
+d331 1
+a331 2
+					error(ediag("No file for $0",
+						    "Нет файла для $0"));
+d349 1
+a349 1
+			if(c == DEOF || !alnum(c))       /* @@VG */
+d353 1
+a353 2
+				error(ediag("Variable syntax",
+					    "Синтаксис переменной!"));
+d359 4
+a362 1
+	/* This code added by @@VG 06.07.85 */
+a365 4
+		if (isset) {
+			dolp = cp ? "1" : "0";
+			goto eatbrac;
+		}
+d367 2
+a368 4
+			if(dimen)
+				cp = "1";     /* сопля ! */
+			dolp = cp;
+			goto eatbrac;
+a370 3
+	} else if (isset) {
+		dolp = "1";
+		goto eatbrac;
+a371 1
+	/* End of added code */
+d399 1
+a399 2
+				error(ediag("Subscript out of range",
+					    "Индекс не в диапазоне") );
+d453 1
+a453 2
+				error(ediag("Bad : mod in $",
+					    "Плохой : модификатор в $"));
+d498 1
+a498 1
+	register unsigned c;
+d504 1
+a504 1
+	if (Dcp && (c = (*Dcp++) & 0377) ) /* R: @@VG */
+d570 1
+a570 2
+				bferr(ediag("<< terminator not found",
+					    "Ограничитель << не найден"));
+d574 1
+a574 1
+			if ( c = TRIMED(c) ) {
+d578 2
+a579 3
+					error(ediag("Line overflow",
+						    "Переполнение строки"));
+				}
+d617 1
+a617 1
+			if ((c = TRIMED(c)) == 0)
+d623 1
+a623 1
+					unDgetC(QUOTED(c)), c = '\\';
+d625 1
+a625 1
+					c = QUOTED(c);
+d630 1
+a630 2
+				bferr(ediag("Line overflow",
+					    "Переполнение строки"));
+d661 1
+a661 1
+				*obp++ = TRIMED(*mbp);
+@

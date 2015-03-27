@@ -1,0 +1,40 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     89.04.01.17.49.55;  author ache;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * $Header: exrules.c,v 1.1 89/03/31 20:54:15 ache Exp $
+ * $Log:	exrules.c,v $
+ */
+#include "rules.c"
+
+main () {
+    register char  **s;
+
+    puts ("#");
+    puts ("# DEFAULT RULES FOR MAKE");
+    puts ("#");
+    for (s = builtin; *s; s++)
+	puts (*s);
+    return 0;
+}
+@

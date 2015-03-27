@@ -1,0 +1,329 @@
+head     0.4;
+access   ;
+symbols  MNOS:0.3 SYSTEM2_9:0.2 DEMOS1_3:0.1;
+locks    ;
+comment  @ * @;
+
+
+0.4
+date     86.09.29.18.29.51;  author alex;  state Exp;
+branches ;
+next     0.3;
+
+0.3
+date     86.09.24.21.54.30;  author alex;  state Exp;
+branches ;
+next     0.2;
+
+0.2
+date     86.09.24.21.42.33;  author alex;  state Exp;
+branches ;
+next     0.1;
+
+0.1
+date     86.09.24.21.18.00;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@SHELL -ÉÎÔÅÒÐÒÅÔÁÔÏÒ
+@
+
+
+0.4
+log
+@÷ÅÒÓÉÑ, ÓÌÉÔÁÑ ÉÚ 2.9 É äåíïó ÂÅÚ ÒÕÓÓËÉÈ ÄÉÁÇÎÏÓÔÉË
+@
+text
+@#
+/*
+ * KIAE  shell
+ *
+ *
+ */
+
+#include        "defs.h"
+
+CHAR            numbuf[6];
+
+
+/* printing and io conversion */
+
+newline()
+{       prc(NL);
+}
+
+blank()
+{       prc(SP);
+}
+
+prp()
+{
+	IF (flags&prompt)==0 ANDF cmdadr
+	THEN    prs(cmdadr); prs(colon);
+	FI
+}
+
+VOID    prs(as)
+	STRING          as;
+{
+	REG STRING      s;
+
+	IF s=as
+	THEN    write(output,s,length(s)-1);
+	FI
+}
+
+VOID    prc(c)
+	CHAR            c;
+{
+	IF c
+	THEN    write(output,&c,1);
+	FI
+}
+
+prt(t)
+	L_INT           t;
+{
+	REG INT hr, min, sec;
+
+#ifdef  HZ60
+	t += 30; t /= 60;
+#else
+	t += 25; t /= 50;       /* 50 HZ AC in SU */
+#endif
+	sec=t%60; t /= 60;
+	min=t%60;
+	IF hr=t/60
+#ifndef RL
+	THEN    prn(hr); prc('h');
+	FI
+	prn(min); prc('m');
+	prn(sec); prc('s');
+#else
+	THEN    prn(hr); prc('Þ');
+	FI
+	prn(min); prc('Í');
+	prn(sec); prc('Ó');
+#endif
+}
+
+prn(n)
+	INT             n;
+{
+	itos(n); prs(numbuf);
+}
+
+itos(n)
+{
+	REG char *abuf; REG POS a, i; INT pr, d;
+	abuf=numbuf; pr=FALSE; a=n;
+	FOR i=10000; i!=1; i/=10
+	DO      IF (pr |= (d=a/i)) THEN *abuf++=d+'0' FI
+		a %= i;
+	OD
+	*abuf++=a+'0';
+	*abuf++=0;
+}
+
+stoi(icp)
+STRING  icp;
+{
+	REG CHAR        *cp = icp;
+	REG INT         r = 0;
+	REG CHAR        c;
+
+	WHILE (c = *cp, digit(c)) ANDF c ANDF r>=0
+	DO r = r*10 + c - '0'; cp++ OD
+	IF r<0 ORF cp==icp
+	THEN    failed(icp,badnum);
+	ELSE    return(r);
+	FI
+}
+
+/* éáü ÉÍ. é. ÷. ëõòþáôï÷á, íïóë÷á, 1984 (ëïé-8) */
+@
+
+
+0.3
+log
+@÷ÅÒÓÉÑ ÉÚ íîïó
+@
+text
+@d3 1
+a3 1
+ * íîïó òì 1.2 shell
+d53 1
+a53 1
+#ifndef RL
+d61 6
+d71 1
+@
+
+
+0.2
+log
+@÷ÅÒÓÉÑ ÉÚ 2.9
+@
+text
+@d3 1
+a3 1
+ * UNIX shell
+a4 2
+ * S. R. Bourne
+ * Bell Telephone Laboratories
+d8 1
+a8 1
+#include	"defs.h"
+d10 1
+a10 1
+CHAR		numbuf[6];
+d16 1
+a16 1
+{	prc(NL);
+d20 1
+a20 1
+{	prc(SP);
+d26 1
+a26 1
+	THEN	prs(cmdadr); prs(colon);
+d30 2
+a31 2
+VOID	prs(as)
+	STRING		as;
+d33 1
+a33 1
+	REG STRING	s;
+d36 1
+a36 1
+	THEN	write(output,s,length(s)-1);
+d40 2
+a41 2
+VOID	prc(c)
+	CHAR		c;
+d44 1
+a44 1
+	THEN	write(output,&c,1);
+d49 1
+a49 1
+	L_INT		t;
+d51 1
+a51 1
+	REG INT	hr, min, sec;
+d53 1
+d55 3
+d61 1
+a61 1
+	THEN	prn(hr); prc('h');
+d63 2
+a64 2
+	prn(min); prc('m');
+	prn(sec); prc('s');
+d68 1
+a68 1
+	INT		n;
+d78 1
+a78 1
+	DO	IF (pr |= (d=a/i)) THEN *abuf++=d+'0' FI
+d86 1
+a86 1
+STRING	icp;
+d88 3
+a90 3
+	REG CHAR	*cp = icp;
+	REG INT		r = 0;
+	REG CHAR	c;
+d95 2
+a96 2
+	THEN	failed(icp,badnum);
+	ELSE	return(r);
+d100 1
+@
+
+
+0.1
+log
+@*** empty log message ***
+@
+text
+@d3 1
+a3 1
+ * KIAE  shell
+d5 2
+d10 1
+a10 1
+#include        "defs.h"
+d12 1
+a12 1
+CHAR            numbuf[6];
+d18 1
+a18 1
+{       prc(NL);
+d22 1
+a22 1
+{       prc(SP);
+d28 1
+a28 1
+	THEN    prs(cmdadr); prs(colon);
+d32 2
+a33 2
+VOID    prs(as)
+	STRING          as;
+d35 1
+a35 1
+	REG STRING      s;
+d38 1
+a38 1
+	THEN    write(output,s,length(s)-1);
+d42 2
+a43 2
+VOID    prc(c)
+	CHAR            c;
+d46 1
+a46 1
+	THEN    write(output,&c,1);
+d51 1
+a51 1
+	L_INT           t;
+d53 1
+a53 1
+	REG INT hr, min, sec;
+a54 1
+#ifdef  HZ60
+a55 3
+#else
+	t += 25; t /= 50;       /* 50 HZ AC in SU */
+#endif
+d59 1
+a59 2
+#ifndef RL
+	THEN    prn(hr); prc('h');
+a62 6
+#else
+	THEN    prn(hr); prc('Þ');
+	FI
+	prn(min); prc('Í');
+	prn(sec); prc('Ó');
+#endif
+d66 1
+a66 1
+	INT             n;
+d76 1
+a76 1
+	DO      IF (pr |= (d=a/i)) THEN *abuf++=d+'0' FI
+d84 1
+a84 1
+STRING  icp;
+d86 3
+a88 3
+	REG CHAR        *cp = icp;
+	REG INT         r = 0;
+	REG CHAR        c;
+d93 2
+a94 2
+	THEN    failed(icp,badnum);
+	ELSE    return(r);
+a97 1
+/* éáü ÉÍ. é. ÷. ëõòþáôï÷á, íïóë÷á, 1984 (ëïé-8) */
+@

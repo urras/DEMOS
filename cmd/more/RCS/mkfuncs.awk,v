@@ -1,0 +1,34 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @@;
+
+
+1.1
+date     88.02.13.16.42.44;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@BEGIN { FS="("; state = 0 }
+
+/^	public/ { ftype = $0; state = 1 }
+
+{ if (state == 1)
+	state = 2
+  else if (state == 2)
+	{ print ftype,$1,"();"; state = 0 }
+}
+@

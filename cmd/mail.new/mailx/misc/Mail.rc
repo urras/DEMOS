@@ -1,0 +1,9 @@
+set autoprint ask dot append nosave crt=24 quiet
+
+headline Message-ID <$i@$h>
+headline Organization =UNKNOWN=
+headline From $u@$h ($r)
+headline Date $a
+
+discard -from message-id status references received organization
+discard resent-message-id resent-organization

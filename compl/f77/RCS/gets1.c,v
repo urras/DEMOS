@@ -1,0 +1,143 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ; strict;
+comment  @ * @;
+
+
+1.1
+date     87.03.09.22.26.19;  author alex;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Фортран-77, версия 2.6.
+@
+
+
+
+1.1
+log
+@Версия_2.6
+@
+text
+@/*
+	Чтение промежуточного файла для 1 прохода f77
+	файл готовится при 0 проходе
+	Правила кодировки совпадают с такими же правилами
+	для CC компилятора
+	Чтение - из "stdin"
+*/
+/* #define DBALLOC      */
+#include "defs"
+#define MFNAME 30
+extern int ykod,nyyv,nyyvt,yacn;
+int ddebug;
+LOCAL char infnbuf[MFNAME+1];
+char *infname = infnbuf, token[MTOKEN+1];
+int toklen;
+#ifndef YYSTYPE
+#define YYSTYPE int
+#endif
+ftnint yystno;
+extern YYSTYPE ylval;
+
+LOCAL int geti()
+{ 
+	register i;
+	if((i= getchar() & 0377) == 0377)
+	{
+	i = getchar();
+	i += getchar() <<8;
+	}
+	return(i);
+}
+
+LOCAL long getl()
+{
+	long l;        /* Машинно зависимая запись */
+	l = geti(); 
+	l = (l<<16) + (unsigned)geti();
+	return(l);
+}
+
+LOCAL getss(s,l)
+register char *s; 
+register int l;
+{
+	while((*s++ = getchar()) && l--);
+	return(l);
+}
+
+getsy0()
+{
+	register int op,i;
+next: 
+	i = getchar();
+	if ( getchar() != 0376)
+		fatal("intermediate file error");
+	op = i&0377;
+	switch(op) {
+	case LLABEL: 
+		yystno = getl(); 
+		goto next;
+	case LLINE : 
+#ifdef DBALLOC
+	pralloc();
+#endif
+		lineno = geti();
+		goto next;
+	case LDBG  : 
+		ddebug = geti(); 
+		goto next;
+	case LFNAME: 
+		getss(infname,MFNAME);  
+		goto next;
+	case LTOKEN:
+	case LFORMAT: 
+		toklen = geti();
+		if(!getss(token,MTOKEN)|| toklen<0 || toklen>MTOKEN)
+			 fatal1("too long token %s",token);
+		goto next;
+	case YRET: 
+		ykod = geti(); 
+		break;
+	case YERR: 
+		nyyv = geti(); 
+		break;
+	case YNEXT: 
+		nyyv = geti(); 
+		ylval = geti(); 
+		break;
+	case YCASE: 
+		nyyv = geti();
+		yacn = geti();
+		nyyvt = geti();
+		break;
+	default: 
+		fatal1("unknown intermediate kod %d",op);
+	}
+	return(op);
+}
+
+double getd()
+{double cd;
+ register char *c; register int i;
+ c = &cd;
+ for(i=0;i<(sizeof (double));i++) *c++ = getchar();
+ return(cd);
+}
+
+#ifdef DBALLOC
+int nbusy, lbusy, olbusy,alloct,oalloct,nbad;
+pralloc()
+{
+  calcbusy();
+  if( olbusy != lbusy || alloct != oalloct )
+  fprintf(stderr, "%s %4d: \tn=%4d l=%6d delta=%4d \tbad=%d\tlast=%o \n",
+  infname, lineno, nbusy, lbusy, lbusy-olbusy,nbad,alloct);
+  olbusy = lbusy; oalloct = alloct;
+}
+#endif
+@

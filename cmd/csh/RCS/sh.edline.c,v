@@ -1,0 +1,1150 @@
+head     1.7;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.7
+date     89.11.01.13.08.42;  author root;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.06.10.11.39.52;  author avg;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     89.06.07.18.10.22;  author root;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     89.05.03.21.19.01;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     89.03.22.18.38.03;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.03.16.11.58.35;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.03.05.19.29.49;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+C shell.
+@
+
+
+1.7
+log
+@GOK.
+@
+text
+@#ifndef lint
+/*NOXSTR*/
+static char rcsid[] = "$Header: sh.edline.c,v 1.6 89/06/10 11:39:52 avg Exp $";
+/*YESXSTR*/
+#endif
+
+/*
+ * C shell.
+ *
+ * Edit input line.
+ *
+ * $Log:	sh.edline.c,v $
+ * Revision 1.6  89/06/10  11:39:52  avg
+ * Правки by sir.
+ * 
+ * Revision 1.5  89/06/07  18:10:22  root
+ * Исправлена перерисовка, более аккуратная работа с буфером
+ * 
+ * Revision 1.4  89/05/03  21:19:01  avg
+ * Сделана подстановка переменных в prompt.
+ * 
+ * Revision 1.3  89/03/22  18:38:03  avg
+ * Теперь csh корректно работает с stopc и startc.
+ *
+ * Revision 1.2  89/03/16  11:58:35  avg
+ * Внесены изменения для экранной версии csh.
+ *
+ * Revision 1.1  89/03/05  19:29:49  avg
+ * Initial revision
+ *
+ */
+
+# include <ctype.h>
+# include "sh.h"
+
+# define        MAXLINE         256
+# define        MAXBOUT         256
+# define        MAXHIST         30
+# define        MAXESC          10
+
+# define        NULL            0
+
+static         Char;
+static char    line[MAXLINE+1];
+static char    *LineChar;
+
+static struct psave {
+	int   lp;
+	int   leng;
+	} *Psave;
+
+int            col;
+static int     HistPtr;
+static int     cookptr;
+static int     InsMode = 1;
+static int     MaxLinptr;
+static int     MaxCol;
+static int     NeedNewLine = 1;
+
+char           outbuf[MAXBOUT];
+int            bcnt;
+int            InitFlag;
+int            raw_tty;
+int            max_col;
+
+extern         sc_width;
+extern         bwtty;
+extern         auto_wrap;
+extern         can_cleol;
+
+extern char  *C_UP;
+extern char  *C_DOWN;
+extern char  *C_LEFT;
+extern char  *C_RIGHT;
+extern char  *C_HOME;
+extern char  *C_DEL;
+extern char  *C_ERASE;
+extern char  *C_IC;
+extern char  *C_DC;
+extern char  *C_CLRL;
+extern char  *C_RESET;
+extern char  *C_TAB;
+extern char  *C_BTAB;
+extern char  *C_SPEC;
+extern char  *C_INTR;
+extern char  *C_EOF;
+extern char  *C_START;
+extern char  *C_STOP;
+extern char  *C_WERASE;
+
+char **C_Chars[] = { &C_UP, &C_DOWN, &C_LEFT, &C_RIGHT, &C_HOME,
+		     &C_DEL, &C_ERASE, &C_IC, &C_DC, &C_CLRL,
+		     &C_RESET, &C_TAB, &C_BTAB, &C_SPEC,
+		     &C_INTR, &C_EOF, &C_WERASE,
+		     &C_START, &C_STOP, NULL };
+enum {
+	UP, DOWN, LEFT, RIGHT, HOME, DEL, ERASE, IC, DC, CLRL, RESET,
+	TAB, BTAB, SPEC, INTR, CEOF, WERASE, START, STOP,
+	CHAR, ERRCHAR = -1, UNKNOWN = -2
+};
+
+static OldMaxHist = 0;
+
+int TermInitFlag = 0;
+
+extern int lc_tty;      /* UPPER-CASE ONLY TERMINAL */
+extern int ucase_flag;  /* \U\C\A\S\E mode is on - operates only on uc-only-ttys */
+
+static int old_col;
+
+getcc()
+{
+	char    c;
+
+	if( !InitFlag ) {
+		if( ScrFlag == 0 && raw_tty ) {
+			reset_mode();
+			raw_tty = 0;
+			return( -2 );
+		}
+		inihist();
+		InitFlag = 1;
+		max_col = sc_width;
+	} else if( OldMaxHist != MaxHist )
+		inihist();
+	if( NeedNewLine ) {
+		if( !raw_tty ) {
+			set_mode();
+			raw_tty = 1;
+		}
+		if( getline() ) {
+			NeedNewLine = 1;
+			if( raw_tty ) {
+				reset_mode();
+				raw_tty = 0;
+			}
+			return( -1 );
+		}
+		NeedNewLine = 0;
+		LineChar = line;
+		if( raw_tty ) {
+			reset_mode();
+			raw_tty = 0;
+		}
+	}
+	c =  *LineChar++ ;
+	if( c == 0 ) {
+		c = '\n';
+		NeedNewLine = 1;
+	}
+	return( c & 0377 );
+}
+
+deinihist()
+{
+	if(Psave) free(Psave);
+	InitFlag = 0;
+}
+
+inihist()
+{
+	int     i,j;
+
+	if( MaxHist <= 0 ) {
+		ScrFlag = 0;
+		unsetvq("shistory");
+		deinihist();
+		return;
+	} else if( MaxHist > MAXHIST )
+		MaxHist = MAXHIST;
+
+	if( Psave ) free(Psave);
+
+	Psave = (struct psave *)calloc( MaxHist, sizeof(struct psave));
+
+	for( i = 0 ; i < MaxHist ; i++ ) {
+		Psave[i].lp = 0;
+		Psave[i].leng = 0;
+	}
+
+	cookptr = HistPtr = 0;
+	OldMaxHist = MaxHist;
+}
+
+static ocmp(cook, len)
+register cook, len;
+{
+	register j;
+
+	if( Psave[cook].leng != len )
+		return 0;
+	for( j = 0 ; j < len ; j++ ) {
+		if( line[j] != getold(Psave[cook].lp+j) )
+			return 0;
+	}
+	return 1;
+}
+
+chPsave( sb )
+{
+	int i, j, oldlp;
+
+	oldlp = Psave[cookptr<=0?MaxHist-1:cookptr-1].lp;
+	for( j = 0 , i = 0 ; i < MaxHist ; i++ )
+		if( Psave[i].lp >= sb ) {
+			Psave[j].lp = Psave[i].lp - sb;
+			Psave[j].leng = Psave[i].leng;
+			j ++ ;
+		}
+	for(       ; j < MaxHist ; j++ ) {
+		Psave[j].lp = 0;
+		Psave[j].leng = 0;
+	}
+	for( cookptr = 0 ; cookptr < MaxHist ; cookptr ++ )
+		if( Psave[cookptr].lp == oldlp-sb ) break;
+	cookptr = cookptr<MaxHist-1?cookptr+1:0;
+}
+
+change( d )
+int     d;
+{
+	register int     j;
+	int     oldcook = cookptr;
+	int     oldlength;
+
+	for( j = MAXLINE-1 ; j >= 0 ; j-- )
+		if( line[j] != ' ' )
+			break;
+	oldlength = j+1;
+
+	do {
+		if( d >= 0 ) {
+			if( cookptr < MaxHist-1 )
+				cookptr++;
+			else
+				cookptr = 0;
+		} else {
+			if( cookptr > 0 )
+				cookptr--;
+			else
+				cookptr = MaxHist-1;
+		}
+	} while( oldcook != cookptr &&
+		  (Psave[cookptr].leng == 0 || ocmp(cookptr, oldlength)) );
+
+	for( j = 0 ; j < Psave[cookptr].leng && j < MAXLINE ; j++ )
+		line[j] = getold(Psave[cookptr].lp+j);
+		/* line[j] = SaveLine[cookptr][j]; */
+
+	for( ; j < MAXLINE ; j++ )
+		line[j] = ' ';
+
+	MaxLinptr = Psave[cookptr].leng;
+}
+
+getline()
+{
+	int     j, type, cprompt;
+	int     linptr = 0;
+	int     SaveMax, SaveCol;
+	extern noxon, noxoff;
+
+	old_col = col;
+	MaxLinptr = 0;
+	bcnt = 0;
+	cprompt = MaxCol = col;
+	for( j = 0 ; j < MAXLINE ; j++ )
+		line[j] = ' ';
+	type = TestIn();
+	while( Char != '\n' && Char != '\r' ) {
+		switch( type ) {
+		case HOME:
+			switch(TestIn()) {
+			case IC:
+				InsMode = 1;
+				break;
+			case DC:
+				InsMode = 0;
+				break;
+			case LEFT:
+				for( j = 0 ; j < linptr ; j++ )
+					MoveLeft( line[j] );
+				linptr = 0;
+				break;
+			case RIGHT:
+				for( j = 0 ; j < linptr ; j++ ) {
+					MoveLeft( line[j] );
+				}
+				linptr = SetMax();
+				RefrLine( 0, linptr, MaxCol );
+				break;
+			default:
+				bell();
+			}
+			break;
+		case IC:
+			if( linptr >= MAXLINE ) {
+				bell();
+				break;
+			}
+			j = MAXLINE-1;
+			while( j >= linptr+1 ) {
+				line[j] = line[j-1];
+				j --;
+			}
+			line[linptr++] = ' ';
+			MaxCol = SetMaxCol();
+			MaxLinptr = SetMax();
+			RefrLine( linptr-1, linptr, MaxCol);
+		case LEFT:
+			if( linptr == 0 )
+				break;
+			else /* if( (col%max_col) != 0 ) */
+				MoveLeft( line[--linptr] );
+			/*
+			else {
+				for( j = col/max_col ; j > 0 ; j-- )
+					prev_line();
+				skipprompt();
+				RefrLine( 0, --linptr, col );
+			}
+			*/
+			break;
+		case RIGHT:
+			if( linptr >= MAXLINE )
+				bell();
+			else
+				PutLiter( line[linptr++] );
+			break;
+		case UP:
+		case DOWN:
+			MaxCol = SetMaxCol();
+			SaveMax = MaxCol;
+			for( j = 0 ; j < linptr ; j++ )
+				MoveLeft( line[j] );
+			if( type == UP )
+				change( -1 );
+			else
+				change( 1 );
+			RefrLine( 0, linptr, SaveMax );
+			break;
+		case CLRL:
+			for( j = linptr ; j < MAXLINE ; j++ )
+				line[j] = ' ';
+			RefrLine( linptr, linptr, MaxCol );
+			break;
+		case ERASE:
+		case INTR:
+			for( j = 0 ; j < linptr ; j++ )
+				MoveLeft( line[j] );
+			for( j = 0 ; j < MAXLINE ; j++ )
+				line[j] = ' ';
+			linptr = 0;
+			RefrLine( 0, linptr, MaxCol );
+			break;
+		case RESET:
+			resetln();
+			col = 0;
+			putprompt();
+			cprompt = col;
+			RefrLine( 0, linptr, MaxCol );
+			break;
+		case DEL:
+			if( linptr == 0 )
+				break;
+			else
+				MoveLeft( line[--linptr] );
+			if( !InsMode ) {
+				if( LenChar(line[linptr]) > 1 ) {
+					line[linptr] = ' ';
+					RefrLine( linptr, linptr, MaxCol );
+				} else {
+					PutLiter(' ');
+					line[linptr] = ' ';
+					MoveLeft(' ');
+				}
+				break;
+			}
+		case DC:
+			for( j = linptr+1 ; j < MAXLINE ; j++ )
+				line[j-1] = line[j];
+			line[MAXLINE-1] = ' ';
+			RefrLine( linptr, linptr, MaxCol );
+			break;
+		case WERASE:
+			j = linptr;
+			while( j > 0 && line[--j] == ' ' );
+			for( ; j >= 0 && line[j] != ' ' ; j-- ) ;
+			j++;
+			if( j == linptr )
+				break;
+			{
+				int to, from;
+
+				to = j; from = linptr;
+				while( from < MAXLINE )
+					line[to++] = line[from++];
+				while( to < MAXLINE )
+					line[to++] = ' ';
+
+			}
+			while(linptr > j)
+				MoveLeft(line[--linptr]);
+			RefrLine( linptr, linptr, MaxCol );
+			break;
+		case BTAB:
+			for( j = (linptr-1) & ~7 ; linptr > j && linptr > 0 ; linptr-- )
+				MoveLeft( line[linptr-1] );
+			goto NOSET;
+		case TAB:
+			for( j = (linptr+8) & ~7 ; linptr < j && linptr < MAXLINE ; linptr++ )
+				PutLiter( line[linptr] );
+			goto NOSET;
+		case SPEC:
+			PutLiter('^');
+			MoveLeft('^');
+			FlushOut();
+			Char = GetChar();
+			goto CSPEC;
+		case CHAR:
+			if( !isprint(Char) ) {
+				bell();
+				break;
+			}
+CSPEC:                  if( InsMode ) {
+				if( linptr >= MAXLINE ) {
+					bell();
+					break;
+				}
+				j = MAXLINE-1;
+				while( j >= linptr+1 ) {
+					line[j] = line[j-1];
+					j --;
+				}
+				line[linptr] = Char;
+				MaxCol = SetMaxCol();
+				linptr ++;
+				MaxLinptr = SetMax();
+				RefrLine( linptr-1, linptr, MaxCol);
+				goto NOSET;
+			} else if( LenChar(Char) > LenChar(line[linptr]) ) {
+				line[linptr] = Char;
+				MaxLinptr = SetMax();
+				MaxCol = SetMaxCol();
+				RefrLine( linptr, linptr, MaxCol );
+				goto NOSET;
+			} else if( LenChar(Char) < LenChar(line[linptr]) ) {
+				line[linptr++] = Char;
+				RefrLine( linptr-1, linptr, MaxCol );
+			} else if( linptr < MAXLINE ) {
+				line[linptr++] = Char;
+				PutLiter( Char );
+				if( Char != ' ' && linptr > MaxLinptr ) {
+					MaxLinptr = linptr;
+					MaxCol = col;
+				} else if( Char != ' ' )
+					goto NOSET;
+			} else
+				bell();
+			break;
+		case CEOF:
+			return( 1 );
+		case START:
+			if(noxon) {
+				ioctl(SHIN, TIOCSTART, 0);
+				break;
+			}
+			goto BadCmd;
+		case STOP:
+			if(noxoff) {
+				ioctl(SHIN, TIOCSTOP, 0);
+				break;
+			}
+		case UNKNOWN:
+		case ERRCHAR:
+		default:
+		BadCmd:
+			bell();
+		}
+		MaxLinptr = SetMax();
+		MaxCol = SetMaxCol();
+NOSET:          Char = 0;
+		if( bcnt > 0 )
+			FlushOut();
+		type = TestIn();
+	}
+	if( Char == '\r' || Char == '\n' ) {
+		for( j = MaxCol/max_col-col/max_col ; j > 0 ; j -- )
+			eoln();
+		eoln();
+	}
+	if( bcnt > 0 )
+		FlushOut();
+	if( MaxLinptr == 0 ) {
+		line[MaxLinptr] = 0;
+		return( 0 );
+	}
+	if( HistPtr < MaxHist-1 )
+	       HistPtr++;
+	else
+	       HistPtr = 0;
+	Psave[HistPtr].lp = (int)fseekp;
+	Psave[HistPtr].leng = MaxLinptr;
+	line[MaxLinptr] = 0;
+	cookptr = HistPtr;
+	if( cookptr < MaxHist-1 )
+		cookptr++;
+	else
+		cookptr = 0;
+	return( 0 );
+}
+
+PutStr( s )
+char    *s;
+{
+	for( ; *s ; PutChar( *s ) , s++ );
+}
+
+left()
+{
+	putbs();
+	col --;
+}
+
+right()
+{
+	c_right();
+	col ++;
+}
+
+LenChar(c)
+register int c;
+{
+	c &= 0377;
+	if( lc_tty ) {
+		if( c == '{' || c == '}' || c == '|' || c == '`' || c == '~' )
+			return 2;
+		if( ucase_flag && (('A'<=c && c<='Z') || (c&0340)==0340) )
+			return 2;
+	}
+	return( !isprint(c) + 1 );
+}
+
+PutLiter(c)
+register int c;
+{
+	c &= 0377;
+	if ( !isprint(c) ) {
+		PutChar('^');
+		col ++;
+		if( !auto_wrap && col%max_col == 0 )
+			eoln();
+		if ( (c&0177) == 0177)
+			c = '?';
+		else if( lc_tty )
+			c = c?(c|0140):'@@';
+		else
+			c |= '@@';
+	} else if( !auto_wrap && col%max_col == (max_col-1) && LenChar(c) > 1 )
+		eoln();
+
+	c = TRIMED(c);
+	PutChar( c );
+	if( lc_tty )
+		col += LenChar(c);
+	else
+		col ++;
+	if( !auto_wrap && col%max_col == 0 )
+		eoln();
+}
+
+RefrLine( i, ptr, m )
+int     i, ptr, m;
+{
+	int     SaveCol, j, mc;
+
+	for( j = i ; j < MaxLinptr ; j++ ) {
+		if( j == ptr )
+			SaveCol = col;
+		PutLiter( line[j] );
+	}
+	if( ptr >= MaxLinptr )
+		SaveCol = col+(ptr-j);
+
+	/* if( !can_cleol )  */
+		while( col < m )
+		       PutLiter(' ');
+	/*
+	else {
+		while( (col/max_col+1)*max_col < m ) {
+			clear_eol();
+			eoln();
+			col = (col/max_col+1)*max_col;
+		}
+		clear_eol();
+	}
+	 */
+	mc = col;
+
+	while( col != SaveCol ) {
+		if( col < SaveCol ) {
+			col < mc ? right() : PutLiter(' ');
+			if( !auto_wrap && col%max_col == 0 )
+				eoln();
+		} else {
+			if( col > max_col && col > SaveCol+max_col/2 ) {
+				prev_line();
+				col -= max_col;
+			} else if( (col%max_col) || bwtty )
+				left();
+			else {
+				prev_line();
+				col -= max_col;
+			}
+		}
+	}
+}
+
+SetMax()
+{
+	int     m;
+
+	for( m = MAXLINE-1 ; m >= 0 && line[m] == ' ' ; m-- );
+	return( m+1 );
+}
+
+SetMaxCol()
+{
+	int     i, m, len;
+
+	for( m = MAXLINE-1 ; m >= 0 && line[m] == ' ' ; m-- );
+	for( i = 0, len = old_col ; i <= m ; len += LenChar(line[i++]) );
+	return( len );
+}
+
+MoveLeft( c )
+char    c;
+{
+	int j, nc ;
+
+	for( j = LenChar( c ) ; j > 0 ; j-- )
+		if( (col%max_col) || bwtty )
+			left();
+		else {
+			prev_line();
+			nc = col-1;
+			col -= max_col;
+			while( col < nc )
+				right();
+		}
+}
+
+GetChar()
+{
+	char    c;
+
+	if( read( SHIN, &c, 1) <= 0 )
+		return( ERRCHAR );
+	else
+		return(c & 0377);
+}
+
+PutChar( c )
+char    c;
+{
+	if( bcnt >= MAXBOUT )
+		FlushOut();
+	outbuf[bcnt++] = c;
+}
+
+FlushOut()
+{
+	if( bcnt > 0 )
+		write( (didfds ? 1 : SHOUT), outbuf, bcnt);
+	bcnt = 0;
+}
+
+TestIn()
+{
+	int     i, found;
+	char    bch[MAXESC];
+	int     c_cnt = 0;
+	register char **ptr;
+	register j;
+
+	found = 1;
+	while( found ) {
+		Char = GetChar();
+		if( Char == ERRCHAR )
+			return( ERRCHAR );
+		if( c_cnt < MAXESC )
+			bch[c_cnt++] = Char;
+		else
+			return( UNKNOWN );
+		for( i = 0, found = 0 ; (ptr = C_Chars[i]) != NULL ; i++ ) {
+			if( *ptr == NULL || **ptr == '\0' )
+				continue;
+			for( j = 0;  j < c_cnt && (*ptr)[j] && (*ptr)[j] == bch[j] ; j++ );
+			found = (j == c_cnt) ? 1 : found;
+			if( (*ptr)[j] == 0 )
+				return( i );
+		}
+	}
+	if( c_cnt > 1 )
+		return( UNKNOWN );
+	return( isprint(Char)?CHAR:UNKNOWN );
+}
+
+/*
+ * Skip the prompt
+ */
+skipprompt()
+{
+	col = 0;
+	while(col++ < old_col)
+		c_right();
+}
+@
+
+
+1.6
+log
+@Правки by sir.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.edline.c,v 1.5 89/06/07 18:10:22 root Exp $";
+d13 3
+d559 3
+a561 1
+	}
+@
+
+
+1.5
+log
+@Исправлена перерисовка, более аккуратная работа с буфером
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.edline.c,v 1.4 89/05/03 21:19:01 avg Exp $";
+d13 3
+d329 1
+a329 1
+			MaxCol = SetMaxCol()+cprompt;
+d366 1
+a366 1
+				if( !isprint(line[linptr]) ) {
+d478 1
+a478 1
+		MaxCol = SetMaxCol()+cprompt;
+d627 1
+a627 1
+	for( i = 0, len = 0 ; i <= m ; len += LenChar(line[i++]) );
+@
+
+
+1.4
+log
+@Сделана подстановка переменных в prompt.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.edline.c,v 1.3 89/03/22 18:38:03 avg Exp $";
+d12 4
+a15 1
+ * $Log:        sh.edline.c,v $
+d193 20
+d307 1
+a307 1
+			else if( (col%max_col) != 0 )
+d309 1
+d316 1
+d326 1
+d355 1
+a355 1
+			RefrLine( 0, linptr, max_col );
+d556 4
+a559 1
+	col ++;
+@
+
+
+1.3
+log
+@Теперь csh корректно работает с stopc и startc.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.edline.c,v 1.2 89/03/16 11:58:35 avg Exp $";
+d13 3
+d100 2
+d234 1
+d289 1
+a289 1
+				putprompt();
+d670 10
+@
+
+
+1.2
+log
+@Внесены изменения для экранной версии csh.
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header: sh.edline.c,v 1.1 89/03/05 19:29:49 avg Exp $";
+d13 3
+d310 1
+a325 1
+		case INTR:
+d653 1
+a653 1
+			if( *ptr == NULL )
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+static char rcsid[] = "$Header$";
+d12 4
+a15 1
+ * $Log$
+a25 5
+# define        ERRCHAR         0400
+# define        EOFCH           4
+# define        BELL            7
+# define        ESCAPE          0033
+
+a27 19
+# define        UNKNOWN -2
+# define        UP      0
+# define        DOWN    1
+# define        LEFT    2
+# define        RIGHT   3
+# define        CHAR    4
+# define        INS     5
+# define        DEL     6
+# define        BACK    7
+# define        RESET   8
+# define        DLINE   9
+# define        BLINE  10
+# define        EOL    11
+# define        DEOL   12
+# define        SPEC   13
+# define        TAB    14
+# define        BTAB   15
+# define        HELP   16
+
+d56 19
+d76 10
+a85 16
+char       *C_UP;
+char       *C_DOWN;
+char       *C_LEFT;
+char       *C_RIGHT;
+char        C_DEL[]   = "\177";
+static char C_INS[]   = "\026";
+static char C_BACK[]  = "\010";
+static char C_RESET[] = "\022";
+static char C_DLINE[] = "\025";
+static char C_BLINE[] = "\002";
+static char C_EOL[]   = "\005";
+static char C_DEOL[]  = "\006";
+static char C_SPEC[]  = "\001";
+static char C_TAB[]   = "\t";
+static char C_BTAB[]  = "\024";
+static char C_HELP[]  = "\020";
+d87 1
+a87 3
+char *C_Chars[] = { NULL, NULL, NULL, NULL, C_DEL,
+		  C_BACK, C_INS, C_RESET, C_DLINE, C_BLINE, C_EOL,
+		  C_DEOL, C_SPEC, C_TAB, C_BTAB, C_HELP, NULL };
+d89 1
+a89 2
+static int  acts[] = { UP, DOWN, LEFT, RIGHT, DEL, BACK, INS,
+		 RESET, DLINE, BLINE, EOL, DEOL, SPEC, TAB, BTAB, HELP, 0 };
+d91 3
+d98 2
+a99 4
+	if( ! InitFlag ) {
+		inihist();
+		get_term();
+		if( ScrFlag == 0 ) {
+d101 1
+d104 1
+d107 2
+a108 1
+	}
+d110 1
+a110 1
+		if( ! raw_tty )
+d112 2
+a113 1
+		raw_tty = 1;
+d116 4
+a119 2
+			reset_mode();
+			raw_tty = 0;
+d124 4
+a127 2
+		reset_mode();
+		raw_tty = 0;
+d137 6
+d149 2
+d152 2
+a153 1
+	}
+d157 1
+a157 1
+	Psave = (struct psave *)calloc( MaxHist,sizeof(struct psave));
+d165 1
+d168 14
+d185 3
+a187 1
+	int     j;
+d189 4
+a192 10
+	if( d >= 0 )
+		if( cookptr < MaxHist-1 )
+		       cookptr++;
+		else
+		       cookptr = 0;
+	else
+		if( cookptr > 0 )
+			cookptr--;
+		else
+			cookptr = MaxHist-1;
+d194 15
+d224 1
+d234 23
+a256 2
+		case INS:
+			InsMode ^= 1;
+d258 14
+d274 2
+a275 2
+				bell();
+			else if( col%max_col != 0 )
+d301 1
+a301 8
+		case EOL:
+			for( j = 0 ; j < linptr ; j++ ) {
+				MoveLeft( line[j] );
+			}
+			linptr = SetMax();
+			RefrLine( 0, linptr, MaxCol );
+			break;
+		case DEOL:
+d306 1
+a306 1
+		case BLINE:
+a308 5
+			linptr = 0;
+			break;
+		case DLINE:
+			for( j = 0 ; j < linptr ; j++ )
+				MoveLeft( line[j] );
+a313 2
+		case HELP:
+			help();
+d319 1
+a319 5
+			if( can_cleol) {
+				RefrLine( 0, linptr, MaxCol );
+				clear_eol();
+			} else
+				RefrLine( 0, linptr, max_col );
+d322 1
+d327 12
+a338 9
+		case BACK:
+/*
+			for( j = linptr+1 ; j < MaxLinptr ; j++ )
+			       PutLiter( line[j] );
+			PutBlanc( line[linptr] );
+			MoveLeft( line[linptr] );
+			for( j = linptr+1 ; j < MaxLinptr ; j++ )
+				MoveLeft( line[j] );
+*/
+d344 21
+d374 3
+d385 1
+a385 1
+				if( linptr >= MAXLINE) {
+d420 14
+a434 4
+			bell();
+			break;
+			/* return( 1 ); */
+		case UNKNOWN:
+d436 1
+d494 6
+d514 2
+d517 1
+a517 1
+			c |= 'A' - 1;
+a525 17
+PutBlanc(c)
+register int c;
+{
+	c &= 0377;
+	if ( !isprint(c) ) {
+		PutChar(' ');
+		col ++;
+		if( !auto_wrap && (col%max_col) == 0 )
+			eoln();
+	}
+	PutChar( ' ' );
+	col ++;
+	if( !auto_wrap && (col%max_col) == 0 )
+		eoln();
+
+}
+
+d539 1
+a539 1
+	if( !can_cleol )
+d542 1
+d551 1
+d634 2
+a635 2
+	int     i, j, found;
+	char    bch[MAXESC], *ptr;
+d637 2
+d650 3
+a652 1
+			for( j = 0;  j < c_cnt && ptr[j] && ptr[j] == bch[j] ; j++ );
+d654 2
+a655 2
+			if( ptr[j] == 0 )
+				return( acts[i] );
+a660 52
+}
+
+help()
+{
+	extern int _ediag;
+
+	if( _ediag )
+	    {
+		printf("\n            Команды редактирования:\n");
+		printf("-----------------------------------------------------\n");
+		printf("\"left\"      - предыдущий символ\n");
+		printf("\"right\"     - следующий символ\n");
+		printf("\"up\"        - взять предыдущую строку\n");
+		printf("\"down\"      - взять следующую строку\n");
+		printf("\"return\"    - выполнить команду\n");
+		printf("\"delete\"    - удаление символа перед курсором\n");
+		printf("\"backspace\" - удаление символа по курсору\n");
+		printf("^P          - дать подсказку\n");
+		printf("^V          - отмена/включение режима вставки\n");
+		printf("^a          - вставка в строку нетекстового символа\n");
+		printf("^F          - стирание остатка строки\n");
+		printf("\"tab\"       - табуляция вперед\n");
+		printf("^T          - табуляция назад\n");
+		printf("^R          - перерисовка текущей строки\n");
+		printf("^U          - стирание текущей строки\n");
+		printf("^E          - установка курсора на конец строки\n");
+		printf("^B          - установка курсора на начало строки\n");
+		printf("^D          - выдать конец файла\n\n");
+	    }
+	else
+	    {
+		printf("\n             Editor's comands:\n");
+		printf("--------------------------------------------------\n");
+		printf("\"left\"      - previous char\n");
+		printf("\"right\"     - next char\n");
+		printf("\"up\"        - give last line\n");
+		printf("\"down\"      - give next line\n");
+		printf("\"return\"    - execute comand in current line\n");
+		printf("\"delete\"    - delete previous character\n");
+		printf("\"backspace\" - delete curent character\n");
+		printf("^P          - print help\n");
+		printf("^V          - insert mode on/off\n");
+		printf("^a          - include nontext character in line\n");
+		printf("^F          - delete to end of line\n");
+		printf("\"TAB\"       - TAB forward\n");
+		printf("^T          - TAB upward\n");
+		printf("^R          - redraw current line\n");
+		printf("^U          - erase current line\n");
+		printf("^E          - set cursor to end of line\n");
+		printf("^B          - set cursor to first character of line\n");
+		printf("^D          - end of file\n\n");
+	    }
+@

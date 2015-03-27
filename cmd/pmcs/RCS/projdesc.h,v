@@ -1,0 +1,50 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.01.09.15.56.39;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Система рассылки почты проектам.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Структура описания проекта
+ *
+ * (возвращается процедурой getpd и распечатывается проц. putpd)
+ */
+
+struct projdesc {
+	char   *pd_pname;       /* имя проекта */
+	char   *pd_desc;        /* строка описания проекта */
+	char  **pd_usig;        /* группа пользователей по интересу */
+	int     pd_nusig;       /* число имен в группе */
+};
+
+/* списки в pd_usig и pd_netnames заканчиваются NULL-ом */
+#ifndef NULL
+#define NULL ((char *)0)
+#endif
+
+/* Имя каталога для проектов */
+#define PROJSPOOL       "/usr/spool/projects"
+
+/* Имя файла со списком проектов (в PROJSPOOL)*/
+#define PROJFILE        "PROJECTS"
+
+struct projdesc *getpd();
+@

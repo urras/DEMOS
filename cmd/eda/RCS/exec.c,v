@@ -1,0 +1,279 @@
+head     1.5;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.5
+date     86.11.15.21.42.11;  author avg;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     86.11.14.20.59.29;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     86.11.14.17.33.09;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.14.16.24.47;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.21;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.5
+log
+@В utok м. буквы -> б. (это проявлялось при вводе ъ).
+@
+text
+@#ifndef lint
+static char rcsid[] = "$Header: exec.c,v 1.4 86/11/14 20:59:29 avg Exp $";
+#endif
+
+/*
+ * $Log:        exec.c,v $
+ * Revision 1.4  86/11/14  20:59:29  avg
+ * Исправлена ошибка (see prev. revision).
+ *
+ * Revision 1.3  86/11/14  17:33:09  avg
+ * Исправлена ошибка с кодом 0177 : _ воспринималось как забой.
+ *
+ * Revision 1.2  86/11/14  16:24:47  avg
+ * Теперь преобразуются маленькие и русские буквы в ESC-последовательностях
+ * в большие латинские.
+ *
+ * Revision 1.1  86/11/11  17:51:21  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 10.10.1985
+ */
+
+#include NAME
+#include "glob.h"
+#include "ftab.h"
+#ifdef V2
+# include <sys/code.h>
+#else
+# define Ucode
+#endif
+
+#define NFT     (sizeof ftab)/6
+
+char exebuf[6];         /* Буфер для распознавания последовательностей */
+int  repflg[4] =        /* Флаг - если 1, то пред. команда была 'повторить' */
+		 { 0, 0, 0, 0 };
+int  nprecom[4] =       /* Номер пред.команды в ftab */
+		 { -1, -1, -1, -1 };
+int  nargp[4] =         /* Числ. аргумент пред. команды */
+		 { 1, 1, 1, 1 };
+int  bfill   = 0;       /* Длина последовательности в буфере */
+int  cstep   = 0;       /* Номер распознаваемого варианта */
+int  narg1;             /* Числовой аргумент при приеме первого символа */
+char presym[4];
+extern mlevel;
+
+#ifdef Ucode
+char UtoK[] = {
+	0101, 0102, 0127, 0107, 0104, 0105, 0126, 0132,
+	0111, 0112, 0113, 0114, 0115, 0116, 0117, 0120,
+	0122, 0123, 0124, 0125, 0106, 0110, 0103, 0136,
+	0133, 0135, 0137, 0131, 0130, 0134, 0100, 0121
+};
+#endif Ucode
+
+/*
+ * "Исполнение" символа
+ */
+execute(sym, narg)
+char sym;
+{
+	register int i,j,c;
+	extern int fsdflg,fsdflg1;
+	int omlev,c1;
+
+/* Поместить очередной символ в exebuf */
+	if( bfill == 0 ) {
+		fsdflg1 = fsdflg;
+		narg1 = narg;
+	}
+	exebuf[bfill++] = sym;
+
+/* Продолжить поиск по таблице ftab с элемента cstep */
+	for( i = cstep ; i<NFT ; i++ ) {
+		for( j = 0 ; j<bfill ; j++ )
+			if( (c=exebuf[j]) != (c1=ftab[i].symbol[j]) &&
+#ifdef Ucode
+			    ((c & 0300) != 0300 || (c = UtoK[c&037]) != c1) &&
+#endif
+#ifdef KOI8
+			    ((c & 0300) != 0300 || (c = c&0177) != c1) &&
+#endif
+			    ((c & 0100) == 0 || c==0137 || (c^040) != c1) )
+				goto notfound;
+		if( ftab[i].symbol[bfill] ) {       /* Eще не вся цепочка */
+			cstep = i;                  /*         принята    */
+			return;
+		}
+
+		/* Собственно исполнение */
+		bfill = 0;
+		cstep = 0;
+		repflg[omlev = mlevel] = 0;
+		(*ftab[i].func)(ftab[i].arg, narg1);
+		if( repflg[omlev] == 0 ) {
+			nargp[omlev] = narg1;
+			nprecom[omlev] = i;
+		}
+		return;
+notfound :      ;
+	}
+
+/* Последовательность не является управляющей */
+	if( bfill == 1 && ((sym&0300) == 0300 || (sym>037 && sym<0177))) {
+		singlechar(sym, narg1);
+		presym[mlevel] = sym;
+		nprecom[mlevel] = -2;
+		nargp[mlevel] = narg1;
+	}
+	bfill = 0;
+	cstep = 0;
+}
+
+/*
+ * Повторение пред. команды
+ */
+repeat(arg, narg)
+{
+	int ij;
+
+	ij = (narg == 1)? nargp[mlevel] : narg;
+	repflg[mlevel] = 1;
+	if( nprecom[mlevel] < 0 ) {
+		if( nprecom[mlevel] == -2 )
+			singlechar(presym[mlevel], ij);
+		return;
+	}
+	(*ftab[nprecom[mlevel]].func)(ftab[nprecom[mlevel]].arg, ij);
+}
+
+#ifdef V2
+tandem( c1, c2 )
+{
+	register struct FTAB *f = ftab;
+	register char        *p;
+
+	while( f < &ftab[NFT] ) {
+		p = (f++)->symbol;
+		while( *p ) {
+			if( *p == c1 || *p == c2 )
+				return(0);
+			p++;
+		}
+	}
+	return(1);
+}
+#endif V2
+@
+
+
+1.4
+log
+@Исправлена ошибка (see prev. revision).
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: exec.c,v 1.3 86/11/14 17:33:09 avg Exp $";
+d7 3
+d54 4
+a57 4
+	0141, 0142, 0167, 0147, 0144, 0145, 0166, 0172,
+	0151, 0152, 0153, 0154, 0155, 0156, 0157, 0160,
+	0162, 0163, 0164, 0165, 0146, 0150, 0143, 0176,
+	0173, 0175, 0177, 0171, 0170, 0174, 0140, 0161
+@
+
+
+1.3
+log
+@Исправлена ошибка с кодом 0177 : _ воспринималось как забой.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: exec.c,v 1.2 86/11/14 16:24:47 avg Exp $";
+d7 3
+d85 1
+a85 1
+			    ((c & 0100) == 0 || c==0177 || (c^040) != c1 ) )
+@
+
+
+1.2
+log
+@Теперь преобразуются маленькие и русские буквы в ESC-последовательностях
+в большие латинские.
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header: exec.c,v 1.1 86/11/11 17:51:21 avg Exp $";
+d7 4
+d82 1
+a82 1
+			    ((c & 0100) == 0    || (c^040) != c1 ) )
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+d42 9
+d57 1
+a57 1
+	register int i,j, omlev;
+d59 1
+d71 8
+a78 1
+			if( exebuf[j] != ftab[i].symbol[j] )
+a99 11
+#ifdef UPPERONLY
+		if( sym > 0140 && sym < 0173 )  /* М. лат -> Б */
+			sym &= ~040;
+#ifdef Ucode
+		else if( (sym & 0340) == 0340 ) /* М. рус-> Б */
+			sym &= ~040;
+#else
+		else if( (sym & 0340) == 0300 ) /* М. рус-> Б */
+			sym |= 040;
+#endif Ucode
+#endif UPPERONLY
+@

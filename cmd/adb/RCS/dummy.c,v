@@ -1,0 +1,44 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.01.05.18.36.12;  author andrew;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+adb
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#include "defs.h"
+/*
+ *
+ *	UNIX debugger - small version
+ * $Log$
+ */
+
+subpcs(modif)
+{
+	prints(ediag("sub processes not supported\n",
+		     "подпроцессы не поддерживаются\n"));
+}
+
+delbp()
+{;}
+
+endpcs()
+{;}
+@

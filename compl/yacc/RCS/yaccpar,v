@@ -1,0 +1,428 @@
+head     1.2;
+access   ;
+symbols  BSD29:1.0;
+locks    ;
+comment  @ *@;
+
+
+1.2
+date     86.12.28.17.07.26;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.12.26.17.39.56;  author avg;  state Exp;
+branches ;
+next     1.0;
+
+1.0
+date     86.12.26.17.14.42;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Автомат синтаксического анализа из YACC.
+@
+
+
+1.2
+log
+@Изменен на обратный смысл макроопределения
+YYVX - теперь оно означает разрешение размещения 
+yyv в стеке yaccpar.
+@
+text
+@#
+/*
+ * $Log$
+ */
+#define YYFLAG   -1000
+#define YYERROR  goto yyerrlab
+#define YYACCEPT return(0)
+#define YYABORT  return(1)
+
+/*
+ * Анализатор выдачи yacc-а
+ */
+
+#ifdef YYDEBUGON
+int     yydebug = 1;    /* @@VG спец. случай */
+#define YYDEBUG
+#else
+# ifdef YYDEBUG
+int     yydebug = 0;    /* 1 для отладки */
+# endif
+#endif
+
+#ifdef YYVX      /* Размещать YYV в стеке */
+YYSTYPE yyv[YYMAXDEPTH]; /* стек для хранения значений */
+#endif
+
+int     yychar = -1;     /* номер текущей лексемы */
+int     yynerrs = 0;     /* число ошибок */
+short   yyerrflag = 0;   /* флаг восстановления после ошибок */
+
+yyparse()
+{
+	extern            _ediag;  /* см. crt0.o @@VG */
+	short             yys[YYMAXDEPTH];
+#ifndef YYVX
+	YYSTYPE yyv[YYMAXDEPTH];   /* стек для хранения значений */
+#endif
+	short             yyj, yym;
+	register YYSTYPE *yypvt;
+	register short    yystate, *yyps, yyn;
+	register YYSTYPE *yypv;
+	register short   *yyxi;
+
+	yystate   = 0;
+	yychar    = -1;
+	yynerrs   = 0;
+	yyerrflag = 0;
+	yyps = &yys[-1];
+	yypv = &yyv[-1];
+
+    yystack:    /* занести состояние и значение в стек */
+
+#ifdef YYDEBUG
+	if( yydebug  ) printf( _ediag? "state %d, char %d\n":
+				       "состояние %d, лексема %d\n",
+			       yystate, yychar );
+#endif
+	if( ++yyps > &yys[YYMAXDEPTH] ) {
+		yyerror( _ediag? "yacc stack overflow":
+				 "переполнение стека yacc" );
+		return(1);
+	}
+	*yyps = yystate;
+	++yypv;
+	*yypv = yyval;
+
+    yynewstate:
+	yyn = yypact[yystate];
+	if( yyn <= YYFLAG )
+		goto yydefault; /* простое состояние */
+
+	if( yychar < 0 )
+		if( (yychar = yylex()) < 0 )
+			yychar = 0;
+	if( (yyn += yychar) < 0 || yyn >= YYLAST )
+		goto yydefault;
+
+	if( yychk[yyn = yyact[yyn]] == yychar ) { /* возможен сдвиг */
+		yychar  = -1;
+		yyval   = yylval;
+		yystate = yyn;
+		if( yyerrflag > 0 )
+			--yyerrflag;
+		goto yystack;
+	}
+
+    yydefault:  /* действие по умолчанию */
+
+	if( (yyn = yydef[yystate]) == -2 ) {
+		if( yychar < 0 )
+			if( (yychar = yylex()) < 0 )
+				yychar = 0;
+
+		/* просмотреть таблицу исключений */
+
+		for( yyxi = yyexca ; (*yyxi != (-1)) || (yyxi[1] != yystate) ;
+								   yyxi += 2 )
+			/* ПУСТО */;
+
+		while( *(yyxi += 2) >= 0 ) {
+			if( *yyxi == yychar )
+				break;
+		}
+		if( (yyn = yyxi[1]) < 0 )
+			return(0);   /* принято */
+	}
+
+	if( yyn == 0 ) {        /* ошибка */
+
+		/* ошибка ... попытка продолжить разбор */
+
+		switch( yyerrflag ) {
+		    case 0:     /* отметить новую ошибку */
+
+#ifndef YYNOERRS  /* by @@VG */
+			yyerror( _ediag? "syntax error":
+					 "синтаксическая ошибка" );
+#endif
+		    yyerrlab:
+			++yynerrs;
+
+		    case 1:
+		    case 2: /* неполностью восстановлено после ошибки ...
+					      попробовать еще раз */
+
+			yyerrflag = 3;
+
+			/* поискать состояние где возможен сдвиг при "error" */
+
+			while ( yyps >= yys ) {
+				yyn = yypact[*yyps] + YYERRCODE;
+				if( yyn >= 0 &&
+				    yyn < YYLAST &&
+				    yychk[yyact[yyn]] == YYERRCODE ) {
+
+					/* имитировать сдвиг при "error" */
+					yystate = yyact[yyn];
+					goto yystack;
+				}
+				yyn = yypact[*yyps];
+
+		 /* в текущем yyps нет сдвига для "error", поднять из стека */
+
+#ifdef YYDEBUG
+				if( yydebug )
+					printf( _ediag ?
+    "error recovery pops state %d, uncovers %d\n":
+    "восстановление после ошибки подняло из стека состояние %d, осталось %d\n",
+						*yyps, yyps[-1] );
+#endif
+				--yyps;
+				--yypv;
+			}
+
+		/* в стеке нет состояний со сдвигом для ошибки ... облом */
+
+		    yyabort:
+			return(1);
+
+		    case 3:  /* нет возможности сдвига; прочитать лексему */
+
+#ifdef YYDEBUG
+			if( yydebug )
+				printf( _ediag?
+		"error recovery discards char %d\n":
+		"восстановление после ошибки: пропущена лексема %d\n",
+					 yychar );
+#endif
+
+			if( yychar == 0 )
+				goto yyabort; /* не пропускать EOF, конец */
+			yychar = -1;
+			goto yynewstate;   /* попробовать еще раз в том же состоянии */
+		}
+	}
+
+	/* свертка правила yyn */
+
+#ifdef YYDEBUG
+	if( yydebug )
+		printf( _ediag? "reduce %d\n": "свертка %d\n", yyn );
+#endif
+	yyps -= yyr2[yyn];
+	yypvt = yypv;
+	yypv -= yyr2[yyn];
+	yyval = yypv[1];
+	yym = yyn;
+
+	/* обратиться к таблице переходов чтобы узнать след. состояние */
+	yyn = yyr1[yyn];
+	yyj = yypgo[yyn] + *yyps + 1;
+	if( yyj >= YYLAST || yychk[yystate = yyact[yyj]] != -yyn )
+		yystate = yyact[yypgo[yyn]];
+	switch(yym){
+		$A
+	}
+	goto yystack;  /* положить в стек новое состояние и значение */
+}
+@
+
+
+1.1
+log
+@Версия из МНОС РЛ 1.2
+@
+text
+@d2 3
+d23 1
+a23 1
+#ifndef YYVX    /* Не размещать YYV в стеке */
+d35 1
+a35 1
+#ifdef YYVX
+@
+
+
+1.0
+log
+@Initial revision
+@
+text
+@d2 4
+a5 4
+# define YYFLAG -1000
+# define YYERROR goto yyerrlab
+# define YYACCEPT return(0)
+# define YYABORT return(1)
+d7 3
+a9 1
+/*      parser for yacc output  */
+d11 8
+a18 5
+int yydebug = 0; /* 1 for debugging */
+YYSTYPE yyv[YYMAXDEPTH]; /* where the values are stored */
+int yychar = -1; /* current input token number */
+int yynerrs = 0;  /* number of errors */
+short yyerrflag = 0;  /* error recovery flag */
+d20 3
+a22 1
+yyparse() {
+d24 12
+a35 2
+	short yys[YYMAXDEPTH];
+	short yyj, yym;
+d37 1
+a37 1
+	register short yystate, *yyps, yyn;
+d39 1
+a39 1
+	register short *yyxi;
+d41 3
+a43 3
+	yystate = 0;
+	yychar = -1;
+	yynerrs = 0;
+d45 2
+a46 2
+	yyps= &yys[-1];
+	yypv= &yyv[-1];
+d48 1
+a48 1
+ yystack:    /* put a state and value onto the stack */
+d50 13
+a62 5
+	if( yydebug  ) printf( "state %d, char 0%o\n", yystate, yychar );
+		if( ++yyps> &yys[YYMAXDEPTH] ) { yyerror( "yacc stack overflow" ); return(1); }
+		*yyps = yystate;
+		++yypv;
+		*yypv = yyval;
+d64 1
+a64 2
+ yynewstate:
+
+d66 2
+d69 5
+a73 1
+	if( yyn<= YYFLAG ) goto yydefault; /* simple state */
+d75 3
+a77 6
+	if( yychar<0 ) if( (yychar=yylex())<0 ) yychar=0;
+	if( (yyn += yychar)<0 || yyn >= YYLAST ) goto yydefault;
+
+	if( yychk[ yyn=yyact[ yyn ] ] == yychar ){ /* valid shift */
+		yychar = -1;
+		yyval = yylval;
+d79 2
+a80 1
+		if( yyerrflag > 0 ) --yyerrflag;
+d82 1
+a82 1
+		}
+d84 1
+a84 2
+ yydefault:
+	/* default state action */
+d86 4
+a89 3
+	if( (yyn=yydef[yystate]) == -2 ) {
+		if( yychar<0 ) if( (yychar=yylex())<0 ) yychar = 0;
+		/* look through exception table */
+d91 1
+a91 1
+		for( yyxi=yyexca; (*yyxi!= (-1)) || (yyxi[1]!=yystate) ; yyxi += 2 ) ; /* VOID */
+d93 7
+a99 4
+		while( *(yyxi+=2) >= 0 ){
+			if( *yyxi == yychar ) break;
+			}
+		if( (yyn = yyxi[1]) < 0 ) return(0);   /* accept */
+d101 3
+d105 1
+a105 2
+	if( yyn == 0 ){ /* error */
+		/* error ... attempt to resume parsing */
+d107 1
+a107 1
+		switch( yyerrflag ){
+d109 2
+a110 1
+		case 0:   /* brand new error */
+d112 5
+a116 2
+			yyerror( "syntax error" );
+		yyerrlab:
+d119 3
+a121 2
+		case 1:
+		case 2: /* incompletely recovered error ... try again */
+d125 1
+a125 1
+			/* find a state where "error" is a legal shift action */
+d128 4
+a131 6
+			   yyn = yypact[*yyps] + YYERRCODE;
+			   if( yyn>= 0 && yyn < YYLAST && yychk[yyact[yyn]] == YYERRCODE ){
+			      yystate = yyact[yyn];  /* simulate a shift of "error" */
+			      goto yystack;
+			      }
+			   yyn = yypact[*yyps];
+d133 5
+a137 1
+			   /* the current yyps has no shift onn "error", pop stack */
+d139 1
+a139 4
+			   if( yydebug ) printf( "error recovery pops state %d, uncovers %d\n", *yyps, yyps[-1] );
+			   --yyps;
+			   --yypv;
+			   }
+d141 10
+a150 1
+			/* there is no state on the stack with an error shift ... abort */
+d152 3
+a154 1
+	yyabort:
+d157 1
+d159 7
+a165 1
+		case 3:  /* no shift yet; clobber input char */
+d167 2
+a168 3
+			if( yydebug ) printf( "error recovery discards char %d\n", yychar );
+
+			if( yychar == 0 ) goto yyabort; /* don't discard EOF, quit */
+d170 1
+a170 4
+			goto yynewstate;   /* try again in the same state */
+
+			}
+
+d172 1
+d174 1
+a174 1
+	/* reduction by production yyn */
+d176 9
+a184 14
+		if( yydebug ) printf("reduce %d\n",yyn);
+		yyps -= yyr2[yyn];
+		yypvt = yypv;
+		yypv -= yyr2[yyn];
+		yyval = yypv[1];
+		yym=yyn;
+			/* consult goto table to find next state */
+		yyn = yyr1[yyn];
+		yyj = yypgo[yyn] + *yyps + 1;
+		if( yyj>=YYLAST || yychk[ yystate = yyact[yyj] ] != -yyn ) yystate = yyact[yypgo[yyn]];
+		switch(yym){
+			$A
+		}
+		goto yystack;  /* stack new state and value */
+d186 7
+d194 2
+@

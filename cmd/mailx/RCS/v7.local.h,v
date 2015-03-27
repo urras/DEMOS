@@ -1,0 +1,141 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     90.09.19.17.13.01;  author root;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.08.23.17.43.15;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.01.11.12.27.17;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.12.25.16.01.08;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Почтовая служба Mail
+@
+
+
+1.4
+log
+@???
+@
+text
+@/*
+ * Declarations and constants specific to an installation.
+ *
+ * DEMOS 2.
+ *
+ * $Log:        v7.local.h,v $
+ * Revision 1.3  88/08/23  17:43:15  avg
+ * Сделаны русские help-файлы.
+ *
+ * Revision 1.2  88/01/11  12:27:17  avg
+ * Добавлены куски для работы с PMCS.
+ * У rcsid поставлены комментарии NOXSTR.
+ *
+ * Revision 1.1  87/12/25  16:01:08  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * $Header: v7.local.h,v 1.3 88/08/23 17:43:15 avg Exp $
+ */
+
+#define GETHOST                         /* System has gethostname syscall */
+
+#ifdef  GETHOST
+#define LOCAL           EMPTYID         /* Dynamically determined local host */
+#else
+#define LOCAL           'V'             /* Local host id */
+#endif  GETHOST
+
+#define MAIL            "/bin/mail"     /* Name of mail sender */
+/*#define SENDMAIL      "/etc/delivermail" /* Name of classy mail deliverer */
+#define EDITOR          "/bin/ed"       /* Name of text editor */
+#define VISUAL          "/bin/red"      /* Name of display editor */
+#define SHELL           "/bin/csh"      /* Standard shell */
+#define MORE            "/usr/bin/more" /* Standard output pager */
+#define HELPFILE        "/usr/lib/Mail.help"    /* Name of casual help file */
+#define THELPFILE       "/usr/lib/Mail.help.~"  /* Name of casual tilde help */
+#define RHELPFILE       "/usr/lib/Mail.rhelp"   /* Name of casual help file */
+#define RTHELPFILE      "/usr/lib/Mail.rhelp.~" /* Name of casual tilde help */
+#define POSTAGE         "/usr/adm/maillog"      /* Where to audit mail sending */
+#define UIDMASK         0177777         /* Significant uid bits */
+#define MASTER          "/usr/lib/Mail.rc"
+#define APPEND                          /* New mail goes to end of mailbox */
+#define CANLOCK                         /* Locking protocol actually works */
+#define UTIME                           /* System implements utime(2) */
+
+#define PMCS            "/usr/ucb/bin/pmcs"     /* project mailing control system */
+#define PROJSPOOL       "/usr/spool/projects"   /* каталог файлов проектов */
+#define PROJMAILER      "/etc/projmail"         /* sender для проектов */
+
+#ifndef VMUNIX
+#include "sigretro.h"                   /* Retrofit signal defs */
+#endif VMUNIX
+@
+
+
+1.3
+log
+@Сделаны русские help-файлы.
+@
+text
+@d7 3
+d20 1
+a20 1
+ * $Header: v7.local.h,v 1.2 88/01/11 12:27:17 avg Exp $
+d48 1
+a48 1
+#define PMCS            "/usr/ucb/pmcs"         /* project mailing control system */
+@
+
+
+1.2
+log
+@Добавлены куски для работы с PMCS.
+У rcsid поставлены комментарии NOXSTR.
+@
+text
+@d7 4
+d17 1
+a17 1
+ * $Header: v7.local.h,v 1.1 87/12/25 16:01:08 avg Exp $
+d34 5
+a38 3
+#define HELPFILE        "/usr/lib/Mail.help"   /* Name of casual help file */
+#define THELPFILE       "/usr/lib/Mail.help.~" /* Name of casual tilde help */
+#define POSTAGE         "/usr/adm/maillog"     /* Where to audit mail sending */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 4
+a9 1
+ * $Log$
+d13 1
+a13 1
+ * $Header$
+d38 4
+@

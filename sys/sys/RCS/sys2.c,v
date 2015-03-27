@@ -1,0 +1,1116 @@
+head     22.6;
+access   avg dmitry flerov davidov alex fox korotaev dvolodin abs;
+symbols  Архыз0:1.5.1;
+locks    ;
+comment  @ * @;
+
+
+22.6
+date     90.11.12.19.19.59;  author root;  state Exp;
+branches ;
+next     22.5;
+
+22.5
+date     89.10.11.18.25.34;  author korotaev;  state Exp;
+branches ;
+next     22.4;
+
+22.4
+date     89.07.24.17.38.42;  author korotaev;  state Exp;
+branches ;
+next     22.3;
+
+22.3
+date     89.05.03.12.32.26;  author korotaev;  state Exp;
+branches ;
+next     22.2;
+
+22.2
+date     89.04.12.15.37.35;  author korotaev;  state Exp;
+branches ;
+next     22.1;
+
+22.1
+date     89.04.12.15.36.57;  author korotaev;  state Exp;
+branches ;
+next     22.0;
+
+22.0
+date     89.03.30.16.43.08;  author korotaev;  state Exp;
+branches ;
+next     1.7;
+
+1.7
+date     89.01.10.13.29.52;  author korotaev;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     89.01.07.20.59.27;  author korotaev;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     88.11.02.21.13.47;  author dvolodin;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     88.06.29.15.46.26;  author korotaev;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     87.12.12.18.12.11;  author korotaev;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     87.09.23.16.04.38;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.04.19.15.52.36;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Ядро системы.  Машинно-независимая часть.
+@
+
+
+22.6
+log
+@Новые вещи для СМ1425 и перемещение include.
+@
+text
+@/*
+ * $Log:	sys2.c,v $
+ * Revision 22.5  89/10/11  18:25:34  korotaev
+ * Исправлена плюха для mknod'а.
+ * 
+ * Revision 22.4  89/07/24  17:38:42  korotaev
+ * Исправлен flock - аргументом может быть комбинация битов.
+ * 
+ * Revision 22.3  89/05/03  12:32:26  korotaev
+ * Теперь при создании существующего файла с длиной 0 меняется время
+ * 
+ * Revision 22.2  89/04/12  15:37:35  korotaev
+ * "param.h" ==> <sys/param.h>
+ * 
+ * Revision 22.0  89/03/30  16:43:08  korotaev
+ * Begining DEMOS 2.2.
+ * 
+ * Revision 1.7  89/01/10  13:29:52  korotaev
+ * Исправлена ошибка в lseek (ESPIPE).
+ * 
+ * Revision 1.6  89/01/07  20:59:27  korotaev
+ * Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+ * 
+ * (from VAX/UTS SV.2)
+ * 
+ * Revision 1.5  88/11/02  21:13:47  dvolodin
+ * *** empty log message ***
+ * 
+ * Revision 1.4  88/06/29  15:46:26  korotaev
+ * Исправлено поле в <sys/inode.h>
+ * 
+ * Revision 1.3  87/12/12  18:12:11  korotaev
+ * Вставлен системный вызов flock.
+ * 
+ * Revision 1.2  87/09/23  16:04:38  root
+ * Изменения связанные с truncate
+ *
+ * Revision 1.1  86/04/19  15:52:36  avg
+ * Initial revision
+ *
+ */
+
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/dir.h>
+#include <sys/user.h>
+#include "../include/reg.h"
+#include <sys/file.h>
+#include <sys/inode.h>
+#include "../include/quota.h"
+#include <sys/proc.h>
+#include "../include/inline.h"
+#include <sys/fcntl.h>
+
+/*
+ * read system call
+ */
+read()
+{
+	rdwr(FREAD);
+}
+
+/*
+ * write system call
+ */
+write()
+{
+	rdwr(FWRITE);
+}
+
+/*
+ * common code for read and write calls:
+ * set base, count, and offset,
+ * and switch out to readi, writei, or pipe code.
+ */
+rdwr(mode)
+register mode;
+{
+	register struct file *fp;
+	register struct inode *ip;
+	register struct a {
+		int     fdes;
+		char    *cbuf;
+		unsigned count;
+	} *uap = (struct a *)u.u_ap;
+	int type;
+
+#ifdef  UNFAST
+	if ((fp = getf(uap->fdes)) == NULL)
+		return;
+#else
+	if (GETF(fp,uap->fdes)) {
+		u.u_error = EBADF;
+		return;
+	}
+#endif
+	if((fp->f_flag & mode) == 0) {
+		u.u_error = EBADF;
+		return;
+	}
+	u.u_base = (caddr_t)uap->cbuf;
+	u.u_count = uap->count;
+	u.u_segflg = 0;
+	u.u_fmode = fp->f_flag;
+	if ((u.u_procp->p_flag & SNUSIG) && save(u.u_qsav)) {
+		if (u.u_count == uap->count)
+			u.u_eosys = RESTARTSYS;
+	} else {
+#ifdef  UCB_NET
+	if (fp->f_flag & FSOCKET) {
+		if (mode == FREAD)
+			u.u_error = soreceive(fp->f_socket, (struct sockaddr *)0);
+		else
+			u.u_error = sosend(fp->f_socket, (struct sockaddr *)0);
+	} else {
+#endif
+		ip = fp->f_inode;
+		type = ip->i_mode&IFMT;
+		if( type != IFCHR && type != IFBLK ){
+			plock(ip);
+			if( type == IFIFO )
+				fp->f_un.f_offset = 0;
+			else if( (u.u_fmode&FAPPEND) && (mode == FWRITE) )
+				fp->f_un.f_offset = ip->i_size;
+		}
+		u.u_offset = fp->f_un.f_offset;
+		if(mode == FREAD)
+			readi(ip);
+		else
+			writei(ip);
+		if( type != IFCHR && type != IFBLK )
+			prele(ip);
+		fp->f_un.f_offset += uap->count-u.u_count;
+	}
+	u.u_r.r_val1 = uap->count-u.u_count;
+}
+
+/*
+ * open system call
+ */
+open()
+{
+	register struct a {
+		char	*fname;
+		int	mode;
+		int	crtmode;
+	} *uap = (struct a *)u.u_ap;
+
+	copen(++uap->mode, uap->crtmode);
+}
+
+/*
+ * creat system call
+ */
+creat()
+{
+	register struct a {
+		char	*fname;
+		int	fmode;
+	} *uap = (struct a *)u.u_ap;
+
+	copen(FWRITE|O_CREAT|O_TRUNC, uap->fmode);
+}
+
+/*
+ * common code for open and creat.
+ * Check permissions, allocate an open file structure,
+ * and call the device open routine if any.
+ */
+copen(mode, arg)
+register mode;
+{
+	register struct inode *ip;
+	register struct file *fp;
+	int i;
+
+	if ((mode&(FREAD|FWRITE)) == 0) {
+		u.u_error = EINVAL;
+		return;
+	}
+	if (mode&O_CREAT) {
+		ip = namei(uchar, CREATE, 1);
+		if (ip == NULL) {
+			if (u.u_error)
+				return;
+			ip = maknode(arg&07777&(~ISVTX));
+			if (ip == NULL)
+				return;
+			mode &= ~O_TRUNC;
+		} else {
+			if (mode&O_EXCL) {
+				u.u_error = EEXIST;
+				goto out;
+			}
+			mode &= ~O_CREAT;
+		}
+	} else {
+		ip = namei(uchar, LOOKUP, 1);
+		if (ip == NULL)
+			return;
+	}
+	if (!(mode&O_CREAT)) {
+		if (mode&FREAD)
+			access(ip, IREAD);
+		if (mode&(FWRITE|O_TRUNC)) {
+			access(ip, IWRITE);
+			if ((ip->i_mode&IFMT) == IFDIR)
+				u.u_error = EISDIR;
+		}
+	}
+	if( u.u_error )
+		goto out;
+	if (mode&O_TRUNC)
+		itrunc(ip,(off_t)0);
+	prele(ip);
+	if( (fp = falloc()) == NULL )
+		goto out;
+	fp->f_inode = ip;
+	fp->f_flag = mode&FMASK;
+	i = u.u_r.r_val1;
+	openi(ip, mode);
+	if (u.u_error == 0)
+		return;
+	u.u_ofile[i] = NULL;
+	fp->f_count--;
+out:
+	iput(ip);
+}
+
+/*
+ * close system call
+ */
+close()
+{
+	register struct file *fp;
+	register struct a {
+		int     fdes;
+	} *uap = (struct a *)u.u_ap;
+
+#ifdef  UNFAST
+	if ((fp = getf(uap->fdes)) == NULL)
+		return;
+#else
+	if (GETF(fp,uap->fdes)) {
+		u.u_error = EBADF;
+		return;
+	}
+#endif
+	u.u_ofile[uap->fdes] = NULL;
+#ifndef UCB_NET
+	closef(fp);
+#else
+	closef(fp,0);
+#endif
+}
+
+/*
+ * seek system call
+ */
+seek()
+{
+	register struct file *fp;
+	register struct a {
+		int     fdes;
+		off_t   off;
+		int     sbase;
+	} *uap = (struct a *)u.u_ap;
+	register struct inode *ip;
+
+#ifdef  UNFAST
+	if ((fp = getf(uap->fdes)) == NULL)
+		return;
+#else
+	if (GETF(fp,uap->fdes)) {
+		u.u_error = EBADF;
+		return;
+	}
+#endif
+#ifdef  UCB_NET
+	if (fp->f_flag&FSOCKET) {
+		u.u_error = ESPIPE;
+		return;
+	}
+#endif
+	ip = fp->f_inode;
+	if( (ip->i_mode&IFMT) == IFIFO ){
+		u.u_error = ESPIPE;
+		return;
+	}
+	if(uap->sbase == FSEEK_RELATIVE)
+		uap->off += fp->f_un.f_offset;
+	else if(uap->sbase == FSEEK_EOF)
+		uap->off += ip->i_size;
+	if( uap->off < 0 )
+		u.u_error = EINVAL;
+	else {
+		fp->f_un.f_offset = uap->off;
+		u.u_r.r_off = uap->off;
+	}
+}
+
+/*
+ * link system call
+ */
+link()
+{
+	register struct inode *ip, *xp;
+	register struct a {
+		char    *target;
+		char    *linkname;
+	} *uap = (struct a *)u.u_ap;
+
+	ip = namei(uchar, LOOKUP, 1);
+	if(ip == NULL)
+		return;
+#ifdef UCB_QUOTAS
+	if (((ip->i_mode & IFMT)==IFDIR || isquot(ip)) && !suser())
+#else
+	if((ip->i_mode & IFMT)==IFDIR && !suser())
+#endif
+		goto out;
+
+	ip->i_nlink++;
+	ip->i_flag |= ICHG;
+#ifdef UCB_FSFIX
+	iupdat(ip, &time, &time, 1);
+#else
+	iupdat(ip, &time, &time);
+#endif
+	prele(ip);
+	u.u_dirp = (caddr_t)uap->linkname;
+	xp = namei(uchar, CREATE, 0);
+	if(xp != NULL) {
+		u.u_error = EEXIST;
+		iput(xp);
+	} else {
+		if (u.u_error)
+			goto err;
+		if (u.u_pdir->i_dev != ip->i_dev) {
+			iput(u.u_pdir);
+			u.u_error = EXDEV;
+		} else
+			wdir(ip);
+	}
+
+	if (u.u_error) {
+err:
+		ip->i_nlink--;
+		ip->i_flag |= ICHG;
+	}
+out:
+	iput(ip);
+}
+
+/*
+ * mknod system call
+ */
+mknod()
+{
+	register struct inode *ip;
+	register struct a {
+		char    *fname;
+		int     fmode;
+		dev_t     dev;
+	} *uap = (struct a *)u.u_ap;
+
+	if( (uap->fmode & IFMT) != IFIFO && !suser() )
+		return;
+	ip = namei(uchar, CREATE, 0);
+	if(ip != NULL){
+		u.u_error = EEXIST;
+		goto out;
+	}
+	ip = maknode(uap->fmode);
+	if (ip == NULL)
+		return;
+	switch (ip->i_mode&IFMT){
+	case IFREG:
+	       /*
+		* maknode преобразует нулевой тип в регулярный файл.
+		* Для нормальной работы badsect надо вписать major и
+		* minor. Для данного случая стоит эта проверка.
+		*/
+		if( uap->fmode != 0 )
+			break;
+	case IFBLK:
+	case IFCHR:
+		/*
+		 *  Используется badsect'ом.
+		 *  (поля i_un.i_rdev и i_un.i_addr[0] совпадают)
+		 */
+		ip->i_un.i_rdev = (dev_t)uap->dev;
+#ifdef  UCB_FSFIX
+		ip->i_flag |= IACC|IUPD|ICHG;
+#else
+		ip->i_flag |= ICHG;
+#endif
+	}
+out:
+	iput(ip);
+}
+
+/*
+ * access system call
+ */
+saccess()
+{
+	register struct inode *ip;
+	register struct a {
+		char    *fname;
+		int     fmode;
+	} *uap = (struct a *)u.u_ap;
+	int    svuid, svgid;
+
+	svuid = u.u_uid;
+	svgid = u.u_gid;
+	u.u_uid = u.u_ruid;
+	u.u_gid = u.u_rgid;
+	ip = namei(uchar, LOOKUP, 1);
+	if (ip != NULL) {
+		if ((uap->fmode & FACCESS_READ) && access(ip, IREAD))
+			goto done;
+		if ((uap->fmode & FACCESS_WRITE) && access(ip, IWRITE))
+			goto done;
+		if ((uap->fmode & FACCESS_EXECUTE) && access(ip, IEXEC))
+			goto done;
+done:
+		iput(ip);
+	}
+	u.u_uid = svuid;
+	u.u_gid = svgid;
+}
+
+/*
+ * Системный вызов ftruncate(fd,length).
+ *      обрезает открытый файл.
+ */
+
+ftruncate()
+{
+	register struct file  *fp;
+	register struct inode *ip;
+	register struct a {
+		int fdes;
+		off_t length;
+	} *uap = (struct a * )u.u_ap;
+
+	if( (fp =getf(uap->fdes)) == NULL ){
+		u.u_error = EBADF;
+		return;
+	}
+	ip = fp->f_inode;
+	if( (fp->f_flag & FWRITE) && (ip->i_mode&IFMT) == IFREG ){
+		plock(ip);
+		itrunc(ip,uap->length);
+		prele(ip);
+	} else
+		u.u_error = EINVAL;
+}
+
+/*
+ * Системный вызов truncate(path,length).
+ *      обрезает файл по имени.
+ */
+
+truncate()
+{
+	register struct inode *ip;
+	register struct a {
+		char *fname;
+		off_t length;
+	} *uap = (struct a * )u.u_ap;
+
+	if( (ip = namei(uchar,LOOKUP,1)) == NULL )
+		return;
+	if( access(ip,IWRITE) )
+		goto out;
+	if( (ip->i_mode & IFMT) != IFREG ){
+		u.u_error = EINVAL;
+		goto out;
+	}
+	itrunc(ip,uap->length);
+out:
+	iput(ip);
+}
+
+/*
+ * Системный вызов flock - блокирование файла (from BSD4.2).
+ */
+flock()
+{
+	register struct file *fp;
+	register struct a {
+		int fd;
+		int how;
+	} *uap = (struct a *)u.u_ap;
+
+#ifdef UNFAST
+	if( (fp = getf(uap->fd)) == NULL ){
+#else
+	if( GETF(fp,uap->fd) ){
+#endif
+		u.u_error = EBADF;
+		return;
+	}
+	if( (fp->f_flag & FWRITE) == 0 ){
+		u.u_error = EINVAL;
+		return;
+	}
+	if( uap->how & LOCK_UN ){
+		ino_unlock(fp, FSHLOCK|FEXLOCK);
+		return;
+	}
+	/* avoid work... */
+	if( ((fp->f_flag & FEXLOCK) && (uap->how & LOCK_EX)) ||
+	    ((fp->f_flag & FSHLOCK) && (uap->how & LOCK_SH)) )
+		return;
+	u.u_error = ino_lock(fp, uap->how);
+}
+@
+
+
+22.5
+log
+@Исправлена плюха для mknod'а.
+@
+text
+@d3 3
+d47 1
+a47 1
+#include <sys/reg.h>
+d50 1
+a50 1
+#include <sys/quota.h>
+d52 1
+a52 1
+#include <sys/inline.h>
+@
+
+
+22.4
+log
+@Исправлен flock - аргументом может быть комбинация битов.
+@
+text
+@d3 3
+d375 8
+a388 1
+	case 0:
+@
+
+
+22.3
+log
+@Теперь при создании существующего файла с длиной 0 меняется время
+@
+text
+@d3 3
+d47 1
+a48 1
+
+d67 1
+a67 1
+ * check permissions, set base, count, and offset,
+d501 3
+a503 2
+	if( ((fp->f_flag & FEXLOCK) && (uap->how == LOCK_EX)) ||
+	    ((fp->f_flag & FSHLOCK) && (uap->how == LOCK_SH)) )
+@
+
+
+22.2
+log
+@"param.h" ==> <sys/param.h>
+@
+text
+@d3 3
+a187 1
+		ip->i_flag |= IUPD;
+@
+
+
+22.1
+log
+@Перед тем, как изменить param.h
+@
+text
+@d31 1
+a31 1
+#include "param.h"
+@
+
+
+22.0
+log
+@Begining DEMOS 2.2.
+@
+text
+@d3 3
+d185 1
+@
+
+
+1.7
+log
+@Исправлена ошибка в lseek (ESPIPE).
+@
+text
+@d3 3
+@
+
+
+1.6
+log
+@Слияние с исправлениями насчет FIFO, +fcntl, + разные режимы открытия
+
+(from VAX/UTS SV.2)
+@
+text
+@d3 5
+d268 1
+a268 1
+	if( ip->i_flag & IFIFO ){
+d362 5
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d3 3
+a27 1
+#ifdef  MENLO_JCL
+a28 1
+#endif
+d62 2
+a63 1
+	} *uap;
+a64 1
+	uap = (struct a *)u.u_ap;
+d81 1
+a81 1
+#ifdef  MENLO_JCL
+d85 1
+a85 2
+	} else
+#endif
+d92 1
+a92 1
+	} else
+d94 8
+a101 25
+		if((fp->f_flag & FPIPE) != 0) {
+			if(mode == FREAD)
+				readp(fp);
+			else
+				writep(fp);
+		} else {
+			ip = fp->f_inode;
+#ifdef  MPX_FILS
+			if (fp->f_flag & FMP)
+				u.u_offset = 0;
+			else
+#endif
+				u.u_offset = fp->f_un.f_offset;
+			if((ip->i_mode & (IFCHR & IFBLK)) == 0)
+				plock(ip);
+			if(mode == FREAD)
+				readi(ip);
+			else
+				writei(ip);
+			if((ip->i_mode & (IFCHR & IFBLK)) == 0)
+				prele(ip);
+#ifdef  MPX_FILS
+			if ((fp->f_flag & FMP) == 0)
+#endif
+				fp->f_un.f_offset += uap->count-u.u_count;
+d103 9
+a119 1
+	register struct inode *ip;
+d121 4
+a124 3
+		char    *fname;
+		int     rwmode;
+	} *uap;
+d126 1
+a126 9
+	uap = (struct a *)u.u_ap;
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+	ip = namei(uchar, LOOKUP, 1);
+#endif
+	if(ip == NULL)
+		return;
+	open1(ip, ++uap->rwmode, 0);
+a133 1
+	register struct inode *ip;
+d135 3
+a137 3
+		char    *fname;
+		int     fmode;
+	} *uap;
+d139 1
+a139 15
+	uap = (struct a *)u.u_ap;
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, CREATE);
+#else
+	ip = namei(uchar, CREATE, 1);
+#endif
+	if(ip == NULL) {
+		if(u.u_error)
+			return;
+		ip = maknode(uap->fmode & 07777 & (~ISVTX));
+		if (ip==NULL)
+			return;
+		open1(ip, FWRITE, 2);
+	} else
+		open1(ip, FWRITE, 1);
+d147 1
+a147 2
+open1(ip, mode, trf)
+register struct inode *ip;
+d150 1
+a152 1
+	dev_t ird;
+d154 27
+a180 2
+	if(trf != 2) {
+		if(mode & FREAD)
+d182 1
+a182 1
+		if(mode & FWRITE) {
+d184 1
+a184 1
+			if((ip->i_mode & IFMT) == IFDIR)
+d188 1
+a188 1
+	if(u.u_error)
+d190 1
+a190 2
+	if(trf == 1)
+#ifdef IPK_TRUNCATE
+a191 3
+#else IPK_TRUNCATE
+		itrunc(ip);
+#endif IPK_TRUNCATE
+d193 1
+a193 1
+	if ((fp = falloc()) == NULL)
+a194 1
+	fp->f_flag = mode & (FREAD|FWRITE);
+d196 1
+d198 2
+a199 2
+	openi(ip, mode & FWRITE);
+	if(u.u_error == 0)
+a202 1
+
+d215 1
+a215 1
+	} *uap;
+a216 1
+	uap = (struct a *)u.u_ap;
+d244 2
+a245 1
+	} *uap;
+a246 1
+	uap = (struct a *)u.u_ap;
+d262 2
+a263 6
+#ifdef  MPX_FILS
+	if(fp->f_flag & (FPIPE|FMP))
+#else
+	if(fp->f_flag & FPIPE)
+#endif
+		{
+d270 7
+a276 3
+		uap->off += fp->f_inode->i_size;
+	fp->f_un.f_offset = uap->off;
+	u.u_r.r_off = uap->off;
+d288 1
+a288 1
+	} *uap;
+a289 4
+	uap = (struct a *)u.u_ap;
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+a290 1
+#endif
+a308 3
+#ifndef UCB_SYMLINKS
+	xp = namei(uchar, CREATE);
+#else
+a309 1
+#endif
+d342 1
+a342 1
+	} *uap;
+d344 14
+a357 14
+	if(suser()) {
+		uap = (struct a *)u.u_ap;
+#ifndef UCB_SYMLINKS
+		ip = namei(uchar, CREATE);
+#else
+		ip = namei(uchar, CREATE, 0);
+#endif
+		if(ip != NULL) {
+			u.u_error = EEXIST;
+			goto out;
+		}
+		ip = maknode(uap->fmode);
+		if (ip == NULL)
+			return;
+d359 1
+a359 4
+		if (uap->dev) {
+			ip->i_un.i_rdev = uap->dev;
+			ip->i_flag |= IACC|IUPD|ICHG;
+		}
+d361 1
+a361 1
+		ip->i_un.i_rdev = uap->dev;
+d363 1
+d365 1
+a365 2
+		iput(ip);
+	}
+d377 2
+a378 2
+	} *uap;
+	register svuid, svgid;
+a379 1
+	uap = (struct a *)u.u_ap;
+a383 3
+#ifndef UCB_SYMLINKS
+	ip = namei(uchar, LOOKUP);
+#else
+a384 1
+#endif
+a398 2
+#ifdef IPK_TRUNCATE
+
+d411 1
+a411 1
+	} *uap;
+a412 2
+	uap = (struct a * )u.u_ap;
+#ifdef UNFAST
+a413 3
+#else
+	if( GETF(fp,uap->fdes) ){
+#endif
+d417 6
+a422 1
+	if( (fp->f_flag & FWRITE) == 0 ){
+a423 6
+		return;
+	}
+	ip = fp->f_inode;
+	plock(ip);
+	itrunc(ip,uap->length);
+	prele(ip);
+d437 1
+a437 1
+	} *uap;
+d439 1
+a439 6
+	uap = (struct a * )u.u_ap;
+#ifdef UCB_SYMLINKS
+	if( (ip =namei(uchar,LOOKUP)) == NULL )
+#else
+	if( (ip =namei(uchar,LOOKUP,1)) == NULL )
+#endif
+a451 4
+#endif IPK_TRUNCATE
+
+#ifdef IPK_FLOCK
+
+a483 2
+
+#endif IPK_FLOCK
+@
+
+
+1.4
+log
+@Исправлено поле в <sys/inode.h>
+@
+text
+@d3 3
+a208 5
+	if( ip->i_mode&IFMT == IFBLK ){
+	    ird = ip->i_un.i_rdev;
+	    if( major(ird) == 255 )
+		ip->i_un.i_rdev = (minor(ird)==0)?rootdev:swapdev;
+	}
+@
+
+
+1.3
+log
+@Вставлен системный вызов flock.
+@
+text
+@d2 4
+a5 1
+ * $Log:        sys2.c,v $
+d181 1
+d206 5
+d365 1
+a365 1
+		int     dev;
+d384 1
+a384 1
+			ip->i_un.i_rdev = (dev_t)uap->dev;
+d388 1
+a388 1
+		ip->i_un.i_rdev = (dev_t)uap->dev;
+@
+
+
+1.2
+log
+@Изменения связанные с truncate
+@
+text
+@d3 3
+d489 37
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 4
+a5 1
+ * $Log$
+d49 2
+a50 2
+		int	fdes;
+		char	*cbuf;
+d55 1
+a55 1
+#ifdef	UNFAST
+d71 1
+a71 1
+#ifdef	MENLO_JCL
+d92 1
+a92 1
+#ifdef	MPX_FILS
+d106 1
+a106 1
+#ifdef	MPX_FILS
+d121 2
+a122 2
+		char	*fname;
+		int	rwmode;
+d126 1
+a126 1
+#ifndef	UCB_SYMLINKS
+d143 2
+a144 2
+		char	*fname;
+		int	fmode;
+d148 1
+a148 1
+#ifndef	UCB_SYMLINKS
+d188 3
+d192 1
+d216 1
+a216 1
+		int	fdes;
+d220 1
+a220 1
+#ifdef	UNFAST
+d244 3
+a246 3
+		int	fdes;
+		off_t	off;
+		int	sbase;
+d250 1
+a250 1
+#ifdef	UNFAST
+d265 1
+a265 1
+#ifdef	MPX_FILS
+d289 2
+a290 2
+		char	*target;
+		char	*linkname;
+d294 1
+a294 1
+#ifndef	UCB_SYMLINKS
+d307 1
+a307 1
+	
+d317 1
+a317 1
+#ifndef	UCB_SYMLINKS
+d351 3
+a353 3
+		char	*fname;
+		int	fmode;
+		int	dev;
+d358 1
+a358 1
+#ifndef	UCB_SYMLINKS
+d370 1
+a370 1
+#ifdef	UCB_FSFIX
+d390 2
+a391 2
+		char	*fname;
+		int	fmode;
+d400 1
+a400 1
+#ifndef	UCB_SYMLINKS
+d418 68
+@

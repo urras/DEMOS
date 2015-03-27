@@ -1,0 +1,40 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.17.12.45.59;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** $Header$
+** $Log$
+**
+*/
+
+/*
+ * NULL constant definition
+ */
+
+#define CNULL           (char *) 0
+#ifndef NULL
+#define NULL            0
+#endif
+@

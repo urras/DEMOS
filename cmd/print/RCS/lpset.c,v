@@ -1,0 +1,179 @@
+head     1.1;
+access   avg dmitry alex;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     86.05.17.22.01.24;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Проверить/установить параметры АЦПУ.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+ * Проверить/установить режимы АЦПУ
+ * Автор: Антонов В.Г.
+ *
+ * $Log$
+ */
+#ifndef lint
+static char rcsid[] = "$Header$";
+#endif
+
+#include <sys/ioctl.h>
+#include <stdio.h>
+#include <ediag.h>
+
+struct lpmodes LPM;
+char    lppath[] = "/dev/lp";
+char    lpname[30];
+char   *com;
+
+#define isdigit(c) ( '0' <= (c) && (c) <= '9' )
+
+struct MDS {
+	char    *name;
+	short    set;
+	short    reset;
+} MTB[] = {
+	"raw",          LPRAW,          0,
+	"-raw",         0,              LPRAW,
+	"cap",          LPCAP,          LPBAR+LPZNAK,
+	"-cap",         0,              LPCAP+LPZNAK+LPSISO,
+	"eject",        LPEJECT,        0,
+	"-eject",       0,              LPEJECT,
+	"siso",         LPSISO+LPCYRILL+LPCAP, LPBAR+LPRAW,
+	"-siso",        0,              LPSISO,
+	"cyrill",       LPCYRILL,       LPRAW,
+	"-cyrill",      0,              LPCYRILL+LPSISO,
+	"bar",          LPBAR,          LPCAP,
+	"-bar",         0,              LPBAR,
+	"znak",         LPZNAK,         0,
+	"-znak",        0,              LPZNAK,
+	0
+};
+
+main( c, v )
+register char   **v;
+{
+	int     fd;
+	int     Nlp = 0, Nf = 0;
+	int     Sets = 0, Resets = 0, Newwidth = 0, Newlength = 0;
+	register i;
+	register struct MDS *t;
+
+	com = *v;
+	while ( *++v ) {
+		if( isdigit( **v ) ) {
+			if( Nlp++ > 0 )
+				goto Usage;
+			strcpy( lpname, lppath );
+			strcat( lpname, *v );
+			if( (fd = open( lpname, 0 )) < 0 )
+				error( 1, "can't open %s",
+					  "не могу открыть %s", lpname );
+			if( ioctl( fd, LPIOGETP, &LPM ) < 0 )
+				error( 1, "can't read modes of %s",
+					  "не могу прочитать режимы %s", lpname );
+			continue;
+		}
+		Nf++;
+		if( !strcmp( *v, "maxcol" ) || !strcmp( *v, "width" ) ) {
+			if( *++v == NULL )
+				goto Usage;
+			Newwidth = atoi( *v );
+			continue;
+		}
+		if( !strcmp( *v, "ejline" ) || !strcmp( *v, "length" ) ) {
+			if( *++v == NULL )
+				goto Usage;
+			Newlength = atoi( *v );
+			continue;
+		}
+		for( t = MTB ; t->name ; t++ ) {
+			if( !strcmp( t->name, *v ) ) {
+				Sets   &= ~(t->reset);
+				Sets   |= t->set;
+				Resets |= t->reset;
+				goto Found;
+			}
+		}
+		error( 0, "unknown flag %s",
+			  "неизвестный флаг %s", *v );
+Found:          ;
+	}
+	if( Nlp == 0 ) {
+Usage:
+		error( 2,
+"Usage: %s LP [flags] [width NN] [ejline NN]\n\
+Flags are: [-]raw  [-]cap  [-]eject  [-]cyrill  [-]siso  [-]znak  [-]bar",
+"Вызов: %s LP [флаги] [width NN] [ejline NN]\n\
+Флаги: [-]raw  [-]cap  [-]eject  [-]cyrill  [-]siso  [-]znak  [-]bar", com );
+	}
+
+	if( Nf != 0 ) { /* Set modes */
+		LPM.lpm_flags &= ~Resets;
+		LPM.lpm_flags |=  Sets;
+		if( Newwidth )
+			LPM.lpm_maxcol = Newwidth;
+		if( Newlength )
+			LPM.lpm_ejline = Newlength;
+		if( ioctl( fd, LPIOSETP, &LPM ) < 0 )
+			error( 1, "can't set modes for %s",
+				  "не могу установить режимы %s", lpname );
+		exit(0);
+	}
+
+	/* Print modes */
+	printf( "%s:\n", lpname );
+	printf( ediag( "Flags: ", "Флаги: " ) );
+	i = LPM.lpm_flags;
+	if( i & LPRAW )
+		printf( "raw" );
+	else {
+		printf( "-raw " );
+		printf( ("-cap ")+((i&LPCAP)!=0) );
+		printf( ("-eject ")+((i&LPEJECT)!=0) );
+		printf( ("-cyrill ")+((i&LPCYRILL)!=0) );
+		if( i & LPCYRILL )
+			printf( ("-siso ")+((i&LPSISO)!=0) );
+		if( !(i & LPCAP) )
+			printf( ("-bar ")+((i&LPBAR)!=0) );
+		if( i & LPCYRILL )
+			printf( ("-znak ")+((i&LPZNAK)!=0) );
+	}
+	printf( ediag( "\nWidth of page: %d,  eject line: %d\n",
+		       "\nШирина страницы: %d,  число строк: %d\n" ),
+		LPM.lpm_maxcol,  LPM.lpm_ejline );
+
+	printf( ediag( "State: ", "Состояние: " ) );
+	printf( (i&LPON) ? ediag( "on, ", "включено, " )
+			 : ediag( "off, ", "выключено, " ) );
+	printf( (i&LPOPEN) ? ediag("opened\n", "занято\n")
+			   : ediag("free\n", "свободно\n") );
+	exit(0);
+}
+
+error( f, e, r, a )
+char *e, *r, *a;
+{
+	if( f != 2 )
+		fprintf( stderr, "%s: ", com );
+	fprintf( stderr, ediag( e, r ), a );
+	putc( '\n', stderr );
+	if( f != 0 )
+		exit(1);
+}
+@

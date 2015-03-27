@@ -1,0 +1,68 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     90.09.24.16.44.58;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.02.16.06.47;  author dvolodin;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Sigma 5400 plot filter
+@
+
+
+1.2
+log
+@???
+@
+text
+@/* $Header: open.c,v 1.1 88/02/02 16:06:47 dvolodin Exp $
+ * $Log:        open.c,v $
+ * Revision 1.1  88/02/02  16:06:47  dvolodin
+ * Initial revision
+ *
+ */
+
+# include <stdio.h>
+float ScreenBox = 1024. ;
+openpl()
+{
+    printf( "\33gDD000IOHIFGAGJFGBFFCDE02" );
+}
+
+/* reopen with new size of point */
+reopenpl( n ){
+     if( n > 25 ) n = 25; /* maximal */
+     ScreenBox = 1024. / ( float) n;
+     if( n > 9) printf("DE%-2d", n );
+     else       printf("DE0%1d", n );
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 2
+/* $Header$
+ * $Log$
+d9 1
+a9 1
+
+d12 9
+a20 1
+    printf( "\33gDD000IOHIFGAGJFGBF" );
+@

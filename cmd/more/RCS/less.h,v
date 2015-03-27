@@ -1,0 +1,189 @@
+head     1.4;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.4
+date     88.09.17.23.03.01;  author avg;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     88.05.06.19.10.49;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     88.04.10.19.12.20;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.02.13.16.42.37;  author korotaev;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.4
+log
+@Сделан вывод italic и bold шрифтов.
+@
+text
+@/*
+ * Standard include file for "less".
+ */
+
+#include <ediag.h>
+#include <stdio.h>
+
+#define INTTERM         /* Terminated by interrupt */
+
+/*
+ * Language details.
+ */
+#if !VOID
+#define void  int
+#endif
+#define public          /* PUBLIC FUNCTION */
+
+/*
+ * Special types and constants.
+ */
+typedef long            POSITION;
+
+/*
+ * {{ Warning: if POSITION is changed to other than "long",
+ *    you may have to change some of the printfs which use "%ld"
+ *    to print a variable of type POSITION. }}
+ */
+
+#define END_POSITION    ((POSITION)(-2))
+#define NULL_POSITION   ((POSITION)(-1))
+
+/* Undefine Stdio defaults */
+#undef EOF
+#undef NULL
+#undef putc
+#undef getc
+
+#define EOF             (0)
+#define NULL            (0)
+
+/* How quiet should we be? */
+#define NOT_QUIET       0       /* Ring bell at eof and for errors */
+#define LITTLE_QUIET    1       /* Ring bell only for errors */
+#define VERY_QUIET      2       /* Never ring bell */
+
+/* How should we prompt? */
+#define PR_SHORT        0       /* Prompt with colon */
+#define PR_MEDIUM       1       /* Prompt with message */
+#define PR_LONG         2       /* Prompt with longer message */
+
+/* How should we handle backspaces? */
+#define BS_UNDERLINE    0       /* Underlining converted to underline mode */
+#define BS_NORMAL       1       /* \b treated as normal char; actually output */
+#define BS_CONTROL      2       /* \b treated as control char; prints as ^H */
+
+/* Flag to eq_message() telling what to put in the message */
+#define MNAME           001     /* File name */
+#define MOF             002     /* "file x of y" */
+#define MBYTE           004     /* "byte x/y" */
+#define MPCT            010     /* Percentage into the file */
+
+/* Special chars used to tell put_line() to do something special */
+#define UL_CHAR         '\201'  /* Enter underline mode */
+#define UE_CHAR         '\202'  /* Exit underline mode */
+#define BD_CHAR         '\203'  /* Enter boldface mode */
+#define BE_CHAR         '\204'  /* Exit boldface mode */
+
+#define CONTROL(c)              ((c)&037)
+#define SIGNAL(sig,func)        signal(sig,func)
+
+off_t lseek();
+
+#include "funcs.h"
+
+extern char all_options[];
+@
+
+
+1.3
+log
+@Добавлен define INTTERM.
+@
+text
+@d65 2
+@
+
+
+1.2
+log
+@Сделан ediag + исправлены некоторые ошибки
+@
+text
+@d8 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 3
+d12 1
+a12 1
+#define	void  int
+d14 1
+a14 1
+#define	public		/* PUBLIC FUNCTION */
+d19 2
+a20 1
+typedef long		POSITION;
+d27 2
+a28 2
+#define	END_POSITION	((POSITION)(-2))
+#define	NULL_POSITION	((POSITION)(-1))
+d30 5
+a34 2
+#define	EOF		(0)
+#define	NULL		(0)
+d36 3
+d40 3
+a42 3
+#define	NOT_QUIET	0	/* Ring bell at eof and for errors */
+#define	LITTLE_QUIET	1	/* Ring bell only for errors */
+#define	VERY_QUIET	2	/* Never ring bell */
+d45 3
+a47 3
+#define	PR_SHORT	0	/* Prompt with colon */
+#define	PR_MEDIUM	1	/* Prompt with message */
+#define	PR_LONG		2	/* Prompt with longer message */
+d50 3
+a52 3
+#define	BS_UNDERLINE	0	/* Underlining converted to underline mode */
+#define	BS_NORMAL	1	/* \b treated as normal char; actually output */
+#define	BS_CONTROL	2	/* \b treated as control char; prints as ^H */
+d55 4
+a58 4
+#define	MNAME		001	/* File name */
+#define	MOF		002	/* "file x of y" */
+#define	MBYTE		004	/* "byte x/y" */
+#define	MPCT		010	/* Percentage into the file */
+d61 2
+a62 2
+#define	UL_CHAR		'\201'	/* Enter underline mode */
+#define	UE_CHAR		'\202'	/* Exit underline mode */
+d64 2
+a65 2
+#define	CONTROL(c)		((c)&037)
+#define	SIGNAL(sig,func)	signal(sig,func)
+d70 2
+@

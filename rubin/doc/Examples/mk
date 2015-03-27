@@ -1,0 +1,4 @@
+equel equel2_15.q
+cc    -o test2_15 equel2_15.c ~rubin/lib/libq.a
+equel equeldate.q
+cc    -o testdate equeldate.c ~rubin/lib/libq.a

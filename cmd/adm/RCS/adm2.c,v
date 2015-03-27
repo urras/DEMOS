@@ -1,0 +1,426 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     87.03.21.21.57.55;  author yst;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     87.03.21.18.31.23;  author yst;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+2-часть администратора
+@
+
+
+1.2
+log
+@Небольшая правочка для красивой печати на бумагу.
+@
+text
+@/*
+ * Администратор - обслуживание бюджетов
+ *  Автор: Антонов В.Г. ( ВМК МГУ, ИПК Минавтопрома )
+ *  Последнее изменение: 28.06.85
+ *
+ * $Log$
+ */
+
+#include "adm.h"
+
+/*
+ * Обработка прерывания
+ */
+onint()
+{
+	Wint++;
+	signal( 2, onint );
+}
+
+/*
+ * Печать заголовка выдачи в широком формате
+ */
+printlhead( lines )
+int     *lines;
+{
+	if( *lines == 65 ) {
+		fprintf( OPR,
+"+----------------------------------------------------------------------------------------------------------------------------------------+\n" );
+		*lines = 0;
+	}
+	if( *lines == 0 ) {
+		fprintf( OPR, ediag(
+			" *** User quotes list : %s *** page %d                %s%s",
+			" *** Бюджеты пользователей %s *** страница %d                %s%s"),
+			SYSTEM, ++Npage, ctime( &timey ),
+"+----------------------------------------------------------------------------------------------------------------------------------------+\n" );
+		if( _ediag )
+			fprintf( OPR, "%s%s%s%s",
+"! User     ! papar pages !  connect time   !  disk blocks  !     ! day of   ! number of !          !                                      !\n",
+"!     name !-------------+-----------------+---------------!lock ! starting !   tty     ! group    !          --- USER ---                !\n",
+"!          ! used ! quote!  used  ! quote  ! used  ! quote !     !accounting!           !          !                                      !\n",
+"!----------+------+------+--------+--------+-------+-------+-----+----------+-----------+----------+--------------------------------------!\n" );
+		else
+			fprintf( OPR, "%s%s%s%s",
+"! имя      !листы бумаги !  термин. время  !  диск. блоки  !     ! день     !          !          !                                      !\n",
+"!   польз. !-------------+-----------------+---------------!штраф! начала   !  число   ! группа   !          ПОЛЬЗОВАТЕЛЬ                !\n",
+"!          ! исп. ! бюд. !  исп.  ! бюджет !  исп. !  бюд. !     ! статист. !терминлов !          !                                      !\n",
+"!----------+------+------+--------+--------+-------+-------+-----+----------+----------+----------+--------------------------------------!\n" );
+		*lines = 6;
+	 }
+	(*lines)++;
+}
+
+/*
+ * Печатать строку таблицы в длинном формате
+ */
+printlong()
+{
+	char   *NUSER;
+	long    TTU;
+
+	if( upass == NULL && (upass = getpwuid( user.B_uid )) == NULL ) {
+		sprintf( XRR1, "uid=%d", user.B_uid );
+		NUSER = XRR1;
+	} else
+		NUSER = upass->pw_name;
+	TTU = CTTYU( NUSER );
+	fprintf( OPR, "! %-8.8s ! %4d ! ", upass->pw_name, user.B_lpused );
+	fprintf( OPR, user.B_lppages == -1 ? " --- !" : "%4d !", user.B_lppages );
+	fprintf( OPR, "%4D:%02D ! ", (user.B_ttyused+TTU+user.B_pad)/3600l, ((user.B_ttyused+TTU+user.B_pad)%3600l)/60l );
+	fprintf( OPR, user.B_ttymins == -1l ? "  ---  !":"%4D:%02D!", user.B_ttymins/3600l, (user.B_ttymins%3600l)/60l );
+	fprintf( OPR, "%6D !", user.B_diskused );
+	fprintf( OPR, user.B_diskblk == -1l ? "  ---  !" : "%6D !", user.B_diskblk );
+	fprintf( OPR, (user.B_flags & B_SHTRAF) ? ediag(" yes ! ", "есть ! ") : ediag(" no  ! ", " нет ! ") );
+	fprintf( OPR, "%s ! ", Dtime( user.B_sttime ) );
+	fprintf( OPR, user.B_ntty==-1 ? "   ---   !" : " %5d   !", user.B_ntty);
+	fprintf( OPR, "%-9.9s ! %-36.36s !\n", Ggrp( upass->pw_gid ), GFIO( upass->pw_gecos ) );
+}
+
+/*
+ * Выдать имя группы по gid
+ */
+char *Ggrp( gid )
+{
+	struct group *grent, *getgrgid();
+
+	setgrent();
+	if( (grent = getgrgid( gid )) == NULL )
+		return( "   ---" );
+	return( grent->gr_name );
+}
+
+/*
+ * Выдать ФИО пользователя
+ */
+char *GFIO( namep )
+char    *namep;
+{
+	register char *p;
+
+	p = namep;
+	while( *p != ',' && *p != ';' && *p != 0 )
+		p++;
+	*p = 0;
+	while( *--p == ' ' )
+		*p = 0;
+	p = namep;
+	SKIPSPACES( p );
+	return( p );
+}
+
+/*
+ * Печатать строку таблицы в коротком формате
+ */
+printshort()
+{
+	char   *NUSER;
+	long    TTU;
+
+	if( upass == NULL && (upass = getpwuid( user.B_uid )) == NULL ) {
+		sprintf( XRR1, "uid=%d", user.B_uid );
+		NUSER = XRR1;
+	} else
+		NUSER = upass->pw_name;
+	TTU = CTTYU( NUSER );
+	printf( "!%-8.8s !%4d!", upass->pw_name, user.B_lpused );
+	printf( user.B_lppages == -1 ? " --- !" : "%4d !", user.B_lppages );
+	printf( "%4D:%02D!", (user.B_ttyused+TTU+user.B_pad)/3600l, ((user.B_ttyused+TTU+user.B_pad)%3600l)/60l );
+	printf( user.B_ttymins == -1l ? "  ---  !":"%4D:%02D!", user.B_ttymins/3600l, (user.B_ttymins%3600l)/60l );
+	printf( "%6D!", user.B_diskused );
+	printf( user.B_diskblk == -1l ? "  --- !" : "%6D!", user.B_diskblk );
+	printf( (user.B_flags & B_SHTRAF) ? ediag(" yes !", "есть ! ") : ediag(" no  ! ", " нет ! ") );
+	printf(user.B_ntty == -1 ? " --- !" : " %3d !",user.B_ntty );
+	printf( "%s !\n", Dtime( user.B_sttime ) );
+}
+
+/*
+ * Выдать uid следующего в строке пользователя
+ *  Если польз. был задан именем, то остается значение upass
+ *  иначе upass == NULL.
+ *  По ошибке возвращается -1, по концу ком. строки -2.
+ */
+int getuser( p )
+char    **p;
+{
+	register char *r;
+	int     nodig, xuid;
+	static char buf[50];
+	static struct passwd XPASS;
+
+	if( Wint ) {
+		Wint = 0;
+		return( -2 );
+	}
+	upass = NULL;
+	nodig = 0;
+	SKIPSPACES( (*p) );
+	if( **p == '\n' )
+		return( -2 );
+	r = buf;
+	while( **p != ' ' && **p != '\n' && **p != '\t' )
+		if( !isdigit( *r++ = *(*p)++ ) )
+			nodig++;
+	*r = 0;
+	if( nodig == 0 ) {
+		if( (xuid = atoi( buf )) < 0 || xuid > 0377 )
+			return( -1 );
+		return( xuid );
+	}
+	Tolower( buf );
+	if( (upass = getpwnam( buf )) == NULL ) {
+		upass = &XPASS;
+		upass->pw_name = buf;
+		return( -1 );
+	}
+	return( upass->pw_uid );
+}
+
+/*
+ * Искать пользователя в BUDF по его uid
+ *  Возвращает ненулевой код если записи нет в BUDF
+ */
+seekuser( xuid )
+{
+	lseek( budf, 0l, 0 );
+	do
+		if( read( budf, &user, sizeof user ) != (sizeof user) )
+			return( 1 );
+	while( user.B_uid != xuid );
+	return( 0 );
+}
+
+/*
+ * Исполнить команду set, res, lock, open, clr
+ */
+docom( p, tcom )
+char    *p;
+{
+	int     xuid;
+	char   *q;
+	char    istr[80];
+	register char *ri;
+	int     X1;
+	long    X2;
+
+	q = p;
+BOL:
+	for(;;) {
+		switch( xuid = getuser( &q ) ) {
+		    case -2 :
+			printf( "OK\n" );
+			return;
+		    case -1 :
+			if( upass == NULL ) {
+				printf( ediag("Bad uid.\n", "Плохой uid.\n") );
+				return;
+			} else {
+				Tolower( upass->pw_name );
+				printf( ediag("There is no user %s.\n", "Пользователя %s нет.\n"), upass->pw_name );
+				if( tcom == 0 ) {
+					printf( ediag("  Create ? ", "  Завести ? ") );
+					if( ask( YES ) == YES && !adduser( upass->pw_name ) ) {
+						xuid = upass->pw_uid;
+						break;
+					}
+				}
+			}
+			goto BOL;
+		    default :
+			if( upass == NULL && (upass = getpwuid( xuid )) == NULL ) {
+				if( tcom != 1 ) {
+					printf( ediag("No user with uid=%d.\n",
+						      "Пользователя с uid=%d нет.\n"), xuid );
+					goto BOL;
+				}
+			}
+		}
+		if( seekuser( xuid ) ) {
+			if( tcom != 0 && tcom != 1 ) { /* Не set */
+				printf( ediag(
+		"No quoting for user %s\n",
+		"Не установлен бюджет для пользователя %s\n"), upass->pw_name );
+				goto BOL;
+			}
+			if( tcom == 1 ) {
+				printf( ediag(
+		"No quoting for user with uid=%d\n",
+		"Не установлен бюджет для пользователя с uid=%d\n"), xuid );
+				goto BOL;
+			}
+			if( !seekuser( -1 ) ) /* Найти своб. элемент или установить на конец */
+				lseek( budf, -(long)(sizeof user), 1 );
+			user.B_uid = xuid;
+			user.B_flags = B_NORMAL;
+			user.B_lppages = -1;
+			user.B_lpused = 0;
+			user.B_ttymins = -1l;
+			user.B_ttyused = 0l;
+			user.B_diskblk = -1l;
+			user.B_ntty= -1;
+			user.B_diskused = 0l;
+			user.B_sttime = timey;
+		} else
+			lseek( budf, -(long)(sizeof user), 1 );
+		switch( tcom ) {
+		    case 0 : /* set */
+			printf( ediag(
+				"User %s ( %s ) :\n",
+				"Пользователь %s ( %s ) :\n"),
+				upass->pw_name, GFIO( upass->pw_gecos ) );
+			strncpy(user.B_name,upass->pw_name,8);
+			user.B_name[7] = '\0';
+A1:
+			printf( ediag( "Paper pages [", "Листы бумаги [") );
+			printf( user.B_lppages == -1 ? "-] ? " : "%d] ? ", user.B_lppages );
+			if( (ri = fgets( istr, 80, stdin )) == NULL )
+				goto A1;
+			SKIPSPACES( ri );
+			if( *ri == '\n' )
+				goto A2;
+			if( wordeq( ri, "-" ) ) {
+				printf( ediag( "No limitation.\n", "Ограничение снято.\n" ));
+				user.B_lppages = -1;
+				goto A2;
+			}
+			if( sscanf( ri, "%d", &X1 ) == 0 || X1 < 0 ) {
+				printf( ediag("Bad number of pages.\n","Плохое число страниц.\n") );
+				goto A1;
+			}
+			user.B_lppages = X1;
+A2:
+			printf( ediag(
+				"Connect time (hhh:mm) [",
+				"Терминальное время (ччч:мм) [") );
+			printf( user.B_ttymins == -1l ? "-] ? " : "%D:%02D] ? ",
+				user.B_ttymins/3600l, (user.B_ttymins%3600l)/60l );
+			if( (ri = fgets( istr, 80, stdin )) == NULL )
+				goto A2;
+			SKIPSPACES( ri );
+			if( *ri == '\n' )
+				goto A3;
+			if( wordeq( ri, "-" ) ) {
+				printf( ediag("No limitation.\n", "Ограничение снято.\n") );
+				user.B_ttymins = -1l;
+				goto A3;
+			}
+			if( sscanf( ri, "%D:%2d", &X2, &X1 ) != 2 ||
+				X2 < 0l || X1 < 0 || X1 > 59 ) {
+				printf( ediag("Bad time.\n", "Плохое время.\n") );
+				goto A2;
+			}
+			user.B_ttymins = X2*3600l + X1*60l;
+A3:
+			printf( ediag("Disk blocks [", "Блоков на дисках [") );
+			printf( user.B_diskblk == -1l ? "-] ? " : "%D] ? ", user.B_diskblk );
+			if( (ri = fgets( istr, 80, stdin )) == NULL )
+				goto A3;
+			SKIPSPACES( ri );
+			if( *ri == '\n' )
+				goto Yst1;
+			if( wordeq( ri, "-" ) ) {
+				printf( ediag("No limitations.\n", "Ограничение снято.\n") );
+				user.B_diskblk = -1l;
+				goto Yst1;
+			}
+			if( sscanf( ri, "%D", &X2 ) == 0 || X2 < 0l ) {
+				printf( ediag(
+					"Bad number of disk blocks.\n",
+					"Плохое число блоков на диске.\n") );
+				goto A3;
+			}
+			user.B_diskblk = X2;
+Yst1:
+			printf(ediag("Numbers tty [","Число терминалов ["));
+			printf(user.B_ntty == -1 ? "-] ? " : "%d] ?",user.B_ntty);
+			if( (ri = fgets(istr,80,stdin) ) ==  NULL)
+				goto Yst1;
+			SKIPSPACES( ri );
+			if( *ri == '\n')
+				break;
+			if( wordeq(ri, "-") ) {
+				printf(ediag("No limitations.\n","Ограничение снято.\n"));
+				user.B_ntty= -1;
+				break;
+			}
+			if( sscanf(ri, "%d",&X1) == 256 || X1 < 0 || X1 == 0) {
+				printf(ediag("Bad number of tty\n",
+				"Плохое число терминалов\n"));
+				goto Yst1;
+			}
+			user.B_ntty = X1;
+			break;
+		    case 1 : /* res */
+			if( upass != NULL ) {
+				printf( ediag(
+					" Purge user %s ( %s ) ? ",
+					" Уничтожить пользователя %s ( %s ) ? "),
+					upass->pw_name, GFIO( upass->pw_gecos ) );
+				if( ask( NO ) == YES )
+					remuser( upass->pw_name );
+			}
+			user.B_uid = -1;
+			break;
+		    case 2 : /* lock */
+			printf( ediag(
+				"User %s ( %s ). Lock ? ",
+				"Пользователь %s ( %s ). Закрыть ? "),
+				upass->pw_name, GFIO( upass->pw_gecos ) );
+			if( ask( YES ) == NO )
+				goto BOL;
+			user.B_flags |= B_SHTRAF;
+                        break;
+                    case 3 : /* open */
+			user.B_flags &= ~B_SHTRAF;
+                        break;
+                    case 4 : /* clr */
+                        user.B_lpused = 0;
+                        user.B_ttyused = 0l;
+                        user.B_diskused = 0l;
+                        user.B_sttime = timey;
+                }
+                write( budf, &user, sizeof user );
+        }
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 1
+d76 1
+a76 1
+	fprintf( OPR, user.B_ntty==-1 ? "    ---   !" : " %5d   !", user.B_ntty);
+@

@@ -1,0 +1,103 @@
+#print
+Кое что еще о формате технического сообщения.
+(1) У ЭВМ есть привычка печатать на документе действительную дату его
+получения. Обычно авторы стараются ее скрыть. Для этого имеется специальная
+команда :
+  .DA July 4, 1776
+С ее помощью текущая дата будет заменена на произвольную.
+(2) Еще о датах: большинству людей не нравится, когда она стоит на каждой
+странице. Имеется команда:
+  .ND July 4, 1776
+которая говорит: "не надо ставить ее на каждой странице". В головной части
+технического сообщения она необходима, поставьте там July 4, 1776 .
+Любая из команд дат должна быть помещена сразу после строки с .TM .
+(3) Ключевые слова задаются следующей командой:
+  .OK
+  слово 1
+  слово 2
+которая ставится перед командой .AB .
+Ну, хорошо! Измените "decl", вставив в него дату July 4, 1776,
+используйте команду ".ND" ; и добавьте в качестве ключевых слова
+"Democracy" и "Tyranny".  После чего получите ТОЛЬКО титульный
+лист  (помните  nroff -ms -o0 file ...?).  Закончите сообщением "готов".
+#create Ref
+.TM 75-1776-1 12345 12345
+.ND July 4, 1776
+.TL
+Declaration of Independence
+.AU "MH 2A-111" 1776
+Thomas Jefferson
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.OK
+Democracy
+Tyranny
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.CS 1 2 3 4 5 6
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#once nroff -ms -o0 Ref >X1 &
+#create decl
+.TM 75-1776-1 12345 12345
+.TL
+Declaration of Independence
+.AU "MH 2A-111" 1776
+Thomas Jefferson
+.AI
+The Continental Congress
+Philadelphia, Pa. 19104
+.AB
+This paper describes advances in scattering theory
+of colonies from mother countries.
+.AE
+.CS 1 2 3 4 5 6
+.PP
+When in the course of human events, it becomes
+necessary for one people to dissolve the political bands which have
+connected them with another, and to assume among the 
+powers of the earth the separate and equal station to which
+the laws of Nature and of Nature's God entitle them, a decent
+respect to the opinions of mankind requires that they should
+declare the causes which impel them to the separation.
+.PP
+We hold these truths to be self-evident, that all men
+are created equal, that they are endowed by their creator
+with certain unalienable rights, that among these are life, liberty,
+and the pursuit of happiness.  That to secure these rights,
+governments are instituted among men, deriving their just
+powers from the consent of the governed.  That whenever
+any form of government becomes destructive of these ends,
+it is the right of the people to alter or to abolish it, and
+to institute new government, laying its foundation on such
+principles and organizing its powers in such form, as to them
+shall seem most likely to effect their safety and happiness.
+#copyout
+#user
+#uncopyout
+tail -66 .ocopy >X2
+#cmp X1 X2
+#log
+#next
+14.1a 10

@@ -1,0 +1,90 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @# @;
+
+
+1.2
+date     88.05.10.21.43.14;  author root;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     88.05.10.21.39.53;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@
+
+# Эта штука добавляется в исходный файл перед
+# запуском rcs               Давидов 04.28.88
+#
+# $Header: Makefile,v 1.1 88/05/10 21:39:53 root Exp $
+# $Log: Makefile,v $
+# Revision 1.1  88/05/10  21:39:53  root
+# Initial revision
+#
+
+
+FILES = sed.h sed0.c sed1.c
+
+OBJECTS = sed0.o sed1.o
+
+CFLAGS = -n -O -s
+
+all:    sed
+
+cp:     all
+	cp sed /bin
+	rm sed *.o
+
+cmp:    all
+	cmp sed /bin/sed
+	rm sed *.o
+
+sed:    sed0.o sed1.o; cc $(CFLAGS) -o sed  *.o
+
+dsed:   sed0.o sed1.o; cc -O -d -o  dsed -n *.o
+
+sed0.o: sed0.c sed.h
+
+sed1.o: sed1.c sed.h
+
+Makefile:       RCS/Makefile,v;         co Makefile
+sed.h:          RCS/sed.h,v;             co sed.h
+sed0.c:         RCS/sed0.c,v;           co sed0.c
+sed1.c:         RCS/sed1.c,v;           co sed1.c
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+# $Header$
+# $Log$
+d14 1
+d16 1
+a19 1
+	:
+d30 1
+d34 1
+d38 1
+a38 1
+sed.h:          RCS/sed.h,v             co sed.h
+@

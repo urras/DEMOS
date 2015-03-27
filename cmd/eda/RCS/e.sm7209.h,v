@@ -1,0 +1,218 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     86.11.14.16.23.23;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     86.11.11.20.44.49;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.50.59;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.3
+log
+@Правки под новый exec.c.
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: e.sm7209.h,v 1.2 86/11/11 20:44:49 avg Exp $";*/
+#endif
+
+/*
+ * $Log:        e.sm7209.h,v $
+ * Revision 1.2  86/11/11  20:44:49  avg
+ * Убран rcsid
+ *
+ * Revision 1.1  86/11/11  17:50:59  avg
+ * Initial revision
+ *
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Автор: Антонов В.Г. ВМК МГУ, ИПК Минавтопрома
+ *   Последняя модификация: 23.06.1985
+ */
+
+/* Параметры для терминала СМ 7209 */
+
+#define NLIN    24
+#define SWID    80
+#define SYMSTRT "\033=\033-"
+#define SYMSTOP "\033>"
+#define ROLL    0
+#define UPPERONLY 0
+#define BROLL 0
+
+#define F_right "\033C"
+#define F_left  "\033D"
+#define F_up    "\033A"
+#define F_down  "\033B"
+#define F_il    "\033?r"
+#define F_dl    "\033?x"
+#define F_ic    "\033?v"
+#define F_dc    "\033?t"
+#define F_wtab  "\033?y\011"
+#define F_bwtab "\033?y\033?p"
+#define F_del   "\177"
+#define F_tab   "\011"
+#define F_btab  "\033?p"
+#define F_exit  "\032\032"
+#define F_rew   "\001"
+#define F_na    "\033?m"
+#define F_lnum  "\033?y\033?m"
+#define F_cnum  "\033?w"
+#define F_ret   "\012"
+#define F_cr    "\015"
+#define F_aex   "\004\004\004\004"
+#define F_inter "\003"
+#define F_fsd   "\006"
+#define F_find  "\030"
+#define F_savel "\005"
+#define F_incll "\007"
+#define F_wrtex "\033?y\005"
+#define F_rdtex "\033?y\007"
+#define F_clrtx "\033?y\027"
+#define F_end   "\033?y\033C"
+#define F_beg   "\033?y\033D"
+#define F_pgup  "\033?y\033A"
+#define F_pgdown "\033?y\033B"
+#define F_shell "\031"
+#define F_tof   "\024"
+#define F_eof   "\002"
+#define F_sins  "\033?y\033?v"
+#define F_sdel  "\033?y\033?t"
+#define F_cat   "\033?n"
+#define F_rpt   "\033?y\033?y"
+#define F_pmode "\033?s"
+#define F_tmode "\033?q"
+#define F_flush "\027"
+#define F_parup "\033?y\033?x"
+#define F_pardown "\033?y\033?r"
+#define F_store "\033?y\033K"
+
+#define F_mdef1 "\010\033P"
+#define F_mdef2 "\010\033Q"
+#define F_mdef3 "\010\033R"
+#define F_m1    "\033P"
+#define F_m2    "\033Q"
+#define F_m3    "\033R"
+#define FS_mdend "\010"
+#define Mname1  '1'
+#define Mname2  '2'
+#define Mname3  '3'
+
+#define S_right "\033C"
+#define S_left  "\033D"
+#define S_up    "\033A"
+#define S_down  "\033B"
+#define S_rd    "\033H\033I"
+#define S_ret   "\015"
+#define S_cr    "\012\015"
+#define S_home  "\033H"
+#define S_clrl  "\033K"
+#define S_clrel "\033K"
+#define S_erase "\033H\033J"
+#define S_bell  "\007"
+
+#define S_pos   "\033Y  "
+#define POSX    2
+#define POSY    3
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@d2 1
+a2 1
+/*static char rcsid[] = "$Header: e.sm7209.h,v 1.1 86/11/11 17:50:59 avg Exp $";*/
+d6 4
+a9 1
+ * $Log:	e.sm7209.h,v $
+d12 1
+a12 1
+ * 
+d31 10
+a40 10
+#define F_right "\033c"
+#define F_left  "\033d"
+#define F_up    "\033a"
+#define F_down  "\033b"
+#define F_il    "\033?р"
+#define F_dl    "\033?ь"
+#define F_ic    "\033?ж"
+#define F_dc    "\033?т"
+#define F_wtab  "\033?ы\011"
+#define F_bwtab "\033?ы\033?п"
+d43 1
+a43 1
+#define F_btab  "\033?п"
+d47 2
+a48 2
+#define F_lnum  "\033?ы\033?m"
+#define F_cnum  "\033?в"
+d57 7
+a63 7
+#define F_wrtex "\033?ы\005"
+#define F_rdtex "\033?ы\007"
+#define F_clrtx "\033?ы\027"
+#define F_end   "\033?ы\033c"
+#define F_beg   "\033?ы\033d"
+#define F_pgup  "\033?ы\033a"
+#define F_pgdown "\033?ы\033b"
+d67 6
+a72 6
+#define F_sins  "\033?ы\033?ж"
+#define F_sdel  "\033?ы\033?т"
+#define F_cat   "\033?н"
+#define F_rpt   "\033?ы\033?ы"
+#define F_pmode "\033?с"
+#define F_tmode "\033?я"
+d74 3
+a76 3
+#define F_parup "\033?ы\033?ь"
+#define F_pardown "\033?ы\033?р"
+#define F_store "\033?ы\033k"
+d78 6
+a83 6
+#define F_mdef1 "\010\033p"
+#define F_mdef2 "\010\033q"
+#define F_mdef3 "\010\033r"
+#define F_m1    "\033p"
+#define F_m2    "\033q"
+#define F_m3    "\033r"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

@@ -1,0 +1,187 @@
+:
+: MPICK - retrieve received files
+:
+: Copyright 1990, DEMOS cooperative, Moscow, USSR
+: All rights reserved.
+:
+: The copyright above and this notice must be preserved in all
+: copies of this source code. The copyright above does not
+: evidence any actual or intended publication of this source
+: code.
+:
+: This is unpublished proprietary trade secret source code of
+: DEMOS cooperative. This source code may not be copied,
+: disclosed, distributed, demonstrated or licensed except as
+: expressly authorized by DEMOS.
+:
+:
+: $Header: mpick,v 1.2 90/08/15 20:57:45 avg Exp $
+: $Log:	mpick,v $
+: Revision 1.2  90/08/15  20:57:45  avg
+: name changed from uupick to mpick
+: 
+: Revision 1.1  90/08/02  17:44:04  avg
+: Initial revision
+:
+:
+PATH=/bin:/usr/bin
+export PATH
+user=`who am i | cut -d' ' -f1`
+spool=/usr/spool/uucppublic/rcv
+
+if [ ! -d $spool ]
+then
+	echo No files received.
+	exit 1
+fi
+
+nufiles=0
+npubfiles=0
+
+if [ -d $spool/$user ]
+then
+	nufiles=`(cd $spool/$user ; find . -type f -a -print) | wc -l`
+
+fi
+
+if [ -d $spool/ANYBODY ]
+then
+	npubfiles=`(cd $spool/ANYBODY ; find . -type f -a -print) | wc -l`
+
+fi
+
+
+if [ $nufiles = 0 -a $npubfiles = 0 ]
+then
+	echo No files received.
+	exit 1
+fi
+
+echo "MPICK. '?' prints help.
+"
+help='
+get file...  - get file(s)/directories (shell wildcards are allowed)
+del file...  - delete file(s)/directories
+list [files] - list received files/directories
+ls [files]   - brief list
+cd           - change current directory
+pwd          - show the name of current directory
+! cmd        - execute a shell command
+quit         - quit
+'
+
+lsep='------------------------------------------------------------'
+
+if [ $nufiles != 0 ]
+then
+	echo "$nufiles file(s) received for $user:
+$lsep"
+	(cd $spool/$user ; lc -FR)
+	echo "$lsep"
+	cont=1
+	while [ $cont = 1 ]
+	do
+		echo -n 'uupick> '
+		read cmd a b c d e f g h i
+		case "x$cmd" in
+		x)      ;;
+		x[?]|xh|xhe|xhel|xhelp) echo "$help" ;;
+		xq|xqu|xqui|xquit)      cont=0  ;;
+		xl|xli|xlis|xlist|xdir) (cd $spool/$user ; ls -lR $a $b $c $d $e $f $g $h $i) ;;
+		xls|xlc)                (cd $spool/$user ; lc -RF $a $b $c $d $e $f $g $h $i) ;;
+		xc|xcd|xcwd)            cd $a ;;
+		xp|xpw|xpwd)            pwd ;;
+		x!)                     sh -c "$a $b $c $d $e $f $g $h $i" ;;
+		xg|xge|xget)            wdir=`pwd`
+					(       cd $spool/$user
+						for i in $a $b $c $d $e $f $g $h $i
+						do
+							if [ -d "$i" ]
+							then
+								tar cf - "$i" | ( cd "$wdir" ; tar xf - )
+								rm -rf "$i"
+							else
+								if [ ! -r "$i" ]
+								then
+									echo "Cannot read $i."
+								else
+									mv "$i" "$wdir"
+								fi
+							fi
+						done
+					)
+					if [ `cd $spool/$user ; find . -type f -a -print | wc -l` = 0 ]
+					then
+						echo No more files.
+						cont=0
+					fi ;;
+		xd|xde|xdel|xr|xrm)     (       cd $spool/$user
+						rm -rf $a $b $c $d $e $f $g $h $i
+					)
+					if [ `cd $spool/$user; find . -type f -a -print | wc -l` = 0 ]
+					then
+						echo No more files.
+						cont=0
+					fi ;;
+		x*)     echo "Unknown command, enter '?'." ;;
+		esac
+	done
+fi
+
+if [ $npubfiles != 0 ]
+then
+	echo -n "
+$npubfiles file(s) received for public;
+Do you wish to get it? "
+	read ans
+	case "x$ans" in
+	x[yY]*)         ;;
+	*)              exit 0 ;;
+	esac
+	echo "$lsep"
+	(cd $spool/ANYBODY ; lc -FR)
+	echo "$lsep"
+	cont=1
+	while [ $cont = 1 ]
+	do
+		echo -n 'uupick> '
+		read cmd a b c d e f g h i
+		case "x$cmd" in
+		x)      ;;
+		x[?]|xh|xhe|xhel|xhelp) echo "$help" ;;
+		xq|xqu|xqui|xquit)      cont=0  ;;
+		xl|xli|xlis|xlist|xdir) (cd $spool/ANYBODY ; ls -lR $a $b $c $d $e $f $g $h $i) ;;
+		xls|xlc)                (cd $spool/ANYBODY ; lc -RF $a $b $c $d $e $f $g $h $i) ;;
+		xc|xcd|xcwd)            cd $a ;;
+		xp|xpw|xpwd)            pwd ;;
+		x!)                     sh -c "$a $b $c $d $e $f $g $h $i" ;;
+		xg|xge|xget)            wdir=`pwd`
+					(       cd $spool/ANYBODY
+						for i in $a $b $c $d $e $f $g $h $i
+						do
+							if [ -d "$i" ]
+							then
+								tar cf - "$i" | ( cd "$wdir" ; tar xf - )
+							else
+								if [ ! -r "$i" ]
+								then
+									echo "Cannot read $i."
+								else
+									cp "$i" "$wdir"
+								fi
+							fi
+						done
+					) ;;
+		xd|xde|xdel|xr|xrm)     (       cd $spool/ANYBODY
+						rm -rf $a $b $c $d $e $f $g $h $i
+					)
+					if [ `cd $spool/ANYBODY; find . -type f -a -print | wc -l` = 0 ]
+					then
+						echo No more files.
+						cont=0
+					fi ;;
+		x*)     echo "Unknown command, enter '?'." ;;
+		esac
+	done
+fi
+exit 0

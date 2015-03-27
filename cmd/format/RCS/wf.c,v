@@ -1,0 +1,380 @@
+head     1.3;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.3
+date     89.07.01.20.07.56;  author avg;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     89.05.28.18.01.55;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     89.05.28.17.17.43;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Форматирование винчестера Э-85.
+@
+
+
+1.3
+log
+@Добавлены ключи -c и -w .
+@
+text
+@/*
+ * E85 WD format    (@@VG & DV)
+ *
+ * $Log:        wf.c,v $
+ * Revision 1.2  89/05/28  18:01:55  avg
+ * Сделаны русские диагностики.
+ *
+ * Revision 1.1  89/05/28  17:17:43  avg
+ * Initial revision
+ *
+ *
+ * Ключи:       -iN - установить I-фактор == N
+ *              -sN - установить S-фактор == N
+ *              -r  - сохранить информацию на диске
+ *              -f  - без вопросов
+ *              -wN - предкомпенсация с цилиндра N
+ *              -cN - начинать с цилиндра N
+ */
+
+#ifndef lint
+static char rcsid[] = "$Header: wf.c,v 1.2 89/05/28 18:01:55 avg Exp $";
+#endif
+
+#include <stdio.h>
+#include <signal.h>
+#include <ediag.h>
+
+int     Sarr[16] = {
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+};
+
+int     intflag;
+int     quitf;
+
+onint() { signal( SIGINT, onint ); intflag++; }
+
+main( c, v )
+char   **v;
+{
+	register i , j ;
+	int     cyl, trk, skew ;
+	int     If, Sf, maxcyl, startcyl, wpcyl ;
+	int     slot, rflag = 0, fd;
+	char  **V = v, *Disk;
+	register struct {
+		int id ;
+		int un ;
+		int er ;
+		int se ;
+		int db ;
+		int cy ;
+		int tr ;
+		int r2 ;
+		int rs ;
+	} *p = 0140000 ;
+
+	setbuf( stdout, NULL );
+	If = 6;
+	Sf = 9;
+	startcyl = 0;
+	wpcyl = -1;
+	maxcyl = 0;
+	slot = -1000;
+	v++;
+	while( c > 1 ) {
+		if( v[0][0] == '-' ) {
+			switch( v[0][1] ) {
+			    case 's':
+				Sf = atoi( &v[0][2] );
+				break;
+			    case 'i':
+				If = atoi( &v[0][2] );
+				break;
+			    case 'r':
+				rflag++;
+				break;
+			    case 'f':
+				quitf++;
+				break;
+			    case 'c':
+				startcyl = atoi( &v[0][2] );
+				break;
+			    case 'w':
+				wpcyl = atoi( &v[0][2] );
+				break;
+
+			    default:
+			    Usage:
+				fprintf( stderr, ediag("Usage: %s [-r] [-f] [-iI-factor] [-sS-factor] [-cCyl] [-wCyl] ncyl [slot]\n",
+						       "Вызов: %s [-r] [-f] [-iI-фактор] [-sS-фактор] [-cцил] [-wцил] nцил [слот]\n"), V[0] );
+				exit(1);
+			}
+		} else {
+			if( maxcyl == 0 ) {
+				maxcyl = atoi( *v );
+				if( maxcyl <= 0 )
+					goto Usage;
+			} else if( slot == -1000 )
+				slot = atoi( *v );
+			else
+				goto Usage;
+		}
+		c--, v++;
+	}
+
+	if( maxcyl == 0 || startcyl > 1023 )
+		goto Usage;
+	maxcyl += startcyl;
+	if( maxcyl > 1024 ) maxcyl = 1024;
+	if( wpcyl < 0 || wpcyl > 1023 ) wpcyl = -1;
+	if( slot == -1000 ) slot = 0;
+	if( slot < 0 || slot > 5 ) {
+		fprintf( stderr, ediag("%s: slot must be in range 0-5\n",
+				       "%s: слот должен быть от 0 до 5\n"), V[0] );
+		exit( 1 );
+	}
+
+	if( If < 0 || Sf < 0 || If > 15 || Sf > 15 ) {
+		fprintf( stderr, ediag("%s: interleave or skew factor !!!\n",
+				       "%s: плохой интерливинг или S-фактор !!!\n"), V[0] );
+		exit( 1 );
+	}
+
+	for( i=0, j=0 ; i < 16 ; i++ ) {
+		while( Sarr[j] != -1 ) {
+			j++ ;
+			j %= 16 ;
+		}
+		Sarr[j] = i ;
+		j = (j+If) % 16 ;
+	}
+
+	if( quitf == 0 ) {
+		printf( ediag("--- Interleave Map ---\n",
+			      "--- Карта интерливинга ---\n") );
+		printf( "< " );
+		for( i=0 ; i < 16 ; i++ ) printf( "%02d ", Sarr[i] );
+		printf( " >\n\n" );
+	}
+
+	if( phys( 6, 1, 0177740 + slot + slot ) == -1 ) {
+		fprintf( stderr, ediag("You are NOT a superuser.\n",
+				       "Вы НЕ суперпользователь.\n"));
+		exit(1);
+	}
+
+	Disk = (slot==0)?"/dev/rrw0h":"/dev/rrw1h";
+	if( rflag ) {
+		if( (fd = open( Disk, 2 )) < 0 ) {
+			fprintf( stderr, ediag("%s: can't open %s\n",
+					       "%s: не могу открыть %s\n"), V[0], Disk );
+			exit(1);
+		}
+	}
+
+	if( rflag ) { sync(); sleep(3); }
+	if( quitf == 0 ) {
+		fprintf( stderr, ediag("%sFORMATTING WINCHESTER %s (slot %d) -\n\tLast chance before scribbling <type CR> ",
+				       "%sФОРМАТИРОВАНИЕ ВИНЧЕСТЕРА %s (слот %d) -\n\tПродолжать ? (нажимте ВК) "),
+				 rflag?ediag("RE","ПЕРЕ"):"", Disk, slot );
+		while( getchar() != '\n' );
+		signal( SIGINT, onint );
+		fprintf( stderr, ediag("\nIT WORKS...\n", "\nПОЕХАЛИ...\n") );
+	} else
+		printf( "\n" );
+
+	p->rs = 010 ;
+	while( p->rs < 0 );
+
+	skew = 0 ;
+	for( cyl=startcyl ; intflag == 0 && cyl < maxcyl ; cyl++ ) {
+
+		printf( "\r%3d", cyl );
+		if(rflag) {
+			printf( " R" );
+			ReadCyl( fd, cyl );
+			printf( "F" );
+		}
+		while( p->rs < 0 );
+		for( trk = 0 ; trk < 4 ; trk++ ) {
+			if( wpcyl != -1 )
+				p->er = wpcyl/4;
+			p->cy = cyl ;
+			p->tr = trk ;
+			p->r2 = 0120 ;
+			for( i = 0 ; i < 16 ; i++ ) {
+				while( !(p->rs & 0200 ));
+				p->db = ( Sarr[i] + skew ) % 16 ;
+			}
+			for( i = 0 ; i < 256-16 ; i++ ) {
+				while( !(p->rs & 0200 ));
+				p->db = 0 ;
+			}
+			while( p->rs < 0 );
+		}
+		skew += Sf ;
+		if(rflag) {
+			printf( "W" );
+			WriteCyl( fd, cyl );
+			printf( "\r        \r" );
+		}
+	}
+	if( quitf == 0 )
+		printf( ediag("\nDone at cyl %d\n",
+			      "\nЗакончили на цилиндре %d\n"), cyl );
+}
+
+#define NTRK 4
+#define NSEC 16
+#define BSIZ 512
+
+static char buf[NTRK*NSEC][BSIZ];
+
+ReadCyl( fd, cyl )
+{
+	int i;
+
+	lseek( fd, cyl*(long)(NTRK*NSEC)*(long)BSIZ, 0 );
+	if( read( fd, buf, sizeof buf ) != sizeof buf ) {
+		for( i = 0; i < (NTRK*NSEC); i++ ) {
+			lseek( fd, (i + cyl*(long)(NTRK*NSEC))*(long)BSIZ, 0 );
+			if( read( fd, buf[i], BSIZ ) != BSIZ )
+				fprintf( stderr, ediag("\nERROR READING BLOCK %ld\n",
+						       "\nОШИБКА ЧТЕНИЯ БЛОКА %ld\n"), i + cyl*(long)(NTRK*NSEC));
+		}
+	}
+}
+
+WriteCyl( fd, cyl )
+{
+	int i;
+
+	lseek( fd, cyl*(long)(NTRK*NSEC)*(long)BSIZ, 0 );
+	if( write( fd, buf, sizeof buf ) != sizeof buf ) {
+		for( i = 0; i < (NTRK*NSEC); i++ ) {
+			lseek( fd, (i + cyl*(long)(NTRK*NSEC))*(long)BSIZ, 0 );
+			if( write( fd, buf[i], BSIZ ) != BSIZ )
+				fprintf( stderr, ediag("\nERROR WRITING BLOCK %ld\n",
+						       "\nОШИБКА ЗАПИСИ БЛОКА %ld\n"), i + cyl*(long)(NTRK*NSEC));
+		}
+	}
+}
+
+atoi( s )
+register char *s;
+{
+	register n, c;
+
+	n = 0;
+	while( c = *s++ ) {
+		if( c<'0' || c>'9' )
+			return(-1);
+		n = n*10 + (c-'0');
+	}
+	return(n);
+}
+@
+
+
+1.2
+log
+@Сделаны русские диагностики.
+@
+text
+@d4 4
+a7 1
+ * $Log:	wf.c,v $
+a9 1
+ * 
+d11 1
+d16 2
+d21 1
+a21 1
+static char rcsid[] = "$Header: wf.c,v 1.1 89/05/28 17:17:43 avg Exp $";
+d43 1
+a43 1
+	int     If, Sf, maxcyl ;
+d61 2
+d81 7
+d90 2
+a91 2
+				fprintf( stderr, ediag("Usage: %s [-r] [-f] [-iI-factor] [-sS-factor] ncyl [slot]\n",
+						       "Вызов: %s [-r] [-f] [-iI-фактор] [-sS-фактор] nцил [слот]\n"), V[0] );
+d107 1
+a107 1
+	if( maxcyl == 0 )
+d109 1
+d111 1
+d172 1
+a172 1
+	for( cyl=0 ; intflag == 0 && cyl < maxcyl ; cyl++ ) {
+d182 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 4
+a7 1
+ * $Log$
+d16 1
+a16 1
+static char rcsid[] = "$Header$";
+d21 1
+d54 1
+a54 1
+	If = 12;
+d76 2
+a77 1
+				fprintf( stderr, "Usage: %s [-r] [-f] [-iI-factor] [-sS-factor] ncyl [slot]\n", V[0] );
+d98 2
+a99 1
+		fprintf( stderr, "%s: slot must be in range 0-5\n", V[0] );
+d104 2
+a105 1
+		fprintf( stderr, "%s: interleave or skew factor !!!\n", V[0] );
+d119 2
+a120 1
+		printf( "--- Interleave Map ---\n" );
+d127 2
+a128 1
+		fprintf( stderr, "You are NOT a superuser.\n" );
+d135 2
+a136 1
+			fprintf( stderr, "%s: can't open %s\n", V[0], Disk );
+d143 3
+a145 2
+		fprintf( stderr, "%sFORMATTING WINCHESTER %s (slot %d) - \n\tLast chance before scribbling <type CR> ",
+				 rflag?"RE":"", Disk, slot );
+d148 1
+a148 1
+		fprintf( stderr, "\nIT WORKS...\n" );
+d187 2
+a188 1
+		printf( "\nDone at cyl %d\n", cyl );
+d206 2
+a207 1
+				fprintf( stderr, "\nERROR READING BLOCK %D\n", i + cyl*(long)(NTRK*NSEC));
+d221 2
+a222 1
+				fprintf( stderr, "\nERROR WRITING BLOCK %D\n", i + cyl*(long)(NTRK*NSEC));
+@

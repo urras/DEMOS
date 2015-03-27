@@ -1,0 +1,46 @@
+head     1.1;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.1
+date     88.05.17.12.46.32;  author root;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@/*
+**
+** $Header$
+** $Log$
+**
+*/
+
+/*
+ * Target definitions
+ *
+ * Author: Peter J. Nicklin
+ */
+
+/*
+ * Target struct
+ */
+typedef struct _target
+	{
+	int type;                       /* prog, lib, or other target type */
+	int dest;                       /* target destination flag */
+	} TARGET;
+@
